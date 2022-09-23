@@ -7,9 +7,9 @@ from api import *
 from download_menu import DownloadMenu
 
 # Tool Features
-DOWNLOAD_LSVC_PROF = "[1] Download Linux Service profile(s)"
-DOWNLOAD_CONT_PROF = "[2] Download Container profile(s)"
-UPLOAD_PROF = "[3] Upload a profile"
+DOWNLOAD_LSVC_PROF = "[1] Download Linux Service fingerprint(s)"
+DOWNLOAD_CONT_PROF = "[2] Download Container fingerprint(s)"
+UPLOAD_PROF = "[3] Upload a policy"
 EXIT_PROGRAM = "[e] Exit"
 
 main_options = [

@@ -1,11 +1,10 @@
 import os
 import yaml
 import time
-import sys
-import subprocess
 from simple_term_menu import TerminalMenu
 
 from api import *
+from fingerprints import *
 
 DEPLOYMENTS = {
     'integration': {
@@ -27,144 +26,20 @@ DEPLOYMENTS = {
 TIME_WINDOWS = ["90", "10", "30", "45", "60", "120", "Other"]
 
 
-def add_current(string, current=None, title="", fmt=lambda s: s):
+def add_current(string, current=None, title="", fmt=lambda s: s) -> str:
     if current is None:
         return string + "|"
     if isinstance(current, list):
         if len(current) == 1:
-            return string + f" -- current: {fmt(current[0])}|"
+            return string + f" - current: {fmt(current[0])}|"
         elif len(current) > 1:
             strs = [fmt(elem) for elem in current]
-            return string + f" -- current: {fmt(current[0])} ...|" + \
+            return string + f" - current: {fmt(current[0])} ...|" + \
                 yaml.dump({f'{title}': strs}, width=float("inf"))
         else:
             return string + "|"
     else:
-        return string + f" -- current: {fmt(current)}|"
-
-
-def prepare_profiles(profiles):
-    # Get the latest version of each ID
-    latest = {}
-    for prof in profiles:
-        latest[prof['id']] = prof
-    # Unique the profiles based on checksum
-    checksums = {}
-    for prof in latest.values():
-        checksum = prof['checksum']
-        prof_yaml = yaml.dump(dict(spec=prof['spec']), sort_keys=False)
-        if checksum not in checksums:
-            checksums[checksum] = {
-                'prof': prof,
-                'suppressed': 0,
-                'str_val':
-                    f"{prof['service_name']} --" +
-                    f" proc_nodes: {prof['proc_prof_len']}," +
-                    f" ingress_nodes: {prof['ingress_len']}," +
-                    f" egress_nodes: {prof['egress_len']} |" +
-                    f" {prof_yaml}"
-            }
-        else:
-            checksums[checksum]['suppressed'] += 1
-            checksums[checksum]['str_val'] = \
-                f"{prof['service_name']}" + \
-                f" ({checksums[checksum]['suppressed']} suppressed) --" + \
-                f" proc_nodes: {prof['proc_prof_len']}," + \
-                f" ingress_nodes: {prof['ingress_len']}," + \
-                f" egress_nodes: {prof['egress_len']} |" + \
-                f" {prof_yaml}"
-    rv = list(checksums.values())
-    rv.sort(key=lambda d: d['str_val'])
-    return list(rv)
-
-
-def get_profile_output(profile_rec):
-    rv = {
-        "spec": profile_rec['spec'],
-        "metadata": {
-            "service_name": profile_rec['service_name'],
-            "checksum": profile_rec['checksum'],
-            "muid": profile_rec['muid']
-        }
-    }
-    root_puid = profile_rec.get('root_puid')
-    if root_puid is not None:
-        rv['metadata']['root_puid'] = root_puid
-    return rv
-
-
-def show_profile_diff(profiles):
-    fn1 = "/tmp/prof_diff1"
-    fn2 = "/tmp/prof_diff2"
-    with open(fn1, 'w') as f:
-        profile = profiles[0]['prof']
-        output = get_profile_output(profile)
-        yaml.dump(output, f, sort_keys=False,)
-    with open(fn2, "w") as f:
-        profile = profiles[1]['prof']
-        output = get_profile_output(profile)
-        yaml.dump(output, f, sort_keys=False,)
-    diff_proc = subprocess.Popen(
-        ['sdiff', fn1, fn2],
-        stdout=subprocess.PIPE)
-    less_proc = subprocess.Popen(
-        ['less', '-F', '-R', '-S', '-X', '-K'],
-        stdin=diff_proc.stdout, stdout=sys.stdout)
-    less_proc.wait()
-
-
-def dialog(title):
-    index = TerminalMenu(
-        ['[y] yes', '[n] no'],
-        title=title
-    ).show()
-    return index == 0
-
-
-def save_service_profile_yaml(profiles):
-    save_options = [
-        "[1] Save individual file(s) (for editing & uploading)",
-        "[2] Save in one file (for viewing)",
-        "[3] Back"
-    ]
-    index = TerminalMenu(
-        save_options,
-        title="Select an option:"
-    ).show()
-    if index is None or index == 2:
-        return
-    if index == 0:
-        for profile_dict in profiles:
-            profile = profile_dict['prof']
-            if dialog(f"Save profile for {profile['service_name']}?"):
-                output = get_profile_output(profile)
-                while True:
-                    filename = input(f"Output filename [{profile['service_name']}.yml]: ")
-                    if filename is None or filename == '':
-                        filename = f"{profile['service_name']}.yml"
-                    try:
-                        with open(filename, 'w') as f:
-                            yaml.dump(output, f, sort_keys=False)
-                        break
-                    except IOError:
-                        print("Error: unable to open file")
-    elif index == 1:
-        if dialog("Save all selected profiles in one file?"):
-            while True:
-                default = "multi-service-profiles.yml"
-                filename = input(f"Output filename [{default}]: ")
-                if filename is None or filename == '':
-                    filename = default
-                try:
-                    with open(filename, 'w') as f:
-                        for profile_dict in profiles:
-                            f.write("---\n")
-                            profile = profile_dict['prof']
-                            output = get_profile_output(profile)
-                            yaml.dump(output, f, sort_keys=False)
-                    break
-                except IOError:
-                    print("Error: unable to open file")
+        return string + f" - current: {fmt(current)}|"
 
 
 class DownloadMenu():
@@ -175,8 +50,8 @@ class DownloadMenu():
     selected_machines = []
     selected_muids = []
 
-    loaded_profiles = []
-    selected_profiles = []
+    loaded_fingerprints = []
+    selected_fingerprints = []
     
     deployments_menu = TerminalMenu(
         menu_entries=DEPLOYMENTS.keys(),
@@ -224,32 +99,33 @@ class DownloadMenu():
                 "[2] Set machine(s)",
                 current=list(zip(self.selected_machines, self.selected_muids)),
                 title="Selected Machines",
-                fmt=lambda pair: f"{pair[0]} - {pair[1]}"
+                fmt=lambda pair: f"{pair[0]} -- {pair[1]}"
             )
-            load_profiles = add_current(
-                "[3] Load profiles",
-                current=self.loaded_profiles,
-                title="Loaded Profiles",
-                fmt=lambda prof: prof['str_val'].split(' | ')[0]
+            load_fingerprints = add_current(
+                "[3] Load fingerprints",
+                current=self.loaded_fingerprints,
+                title="Loaded Fingerprints",
+                fmt=lambda fprint: fprint['str_val'].split(' | ')[0]
             )
-            select_profiles = add_current(
-                "[4] Select profiles",
-                current=self.selected_profiles,
-                title="Selected Profiles",
-                fmt=lambda prof: prof['str_val'].split(' | ')[0]
+            select_fingerprints = add_current(
+                "[4] Select fingerprints",
+                current=self.selected_fingerprints,
+                title="Selected Fingerprints",
+                fmt=lambda fprint: fprint['str_val'].split(' | ')[0]
             )
             options = [
                 set_org,
                 set_machs,
-                load_profiles,
-                select_profiles,
-                "[5] Diff profiles|",
-                "[6] Save profiles|",
-                "[7] Back|"
+                load_fingerprints,
+                select_fingerprints,
+                "[5] Diff fingerprints|",
+                "[6] Merge fingerprints|",
+                "[7] Save fingerprints|",
+                "[8] Back|"
             ]
             download_menu = TerminalMenu(
                 options,
-                title="Linux Service Profile Download Menu\n\n" +
+                title="Linux Service Fingerprint Download Menu\n\n" +
                     "Select an option:",
                 preview_size=0.5,
                 clear_screen=True,
@@ -257,20 +133,22 @@ class DownloadMenu():
                 preview_title=""
             )
             index = download_menu.show()
-            if index is None or index == 6:
+            if index is None or index == 7:
                 break
             elif index == 0:
                 self.select_org()
             elif index == 1:
                 self.select_machine()
             elif index == 2:
-                self.load_profiles()
+                self.load_fingerprints()
             elif index == 3:
-                self.select_profiles()
+                self.select_fingerprints()
             elif index == 4:
-                self.diff_profiles()
+                self.diff_fingerprints()
             elif index == 5:
-                self.save_profiles()
+                self.merge_fingerprints()
+            elif index == 6:
+                self.save_fingerprints()
     
     def select_org(self):
         org_info = get_orgs(self.api_url, self.api_key, self.handle_error)
@@ -300,7 +178,7 @@ class DownloadMenu():
         mach_options = ["[1] Specific machine(s)", "[2] All machines"]
         index = TerminalMenu(
             mach_options,
-            title="Where would you like to download profiles from?"
+            title="Where would you like to download fingerprints from?"
         ).show()
         if index is None:
             return
@@ -338,7 +216,7 @@ class DownloadMenu():
             rv_muids.append(sorted_muids[index])
         return rv_muids, rv_hostnames
     
-    def load_profiles(self):
+    def load_fingerprints(self):
         if self.selected_org is None:
             self.handle_invalid("No organization selected")
             return
@@ -349,20 +227,17 @@ class DownloadMenu():
         if time_info is None:
             return
         start_time, end_time = time_info
-        self.loaded_profiles = []
+        raw_fingerprints = []
         for muid in self.selected_muids:
-            tmp_profs = get_service_profiles(
+            tmp_fprints = get_service_fingerprints(
                 self.api_url, self.api_key, self.selected_org,
                 muid, start_time, end_time, self.handle_error
             )
-            if tmp_profs is not None:
-                self.loaded_profiles += tmp_profs
+            if tmp_fprints is not None:
+                raw_fingerprints += tmp_fprints
             else:
                 break
-        self.loaded_profiles = prepare_profiles(self.loaded_profiles)
-        if len(self.loaded_profiles) == 0:
-            self.handle_invalid("No profiles found")
-            return
+        self.loaded_fingerprints = prepare_fingerprints(raw_fingerprints)
     
     def select_time_window(self):
         now = time.time()
@@ -385,14 +260,14 @@ class DownloadMenu():
             end_time = now
         return start_time, end_time
     
-    def select_profiles(self):
-        if len(self.loaded_profiles) == 0:
-            self.handle_invalid("No profiles loaded")
+    def select_fingerprints(self):
+        if len(self.loaded_fingerprints) == 0:
+            self.handle_invalid("No fingerprints loaded")
             return
-        prof_strs = [prof['str_val'] for prof in self.loaded_profiles]
+        fprint_strs = [fprint['str_val'] for fprint in self.loaded_fingerprints]
         index_tup = TerminalMenu(
-            prof_strs,
-            title="Select profile(s):",
+            fprint_strs,
+            title="Select fingerprint(s):",
             preview_command="echo '{}'",
             preview_size=0.5,
             multi_select=True,
@@ -400,29 +275,32 @@ class DownloadMenu():
         ).show()
         if index_tup is None or len(index_tup) == 0:
             return
-        self.selected_profiles = []
+        self.selected_fingerprints = []
         for index in index_tup:
-            self.selected_profiles.append(self.loaded_profiles[index])
+            self.selected_fingerprints.append(self.loaded_fingerprints[index])
     
-    def diff_profiles(self):
-        if len(self.selected_profiles) < 2:
-            self.handle_invalid("Not enough profiles selected to diff")
+    def diff_fingerprints(self):
+        if len(self.selected_fingerprints) < 2:
+            self.handle_invalid("Not enough fingerprints selected to diff")
             return
-        elif len(self.selected_profiles) > 2:
+        elif len(self.selected_fingerprints) > 2:
             disclaimer_menu = TerminalMenu(
                 ["[1] OK", "[2] Back"],
-                title="Only the first two selected profiles will be diff'ed"
+                title="Only the first two selected fingerprints will be diff'ed"
             )
             index = disclaimer_menu.show()
             if index is None or index == 1:
                 return
         try:
-            show_profile_diff(self.selected_profiles)
+            show_fingerprint_diff(self.selected_fingerprints)
         except IOError:
             self.handle_invalid("Error saving tmp fies")
     
-    def save_profiles(self):
-        if len(self.selected_profiles) == 0:
-            self.handle_invalid("No profiles selected to save")
+    def merge_fingerprints(self):
+        pass
+
+    def save_fingerprints(self):
+        if len(self.selected_fingerprints) == 0:
+            self.handle_invalid("No fingerprints selected to save")
             return
-        save_service_profile_yaml(self.selected_profiles)
+        save_service_fingerprint_yaml(self.selected_fingerprints)
