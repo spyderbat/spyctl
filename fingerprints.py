@@ -83,6 +83,10 @@ def dialog(title):
     return index == 0
 
 
+def prepeared_to_output(fingerprints):
+    return [get_fingerprint_output(fprint['print']) for fprint in fingerprints]
+
+
 def save_service_fingerprint_yaml(fingerprints):
     save_options = [
         "[1] Save individual file(s) (for editing & uploading)",
@@ -92,26 +96,24 @@ def save_service_fingerprint_yaml(fingerprints):
     index = TerminalMenu(
         save_options,
         title="Select an option:"
-    ).show()
+    ).show() if len(fingerprints) > 1 else 1
     if index is None or index == 2:
         return
     if index == 0:
-        for fingerprint_dict in fingerprints:
-            fingerprint = fingerprint_dict['print']
-            if dialog(f"Save fingerprint for {fingerprint['service_name']}?"):
-                output = get_fingerprint_output(fingerprint)
+        for fingerprint in fingerprints:
+            if dialog(f"Save fingerprint for {fingerprint['metadata']['service_name']}?"):
                 while True:
-                    filename = input(f"Output filename [{fingerprint['service_name']}.yml]: ")
+                    filename = input(f"Output filename [{fingerprint['metadata']['service_name']}.yml]: ")
                     if filename is None or filename == '':
-                        filename = f"{fingerprint['service_name']}.yml"
+                        filename = f"{fingerprint['metadata']['service_name']}.yml"
                     try:
                         with open(filename, 'w') as f:
-                            yaml.dump(output, f, sort_keys=False)
+                            yaml.dump(fingerprint, f, sort_keys=False)
                         break
                     except IOError:
                         print("Error: unable to open file")
     elif index == 1:
-        if dialog("Save all selected fingerprints in one file?"):
+        if len(fingerprints) == 1 or dialog("Save all selected fingerprints in one file?"):
             while True:
                 default = "multi-service-fingerprints.yml"
                 filename = input(f"Output filename [{default}]: ")
@@ -119,11 +121,13 @@ def save_service_fingerprint_yaml(fingerprints):
                     filename = default
                 try:
                     with open(filename, 'w') as f:
-                        for fingerprint_dict in fingerprints:
-                            f.write("---\n")
-                            fingerprint = fingerprint_dict['print']
-                            output = get_fingerprint_output(fingerprint)
-                            yaml.dump(output, f, sort_keys=False)
+                        first = True
+                        for fingerprint in fingerprints:
+                            if first:
+                                first = False
+                            else:
+                                f.write("---\n")
+                            yaml.dump(fingerprint, f, sort_keys=False)
                     break
                 except IOError:
                     print("Error: unable to open file")

@@ -5,6 +5,7 @@ from simple_term_menu import TerminalMenu
 
 from api import *
 from fingerprints import *
+from merge import merge_fingerprints
 
 DEPLOYMENTS = {
     'integration': {
@@ -297,10 +298,16 @@ class DownloadMenu():
             self.handle_invalid("Error saving tmp fies")
     
     def merge_fingerprints(self):
-        pass
+        if len(self.selected_fingerprints) == 0:
+            self.handle_invalid("No fingerprints selected to merge")
+            return
+        fprints = prepeared_to_output(self.selected_fingerprints)
+        merged_print = merge_fingerprints(fprints)
+        save_service_fingerprint_yaml([merged_print])
 
     def save_fingerprints(self):
         if len(self.selected_fingerprints) == 0:
             self.handle_invalid("No fingerprints selected to save")
             return
-        save_service_fingerprint_yaml(self.selected_fingerprints)
+        fprints = prepeared_to_output(self.selected_fingerprints)
+        save_service_fingerprint_yaml(fprints)
