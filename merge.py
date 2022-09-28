@@ -16,7 +16,7 @@ class ProcessNode():
         self.node['id'] = f"{node['id']}_{current_fingerprint}"
         self.matching_ids = []
         self.children = []
-        if node.get('children') is not None:
+        if 'children' in node:
             self.children = [ProcessNode(child) for child in node['children']]
     
     def __eq__(self, other):
@@ -48,6 +48,10 @@ class ProcessNode():
         self.update_children()
     
     def update_children(self):
+        if len(self.children) == 0:
+            if 'children' in self.node:
+                del self.node['children']
+            return
         self.node['children'] = []
         for child in self.children:
             child.update_children()
@@ -77,8 +81,8 @@ class ProcessNode():
 
 class ConnectionNode():
     def __init__(self, node: Dict) -> None:
-        self.has_from = node.get('from') is not None
-        self.has_to = node.get('to') is not None
+        self.has_from = 'from' in node
+        self.has_to = 'to' in node
         self.node = node
         self.collapse_ips()
         self.unify_ids()
@@ -113,7 +117,7 @@ class ConnectionNode():
         to_collapse = []
         ret = []
         for block in self.node[key]:
-            if block.get('ipBlock') is None:
+            if not 'ipBlock' in block:
                 ret.append(block)
                 continue
             cidr = block['ipBlock']['cidr']
