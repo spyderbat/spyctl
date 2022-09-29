@@ -1,5 +1,5 @@
 import ipaddress as ipaddr
-from typing import Dict, List, Optional
+from typing import Dict, Generator, List, TypeVar
 from typing_extensions import Self
 
 
@@ -10,14 +10,59 @@ def find(obj_list, obj):
     return None
 
 
+class ProcessID():
+    def __init__(self, ident: str) -> None:
+        self.id = ident
+        self.unique_id = ident
+        self.index = current_fingerprint
+        self.matching: List[Self] = []
+        
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.id == other.id \
+                and self.index == other.index
+        else:
+            return False
+    
+    def extend(self, other: Self):
+        self.matching.append(other)
+        try:
+            while True:
+                ProcessID.all_ids.remove(other)
+        except ValueError:
+            pass
+    
+    all_ids: List[Self] = []
+
+    @staticmethod
+    def unique_all_ids():
+        used = set()
+        for proc_id in ProcessID.all_ids:
+            while proc_id.unique_id in used:
+                try:
+                    last_num = int(proc_id.unique_id[-1])
+                    proc_id.unique_id = proc_id.unique_id[:-1] + str(last_num + 1)
+                except ValueError:
+                    proc_id.unique_id += f"_{proc_id.index}"
+
+    @staticmethod
+    def unified_id(ident: str) -> str:
+        proc_id = ProcessID(ident)
+        for other_id in ProcessID.all_ids:
+            if proc_id in other_id.matching or proc_id == other_id:
+                return other_id.unique_id
+        import pdb; pdb.set_trace()
+        raise ValueError(f"ID {ident} did not match any processes")
+
+
 class ProcessNode():
     def __init__(self, node: Dict) -> None:
         self.node = node
-        self.node['id'] = f"{node['id']}_{current_fingerprint}"
-        self.matching_ids = []
+        self.id = ProcessID(node['id'])
         self.children = []
         if 'children' in node:
             self.children = [ProcessNode(child) for child in node['children']]
+        ProcessID.all_ids.append(self.id)
     
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -25,58 +70,32 @@ class ProcessNode():
             for key in compare_keys:
                 if self.node.get(key) != other.node.get(key):
                     return False
-            # return self.children == other.children
             return True
         else:
             return False
     
-    @property
-    def id(self):
-        return self.node['id']
-    
     def extend(self, other: Self):
         if other != self:
             raise ValueError("Other process did not match")
-        self.matching_ids.append(other.id)
+        self.id.extend(other.id)
         for child in other.children:
-            match = find(ProcessNode.all_nodes, child)
+            match = find(self.children, child)
             if match is not None:
                 match.extend(child)
             else:
-                ProcessNode.add(child)
                 self.children.append(child)
-        self.update_children()
+        self.update_node()
     
-    def update_children(self):
+    def update_node(self):
+        self.node['id'] = self.id.unique_id
         if len(self.children) == 0:
             if 'children' in self.node:
                 del self.node['children']
             return
         self.node['children'] = []
         for child in self.children:
-            child.update_children()
+            child.update_node()
             self.node['children'].append(child.node)
-    
-    all_nodes: List[Self] = []
-
-    @staticmethod
-    def add(obj: Self):
-        ProcessNode.all_nodes.append(obj)
-        for child in obj.children:
-            match = find(ProcessNode.all_nodes, child)
-            if match is not None:
-                match.extend(child)
-            else:
-                ProcessNode.add(child)
-
-    @staticmethod
-    def unified_id(ident: str) -> str:
-        ident = f"{ident}_{current_fingerprint}"
-        for node in ProcessNode.all_nodes:
-            if ident in node.matching_ids or ident == node.id:
-                return node.id
-        import pdb; pdb.set_trace()
-        raise ValueError(f"ID {ident} did not match any processes")
 
 
 class ConnectionNode():
@@ -140,13 +159,14 @@ class ConnectionNode():
     def unify_ids(self):
         new_proc = []
         for proc in self.procs:
-            new_proc.append(ProcessNode.unified_id(proc))
+            new_proc.append(ProcessID.unified_id(proc))
         self.node['processes'] = new_proc
 
 
 current_fingerprint = 0
 
-def iter_prints(objs):
+T = TypeVar('T')
+def iter_prints(objs: List[T]) -> Generator[T, None, None]:
     global current_fingerprint
     for i, obj in enumerate(objs):
         current_fingerprint = i
@@ -159,31 +179,61 @@ def merge_subs(objs, key, ret):
 
 
 def merge_fingerprints(fingerprints):
+    if len(fingerprints) == 0:
+        raise ValueError("Cannot merge 0 fingerprints")
     new_obj = dict()
     merge_subs(fingerprints, "spec", new_obj)
-    # metadata
     return new_obj
 
 
 def merge_spec(fingerprints):
     new_obj = dict()
+    merge_subs(fingerprints, "serviceSelector", new_obj)
+    merge_subs(fingerprints, "machineSelector", new_obj)
     merge_subs(fingerprints, "proc_profile", new_obj)
     merge_subs(fingerprints, "conn_profile", new_obj)
-    # machineSelector, serviceSelector
+    # metadata probably removed
     return new_obj
+
+
+def merge_serviceSelector(selectors):
+    if selectors[:-1] != selectors[1:]:
+        # todo: handle better
+        raise ValueError("Services to be merged did not match")
+    return selectors[0]
+
+
+def merge_machineSelector(selectors):
+    new_obj = dict()
+    merge_subs(selectors, 'hostname', new_obj)
+    return new_obj
+
+
+def merge_hostname(hostnames: List[str]):
+    if len(hostnames) == 1:
+        return hostnames[0]['hostname']
+    ret = ""
+    for chars in zip(*hostnames):
+        if chars[:-1] != chars[1:]:
+            return ret + '*'
+        ret += chars[0]
+    comp = len(hostnames[0])
+    for name in hostnames:
+        if len(name) != comp:
+            return ret + '*'
+    return ret
 
 
 def merge_proc_profile(profiles):
     ret: List[ProcessNode] = []
-    ProcessNode.all_nodes = []
+    ProcessID.all_ids = []
     for proc_list in iter_prints(profiles):
         for proc in proc_list:
             obj = ProcessNode(proc)
-            match = find(ProcessNode.all_nodes, obj)
+            match = find(ret, obj)
             if match is not None:
                 match.extend(obj)
             else:
-                ProcessNode.add(obj)
                 ret.append(obj)
     return [node.node for node in ret]
 
@@ -210,7 +260,7 @@ def merge_ingress(conns: List[List[Dict]]):
     return [node.node for node in ret]
 
 
-def merge_egress(conns):
+def merge_egress(conns: List[List[Dict]]):
     ret: List[ConnectionNode] = []
     # uses ConnectionNode.__eq__ to find matches
     # and ConnectionNode.extend to merge matching nodes
