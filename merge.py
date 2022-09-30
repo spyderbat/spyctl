@@ -47,6 +47,7 @@ class ProcessID():
                     proc_id.unique_id = proc_id.unique_id[:-1] + str(last_num + 1)
                 except ValueError:
                     proc_id.unique_id += f"_{proc_id.index}"
+            used.add(proc_id.unique_id)
 
     @staticmethod
     def unified_id(ident: str) -> str:
@@ -54,7 +55,6 @@ class ProcessID():
         for other_id in ProcessID.all_ids:
             if proc_id in other_id.matching or proc_id == other_id:
                 return other_id.unique_id
-        import pdb; pdb.set_trace()
         raise ValueError(f"ID {ident} did not match any processes")
 
 class ProcessNode():
@@ -88,7 +88,6 @@ class ProcessNode():
                 match.extend(child)
             else:
                 self.children.append(child)
-        self.update_node()
     
     def update_node(self):
         self.node['id'] = self.id.unique_id
@@ -96,10 +95,9 @@ class ProcessNode():
             if 'children' in self.node:
                 del self.node['children']
             return
-        self.node['children'] = []
+        self.node['children'] = self.children
         for child in self.children:
             child.update_node()
-            self.node['children'].append(child)
 
 
 class ConnectionBlock():
@@ -240,6 +238,7 @@ class MergeDumper(yaml.Dumper):
     def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode]):
         return dumper.represent_dict(data.node)
 
+
 current_fingerprint = 0
 
 T2 = TypeVar('T2')
@@ -327,6 +326,9 @@ def merge_proc_profile(profiles):
                 match.extend(obj)
             else:
                 ret.append(obj)
+    ProcessID.unique_all_ids()
+    for proc in ret:
+        proc.update_node()
     return ret
 
 
