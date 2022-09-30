@@ -6,6 +6,7 @@ from simple_term_menu import TerminalMenu
 from api import *
 from fingerprints import *
 from merge import merge_fingerprints
+from diff import show_fingerprint_diff
 
 DEPLOYMENTS = {
     'integration': {
@@ -44,20 +45,23 @@ def add_current(string, current=None, title="", fmt=lambda s: s) -> str:
 
 
 class DownloadMenu():
-    api_key = None
-    api_url = None
+    def __init__(self) -> None:
+        self.api_key = None
+        self.api_url = None
 
-    selected_org = None
-    selected_machines = []
-    selected_muids = []
+        self.selected_org = None
+        self.selected_machines = []
+        self.selected_muids = []
 
-    loaded_fingerprints = []
-    selected_fingerprints = []
-    
-    deployments_menu = TerminalMenu(
-        menu_entries=DEPLOYMENTS.keys(),
-        title="Select a deployment:"
-    )
+        self.loaded_fingerprints = []
+        self.selected_fingerprints = []
+        
+        self.deployments_menu = TerminalMenu(
+            menu_entries=DEPLOYMENTS.keys(),
+            title="Select a deployment:"
+        )
+
+        self.local = False
 
     def get_api_info(self):
         deployments = list(DEPLOYMENTS.keys())
@@ -86,11 +90,18 @@ class DownloadMenu():
             ["[1] Back"], title=error_msg
         ).show()
 
+    def set_local(self, local_fingerprints):
+        self.selected_fingerprints = prepare_fingerprints([
+            load_fingerprint_from_output(fprint) for fprint in local_fingerprints
+        ])
+        self.local = len(local_fingerprints) > 0
+
     def show(self):
-        try:
-            self.get_api_info()
-        except ValueError as err:
-            self.handle_invalid(*err.args)
+        if not self.local:
+            try:
+                self.get_api_info()
+            except ValueError as err:
+                self.handle_invalid(*err.args)
         while True:
             set_org = add_current(
                 "[1] Set organization",
@@ -123,10 +134,15 @@ class DownloadMenu():
                 "[6] Merge fingerprints|",
                 "[7] Save fingerprints|",
                 "[8] Back|"
+            ] if not self.local else [
+                "[1] Diff fingerprints|",
+                "[2] Merge fingerprints|",
+                "[3] Back|"
             ]
+            title = "Download " if not self.local else ""
             download_menu = TerminalMenu(
                 options,
-                title="Linux Service Fingerprint Download Menu\n\n" +
+                title=f"Linux Service Fingerprint {title}Menu\n\n" +
                     "Select an option:",
                 preview_size=0.5,
                 clear_screen=True,
@@ -134,21 +150,22 @@ class DownloadMenu():
                 preview_title=""
             )
             index = download_menu.show()
-            if index is None or index == 7:
+            option = options[index] if index is not None else None
+            if index is None or "Back" in option:
                 break
-            elif index == 0:
+            elif option == set_org:
                 self.select_org()
-            elif index == 1:
+            elif option == set_machs:
                 self.select_machine()
-            elif index == 2:
+            elif option == load_fingerprints:
                 self.load_fingerprints()
-            elif index == 3:
+            elif option == select_fingerprints:
                 self.select_fingerprints()
-            elif index == 4:
+            elif "Diff fingerprints" in option:
                 self.diff_fingerprints()
-            elif index == 5:
+            elif "Merge fingerprints" in option:
                 self.merge_fingerprints()
-            elif index == 6:
+            elif "Save fingerprints" in option:
                 self.save_fingerprints()
     
     def select_org(self):
@@ -284,26 +301,26 @@ class DownloadMenu():
         if len(self.selected_fingerprints) < 2:
             self.handle_invalid("Not enough fingerprints selected to diff")
             return
-        elif len(self.selected_fingerprints) > 2:
-            disclaimer_menu = TerminalMenu(
-                ["[1] OK", "[2] Back"],
-                title="Only the first two selected fingerprints will be diff'ed"
-            )
-            index = disclaimer_menu.show()
-            if index is None or index == 1:
-                return
+        # elif len(self.selected_fingerprints) > 2:
+        #     disclaimer_menu = TerminalMenu(
+        #         ["[1] OK", "[2] Back"],
+        #         title="Only the first two selected fingerprints will be diff'ed"
+        #     )
+        #     index = disclaimer_menu.show()
+        #     if index is None or index == 1:
+        #         return
         try:
-            show_fingerprint_diff(self.selected_fingerprints)
+            fprints = prepeared_to_output(self.selected_fingerprints)
+            show_fingerprint_diff(fprints)
         except IOError:
-            self.handle_invalid("Error saving tmp fies")
+            self.handle_invalid("Error saving tmp file")
     
     def merge_fingerprints(self):
         if len(self.selected_fingerprints) == 0:
             self.handle_invalid("No fingerprints selected to merge")
             return
         fprints = prepeared_to_output(self.selected_fingerprints)
-        merged_print = merge_fingerprints(fprints)
-        save_service_fingerprint_yaml([merged_print])
+        save_merged_fingerprint_yaml(merge_fingerprints(fprints))
 
     def save_fingerprints(self):
         if len(self.selected_fingerprints) == 0:

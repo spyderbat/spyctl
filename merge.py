@@ -1,9 +1,12 @@
 import ipaddress as ipaddr
-from typing import Dict, Generator, List, TypeVar
+from typing import Dict, Generator, List, Optional, TypeVar, Union
 from typing_extensions import Self
 
+import yaml
 
-def find(obj_list, obj):
+
+T1 = TypeVar('T1')
+def find(obj_list: List[T1], obj: T1) -> Optional[T1]:
     for candidate in obj_list:
         if candidate == obj:
             return candidate
@@ -16,7 +19,7 @@ class ProcessID():
         self.unique_id = ident
         self.index = current_fingerprint
         self.matching: List[Self] = []
-        
+    
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.id == other.id \
@@ -54,14 +57,14 @@ class ProcessID():
         import pdb; pdb.set_trace()
         raise ValueError(f"ID {ident} did not match any processes")
 
-
 class ProcessNode():
     def __init__(self, node: Dict) -> None:
-        self.node = node
+        self.node = node.copy()
         self.id = ProcessID(node['id'])
         self.children = []
-        if 'children' in node:
-            self.children = [ProcessNode(child) for child in node['children']]
+        self.appearances = set((current_fingerprint,))
+        if 'children' in self.node:
+            self.children = [ProcessNode(child) for child in self.node['children']]
         ProcessID.all_ids.append(self.id)
     
     def __eq__(self, other):
@@ -78,6 +81,7 @@ class ProcessNode():
         if other != self:
             raise ValueError("Other process did not match")
         self.id.extend(other.id)
+        self.appearances.update(other.appearances)
         for child in other.children:
             match = find(self.children, child)
             if match is not None:
@@ -95,14 +99,58 @@ class ProcessNode():
         self.node['children'] = []
         for child in self.children:
             child.update_node()
-            self.node['children'].append(child.node)
+            self.node['children'].append(child)
 
+
+class ConnectionBlock():
+    def __init__(self, node: Dict = None, ip: ipaddr.IPv4Network = None) -> None:
+        if ip is not None:
+            node = {
+                'ipBlock': {
+                    'cidr': str(ip)
+                }
+            }
+        elif node is not None:
+            node = node.copy()
+        else:
+            raise ValueError("ConnectionBlock given no parameters")
+        self.ip = 'ipBlock' in node
+        self.dns = 'dnsSelector' in node
+        if self.dns:
+            node['dnsSelector'] = [dns.lower() for dns in node['dnsSelector']]
+        self.node = node
+        self.appearances = set((current_fingerprint,))
+    
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.node == other.node
+        else:
+            return False
+    
+    def extend(self, other: Self):
+        if other != self:
+            raise ValueError("Other connection not did not match")
+        self.appearances.update(other.appearances)
+    
+    def as_network(self) -> Optional[ipaddr.IPv4Network]:
+        if not self.ip:
+            return None
+        try:
+            cidr = self.node['ipBlock']['cidr']
+            return ipaddr.IPv4Network(cidr)
+        except ValueError:
+            return None
 
 class ConnectionNode():
     def __init__(self, node: Dict) -> None:
-        self.has_from = 'from' in node
-        self.has_to = 'to' in node
-        self.node = node
+        self.node = node.copy()
+        self.has_from = 'from' in self.node
+        if self.has_from:
+            self.node['from'] = [ConnectionBlock(node=conn) for conn in self.node['from']]
+        self.has_to = 'to' in self.node
+        if self.has_to:
+            self.node['to'] = [ConnectionBlock(node=conn) for conn in self.node['to']]
+        self.appearances = set((current_fingerprint,))
         self.collapse_ips()
         self.unify_ids()
     
@@ -123,31 +171,37 @@ class ConnectionNode():
     def ports(self):
         return self.node['ports']
     
+    def extend_key(self, other_node, key):
+        conn: ConnectionBlock
+        for conn in other_node[key]:
+            match = find(self.node[key], conn)
+            if match is not None:
+                match.extend(conn)
+            else:
+                self.node[key].append(conn)
+
     def extend(self, other: Self):
         if other != self:
-            raise ValueError("Other connection not did not match")
+            raise ValueError("Other connection node not did not match")
         if self.has_from:
-            self.node['from'] += other.node['from']
+            self.extend_key(other.node, 'from')
         if self.has_to:
-            self.node['to'] += other.node['to']
-        self.collapse_ips()
-        
+            self.extend_key(other.node, 'to')
+        self.appearances.update(other.appearances)
+        # self.collapse_ips()
+    
     def collapsed_cidrs(self, key):
+        # would need to keep track of appearances somehow
         to_collapse = []
         ret = []
+        block: ConnectionBlock
         for block in self.node[key]:
-            if not 'ipBlock' in block:
+            network = block.as_network()
+            if network is None:
                 ret.append(block)
-                continue
-            cidr = block['ipBlock']['cidr']
-            try:
-                to_collapse.append(ipaddr.IPv4Network(cidr))
-            except ValueError:
-                ret.append(block)
-                continue
-        ret += [{ 'ipBlock': { 'cidr': str(add) } }
-            for add in ipaddr.collapse_addresses(to_collapse)
-        ]
+            else:
+                to_collapse.append(network)
+        ret += [ConnectionBlock(ip=add) for add in ipaddr.collapse_addresses(to_collapse)]
         return ret
     
     def collapse_ips(self):
@@ -163,10 +217,33 @@ class ConnectionNode():
         self.node['processes'] = new_proc
 
 
+class DiffDumper(yaml.Dumper):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.add_representer(ProcessNode, self.class_representer)
+        self.add_representer(ConnectionNode, self.class_representer)
+        self.add_representer(ConnectionBlock, self.class_representer)
+    
+    @staticmethod
+    def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode]):
+        tag = f"!Appearances:{','.join([str(i) for i in data.appearances])}"
+        return dumper.represent_mapping(tag, data.node)
+
+class MergeDumper(yaml.Dumper):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.add_representer(ProcessNode, self.class_representer)
+        self.add_representer(ConnectionNode, self.class_representer)
+        self.add_representer(ConnectionBlock, self.class_representer)
+    
+    @staticmethod
+    def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode]):
+        return dumper.represent_dict(data.node)
+
 current_fingerprint = 0
 
-T = TypeVar('T')
-def iter_prints(objs: List[T]) -> Generator[T, None, None]:
+T2 = TypeVar('T2')
+def iter_prints(objs: List[T2]) -> Generator[T2, None, None]:
     global current_fingerprint
     for i, obj in enumerate(objs):
         current_fingerprint = i
@@ -174,7 +251,11 @@ def iter_prints(objs: List[T]) -> Generator[T, None, None]:
 
 
 def merge_subs(objs, key, ret):
-    sub_list = [obj[key] for obj in objs]
+    sub_list = None
+    try:
+        sub_list = [obj[key].copy() for obj in objs]
+    except AttributeError:
+        sub_list = [obj[key] for obj in objs]
     ret[key] = globals()[f"merge_{key}"](sub_list)
 
 
@@ -183,7 +264,18 @@ def merge_fingerprints(fingerprints):
         raise ValueError("Cannot merge 0 fingerprints")
     new_obj = dict()
     merge_subs(fingerprints, "spec", new_obj)
+    merge_subs(fingerprints, "metadata", new_obj)
     return new_obj
+
+
+def merge_metadata(metadatas):
+    new_obj = dict()
+    merge_subs(metadatas, "service_name", new_obj)
+    return new_obj
+
+
+def merge_service_name(names):
+    return names[0]
 
 
 def merge_spec(fingerprints):
@@ -235,7 +327,7 @@ def merge_proc_profile(profiles):
                 match.extend(obj)
             else:
                 ret.append(obj)
-    return [node.node for node in ret]
+    return ret
 
 
 def merge_conn_profile(profiles):
@@ -257,7 +349,7 @@ def merge_ingress(conns: List[List[Dict]]):
                 match.extend(obj)
             else:
                 ret.append(obj)
-    return [node.node for node in ret]
+    return ret
 
 
 def merge_egress(conns: List[List[Dict]]):
@@ -271,4 +363,4 @@ def merge_egress(conns: List[List[Dict]]):
                 ret[ret.index(obj)].extend(obj)
             else:
                 ret.append(obj)
-    return [node.node for node in ret]
+    return ret

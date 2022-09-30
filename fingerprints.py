@@ -2,6 +2,8 @@ import sys
 import subprocess
 import yaml
 
+from merge import DiffDumper, MergeDumper
+
 from simple_term_menu import TerminalMenu
 
 
@@ -45,6 +47,7 @@ def get_fingerprint_output(fingerprint_rec):
         "spec": fingerprint_rec['spec'],
         "metadata": {
             "service_name": fingerprint_rec['service_name'],
+            "id": fingerprint_rec['id'],
             "checksum": fingerprint_rec['checksum'],
             "muid": fingerprint_rec['muid']
         }
@@ -55,24 +58,30 @@ def get_fingerprint_output(fingerprint_rec):
     return rv
 
 
-def show_fingerprint_diff(fingerprints):
-    fn1 = "/tmp/fprint_diff1"
-    fn2 = "/tmp/fprint_diff2"
-    with open(fn1, 'w') as f:
-        fingerprint = fingerprints[0]['print']
-        output = get_fingerprint_output(fingerprint)
-        yaml.dump(output, f, sort_keys=False,)
-    with open(fn2, "w") as f:
-        fingerprint = fingerprints[1]['print']
-        output = get_fingerprint_output(fingerprint)
-        yaml.dump(output, f, sort_keys=False,)
-    diff_proc = subprocess.Popen(
-        ['sdiff', fn1, fn2],
-        stdout=subprocess.PIPE)
-    less_proc = subprocess.Popen(
-        ['less', '-F', '-R', '-S', '-X', '-K'],
-        stdin=diff_proc.stdout, stdout=sys.stdout)
-    less_proc.wait()
+def load_fingerprint_from_output(fingerprint_out):
+    meta = fingerprint_out['metadata']
+    proc_prof_len = 0
+    node_queue = fingerprint_out['spec']['proc_profile'].copy()
+    for node in node_queue:
+        proc_prof_len += 1
+        if 'children' in node:
+            node_queue += node['children']
+    ingress_len = len(fingerprint_out['spec']['conn_profile']['ingress'])
+    egress_len = len(fingerprint_out['spec']['conn_profile']['egress'])
+    rv = {
+        "spec": fingerprint_out['spec'],
+        "service_name": meta['service_name'],
+        "muid": meta['muid'],
+        "checksum": meta['checksum'],
+        "id": meta['id'],
+        "proc_prof_len": proc_prof_len,
+        "ingress_len": ingress_len,
+        "egress_len": egress_len
+    }
+    root_puid = meta.get('root_puid')
+    if root_puid is not None:
+        rv['root_puid'] = root_puid
+    return rv
 
 
 def dialog(title):
@@ -96,7 +105,7 @@ def save_service_fingerprint_yaml(fingerprints):
     index = TerminalMenu(
         save_options,
         title="Select an option:"
-    ).show() if len(fingerprints) > 1 else 1
+    ).show() if len(fingerprints) > 1 else 0
     if index is None or index == 2:
         return
     if index == 0:
@@ -113,7 +122,7 @@ def save_service_fingerprint_yaml(fingerprints):
                     except IOError:
                         print("Error: unable to open file")
     elif index == 1:
-        if len(fingerprints) == 1 or dialog("Save all selected fingerprints in one file?"):
+        if dialog("Save all selected fingerprints in one file?"):
             while True:
                 default = "multi-service-fingerprints.yml"
                 filename = input(f"Output filename [{default}]: ")
@@ -131,3 +140,17 @@ def save_service_fingerprint_yaml(fingerprints):
                     break
                 except IOError:
                     print("Error: unable to open file")
+
+
+def save_merged_fingerprint_yaml(fingerprint):
+    while True:
+        default = f"{fingerprint['metadata']['service_name']}.yml"
+        filename = input(f"Output filename [{default}]: ")
+        if filename is None or filename == '':
+            filename = default
+        try:
+            with open(filename, 'w') as f:
+                yaml.dump(fingerprint, f, Dumper=MergeDumper, sort_keys=False)
+            break
+        except IOError:
+            print("Error: unable to open file")
