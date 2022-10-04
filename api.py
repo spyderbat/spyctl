@@ -73,13 +73,14 @@ def get_muids(api_url, api_key, org_uid, err_fn) -> Tuple:
 def get_service_fingerprints(
     api_url, api_key, org_uid, muid, start_time, end_time, err_fn):
     url = f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&" \
-        f"st={int(start_time)}&et={int(end_time)}&dt=profiles"
+        f"st={int(start_time)}&et={int(end_time)}&dt=fingerprints"
     try:
         fingerprints = []
         resp = get(url, api_key)
         for profile_json in resp.iter_lines():
             profile = json.loads(profile_json)
-            fingerprints.append(profile)
+            if 'linux_svc' in profile['schema']:
+                fingerprints.append(profile)
         return fingerprints
     except RuntimeError as err:
         err_fn(*err.args, f"Unable to get fingerprints from {muid}")

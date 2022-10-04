@@ -23,7 +23,7 @@ def prepare_fingerprints(fingerprints):
                 'suppressed': 0,
                 'str_val':
                     f"{fprint['service_name']} --" +
-                    f" proc_nodes: {fprint['proc_prof_len']}," +
+                    f" proc_nodes: {fprint['proc_fprint_len']}," +
                     f" ingress_nodes: {fprint['ingress_len']}," +
                     f" egress_nodes: {fprint['egress_len']} |" +
                     f" {fprint_yaml}"
@@ -33,7 +33,7 @@ def prepare_fingerprints(fingerprints):
             checksums[checksum]['str_val'] = \
                 f"{fprint['service_name']}" + \
                 f" ({checksums[checksum]['suppressed']} suppressed) --" + \
-                f" proc_nodes: {fprint['proc_prof_len']}," + \
+                f" proc_nodes: {fprint['proc_fprint_len']}," + \
                 f" ingress_nodes: {fprint['ingress_len']}," + \
                 f" egress_nodes: {fprint['egress_len']} |" + \
                 f" {fprint_yaml}"
@@ -60,21 +60,21 @@ def get_fingerprint_output(fingerprint_rec):
 
 def load_fingerprint_from_output(fingerprint_out):
     meta = fingerprint_out['metadata']
-    proc_prof_len = 0
-    node_queue = fingerprint_out['spec']['proc_profile'].copy()
+    proc_fprint_len = 0
+    node_queue = fingerprint_out['spec']['processPolicy'].copy()
     for node in node_queue:
-        proc_prof_len += 1
+        proc_fprint_len += 1
         if 'children' in node:
             node_queue += node['children']
-    ingress_len = len(fingerprint_out['spec']['conn_profile']['ingress'])
-    egress_len = len(fingerprint_out['spec']['conn_profile']['egress'])
+    ingress_len = len(fingerprint_out['spec']['networkPolicy']['ingress'])
+    egress_len = len(fingerprint_out['spec']['networkPolicy']['egress'])
     rv = {
         "spec": fingerprint_out['spec'],
         "service_name": meta['service_name'],
         "muid": meta['muid'],
         "checksum": meta['checksum'],
         "id": meta['id'],
-        "proc_prof_len": proc_prof_len,
+        "proc_fprint_len": proc_fprint_len,
         "ingress_len": ingress_len,
         "egress_len": egress_len
     }

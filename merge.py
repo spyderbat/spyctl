@@ -1,6 +1,7 @@
 import ipaddress as ipaddr
 from typing import Dict, Generator, List, Optional, TypeVar, Union
 from typing_extensions import Self
+from os import path
 
 import yaml
 
@@ -11,6 +12,21 @@ def find(obj_list: List[T1], obj: T1) -> Optional[T1]:
         if candidate == obj:
             return candidate
     return None
+
+
+def make_wildcard(strs: List[str]):
+    if len(strs) == 1:
+        return strs[0]
+    ret = ""
+    for chars in zip(*strs):
+        if chars[:-1] != chars[1:]:
+            return ret + '*'
+        ret += chars[0]
+    comp = len(strs[0])
+    for name in strs:
+        if len(name) != comp:
+            return ret + '*'
+    return ret
 
 
 class ProcessID():
@@ -255,6 +271,8 @@ def merge_subs(objs, key, ret):
         sub_list = [obj[key].copy() for obj in objs]
     except AttributeError:
         sub_list = [obj[key] for obj in objs]
+    except KeyError:
+        return
     ret[key] = globals()[f"merge_{key}"](sub_list)
 
 
@@ -281,8 +299,8 @@ def merge_spec(fingerprints):
     new_obj = dict()
     merge_subs(fingerprints, "serviceSelector", new_obj)
     merge_subs(fingerprints, "machineSelector", new_obj)
-    merge_subs(fingerprints, "proc_profile", new_obj)
-    merge_subs(fingerprints, "conn_profile", new_obj)
+    merge_subs(fingerprints, "processPolicy", new_obj)
+    merge_subs(fingerprints, "networkPolicy", new_obj)
     # metadata probably removed
     return new_obj
 
@@ -301,21 +319,10 @@ def merge_machineSelector(selectors):
 
 
 def merge_hostname(hostnames: List[str]):
-    if len(hostnames) == 1:
-        return hostnames[0]['hostname']
-    ret = ""
-    for chars in zip(*hostnames):
-        if chars[:-1] != chars[1:]:
-            return ret + '*'
-        ret += chars[0]
-    comp = len(hostnames[0])
-    for name in hostnames:
-        if len(name) != comp:
-            return ret + '*'
-    return ret
+    return make_wildcard(hostnames)
 
 
-def merge_proc_profile(profiles):
+def merge_processPolicy(profiles):
     ret: List[ProcessNode] = []
     ProcessID.all_ids = []
     for proc_list in iter_prints(profiles):
@@ -332,7 +339,7 @@ def merge_proc_profile(profiles):
     return ret
 
 
-def merge_conn_profile(profiles):
+def merge_networkPolicy(profiles):
     new_obj = dict()
     merge_subs(profiles, "ingress", new_obj)
     merge_subs(profiles, "egress", new_obj)
