@@ -85,6 +85,20 @@ class ProcessNode():
     
     def __eq__(self, other):
         if isinstance(other, self.__class__):
+            # exe field is a list - does that need handling?
+            self_exe = path.split(self.node['exe'][0])
+            other_exe = path.split(other.node['exe'][0])
+            if self_exe[0] == other_exe[0] and self_exe[1] != other_exe[1]:
+                self_start = self_exe[1][:3]
+                other_start = other_exe[1][:3]
+                merged = make_wildcard((self.node['exe'][0], other.node['exe'][0]))
+                if self_start == other_start:
+                    new_exe = input(f"Merge {self.node['exe'][0]} and {other.node['exe'][0]} to {merged}? (y/n/custom merge): ")
+                    if new_exe.lower() == 'y':
+                        new_exe = merged
+                    if new_exe.lower() != 'n':
+                        self.node['exe'][0] = new_exe
+                        other.node['exe'][0] = new_exe
             compare_keys = ['name', 'exe', 'euser']
             for key in compare_keys:
                 if self.node.get(key) != other.node.get(key):
