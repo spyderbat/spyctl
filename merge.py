@@ -85,6 +85,10 @@ class ProcessNode():
     
     def __eq__(self, other):
         if isinstance(other, self.__class__):
+            if self.node.get('name') != other.node.get('name'):
+                return False
+            if self.node.get('euser') != other.node.get('euser'):
+                return False
             # exe field is a list - does that need handling?
             self_exe = path.split(self.node['exe'][0])
             other_exe = path.split(other.node['exe'][0])
@@ -99,11 +103,7 @@ class ProcessNode():
                     if new_exe.lower() != 'n':
                         self.node['exe'][0] = new_exe
                         other.node['exe'][0] = new_exe
-            compare_keys = ['name', 'exe', 'euser']
-            for key in compare_keys:
-                if self.node.get(key) != other.node.get(key):
-                    return False
-            return True
+            return self.node.get('exe') == other.node.get('exe')
         else:
             return False
     
