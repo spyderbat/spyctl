@@ -115,7 +115,12 @@ def show_fingerprint_diff(fingerprints):
     with open(tmpf, 'w') as f:
         yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
     format_appearances(tmpf, [fprint['metadata']['id'] for fprint in fingerprints])
+    # allows saving through less, but needs a better interface
+    pipe_proc = subprocess.Popen(
+        ['cat', tmpf],
+        stdout=subprocess.PIPE
+    )
     less_proc = subprocess.Popen(
-        ['less', '-R', '-S', '-X', '-K', tmpf],
-        stdout=sys.stdout)
+        ['less', '-R', '-S', '-X', '-K'],
+        stdin=pipe_proc.stdout, stdout=sys.stdout)
     less_proc.wait()
