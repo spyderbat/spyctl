@@ -139,10 +139,10 @@ class DownloadMenu():
                 "[2] Merge fingerprints|",
                 "[3] Back|"
             ]
-            title = "Download " if not self.local else ""
+            title = "Download" if not self.local else "Management"
             download_menu = TerminalMenu(
                 options,
-                title=f"Linux Service Fingerprint {title}Menu\n\n" +
+                title=f"Fingerprint {title} Menu\n\n" +
                     "Select an option:",
                 preview_size=0.5,
                 clear_screen=True,
@@ -318,5 +318,4 @@ class DownloadMenu():
         if len(self.selected_fingerprints) == 0:
             self.handle_invalid("No fingerprints selected to save")
             return
-        out_prints = [f.get_output() for f in self.selected_fingerprints]
-        save_service_fingerprint_yaml(out_prints)
+        save_service_fingerprint_yaml(self.selected_fingerprints)

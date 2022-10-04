@@ -114,7 +114,10 @@ def show_fingerprint_diff(fingerprints):
     tmpf = "/tmp/fprint_diff_merged"
     with open(tmpf, 'w') as f:
         yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
-    format_appearances(tmpf, [fprint['metadata']['id'] for fprint in fingerprints])
+    def id_str(fprint):
+        meta = fprint['metadata']
+        return f"{meta['name']:meta['muid']:meta['root']}"
+    format_appearances(tmpf, [id_str(fprint) for fprint in fingerprints])
     # allows saving through less, but needs a better interface
     pipe_proc = subprocess.Popen(
         ['cat', tmpf],
