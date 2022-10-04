@@ -1,87 +1,84 @@
-import sys
-import subprocess
+from typing import Dict, List, Union
 import yaml
 
-from merge import DiffDumper, MergeDumper
+from merge import MergeDumper
 
 from simple_term_menu import TerminalMenu
 
 
-def prepare_fingerprints(fingerprints):
-    # Get the latest version of each ID
-    latest = {}
-    for fprint in fingerprints:
-        latest[fprint['id']] = fprint
-    # Unique the fingerprints based on checksum
-    checksums = {}
-    for fprint in latest.values():
-        checksum = fprint['checksum']
-        fprint_yaml = yaml.dump(dict(spec=fprint['spec']), sort_keys=False)
-        if checksum not in checksums:
-            checksums[checksum] = {
-                'print': fprint,
-                'suppressed': 0,
-                'str_val':
-                    f"{fprint['service_name']} --" +
-                    f" proc_nodes: {fprint['proc_fprint_len']}," +
-                    f" ingress_nodes: {fprint['ingress_len']}," +
-                    f" egress_nodes: {fprint['egress_len']} |" +
-                    f" {fprint_yaml}"
-            }
-        else:
-            checksums[checksum]['suppressed'] += 1
-            checksums[checksum]['str_val'] = \
-                f"{fprint['service_name']}" + \
-                f" ({checksums[checksum]['suppressed']} suppressed) --" + \
-                f" proc_nodes: {fprint['proc_fprint_len']}," + \
-                f" ingress_nodes: {fprint['ingress_len']}," + \
-                f" egress_nodes: {fprint['egress_len']} |" + \
-                f" {fprint_yaml}"
-    rv = list(checksums.values())
-    rv.sort(key=lambda d: d['str_val'])
-    return list(rv)
-
-
-def get_fingerprint_output(fingerprint_rec):
-    rv = {
-        "spec": fingerprint_rec['spec'],
-        "metadata": {
-            "service_name": fingerprint_rec['service_name'],
-            "id": fingerprint_rec['id'],
-            "checksum": fingerprint_rec['checksum'],
-            "muid": fingerprint_rec['muid']
+class Fingerprint():
+    meta_keys = ['service_name', 'id', 'checksum', 'muid', 'root_puid']
+    
+    def __init__(self, fprint) -> None:
+        self.fprint = fprint
+        self.suppr_str = ""
+        if 'metadata' in self.fprint:
+            self.calc_lengths()
+            for key in Fingerprint.meta_keys:
+                if key in self.fprint['metadata']:
+                    self.fprint[key] = self.fprint['metadata'][key]
+            del self.fprint['metadata']
+    
+    def preview_str(self):
+        fprint_yaml = yaml.dump(dict(spec=self.fprint['spec']), sort_keys=False)
+        return f"{self.fprint['service_name']}{self.suppr_str} --" + \
+        f" proc_nodes: {self.fprint['proc_fprint_len']}," + \
+        f" ingress_nodes: {self.fprint['ingress_len']}," + \
+        f" egress_nodes: {self.fprint['egress_len']} |" + \
+        f" {fprint_yaml}"
+    
+    def get_output(self):
+        rv = {
+            "spec": self.fprint['spec'],
+            "metadata": {}
         }
-    }
-    root_puid = fingerprint_rec.get('root_puid')
-    if root_puid is not None:
-        rv['metadata']['root_puid'] = root_puid
-    return rv
-
-
-def load_fingerprint_from_output(fingerprint_out):
-    meta = fingerprint_out['metadata']
-    proc_fprint_len = 0
-    node_queue = fingerprint_out['spec']['processPolicy'].copy()
-    for node in node_queue:
-        proc_fprint_len += 1
-        if 'children' in node:
-            node_queue += node['children']
-    ingress_len = len(fingerprint_out['spec']['networkPolicy']['ingress'])
-    egress_len = len(fingerprint_out['spec']['networkPolicy']['egress'])
-    rv = {
-        "spec": fingerprint_out['spec'],
-        "service_name": meta['service_name'],
-        "muid": meta['muid'],
-        "checksum": meta['checksum'],
-        "id": meta['id'],
-        "proc_fprint_len": proc_fprint_len,
-        "ingress_len": ingress_len,
-        "egress_len": egress_len
-    }
-    root_puid = meta.get('root_puid')
-    if root_puid is not None:
-        rv['root_puid'] = root_puid
-    return rv
+        for key in Fingerprint.meta_keys:
+            if key in self.fprint:
+                rv['metadata'][key] = self.fprint[key]
+        return rv
+    
+    def set_num_suppressed(self, num: int):
+        self.suppr_str = f" ({num} suppressed)"
+    
+    def calc_lengths(self):
+        proc_fprint_len = 0
+        node_queue = self.fprint['spec']['processPolicy'].copy()
+        for node in node_queue:
+            proc_fprint_len += 1
+            if 'children' in node:
+                node_queue += node['children']
+        ingress_len = len(self.fprint['spec']['networkPolicy']['ingress'])
+        egress_len = len(self.fprint['spec']['networkPolicy']['egress'])
+        self.fprint['proc_fprint_len'] = proc_fprint_len
+        self.fprint['ingress_len'] = ingress_len
+        self.fprint['egress_len'] = egress_len
+    
+    @staticmethod
+    def prepare_many(objs: List) -> List:
+        latest: Dict[str, Fingerprint] = {}
+        obj: Fingerprint
+        for obj in objs:
+            f_id = obj.fprint['id']
+            if f_id not in latest:
+                latest[f_id] = obj
+            elif latest[f_id].fprint['time'] < obj.fprint['time']:
+                latest[f_id] = obj
+        checksums = {}
+        for obj in latest.values():
+            checksum = obj.fprint['checksum']
+            if checksum not in checksums:
+                checksums[checksum] = {
+                    'print': obj,
+                    'suppressed': 0
+                }
+            else:
+                entry = checksums[checksum]
+                entry['suppressed'] += 1
+                obj.set_num_suppressed(entry['suppressed'])
+                entry['print'] = obj
+        rv = [val['print'] for val in checksums.values()]
+        rv.sort(key=lambda f: f.preview_str())
+        return rv
 
 
 def dialog(title):
@@ -90,10 +87,6 @@ def dialog(title):
         title=title
     ).show()
     return index == 0
-
-
-def prepeared_to_output(fingerprints):
-    return [get_fingerprint_output(fprint['print']) for fprint in fingerprints]
 
 
 def save_service_fingerprint_yaml(fingerprints):

@@ -91,8 +91,8 @@ class DownloadMenu():
         ).show()
 
     def set_local(self, local_fingerprints):
-        self.selected_fingerprints = prepare_fingerprints([
-            load_fingerprint_from_output(fprint) for fprint in local_fingerprints
+        self.selected_fingerprints = Fingerprint.prepare_many([
+            Fingerprint(fprint) for fprint in local_fingerprints
         ])
         self.local = len(local_fingerprints) > 0
 
@@ -117,13 +117,13 @@ class DownloadMenu():
                 "[3] Load fingerprints",
                 current=self.loaded_fingerprints,
                 title="Loaded Fingerprints",
-                fmt=lambda fprint: fprint['str_val'].split(' | ')[0]
+                fmt=lambda fprint: fprint.preview_str().split(' | ')[0]
             )
             select_fingerprints = add_current(
                 "[4] Select fingerprints",
                 current=self.selected_fingerprints,
                 title="Selected Fingerprints",
-                fmt=lambda fprint: fprint['str_val'].split(' | ')[0]
+                fmt=lambda fprint: fprint.preview_str().split(' | ')[0]
             )
             options = [
                 set_org,
@@ -252,10 +252,10 @@ class DownloadMenu():
                 muid, start_time, end_time, self.handle_error
             )
             if tmp_fprints is not None:
-                raw_fingerprints += tmp_fprints
+                raw_fingerprints += [Fingerprint(f) for f in tmp_fprints]
             else:
                 break
-        self.loaded_fingerprints = prepare_fingerprints(raw_fingerprints)
+        self.loaded_fingerprints = Fingerprint.prepare_many(raw_fingerprints)
     
     def select_time_window(self):
         now = time.time()
@@ -282,7 +282,7 @@ class DownloadMenu():
         if len(self.loaded_fingerprints) == 0:
             self.handle_invalid("No fingerprints loaded")
             return
-        fprint_strs = [fprint['str_val'] for fprint in self.loaded_fingerprints]
+        fprint_strs = [f.preview_str() for f in self.loaded_fingerprints]
         index_tup = TerminalMenu(
             fprint_strs,
             title="Select fingerprint(s):",
@@ -301,17 +301,9 @@ class DownloadMenu():
         if len(self.selected_fingerprints) < 2:
             self.handle_invalid("Not enough fingerprints selected to diff")
             return
-        # elif len(self.selected_fingerprints) > 2:
-        #     disclaimer_menu = TerminalMenu(
-        #         ["[1] OK", "[2] Back"],
-        #         title="Only the first two selected fingerprints will be diff'ed"
-        #     )
-        #     index = disclaimer_menu.show()
-        #     if index is None or index == 1:
-        #         return
         try:
-            fprints = prepeared_to_output(self.selected_fingerprints)
-            show_fingerprint_diff(fprints)
+            out_prints = [f.get_output() for f in self.selected_fingerprints]
+            show_fingerprint_diff(out_prints)
         except IOError:
             self.handle_invalid("Error saving tmp file")
     
@@ -319,12 +311,12 @@ class DownloadMenu():
         if len(self.selected_fingerprints) == 0:
             self.handle_invalid("No fingerprints selected to merge")
             return
-        fprints = prepeared_to_output(self.selected_fingerprints)
-        save_merged_fingerprint_yaml(merge_fingerprints(fprints))
+        out_prints = [f.get_output() for f in self.selected_fingerprints]
+        save_merged_fingerprint_yaml(merge_fingerprints(out_prints))
 
     def save_fingerprints(self):
         if len(self.selected_fingerprints) == 0:
             self.handle_invalid("No fingerprints selected to save")
             return
-        fprints = prepeared_to_output(self.selected_fingerprints)
-        save_service_fingerprint_yaml(fprints)
+        out_prints = [f.get_output() for f in self.selected_fingerprints]
+        save_service_fingerprint_yaml(out_prints)
