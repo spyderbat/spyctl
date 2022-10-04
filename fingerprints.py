@@ -11,20 +11,6 @@ class Fingerprint():
         self.fprint = fprint
         self.suppr_str = ""
         self.calc_lengths()
-        # still getting fingerprints from the api without metadata for now
-        if 'metadata' not in self.fprint:
-            meta_keys = [
-                ('checksum', 'checksum'),
-                ('muid', 'muid'),
-                ('name', 'service_name'),
-                ('root', 'root_puid')
-            ]
-            meta = dict()
-            for key in meta_keys:
-                if key[1] in self.fprint:
-                    meta[key[0]] = self.fprint[key[1]]
-            self.fprint['metadata'] = meta
-            import pdb; pdb.set_trace()
     
     @property
     def metadata(self):

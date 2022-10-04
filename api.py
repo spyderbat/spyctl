@@ -77,9 +77,10 @@ def get_fingerprints(
     try:
         fingerprints = []
         resp = get(url, api_key)
-        for profile_json in resp.iter_lines():
-            profile = json.loads(profile_json)
-            fingerprints.append(profile)
+        for fprint_json in resp.iter_lines():
+            fprint = json.loads(fprint_json)
+            if 'metadata' in fprint:
+                fingerprints.append(fprint)
         return fingerprints
     except RuntimeError as err:
         err_fn(*err.args, f"Unable to get fingerprints from {muid}")
