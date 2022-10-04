@@ -1,6 +1,4 @@
-from curses import meta
-from distutils.file_util import copy_file
-from typing import Dict, List, Union
+from typing import Dict, List
 import yaml
 
 from merge import MergeDumper

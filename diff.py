@@ -1,8 +1,10 @@
-from lzma import is_check_supported
 import sys
 import subprocess
 import yaml
 from merge import merge_fingerprints, DiffDumper
+from fingerprints import dialog
+
+from simple_term_menu import TerminalMenu
 
 
 red = u"\u001b[41;1m \u001b[0m"
@@ -116,14 +118,23 @@ def show_fingerprint_diff(fingerprints):
         yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
     def id_str(fprint):
         meta = fprint['metadata']
-        return f"{meta['name']:meta['muid']:meta['root']}"
+        return f"{meta['name']}:{meta['muid']}:{meta['root']}"
     format_appearances(tmpf, [id_str(fprint) for fprint in fingerprints])
-    # allows saving through less, but needs a better interface
-    pipe_proc = subprocess.Popen(
-        ['cat', tmpf],
-        stdout=subprocess.PIPE
-    )
     less_proc = subprocess.Popen(
-        ['less', '-R', '-S', '-X', '-K'],
-        stdin=pipe_proc.stdout, stdout=sys.stdout)
+        ['less', '-R', '-S', '-X', '-K', tmpf],
+        stdout=sys.stdout)
     less_proc.wait()
+    if dialog("Save comparison for viewing?"):
+        while(True):
+            default = f"compare-fingerprints.txt"
+            filename = input(f"Output filename [{default}]: ")
+            if filename is None or filename == '':
+                filename = default
+            try:
+                with open(filename, 'w') as f:
+                    yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
+                # feed it a len 7 list to make it use numbers not colors
+                format_appearances(filename, list(range(7)))
+                break
+            except IOError:
+                print("Error: unable to open file")

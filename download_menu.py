@@ -130,12 +130,12 @@ class DownloadMenu():
                 set_machs,
                 load_fingerprints,
                 select_fingerprints,
-                "[5] Diff fingerprints|",
+                "[5] Compare fingerprints|",
                 "[6] Merge fingerprints|",
                 "[7] Save fingerprints|",
                 "[8] Back|"
             ] if not self.local else [
-                "[1] Diff fingerprints|",
+                "[1] Compare fingerprints|",
                 "[2] Merge fingerprints|",
                 "[3] Back|"
             ]
@@ -161,7 +161,7 @@ class DownloadMenu():
                 self.load_fingerprints()
             elif option == select_fingerprints:
                 self.select_fingerprints()
-            elif "Diff fingerprints" in option:
+            elif "Compare fingerprints" in option:
                 self.diff_fingerprints()
             elif "Merge fingerprints" in option:
                 self.merge_fingerprints()
@@ -299,7 +299,7 @@ class DownloadMenu():
     
     def diff_fingerprints(self):
         if len(self.selected_fingerprints) < 2:
-            self.handle_invalid("Not enough fingerprints selected to diff")
+            self.handle_invalid("Not enough fingerprints selected to compare")
             return
         try:
             out_prints = [f.get_output() for f in self.selected_fingerprints]
