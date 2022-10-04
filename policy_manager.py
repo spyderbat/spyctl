@@ -5,20 +5,19 @@ from simple_term_menu import TerminalMenu
 
 from api import *
 from download_menu import DownloadMenu
+from manage_menu import ManagementMenu
 
 # Tool Features
-DOWNLOAD_LSVC_PROF = "[1] Download Linux Service fingerprint(s)"
-DOWNLOAD_CONT_PROF = "[2] Download Container fingerprint(s)"
-UPLOAD_PROF = "[3] Upload a policy"
-LOCAL_LOAD = "[4] Load local fingerprints"
-EXIT_PROGRAM = "[e] Exit"
+CHOOSE = "[1] Choose Fingerprints"
+MANAGE = "[2] Manage Fingerprints"
+UPLOAD = "[3] Upload Fingerprints"
+EXIT = "[e] Exit"
 
 main_options = [
-    DOWNLOAD_LSVC_PROF,
-    DOWNLOAD_CONT_PROF,
-    UPLOAD_PROF,
-    LOCAL_LOAD,
-    EXIT_PROGRAM
+    CHOOSE,
+    MANAGE,
+    UPLOAD,
+    EXIT
 ]
 main_menu = TerminalMenu(
     main_options,
@@ -27,6 +26,7 @@ main_menu = TerminalMenu(
 )
 
 download_menu = DownloadMenu()
+manage_menu = ManagementMenu()
 
 not_implemented_menu = TerminalMenu(
     ['[1] Back'],
@@ -40,25 +40,23 @@ def main():
         if menu_entry_index is None:
             exit(0)
         option = main_options[menu_entry_index]
-        if option == DOWNLOAD_LSVC_PROF:
-            handle_download_lsvc()
-        elif option == DOWNLOAD_CONT_PROF:
-            handle_download_cont()
-        elif option == UPLOAD_PROF:
+        if option == CHOOSE:
+            handle_choose()
+        elif option == MANAGE:
+            handle_manage()
+        elif option == UPLOAD:
             handle_upload()
-        elif option == LOCAL_LOAD:
-            handle_local_load()
         else:
             exit(0)
 
 
-def handle_download_lsvc():
-    download_menu.set_local([])
+def handle_choose():
     download_menu.show()
 
 
-def handle_download_cont():
-    not_implemented_menu.show()
+def handle_manage():
+    manage_menu.set_fingerprints(download_menu.selected_fingerprints)
+    manage_menu.show()
 
 
 def handle_upload():

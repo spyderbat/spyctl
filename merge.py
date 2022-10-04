@@ -302,11 +302,16 @@ def merge_fingerprints(fingerprints):
 def merge_metadata(metadatas):
     new_obj = dict()
     merge_subs(metadatas, "name", new_obj)
+    merge_subs(metadatas, "type", new_obj)
     return new_obj
 
 
 def merge_name(names):
     return names[0]
+
+
+def merge_type(types):
+    return types[0]
 
 
 def merge_spec(fingerprints):

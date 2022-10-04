@@ -102,7 +102,7 @@ class Fingerprint():
 
 def dialog(title):
     index = TerminalMenu(
-        ['[Y] Yes', '[N] No'],
+        ['[y] Yes', '[n] No'],
         title=title
     ).show()
     return index == 0

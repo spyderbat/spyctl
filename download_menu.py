@@ -5,8 +5,6 @@ from simple_term_menu import TerminalMenu
 
 from api import *
 from fingerprints import *
-from merge import merge_fingerprints
-from diff import show_fingerprint_diff
 
 DEPLOYMENTS = {
     'integration': {
@@ -55,27 +53,29 @@ class DownloadMenu():
 
         self.loaded_fingerprints = []
         self.selected_fingerprints = []
-        
-        self.deployments_menu = TerminalMenu(
-            menu_entries=DEPLOYMENTS.keys(),
-            title="Select a deployment:"
-        )
 
-        self.local = False
+        self.kind = ""
 
     def get_api_info(self):
+        if self.api_key is not None and self.api_url is not None:
+            return True
         deployments = list(DEPLOYMENTS.keys())
         if len(deployments) == 1:
             self.api_key = DEPLOYMENTS[deployments[0]]['API_KEY']
             self.api_url = DEPLOYMENTS[deployments[0]]['API_URL']
         else:
-            index = self.deployments_menu.show()
+            index = TerminalMenu(
+                menu_entries=DEPLOYMENTS.keys(),
+                title="Select a deployment:"
+            ).show()
             if index is not None:
                 deployment = deployments[index]
                 self.api_key = DEPLOYMENTS[deployment]['API_KEY']
                 self.api_url = DEPLOYMENTS[deployment]['API_URL']
             else:
-                raise ValueError("No deployment set")
+                self.handle_invalid("No deployment set")
+                return False
+        return True
     
     def handle_error(self, error_code, reason, msg=None):
         title = f"{error_code} ({reason}) Error while fetching data"
@@ -90,18 +90,38 @@ class DownloadMenu():
             ["[1] Back"], title=error_msg
         ).show()
 
-    def set_local(self, local_fingerprints):
-        self.selected_fingerprints = Fingerprint.prepare_many([
-            Fingerprint(fprint) for fprint in local_fingerprints
-        ])
-        self.local = len(local_fingerprints) > 0
-
     def show(self):
-        if not self.local:
-            try:
-                self.get_api_info()
-            except ValueError as err:
-                self.handle_invalid(*err.args)
+        while True:
+            main_options = [
+                "[1] Download Service Fingerprints",
+                "[2] Download Container Fingerprints",
+                "[3] Load Local Fingerprints",
+                "[4] Unload Selected Fingerprints",
+                "[5] Done"
+            ]
+            index = TerminalMenu(
+                main_options,
+                title="Fingerprint Selection Menu\n\n" + \
+                    "Select an option:",
+                clear_screen=True
+            ).show()
+            if index == 0:
+                if self.get_api_info():
+                    self.kind = "Service"
+                    self.show_download()
+            elif index == 1:
+                if self.get_api_info():
+                    self.kind = "Container"
+                    self.show_download()
+            elif index == 2:
+                self.select_local()
+            elif index == 3:
+                self.selected_fingerprints = []
+            else:
+                break
+    
+    def show_download(self):
+        self.loaded_fingerprints = []
         while True:
             set_org = add_current(
                 "[1] Set organization",
@@ -130,19 +150,11 @@ class DownloadMenu():
                 set_machs,
                 load_fingerprints,
                 select_fingerprints,
-                "[5] Compare fingerprints|",
-                "[6] Merge fingerprints|",
-                "[7] Save fingerprints|",
-                "[8] Back|"
-            ] if not self.local else [
-                "[1] Compare fingerprints|",
-                "[2] Merge fingerprints|",
-                "[3] Back|"
+                "[5] Done|"
             ]
-            title = "Download" if not self.local else "Management"
             download_menu = TerminalMenu(
                 options,
-                title=f"Fingerprint {title} Menu\n\n" +
+                title=f"{self.kind} Fingerprint Download Menu\n\n" +
                     "Select an option:",
                 preview_size=0.5,
                 clear_screen=True,
@@ -151,7 +163,7 @@ class DownloadMenu():
             )
             index = download_menu.show()
             option = options[index] if index is not None else None
-            if index is None or "Back" in option:
+            if index is None:
                 break
             elif option == set_org:
                 self.select_org()
@@ -161,12 +173,8 @@ class DownloadMenu():
                 self.load_fingerprints()
             elif option == select_fingerprints:
                 self.select_fingerprints()
-            elif "Compare fingerprints" in option:
-                self.diff_fingerprints()
-            elif "Merge fingerprints" in option:
-                self.merge_fingerprints()
-            elif "Save fingerprints" in option:
-                self.save_fingerprints()
+            else:
+                break
     
     def select_org(self):
         org_info = get_orgs(self.api_url, self.api_key, self.handle_error)
@@ -245,17 +253,19 @@ class DownloadMenu():
         if time_info is None:
             return
         start_time, end_time = time_info
-        raw_fingerprints = []
+        fingerprints = []
         for muid in self.selected_muids:
-            tmp_fprints = get_service_fingerprints(
+            tmp_fprints = get_fingerprints(
                 self.api_url, self.api_key, self.selected_org,
                 muid, start_time, end_time, self.handle_error
             )
             if tmp_fprints is not None:
-                raw_fingerprints += [Fingerprint(f) for f in tmp_fprints]
+                fingerprints += [Fingerprint(f) for f in tmp_fprints
+                    if self.kind.lower() in f['metadata']['type']
+                ]
             else:
                 break
-        self.loaded_fingerprints = Fingerprint.prepare_many(raw_fingerprints)
+        self.loaded_fingerprints = Fingerprint.prepare_many(fingerprints)
     
     def select_time_window(self):
         now = time.time()
@@ -293,29 +303,25 @@ class DownloadMenu():
         ).show()
         if index_tup is None or len(index_tup) == 0:
             return
-        self.selected_fingerprints = []
         for index in index_tup:
             self.selected_fingerprints.append(self.loaded_fingerprints[index])
     
-    def diff_fingerprints(self):
-        if len(self.selected_fingerprints) < 2:
-            self.handle_invalid("Not enough fingerprints selected to compare")
+    def select_local(self):
+        files = input("Enter file paths, separated by commas: ").split(',')
+        if len(files) == 0:
             return
-        try:
-            out_prints = [f.get_output() for f in self.selected_fingerprints]
-            show_fingerprint_diff(out_prints)
-        except IOError:
-            self.handle_invalid("Error saving tmp file")
-    
-    def merge_fingerprints(self):
-        if len(self.selected_fingerprints) == 0:
-            self.handle_invalid("No fingerprints selected to merge")
-            return
-        out_prints = [f.get_output() for f in self.selected_fingerprints]
-        save_merged_fingerprint_yaml(merge_fingerprints(out_prints))
-
-    def save_fingerprints(self):
-        if len(self.selected_fingerprints) == 0:
-            self.handle_invalid("No fingerprints selected to save")
-            return
-        save_service_fingerprint_yaml(self.selected_fingerprints)
+        files = [file.strip() for file in files]
+        local_fingerprints = []
+        errors = False
+        for file in files:
+            try:
+                with open(file, "r") as f:
+                    local_fingerprints.append(yaml.load(f, yaml.Loader))
+            except OSError:
+                print("Failed to read file", file)
+                errors = True
+        if errors:
+            input()
+        self.selected_fingerprints += Fingerprint.prepare_many([
+            Fingerprint(fprint) for fprint in local_fingerprints
+        ])
