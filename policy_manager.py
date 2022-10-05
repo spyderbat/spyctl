@@ -5,12 +5,13 @@ from simple_term_menu import TerminalMenu
 
 from api import *
 from download_menu import DownloadMenu
+from fingerprints import preview_selection
 from manage_menu import ManagementMenu
 
 # Tool Features
-CHOOSE = "[1] Choose Fingerprints"
+CHOOSE = "[1] Select Fingerprints"
 MANAGE = "[2] Manage Fingerprints"
-UPLOAD = "[3] Upload Fingerprints"
+UPLOAD = "[3] Upload Policies"
 EXIT = "[e] Exit"
 
 main_options = [
@@ -36,7 +37,13 @@ not_implemented_menu = TerminalMenu(
 
 def main():
     while True:
-        menu_entry_index = main_menu.show()
+        menu_entry_index = TerminalMenu(
+            main_options,
+            title="Main Menu\n\nSelect an option:",
+            clear_screen=True,
+            status_bar=preview_selection(download_menu.selected_fingerprints),
+            status_bar_style=None
+        ).show()
         if menu_entry_index is None:
             exit(0)
         option = main_options[menu_entry_index]

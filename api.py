@@ -13,6 +13,7 @@ def get(url, key):
 
 
 def get_orgs(api_url, api_key, err_fn) -> List[Tuple]:
+    print("Loading organizations...")
     org_uids = []
     org_names = []
     url = f"{api_url}/api/v1/org/"
@@ -28,6 +29,7 @@ def get_orgs(api_url, api_key, err_fn) -> List[Tuple]:
 
 
 def get_muids(api_url, api_key, org_uid, err_fn) -> Tuple:
+    print("Loading machines...")
     sources = {}
     muids = []
     hostnames = []
@@ -72,6 +74,7 @@ def get_muids(api_url, api_key, org_uid, err_fn) -> Tuple:
 
 def get_fingerprints(
     api_url, api_key, org_uid, muid, start_time, end_time, err_fn):
+    print("Loading fignerprints...")
     url = f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&" \
         f"st={int(start_time)}&et={int(end_time)}&dt=fingerprints"
     try:

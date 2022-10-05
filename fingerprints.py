@@ -19,13 +19,13 @@ class Fingerprint():
     def get_id(self):
         return self.fprint.get('id')
     
-    def preview_str(self):
+    def preview_str(self, include_yaml=False):
         fprint_yaml = yaml.dump(dict(spec=self.fprint['spec']), sort_keys=False)
         return f"{self.metadata['name']}{self.suppr_str} --" + \
-        f" proc_nodes: {self.fprint['proc_fprint_len']}," + \
-        f" ingress_nodes: {self.fprint['ingress_len']}," + \
-        f" egress_nodes: {self.fprint['egress_len']} |" + \
-        f" {fprint_yaml}"
+            f" proc_nodes: {self.fprint['proc_fprint_len']}," + \
+            f" ingress_nodes: {self.fprint['ingress_len']}," + \
+            f" egress_nodes: {self.fprint['egress_len']}" + \
+            (f"|{fprint_yaml}" if include_yaml else "")
     
     def get_output(self):
         copy_fields = ['spec', 'metadata', 'kind', 'apiVersion']
@@ -94,6 +94,16 @@ def dialog(title):
     return index == 0
 
 
+def catch_interrupt(func):
+    def wrapper(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except KeyboardInterrupt:
+            pass
+    return wrapper
+
+
+@catch_interrupt
 def save_service_fingerprint_yaml(fingerprints: List[Fingerprint]):
     save_options = [
         "[1] Save individual file(s) (for editing & uploading)",
@@ -141,6 +151,7 @@ def save_service_fingerprint_yaml(fingerprints: List[Fingerprint]):
                     print("Error: unable to open file")
 
 
+@catch_interrupt
 def save_merged_fingerprint_yaml(fingerprint):
     while True:
         default = f"{fingerprint['metadata']['name']}.yml"
@@ -153,3 +164,11 @@ def save_merged_fingerprint_yaml(fingerprint):
             break
         except IOError:
             print("Error: unable to open file")
+
+
+def preview_selection(fingerprints: List[Fingerprint]):
+    start = "-------\n"
+    if len(fingerprints) == 0:
+        return start + "No fingerprints selected"
+    return start + "Selected fingerprints:\n - " + \
+        "\n - ".join([f.preview_str() for f in fingerprints])

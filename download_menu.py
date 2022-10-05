@@ -35,7 +35,8 @@ def add_current(string, current=None, title="", fmt=lambda s: s) -> str:
         elif len(current) > 1:
             strs = [fmt(elem) for elem in current]
             return string + f" - current: {fmt(current[0])} ...|" + \
-                yaml.dump({f'{title}': strs}, width=float("inf"))
+                yaml.dump({f'{title}': strs}, width=float("inf")) \
+                    .replace("- '", "- ").replace("'\n", "\n")
         else:
             return string + "|"
     else:
@@ -103,7 +104,9 @@ class DownloadMenu():
                 main_options,
                 title="Fingerprint Selection Menu\n\n" + \
                     "Select an option:",
-                clear_screen=True
+                clear_screen=True,
+                status_bar=preview_selection(self.selected_fingerprints),
+                status_bar_style=None
             ).show()
             if index == 0:
                 if self.get_api_info():
@@ -137,13 +140,13 @@ class DownloadMenu():
                 "[3] Load fingerprints",
                 current=self.loaded_fingerprints,
                 title="Loaded Fingerprints",
-                fmt=lambda fprint: fprint.preview_str().split(' | ')[0]
+                fmt=lambda fprint: fprint.preview_str()
             )
             select_fingerprints = add_current(
                 "[4] Select fingerprints",
                 current=self.selected_fingerprints,
                 title="Selected Fingerprints",
-                fmt=lambda fprint: fprint.preview_str().split(' | ')[0]
+                fmt=lambda fprint: fprint.preview_str()
             )
             options = [
                 set_org,
@@ -183,7 +186,7 @@ class DownloadMenu():
         org_uids, org_names = org_info
         index = 0
         if len(org_names) > 1:
-            org_menu = TerminalMenu(org_names, title="Select an org:")
+            org_menu = TerminalMenu(org_names, title="Select an org:", clear_screen=True)
             index = org_menu.show()
         if index is None:
             return
@@ -204,7 +207,8 @@ class DownloadMenu():
         mach_options = ["[1] Specific machine(s)", "[2] All machines"]
         index = TerminalMenu(
             mach_options,
-            title="Where would you like to download fingerprints from?"
+            title="Where would you like to download fingerprints from?",
+            clear_screen=True
         ).show()
         if index is None:
             return
@@ -276,11 +280,14 @@ class DownloadMenu():
         if index is None:
             return None
         selection = TIME_WINDOWS[index]
-        if selection == "other":
+        if selection == "Other":
             try:
-                start_time = int(input("Start Time: "))
-                end_time = int(input("End time: "))
-            except Exception:
+                start_time = now + (60 * int(input("Start time relative to now: ")))
+                end_time = now + (60 * int(input("End time relative to now: ")))
+                if start_time >= end_time:
+                    self.handle_invalid("Start time must be before end time")
+                    return None
+            except ValueError:
                 self.handle_invalid("Invalid input")
                 return None
         else:
@@ -292,14 +299,15 @@ class DownloadMenu():
         if len(self.loaded_fingerprints) == 0:
             self.handle_invalid("No fingerprints loaded")
             return
-        fprint_strs = [f.preview_str() for f in self.loaded_fingerprints]
+        fprint_strs = [f.preview_str(include_yaml=True) for f in self.loaded_fingerprints]
         index_tup = TerminalMenu(
             fprint_strs,
             title="Select fingerprint(s):",
             preview_command="echo '{}'",
             preview_size=0.5,
             multi_select=True,
-            multi_select_select_on_accept=False
+            multi_select_select_on_accept=False,
+            clear_screen=True
         ).show()
         if index_tup is None or len(index_tup) == 0:
             return

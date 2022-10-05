@@ -32,7 +32,9 @@ class ManagementMenu():
                 main_options,
                 title="Fingerprint Management Menu\n\n" + \
                     "Select an option:",
-                clear_screen=True
+                clear_screen=True,
+                status_bar=preview_selection(self.selected_fingerprints),
+                status_bar_style=None
             ).show()
             if index == 0:
                 self.compare_fingerprints()
