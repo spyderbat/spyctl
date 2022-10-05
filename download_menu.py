@@ -91,39 +91,10 @@ class DownloadMenu():
             ["[1] Back"], title=error_msg
         ).show()
 
-    def show(self):
-        while True:
-            main_options = [
-                "[1] Download Service Fingerprints",
-                "[2] Download Container Fingerprints",
-                "[3] Load Local Fingerprints",
-                "[4] Unload Selected Fingerprints",
-                "[5] Done"
-            ]
-            index = TerminalMenu(
-                main_options,
-                title="Fingerprint Selection Menu\n\n" + \
-                    "Select an option:",
-                clear_screen=True,
-                status_bar=preview_selection(self.selected_fingerprints),
-                status_bar_style=None
-            ).show()
-            if index == 0:
-                if self.get_api_info():
-                    self.kind = "Service"
-                    self.show_download()
-            elif index == 1:
-                if self.get_api_info():
-                    self.kind = "Container"
-                    self.show_download()
-            elif index == 2:
-                self.select_local()
-            elif index == 3:
-                self.selected_fingerprints = []
-            else:
-                break
-    
-    def show_download(self):
+    def show(self, kind):
+        if not self.get_api_info():
+            return
+        self.kind = kind
         self.loaded_fingerprints = []
         while True:
             set_org = add_current(

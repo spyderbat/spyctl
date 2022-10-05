@@ -2,9 +2,7 @@ import sys
 import subprocess
 import yaml
 from merge import merge_fingerprints, DiffDumper
-from fingerprints import dialog
-
-from simple_term_menu import TerminalMenu
+from fingerprints import dialog, catch_interrupt
 
 
 red = u"\u001b[41;1m \u001b[0m"
@@ -111,6 +109,7 @@ def format_appearances(file, inputs):
         f.writelines(ret_lines)
 
 
+@catch_interrupt
 def show_fingerprint_diff(fingerprints):
     merged = merge_fingerprints(fingerprints)
     tmpf = "/tmp/fprint_diff_merged"
@@ -124,6 +123,7 @@ def show_fingerprint_diff(fingerprints):
         ['less', '-R', '-S', '-X', '-K', tmpf],
         stdout=sys.stdout)
     less_proc.wait()
+    subprocess.call("clear")
     if dialog("Save comparison for viewing?"):
         while(True):
             default = f"compare-fingerprints.txt"
