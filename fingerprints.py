@@ -20,7 +20,7 @@ class Fingerprint():
         return self.fprint.get('id')
     
     def preview_str(self, include_yaml=False):
-        fprint_yaml = yaml.dump(dict(spec=self.fprint['spec']), sort_keys=False)
+        fprint_yaml = yaml.dump(dict(spec=self.fprint['spec']), sort_keys=True)
         return f"{self.metadata['name']}{self.suppr_str} --" + \
             f" proc_nodes: {self.fprint['proc_fprint_len']}," + \
             f" ingress_nodes: {self.fprint['ingress_len']}," + \
@@ -126,7 +126,7 @@ def save_service_fingerprint_yaml(fingerprints: List[Fingerprint]):
                         filename = default
                     try:
                         with open(filename, 'w') as f:
-                            yaml.dump(fprint.get_output(), f, sort_keys=False)
+                            yaml.dump(fprint.get_output(), f, sort_keys=True)
                         break
                     except IOError:
                         print("Error: unable to open file")
@@ -145,7 +145,7 @@ def save_service_fingerprint_yaml(fingerprints: List[Fingerprint]):
                                 first = False
                             else:
                                 f.write("---\n")
-                            yaml.dump(fprint.get_output(), f, sort_keys=False)
+                            yaml.dump(fprint.get_output(), f, sort_keys=True)
                     break
                 except IOError:
                     print("Error: unable to open file")
@@ -160,7 +160,7 @@ def save_merged_fingerprint_yaml(fingerprint):
             filename = default
         try:
             with open(filename, 'w') as f:
-                yaml.dump(fingerprint, f, Dumper=MergeDumper, sort_keys=False)
+                yaml.dump(fingerprint, f, Dumper=MergeDumper, sort_keys=True)
             break
         except IOError:
             print("Error: unable to open file")
