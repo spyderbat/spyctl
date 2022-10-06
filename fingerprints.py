@@ -8,7 +8,13 @@ from simple_term_menu import TerminalMenu
 
 class Fingerprint():
     def __init__(self, fprint) -> None:
+        req_keys = ['spec', 'metadata', 'kind', 'apiVersion']
+        for key in req_keys:
+            if not key in fprint:
+                raise KeyError(key)
         self.fprint = fprint
+        if not 'name' in self.metadata:
+            raise KeyError('metadata.name')
         self.suppr_str = ""
         self.calc_lengths()
     
@@ -31,8 +37,7 @@ class Fingerprint():
         copy_fields = ['spec', 'metadata', 'kind', 'apiVersion']
         rv = dict()
         for key in copy_fields:
-            if key in self.fprint:
-                rv[key] = self.fprint[key]
+            rv[key] = self.fprint[key]
         return rv
     
     def set_num_suppressed(self, num: int):

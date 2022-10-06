@@ -285,24 +285,20 @@ class DownloadMenu():
             self.selected_fingerprints.append(self.loaded_fingerprints[index])
     
     def select_local(self):
-        files = input("Enter file paths, separated by commas: ").split(',')
-        if len(files) == 0:
-            return
-        files = [file.strip() for file in files]
-        local_fingerprints = []
-        errors = False
-        for file in files:
+        self.loaded_fingerprints = []
+        for file in os.listdir(os.path.dirname(__file__)):
+            if not file.endswith(".yml") or file.endswith(".yaml"):
+                continue
             try:
                 with open(file, "r") as f:
-                    local_fingerprints.append(yaml.load(f, yaml.Loader))
-            except OSError:
-                print("Failed to read file", file)
-                errors = True
-        if errors:
-            input()
-        self.selected_fingerprints += Fingerprint.prepare_many([
-            Fingerprint(fprint) for fprint in local_fingerprints
-        ])
+                    self.loaded_fingerprints.append(Fingerprint(yaml.load(f, yaml.Loader)))
+            except Exception:
+                continue
+        if len(self.loaded_fingerprints) == 0:
+            self.handle_invalid("No fingerprints in directory")
+            return
+        import pdb; pdb.set_trace()
+        self.select_fingerprints()
     
     def deselect_fingerprints(self):
         if len(self.selected_fingerprints) == 0:
