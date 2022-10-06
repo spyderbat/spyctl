@@ -289,16 +289,19 @@ class DownloadMenu():
         for file in os.listdir(os.path.dirname(__file__)):
             if not file.endswith(".yml") or file.endswith(".yaml"):
                 continue
-            try:
-                with open(file, "r") as f:
-                    self.loaded_fingerprints.append(Fingerprint(yaml.load(f, yaml.Loader)))
-            except Exception:
-                continue
+            self.load_file(file)
         if len(self.loaded_fingerprints) == 0:
             self.handle_invalid("No fingerprints in directory")
             return
-        import pdb; pdb.set_trace()
         self.select_fingerprints()
+    
+    def load_file(self, file):
+        try:
+            with open(file, "r") as f:
+                self.loaded_fingerprints.append(Fingerprint(yaml.load(f, yaml.Loader)))
+            return True
+        except Exception:
+            return False
     
     def deselect_fingerprints(self):
         if len(self.selected_fingerprints) == 0:
