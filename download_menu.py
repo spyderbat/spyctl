@@ -303,3 +303,35 @@ class DownloadMenu():
         self.selected_fingerprints += Fingerprint.prepare_many([
             Fingerprint(fprint) for fprint in local_fingerprints
         ])
+    
+    def deselect_fingerprints(self):
+        if len(self.selected_fingerprints) == 0:
+            self.handle_invalid("No fingerprints selected")
+            return
+        deselect_option = TerminalMenu(
+            ["[1] Deselect some", "[2] Deselect all"],
+            title="What fingerprint(s) would you like to deselect?",
+            clear_screen=True
+        ).show()
+        if deselect_option is None:
+            return
+        elif deselect_option == 1:
+            self.selected_fingerprints = []
+            return
+        fprint_strs = [f.preview_str(include_yaml=True) for f in self.selected_fingerprints]
+        index_tup = TerminalMenu(
+            fprint_strs,
+            title="Choose fingerprint(s) to deselect:",
+            preview_command="echo '{}'",
+            preview_size=0.5,
+            multi_select=True,
+            multi_select_select_on_accept=False,
+            clear_screen=True
+        ).show()
+        if index_tup is None or len(index_tup) == 0:
+            return
+        new_list = []
+        for i, fprint in enumerate(self.selected_fingerprints):
+            if i not in index_tup:
+                new_list.append(fprint)
+        self.selected_fingerprints = new_list

@@ -20,7 +20,7 @@ class ManagementMenu():
                 "[1] Download Service Fingerprints",
                 "[2] Download Container Fingerprints",
                 "[3] Load Local Fingerprints",
-                "[4] Unload Selected Fingerprints",
+                "[4] Deselect Fingerprints",
                 "[5] Compare Fingerprints",
                 "[6] Merge Fingerprints",
                 "[7] Save Fingerpints",
@@ -42,7 +42,7 @@ class ManagementMenu():
             elif index == 2:
                 self.download_menu.select_local()
             elif index == 3:
-                self.fingerprints = []
+                self.download_menu.deselect_fingerprints()
             elif index == 4:
                 self.compare_fingerprints()
             elif index == 5:
