@@ -74,7 +74,7 @@ def get_muids(api_url, api_key, org_uid, err_fn) -> Tuple:
 
 def get_fingerprints(
     api_url, api_key, org_uid, muid, start_time, end_time, err_fn):
-    print("Loading fingerprints...")
+    print("Loading fignerprints...")
     url = f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&" \
         f"st={int(start_time)}&et={int(end_time)}&dt=fingerprints"
     try:

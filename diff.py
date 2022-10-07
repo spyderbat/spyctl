@@ -114,7 +114,7 @@ def show_fingerprint_diff(fingerprints):
     merged = merge_fingerprints(fingerprints)
     tmpf = "/tmp/fprint_diff_merged"
     with open(tmpf, 'w') as f:
-        yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=True)
+        yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
     def id_str(fprint):
         meta = fprint['metadata']
         return f"{meta['name']}:{meta['muid']}:{meta['root']}"
@@ -132,7 +132,7 @@ def show_fingerprint_diff(fingerprints):
                 filename = default
             try:
                 with open(filename, 'w') as f:
-                    yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=True)
+                    yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
                 # feed it a len 7 list to make it use numbers not colors
                 format_appearances(filename, list(range(7)))
                 break

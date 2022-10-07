@@ -174,15 +174,17 @@ class DownloadMenu():
                               self.selected_org, self.handle_error)
         if muid_info is None:
             return
+        muids, hostnames = muid_info
+        mach_options = ["[1] Specific machine(s)", "[2] All machines"]
         index = TerminalMenu(
-            ["[1] Specific machine(s)", "[2] All machines"],
+            mach_options,
             title="Where would you like to download fingerprints from?",
             clear_screen=True
         ).show()
         if index is None:
             return
         if index == 0:
-            muid_selection_info = self.select_machine_subset(*muid_info)
+            muid_selection_info = self.select_machine_subset(muids, hostnames)
             if muid_selection_info is None:
                 return
             self.selected_muids, self.selected_machines = muid_selection_info
@@ -250,10 +252,9 @@ class DownloadMenu():
             return None
         selection = TIME_WINDOWS[index]
         if selection == "Other":
-            print("Enter time in minutes back from now:")
             try:
-                start_time = now - (60 * int(input("  Start time: ")))
-                end_time = now - (60 * int(input("  End time: ")))
+                start_time = now + (60 * int(input("Start time relative to now: ")))
+                end_time = now + (60 * int(input("End time relative to now: ")))
                 if start_time >= end_time:
                     self.handle_invalid("Start time must be before end time")
                     return None
