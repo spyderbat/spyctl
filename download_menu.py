@@ -291,6 +291,7 @@ class DownloadMenu():
             if not file.endswith(".yml") or file.endswith(".yaml"):
                 continue
             self.load_file(file)
+        self.loaded_fingerprints.sort(key=lambda f: f.preview_str())
         if len(self.loaded_fingerprints) == 0:
             self.handle_invalid("No fingerprints in directory")
             return

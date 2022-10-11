@@ -2,6 +2,7 @@ import ipaddress as ipaddr
 from typing import Dict, Generator, List, Optional, TypeVar, Union
 from typing_extensions import Self
 from os import path
+from simple_term_menu import TerminalMenu
 
 import yaml
 
@@ -11,6 +12,12 @@ def find(obj_list: List[T1], obj: T1) -> Optional[T1]:
     for candidate in obj_list:
         if candidate == obj:
             return candidate
+    return None
+
+
+def if_all_eq(list):
+    if list[1:] == list[:-1]:
+        return list[0]
     return None
 
 
@@ -279,6 +286,8 @@ def iter_prints(objs: List[T2]) -> Generator[T2, None, None]:
         yield obj
 
 
+spec_fns = {}
+
 def merge_subs(objs, key, ret):
     sub_list = None
     try:
@@ -287,58 +296,111 @@ def merge_subs(objs, key, ret):
         sub_list = [obj[key] for obj in objs]
     except KeyError:
         return
-    ret[key] = globals()[f"merge_{key}"](sub_list)
+    new = None
+    if key in spec_fns:
+        new = spec_fns[key](sub_list)
+    else:
+        new = globals()[f"merge_{key}"](sub_list)
+    if new is not None:
+        ret[key] = new
 
 
-def merge_fingerprints(fingerprints):
-    if len(fingerprints) == 0:
-        raise ValueError("Cannot merge 0 fingerprints")
-    new_obj = dict()
-    merge_subs(fingerprints, "spec", new_obj)
-    merge_subs(fingerprints, "metadata", new_obj)
-    return new_obj
+def wildcard_merge(key):
+    spec_fns[key] = make_wildcard
+
+def if_all_eq_merge(key):
+    spec_fns[key] = if_all_eq
 
 
-def merge_metadata(metadatas):
-    new_obj = dict()
-    merge_subs(metadatas, "name", new_obj)
-    merge_subs(metadatas, "type", new_obj)
-    return new_obj
+def dictionary_mod(fn):
+    def wrapper(obj_list):
+        ret = dict()
+        fn(obj_list, ret)
+        return ret
+    return wrapper
 
 
-def merge_name(names):
-    return names[0]
+@dictionary_mod
+def merge_fingerprints(fingerprints, ret):
+    if len(fingerprints) < 2:
+        raise ValueError("Not enough fingerprints selected to merge")
+    mergables = {}
+    for fprint in fingerprints:
+        typ = fprint['metadata']['type']
+        key = None
+        if typ == 'container':
+            image = fprint['spec']['containerSelector']['image']
+            key = f"Container: {image}"
+        elif typ == 'linux-service':
+            service = fprint['spec']['serviceSelector']['cgroup']
+            key = f"Service: {service}"
+        else:
+            continue
+        if key in mergables:
+            mergables[key].append(fprint)
+        else:
+            mergables[key] = [fprint]
+    choices = list(mergables.keys())
+    if len(choices) == 0:
+        raise ValueError("Not enough fingerprints selected to merge")
+    index = 0
+    if len(choices) > 1:
+        index = TerminalMenu(
+            choices,
+            title="Select a set of fingerprints to merge"
+        ).show()
+        if index is None:
+            return
+    fingerprints = mergables[choices[index]]
+    if len(fingerprints) < 2:
+        raise ValueError("Not enough fingerprints selected to merge")
+    merge_subs(fingerprints, "spec", ret)
+    merge_subs(fingerprints, "metadata", ret)
 
 
-def merge_type(types):
-    return types[0]
+@dictionary_mod
+def merge_metadata(metadatas, ret):
+    merge_subs(metadatas, "name", ret)
+    merge_subs(metadatas, "type", ret)
 
 
-def merge_spec(fingerprints):
-    new_obj = dict()
-    merge_subs(fingerprints, "serviceSelector", new_obj)
-    merge_subs(fingerprints, "machineSelector", new_obj)
-    merge_subs(fingerprints, "processPolicy", new_obj)
-    merge_subs(fingerprints, "networkPolicy", new_obj)
-    # metadata probably removed
-    return new_obj
+wildcard_merge("name")
+if_all_eq_merge("type")
 
 
-def merge_serviceSelector(selectors):
-    if selectors[:-1] != selectors[1:]:
-        # todo: handle better
-        raise ValueError("Services to be merged did not match")
-    return selectors[0]
+@dictionary_mod
+def merge_spec(fingerprints, ret):
+    merge_subs(fingerprints, "containerSelector", ret)
+    merge_subs(fingerprints, "serviceSelector", ret)
+    merge_subs(fingerprints, "machineSelector", ret)
+    merge_subs(fingerprints, "processPolicy", ret)
+    merge_subs(fingerprints, "networkPolicy", ret)
 
 
-def merge_machineSelector(selectors):
-    new_obj = dict()
-    merge_subs(selectors, 'hostname', new_obj)
-    return new_obj
+def merge_containerSelector(selectors):
+    ret = dict()
+    merge_subs(selectors, "containerName", ret)
+    merge_subs(selectors, "image", ret)
+    merge_subs(selectors, "imageID", ret)
+    if len(ret) == 3:
+        return ret
+    return None
 
 
-def merge_hostname(hostnames: List[str]):
-    return make_wildcard(hostnames)
+wildcard_merge("containerName")
+if_all_eq_merge("image")
+if_all_eq_merge("imageID")
+
+
+if_all_eq_merge("serviceSelector")
+
+
+@dictionary_mod
+def merge_machineSelector(selectors, ret):
+    merge_subs(selectors, "hostname", ret)
+
+
+wildcard_merge("hostname")
 
 
 def merge_processPolicy(profiles):
@@ -358,11 +420,10 @@ def merge_processPolicy(profiles):
     return ret
 
 
-def merge_networkPolicy(profiles):
-    new_obj = dict()
-    merge_subs(profiles, "ingress", new_obj)
-    merge_subs(profiles, "egress", new_obj)
-    return new_obj
+@dictionary_mod
+def merge_networkPolicy(profiles, ret):
+    merge_subs(profiles, "ingress", ret)
+    merge_subs(profiles, "egress", ret)
 
 
 def merge_ingress(conns: List[List[Dict]]):

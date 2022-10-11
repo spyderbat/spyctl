@@ -77,7 +77,13 @@ class ManagementMenu():
             self.handle_invalid("No fingerprints selected to merge")
             return
         out_prints = [f.get_output() for f in self.fingerprints]
-        save_merged_fingerprint_yaml(merge_fingerprints(out_prints))
+        try:
+            merged = merge_fingerprints(out_prints)
+            if len(merged) == 0:
+                return
+            save_merged_fingerprint_yaml(merged)
+        except ValueError as err:
+            self.handle_invalid(*err.args)
 
     def save_fingerprints(self):
         if len(self.fingerprints) == 0:
