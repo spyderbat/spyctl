@@ -171,7 +171,7 @@ class DownloadMenu():
             self.handle_invalid("No organization selected")
             return
         muid_info = get_muids(self.api_url, self.api_key,
-                              self.selected_org, self.handle_error)
+                              self.selected_org, time.time(), self.handle_error)
         if muid_info is None:
             return
         muids, hostnames = muid_info

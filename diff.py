@@ -68,10 +68,8 @@ def update_max(tup_list, new_tup):
         tup_list.append(new_tup)
 
 
-def format_appearances(file, inputs):
-    lines = None
-    with open(file, 'r') as f:
-        lines = f.readlines()
+def format_appearances(string, inputs):
+    lines = string.split('\n')
     pre_spaces = len(inputs)
     use_count = pre_spaces > 6
     if use_count:
@@ -80,8 +78,8 @@ def format_appearances(file, inputs):
     if not use_count:
         for i, inp in enumerate(inputs):
             indicator = col_prefix_front(pre_spaces, [i])
-            ret_lines.append(indicator + inp + '\n')
-        ret_lines.append(('-' * pre_spaces) + '----\n')
+            ret_lines.append(indicator + inp)
+        ret_lines.append(('-' * pre_spaces) + '----')
     indent_appears = [(-1, [])]
     dash_next = False
     prev_count = 0
@@ -105,24 +103,28 @@ def format_appearances(file, inputs):
             else:
                 prefix = col_prefix_align(pre_spaces, appears)
                 ret_lines.append(prefix + line)
-    with open(file, 'w') as f:
-        f.writelines(ret_lines)
+    return '\n'.join(ret_lines) + '\n'
 
 
-@catch_interrupt
 def show_fingerprint_diff(fingerprints):
     merged = merge_fingerprints(fingerprints)
-    tmpf = "/tmp/fprint_diff_merged"
-    with open(tmpf, 'w') as f:
-        yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
+    string = yaml.dump(merged, Dumper=DiffDumper, sort_keys=False)
     def id_str(fprint):
         meta = fprint['metadata']
         return f"{meta['name']}:{meta['muid']}:{meta['root']}"
-    format_appearances(tmpf, [id_str(fprint) for fprint in fingerprints])
+    string = format_appearances(string, [id_str(fprint) for fprint in fingerprints])
     less_proc = subprocess.Popen(
-        ['less', '-R', '-S', '-X', '-K', tmpf],
-        stdout=sys.stdout)
+        ['less', '-R', '-S', '-X', '-K'],
+        stdin=subprocess.PIPE, stdout=sys.stdout
+    )
+    less_proc.communicate(string.encode('utf-8'))
     less_proc.wait()
+
+
+@catch_interrupt
+def save_fingerprint_diff(fingerprints):
+    merged = merge_fingerprints(fingerprints)
+    show_fingerprint_diff(fingerprints)
     subprocess.call("clear")
     if dialog("Save comparison for viewing?"):
         while(True):
@@ -131,10 +133,11 @@ def show_fingerprint_diff(fingerprints):
             if filename is None or filename == '':
                 filename = default
             try:
-                with open(filename, 'w') as f:
-                    yaml.dump(merged, f, Dumper=DiffDumper, sort_keys=False)
+                string = yaml.dump(merged, Dumper=DiffDumper, sort_keys=False)
                 # feed it a len 7 list to make it use numbers not colors
-                format_appearances(filename, list(range(7)))
+                string = format_appearances(string, list(range(7)))
+                with open(filename, 'w') as f:
+                    f.write(string)
                 break
             except IOError:
                 print("Error: unable to open file")

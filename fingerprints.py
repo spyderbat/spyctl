@@ -34,7 +34,7 @@ class Fingerprint():
             (f"|{fprint_yaml}" if include_yaml else "")
     
     def get_output(self):
-        copy_fields = ['spec', 'metadata', 'kind', 'apiVersion']
+        copy_fields = ['apiVersion', 'kind', 'spec', 'metadata']
         rv = dict()
         for key in copy_fields:
             rv[key] = self.fprint[key]
@@ -91,6 +91,33 @@ class Fingerprint():
         return rv
 
 
+
+def fingerprint_input(args):
+    from cli import err_exit, read_stdin
+    fingerprints = []
+    def load_fprint(string):
+        try:
+            obj = yaml.load(string, yaml.Loader)
+            if isinstance(obj, list):
+                for o in obj:
+                    fingerprints.append(Fingerprint(o))
+            else:
+                fingerprints.append(Fingerprint(obj))
+        except yaml.YAMLError:
+            err_exit("invalid yaml input")
+        except KeyError as err:
+            key, = err.args
+            err_exit(f"fingerprint was missing key '{key}'")
+    if len(args.files) == 0:
+        inp = read_stdin()
+        load_fprint(inp)
+    else:
+        for file in args.files:
+            load_fprint(file.read())
+    return fingerprints
+    # return Fingerprint.prepare_many(fingerprints)
+
+
 def dialog(title):
     index = TerminalMenu(
         ['[y] Yes', '[n] No'],
@@ -109,7 +136,7 @@ def catch_interrupt(func):
 
 
 @catch_interrupt
-def save_service_fingerprint_yaml(fingerprints: List[Fingerprint]):
+def save_fingerprint_yaml(fingerprints: List[Fingerprint]):
     save_options = [
         "[1] Save individual file(s) (for editing & uploading)",
         "[2] Save in one file (for viewing)",
@@ -131,7 +158,7 @@ def save_service_fingerprint_yaml(fingerprints: List[Fingerprint]):
                         filename = default
                     try:
                         with open(filename, 'w') as f:
-                            yaml.dump(fprint.get_output(), f, sort_keys=False)
+                            yaml.dump(fprint.get_output(), f, sort_keys=True)
                         break
                     except IOError:
                         print("Error: unable to open file")
@@ -150,7 +177,7 @@ def save_service_fingerprint_yaml(fingerprints: List[Fingerprint]):
                                 first = False
                             else:
                                 f.write("---\n")
-                            yaml.dump(fprint.get_output(), f, sort_keys=False)
+                            yaml.dump(fprint.get_output(), f, sort_keys=True)
                     break
                 except IOError:
                     print("Error: unable to open file")
@@ -165,7 +192,7 @@ def save_merged_fingerprint_yaml(fingerprint):
             filename = default
         try:
             with open(filename, 'w') as f:
-                yaml.dump(fingerprint, f, Dumper=MergeDumper, sort_keys=False)
+                yaml.dump(fingerprint, f, Dumper=MergeDumper, sort_keys=True)
             break
         except IOError:
             print("Error: unable to open file")

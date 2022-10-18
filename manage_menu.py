@@ -2,7 +2,7 @@ from simple_term_menu import TerminalMenu
 
 from fingerprints import *
 from merge import merge_fingerprints
-from diff import show_fingerprint_diff
+from diff import save_fingerprint_diff
 from download_menu import DownloadMenu
 
 class ManagementMenu():
@@ -68,7 +68,7 @@ class ManagementMenu():
             return
         try:
             out_prints = [f.get_output() for f in self.fingerprints]
-            show_fingerprint_diff(out_prints)
+            save_fingerprint_diff(out_prints)
         except IOError:
             self.handle_invalid("Error saving temporary file")
     
@@ -89,7 +89,7 @@ class ManagementMenu():
         if len(self.fingerprints) == 0:
             self.handle_invalid("No fingerprints selected to save")
             return
-        save_service_fingerprint_yaml(self.fingerprints)
+        save_fingerprint_yaml(self.fingerprints)
     
     def template_policy(self):
         self.handle_invalid("Feature coming soon...")

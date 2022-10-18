@@ -371,6 +371,8 @@ if_all_eq_merge("type")
 @dictionary_mod
 def merge_spec(fingerprints, ret):
     merge_subs(fingerprints, "containerSelector", ret)
+    merge_subs(fingerprints, "podSelector", ret)
+    merge_subs(fingerprints, "namespaceSelector", ret)
     merge_subs(fingerprints, "serviceSelector", ret)
     merge_subs(fingerprints, "machineSelector", ret)
     merge_subs(fingerprints, "processPolicy", ret)
@@ -390,6 +392,30 @@ def merge_containerSelector(selectors):
 wildcard_merge("containerName")
 if_all_eq_merge("image")
 if_all_eq_merge("imageID")
+
+
+@dictionary_mod
+def merge_podSelector(selectors, ret):
+    merge_subs(selectors, "matchLabels", ret)
+
+
+@dictionary_mod
+def merge_namespaceSelector(selectors, ret):
+    merge_subs(selectors, "matchLabels", ret)
+
+
+@dictionary_mod
+def merge_matchLabels(labels, ret):
+    merge_subs(labels, "controller-revision-hash", ret)
+    merge_subs(labels, "k8s-app", ret)
+    merge_subs(labels, "pod-template-generation", ret)
+    merge_subs(labels, "kubernetes.io/metadata.name", ret)
+
+
+if_all_eq_merge("controller-revision-hash")
+wildcard_merge("k8s-app")
+if_all_eq_merge("pod-template-generation")
+wildcard_merge("kubernetes.io/metadata.name")
 
 
 if_all_eq_merge("serviceSelector")
