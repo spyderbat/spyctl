@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 from genericpath import exists
 from args import parse_args, get_names
 from cli import *
