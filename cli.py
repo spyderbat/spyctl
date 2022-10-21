@@ -130,7 +130,7 @@ def read_config():
     try:
         with open(CONFIG_PATH, 'r') as f:
             doc = yaml.load(f, yaml.Loader)
-            dplymt = doc['deployment']
+            dplymt = doc.get("deployment", "default")
             return doc[dplymt]['api_url'], \
                 doc[dplymt]['api_key'], \
                 doc[dplymt]['org_uid']
