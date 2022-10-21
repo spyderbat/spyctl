@@ -37,7 +37,7 @@ def handle_configure(args):
     if args.api_key:
         sub["api_key"] = args.api_key
     if args.api_url:
-        sub["api_url"] = args.api_url
+        sub["api_url"] = args.api_url.strip('/')
     if args.org:
         if not sub.get("api_key") or not sub.get("api_url"):
             err_exit("cannot set organization without API key and url")
