@@ -4,7 +4,7 @@ import yaml
 
 class Fingerprint():
     def __init__(self, fprint) -> None:
-        req_keys = ['spec', 'metadata', 'kind', 'apiVersion']
+        req_keys = ['apiVersion', 'kind', 'spec', 'metadata']
         for key in req_keys:
             if not key in fprint:
                 raise KeyError(key)
@@ -13,6 +13,10 @@ class Fingerprint():
             raise KeyError('metadata.name')
         self.suppr_str = ""
         self.calc_lengths()
+        to_metadata = ['time', 'valid_from', 'valid_to']
+        for key in to_metadata:
+            if key in self.fprint:
+                self.metadata[key] = self.fprint[key]
     
     @property
     def metadata(self):

@@ -146,7 +146,7 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
 
 def get_fingerprints(api_url, api_key, org_uid, muid, time, err_fn):
     url = f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&" \
-        f"st={time[0]}&et={time[1]}&dt=fingerprints"
+        f"st={time[0]}&et={time[1] + 60*60}&dt=fingerprints"
     try:
         fingerprints = []
         resp = get(url, api_key)

@@ -9,6 +9,16 @@ from api import *
 CONFIG_PATH = "./config.yml"
 
 
+def try_log(*args, **kwargs):
+    try:
+        print(*args, **kwargs, file=sys.stderr)
+        sys.stderr.flush()
+    except BrokenPipeError:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stderr.fileno())
+        sys.exit(1)
+
+
 def try_print(*args, **kwargs):
     try:
         print(*args, **kwargs)

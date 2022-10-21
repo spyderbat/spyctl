@@ -185,18 +185,22 @@ def handle_get_fingerprints(args):
     fingerprints = []
     for muid in muids:
         tmp_fprints = get_fingerprints(*read_config(), muid, time_input(args), api_err_exit)
-        if tmp_fprints is None:
-            err_exit("no fingerprints found")
+        if len(tmp_fprints) == 0:
+            try_log("found no fingerprints for", muid)
         fingerprints += [Fingerprint(f) for f in tmp_fprints if args.type in f['metadata']['type']]
     fingerprints = [f.get_output() for f in Fingerprint.prepare_many(fingerprints)]
-    if pods is not None:
+    if pods is not None and args.type == 'container':
+        found_pods = set()
         def in_pods(fprint):
             container = fprint['spec']['containerSelector']['containerName']
             for pod in pods:
                 if pod in container:
+                    found_pods.add(pod)
                     return True
             return False
         fingerprints = list(filter(in_pods, fingerprints))
+        for pod in sorted(set(pods) - found_pods):
+            try_log("no fingerprints found for pod", pod)
     show(fingerprints, args)
 
 def handle_get_policies(args):
