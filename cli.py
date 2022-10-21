@@ -145,4 +145,4 @@ def read_config():
                 doc[dplymt]['api_key'], \
                 doc[dplymt]['org_uid']
     except (KeyError, OSError):
-        err_exit("config was missing API information. use 'prints configure' to add or update it")
+        err_exit("config was missing API information. use 'spyctl configure' to add or update it")

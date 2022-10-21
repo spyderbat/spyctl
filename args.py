@@ -112,9 +112,9 @@ def add_time_arg(parser):
 def parse_args():
     desc = "a tool to help manage Spyderbat fingerprints and policies"
     epilog = "object inputs can be given as file names, text, or piped\n" \
-        "ex: prints get fingerprints --pods file_with_pods.txt\n" \
-        "    prints get fingerprints --pods my-pod-fsd23\n" \
-        "    prints get pods --namespace default | prints get fingerprints --pods\n\n" \
+        "ex: spyctl get fingerprints --pods file_with_pods.txt\n" \
+        "    spyctl get fingerprints --pods my-pod-fsd23\n" \
+        "    spyctl get pods --namespace default | spyctl get fingerprints --pods\n\n" \
         "time inputs are by default minutes back, but other formats can be specified\n" \
         "ex: -t 15: 15 minutes ago\n" \
         "    -t 2h: 2 hours ago\n" \
