@@ -1,10 +1,6 @@
 from typing import Dict, List
 import yaml
 
-from merge import MergeDumper
-
-from simple_term_menu import TerminalMenu
-
 
 class Fingerprint():
     def __init__(self, fprint) -> None:
@@ -116,91 +112,3 @@ def fingerprint_input(args):
             load_fprint(file.read())
     return fingerprints
     # return Fingerprint.prepare_many(fingerprints)
-
-
-def dialog(title):
-    index = TerminalMenu(
-        ['[y] Yes', '[n] No'],
-        title=title
-    ).show()
-    return index == 0
-
-
-def catch_interrupt(func):
-    def wrapper(*args, **kwargs):
-        try:
-            func(*args, **kwargs)
-        except KeyboardInterrupt:
-            pass
-    return wrapper
-
-
-@catch_interrupt
-def save_fingerprint_yaml(fingerprints: List[Fingerprint]):
-    save_options = [
-        "[1] Save individual file(s) (for editing & uploading)",
-        "[2] Save in one file (for viewing)",
-        "[3] Back"
-    ]
-    index = TerminalMenu(
-        save_options,
-        title="Select an option:"
-    ).show() if len(fingerprints) > 1 else 0
-    if index is None or index == 2:
-        return
-    if index == 0:
-        for fprint in fingerprints:
-            if dialog(f"Save fingerprint for {fprint.metadata['name']}?"):
-                while True:
-                    default = f"{fprint.metadata['name']}.yml"
-                    filename = input(f"Output filename [{default}]: ")
-                    if filename is None or filename == '':
-                        filename = default
-                    try:
-                        with open(filename, 'w') as f:
-                            yaml.dump(fprint.get_output(), f, sort_keys=True)
-                        break
-                    except IOError:
-                        print("Error: unable to open file")
-    elif index == 1:
-        if dialog("Save all selected fingerprints in one file?"):
-            while True:
-                default = "multi-fingerprints.yml"
-                filename = input(f"Output filename [{default}]: ")
-                if filename is None or filename == '':
-                    filename = default
-                try:
-                    with open(filename, 'w') as f:
-                        first = True
-                        for fprint in fingerprints:
-                            if first:
-                                first = False
-                            else:
-                                f.write("---\n")
-                            yaml.dump(fprint.get_output(), f, sort_keys=True)
-                    break
-                except IOError:
-                    print("Error: unable to open file")
-
-
-@catch_interrupt
-def save_merged_fingerprint_yaml(fingerprint):
-    while True:
-        default = f"{fingerprint['metadata']['name']}.yml"
-        filename = input(f"Output filename [{default}]: ")
-        if filename is None or filename == '':
-            filename = default
-        try:
-            with open(filename, 'w') as f:
-                yaml.dump(fingerprint, f, Dumper=MergeDumper, sort_keys=True)
-            break
-        except IOError:
-            print("Error: unable to open file")
-
-
-def preview_selection(fingerprints: List[Fingerprint]):
-    start = "-------\n"
-    if len(fingerprints) == 0:
-        return start + "No fingerprints selected"
-    return start + "Selected fingerprints:\n - " + \
-        "\n - ".join([f.preview_str() for f in fingerprints])

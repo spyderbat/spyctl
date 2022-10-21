@@ -15,12 +15,6 @@ def find(obj_list: List[T1], obj: T1) -> Optional[T1]:
     return None
 
 
-def if_all_eq(list):
-    if list[1:] == list[:-1]:
-        return list[0]
-    return None
-
-
 def make_wildcard(strs: List[str]):
     if len(strs) == 1:
         return strs[0]
@@ -34,6 +28,48 @@ def make_wildcard(strs: List[str]):
         if len(name) != comp:
             return ret + '*'
     return ret
+
+
+class IfAllEqList():
+    def __init__(self):
+        self.objs = []
+        self.prints = []
+    
+    def add_obj(self, obj):
+        if obj not in self.objs:
+            self.objs.append(obj)
+            self.prints.append(f'!Appearances:{current_fingerprint}')
+        else:
+            idx = self.objs.index(obj)
+            self.prints[idx] += f',{current_fingerprint}'
+    
+    def get_for_merge(self):
+        if self.objs[1:] == self.objs[:-1]:
+            return self.objs[0]
+        return "Could not merge"
+    
+    def get_for_diff(self):
+        return self.objs, self.prints
+
+
+class WildcardList():
+    def __init__(self):
+        self.strs = []
+        self.prints = []
+    
+    def add_str(self, string: str):
+        if string not in self.strs:
+            self.strs.append(string)
+            self.prints.append(f'!Appearances:{current_fingerprint}')
+        else:
+            idx = self.strs.index(string)
+            self.prints[idx] += f',{current_fingerprint}'
+    
+    def get_for_merge(self):
+        return make_wildcard(self.strs)
+    
+    def get_for_diff(self):
+        return self.strs, self.prints
 
 
 class ProcessID():
@@ -253,16 +289,36 @@ class ConnectionNode():
 
 
 class DiffDumper(yaml.Dumper):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_representer(ProcessNode, self.class_representer)
         self.add_representer(ConnectionNode, self.class_representer)
         self.add_representer(ConnectionBlock, self.class_representer)
+        self.add_representer(IfAllEqList, self.list_representer)
+        self.add_representer(WildcardList, self.list_representer)
+        self.add_representer(DiffDumper.ListItem, self.list_item_representer)
+    
+    class ListItem():
+        def __init__(self, tag, data):
+            self.tag = tag
+            self.data = data
     
     @staticmethod
-    def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode]):
+    def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode, ConnectionBlock]):
         tag = f"!Appearances:{','.join([str(i) for i in data.appearances])}"
         return dumper.represent_mapping(tag, data.node)
+    
+    @staticmethod
+    def list_representer(dumper: yaml.Dumper, data: Union[IfAllEqList, WildcardList]):
+        objs, appearances = data.get_for_diff()
+        seq = []
+        for obj, appear in zip(objs, appearances):
+            seq.append(DiffDumper.ListItem(appear, obj))
+        return dumper.represent_data(seq)
+    
+    @staticmethod
+    def list_item_representer(dumper: yaml.Dumper, data):
+        return dumper.represent_scalar(data.tag, data.data)
 
 class MergeDumper(yaml.Dumper):
     def __init__(self, *args, **kwargs) -> None:
@@ -270,10 +326,17 @@ class MergeDumper(yaml.Dumper):
         self.add_representer(ProcessNode, self.class_representer)
         self.add_representer(ConnectionNode, self.class_representer)
         self.add_representer(ConnectionBlock, self.class_representer)
+        self.add_representer(IfAllEqList, self.list_representer)
+        self.add_representer(WildcardList, self.list_representer)
     
     @staticmethod
-    def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode]):
+    def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode, ConnectionBlock]):
         return dumper.represent_dict(data.node)
+    
+    @staticmethod
+    def list_representer(dumper: yaml.Dumper, data: Union[IfAllEqList, WildcardList]):
+        obj = data.get_for_merge()
+        return dumper.represent_data(obj)
 
 
 current_fingerprint = 0
@@ -306,10 +369,20 @@ def merge_subs(objs, key, ret):
 
 
 def wildcard_merge(key):
-    spec_fns[key] = make_wildcard
+    def do_wildcard(strs: List[str]):
+        ret = WildcardList()
+        for string in iter_prints(strs):
+            ret.add_str(string)
+        return ret
+    spec_fns[key] = do_wildcard
 
 def if_all_eq_merge(key):
-    spec_fns[key] = if_all_eq
+    def do_if_all_eq(objs: list):
+        ret = IfAllEqList()
+        for obj in iter_prints(objs):
+            ret.add_obj(obj)
+        return ret
+    spec_fns[key] = do_if_all_eq
 
 
 def dictionary_mod(fn):
@@ -322,36 +395,36 @@ def dictionary_mod(fn):
 
 @dictionary_mod
 def merge_fingerprints(fingerprints, ret):
-    if len(fingerprints) < 2:
-        raise ValueError("Not enough fingerprints selected to merge")
-    mergables = {}
-    for fprint in fingerprints:
-        typ = fprint['metadata']['type']
-        key = None
-        if typ == 'container':
-            image = fprint['spec']['containerSelector']['image']
-            key = f"Container: {image}"
-        elif typ == 'linux-service':
-            service = fprint['spec']['serviceSelector']['cgroup']
-            key = f"Service: {service}"
-        else:
-            continue
-        if key in mergables:
-            mergables[key].append(fprint)
-        else:
-            mergables[key] = [fprint]
-    choices = list(mergables.keys())
-    if len(choices) == 0:
-        raise ValueError("Not enough fingerprints selected to merge")
-    index = 0
-    if len(choices) > 1:
-        index = TerminalMenu(
-            choices,
-            title="Select a set of fingerprints to merge"
-        ).show()
-        if index is None:
-            return
-    fingerprints = mergables[choices[index]]
+    # if len(fingerprints) < 2:
+    #     raise ValueError("Not enough fingerprints selected to merge")
+    # mergables = {}
+    # for fprint in fingerprints:
+    #     typ = fprint['metadata']['type']
+    #     key = None
+    #     if typ == 'container':
+    #         image = fprint['spec']['containerSelector']['image']
+    #         key = f"Container: {image}"
+    #     elif typ == 'linux-service':
+    #         service = fprint['spec']['serviceSelector']['cgroup']
+    #         key = f"Service: {service}"
+    #     else:
+    #         continue
+    #     if key in mergables:
+    #         mergables[key].append(fprint)
+    #     else:
+    #         mergables[key] = [fprint]
+    # choices = list(mergables.keys())
+    # if len(choices) == 0:
+    #     raise ValueError("Not enough fingerprints selected to merge")
+    # index = 0
+    # if len(choices) > 1:
+    #     index = TerminalMenu(
+    #         choices,
+    #         title="Select a set of fingerprints to merge"
+    #     ).show()
+    #     if index is None:
+    #         return
+    # fingerprints = mergables[choices[index]]
     if len(fingerprints) < 2:
         raise ValueError("Not enough fingerprints selected to merge")
     merge_subs(fingerprints, "spec", ret)

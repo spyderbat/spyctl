@@ -1,10 +1,9 @@
 from __future__ import annotations
 from argparse import *
 from argparse import _SubParsersAction
-import sys
+from datetime import datetime
 import time
-
-from traitlets import default
+import dateutil.parser as dateparser
 
 
 class CustomHelpFormatter(RawDescriptionHelpFormatter):
@@ -60,10 +59,32 @@ class CustomHelpFormatter(RawDescriptionHelpFormatter):
 fmt = lambda prog: CustomHelpFormatter(prog)
 
 
-def minutes_back(time_str):
-    if int(time_str) < 0:
+def time_inp(time_str):
+    past_seconds = 0
+    try:
+        try:
+            past_seconds = int(time_str) * 60
+        except ValueError:
+            last_char = time_str[-1:]
+            if last_char == 's':
+                past_seconds = int(time_str[:-1])
+            elif last_char == 'm':
+                past_seconds = int(time_str[:-1]) * 60
+            elif last_char == 'h':
+                past_seconds = int(time_str[:-1]) * 60 * 60
+            elif last_char == 'd':
+                past_seconds = int(time_str[:-1]) * 60 * 60 * 24
+            elif last_char == 'w':
+                past_seconds = int(time_str[:-1]) * 60 * 60 * 24 * 7
+            else:
+                date = dateparser.parse(time_str)
+                diff = datetime.now() - date
+                past_seconds = diff.total_seconds()
+    except (ValueError, dateparser.ParserError):
+        raise ValueError("invalid time input (see global help menu)") from None
+    if past_seconds < 0:
         raise ValueError("time must be in the past")
-    return time.time() - int(time_str) * 60
+    return int(time.time() - past_seconds)
 
 
 command_names = {}
@@ -80,9 +101,12 @@ def get_names(command):
 
 def add_output_arg(parser):
     parser.add_argument('-o', '--output', choices=['json', 'yaml'], default='yaml')
+    parser.add_argument('-f', '--filter', help="filter output objects by string")
 
 def add_time_arg(parser):
-    parser.add_argument('-t', '--time', help="minutes back from now to collect data from", type=minutes_back, default="0")
+    times = parser.add_mutually_exclusive_group()
+    times.add_argument('-t', '--time', help="collect data at this time", type=time_inp)
+    times.add_argument('-w', '--within', help="collect data from this time until now", metavar="TIME", type=time_inp)
 
 
 def parse_args():
@@ -90,7 +114,15 @@ def parse_args():
     epilog = "object inputs can be given as file names, text, or piped\n" \
         "ex: prints get fingerprints --pods file_with_pods.txt\n" \
         "    prints get fingerprints --pods my-pod-fsd23\n" \
-        "    prints get pods --namespace default | prints get fingerprints --pods"
+        "    prints get pods --namespace default | prints get fingerprints --pods\n\n" \
+        "time inputs are by default minutes back, but other formats can be specified\n" \
+        "ex: -t 15: 15 minutes ago\n" \
+        "    -t 2h: 2 hours ago\n" \
+        "    -t 15:30: 3:30 PM today\n" \
+        "    -t 01-01-2022: Jan 1. 2022 (12:00 AM)\n\n" \
+        "as grep works poorly with multiline objects, outputs can be filtered with --filter\n" \
+        "ex: -f \"kube\": matches any object with a value containing \"kube\"\n" \
+        "    -f \"name=aws-*\": matches any object with a name field starting with \"aws-\""
     parser = ArgumentParser(description=desc, epilog=epilog, formatter_class=fmt)
     parser.add_argument('-v', '--no-validation', action='store_true', help="disables validation, reducing API calls. disallows object names as inputs")
     subs = parser.add_subparsers(title="subcommands", dest="subcommand", required=True)
@@ -160,8 +192,7 @@ def make_get_fingerprint(get_subs: _SubParsersAction[ArgumentParser]):
     selector_group.add_argument('-c', '--clusters', nargs='?', const='-')
     selector_group.add_argument('-m', '--machines', nargs='?', const='-')
     selector_group.add_argument('-p', '--pods', nargs='?', const='-')
-    get_fingerprint.add_argument('-t', '--time', help="minutes back from now to collect fingerprints from after", type=minutes_back, required=True)
-    get_fingerprint.add_argument('--end-time', help="minutes back from now to stop collecting fingerprints (default=0)", type=minutes_back, default="0")
+    add_time_arg(get_fingerprint)
     add_output_arg(get_fingerprint)
 
 def make_get_policy(get_subs: _SubParsersAction[ArgumentParser]):
@@ -172,8 +203,7 @@ def make_get_policy(get_subs: _SubParsersAction[ArgumentParser]):
     selector_group.add_argument('-c', '--clusters', nargs='?', const='-')
     selector_group.add_argument('-m', '--machines', nargs='?', const='-')
     selector_group.add_argument('-p', '--pods', nargs='?', const='-')
-    get_policy.add_argument('-t', '--time', help="minutes back from now to collect policies from after", type=minutes_back, required=True)
-    get_policy.add_argument('--end-time', help="minutes back from now to stop collecting policies (default=0)", type=minutes_back, default="0")
+    add_time_arg(get_policy)
     add_output_arg(get_policy)
 
 

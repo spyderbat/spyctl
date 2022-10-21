@@ -1,5 +1,6 @@
 from genericpath import exists
-import os, sys, subprocess
+import os, sys
+import time
 from typing import List
 import yaml, json
 from api import *
@@ -18,10 +19,49 @@ def try_print(*args, **kwargs):
         sys.exit(1)
 
 
-def show(obj, output):
-    if output == "yaml":
+def contains(obj, args):
+    filt_str = args.filter.split('=')
+    key_str = None
+    if len(filt_str) > 1:
+        key_str = filt_str[0]
+    val_str = filt_str[-1]
+    if isinstance(obj, dict):
+        # returns false if it doesn't have the key
+        for key, val in obj.items():
+            if key_str is not None and key_str != key:
+                continue
+            if val_str in val:
+                return True
+        return False
+    return True
+
+
+def try_filter(obj, args):
+    if isinstance(obj, dict):
+        remove = []
+        for key, val in obj.items():
+            try_filter(val, args)
+            if len(val) == 0:
+                remove.append(key)
+        for key in remove:
+            del obj[key]
+    elif isinstance(obj, list):
+        remove = []
+        for i, item in enumerate(obj):
+            if not contains(item, args):
+                remove.append(i)
+        removed = 0
+        for i in remove:
+            del obj[i - removed]
+            removed += 1
+
+
+def show(obj, args):
+    if args.filter:
+        try_filter(obj, args)
+    if args.output == "yaml":
         try_print(yaml.dump(obj, sort_keys=False), end="")
-    elif output == "json":
+    elif args.output == "json":
         try_print(json.dumps(obj, sort_keys=False, indent=2))
         # try_print(json.dumps(obj, sort_keys=False))
 
@@ -64,6 +104,14 @@ def handle_list(list_string: str, obj_to_str=None) -> List[str]:
         return objs
     except Exception:
         return [s.strip().strip('"') for s in list_string.split(",")]
+
+
+def time_input(args):
+    if args.within:
+        return args.within, int(time.time())
+    else:
+        t = args.time if args.time else time.time()
+        return t - 30 * 60, t
 
 
 def err_exit(message: str):

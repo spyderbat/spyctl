@@ -35,7 +35,7 @@ def machines_input(args):
         else:
             err_exit("machine object was missing 'muid'")
     names_or_uids = handle_list(inp, get_muid)
-    muids, names = get_muids(*read_config(), args.time, api_err_exit)
+    muids, names = get_muids(*read_config(), time_input(args), api_err_exit)
     machs = []
     for string in names_or_uids:
         found = False
@@ -69,7 +69,7 @@ def pods_input(args):
     pods = []
     all_pods = ([], [], [])
     for clus_uid in clus_uids:
-        pod_dict = get_clust_pods(*read_config(), clus_uid, args.time, api_err_exit)
+        pod_dict = get_clust_pods(*read_config(), clus_uid, time_input(args), api_err_exit)
         for list_tup in pod_dict.values():
             for i in range(len(all_pods)):
                 all_pods[i].extend(list_tup[i])
@@ -101,30 +101,30 @@ def handle_get_clusters(args):
     clusters = []
     for name, uid in sorted(zip(names, uids)):
         clusters.append({'name': name, 'uid': uid})
-    show(clusters, args.output)
+    show(clusters, args)
 
 def handle_get_namespaces(args):
     namespaces = {}
     for cluster in clusters_input(args):
-        ns = get_clust_namespaces(*read_config(), cluster['uid'], args.time, api_err_exit)
+        ns = get_clust_namespaces(*read_config(), cluster['uid'], time_input(args), api_err_exit)
         namespaces[cluster['name']] = ns
-    show(namespaces, args.output)
+    show(namespaces, args)
 
 def handle_get_machines(args):
     if args.clusters:
         machines = {}
         for cluster in clusters_input(args):
-            names, muids = get_clust_muids(*read_config(), cluster['uid'], args.time, api_err_exit)
+            names, muids = get_clust_muids(*read_config(), cluster['uid'], time_input(args), api_err_exit)
             machines[cluster['name']] = []
             for name, muid in sorted(zip(names, muids)):
                 machines[cluster['name']].append({"name": name, "muid": muid})
-        show(machines, args.output)
+        show(machines, args)
     else:
         machines = []
-        muids, names = get_muids(*read_config(), args.time, api_err_exit)
+        muids, names = get_muids(*read_config(), time_input(args), api_err_exit)
         for name, muid in sorted(zip(names, muids)):
             machines.append({"name": name, "muid": muid})
-        show(machines, args.output)
+        show(machines, args)
 
 def handle_get_pods(args):
     clusters = []
@@ -144,7 +144,7 @@ def handle_get_pods(args):
     pods = {}
     for cluster in clusters:
         pods[cluster['name']] = {}
-        pod_dict = get_clust_pods(*read_config(), cluster['uid'], args.time, api_err_exit)
+        pod_dict = get_clust_pods(*read_config(), cluster['uid'], time_input(args), api_err_exit)
         for ns in pod_dict:
             if namespaces is not None:
                 if ns not in namespaces:
@@ -161,21 +161,17 @@ def handle_get_pods(args):
                 })
             if len(new_pods) > 0:
                 pods[cluster['name']][ns] = new_pods
-    show(pods, args.output)
+    show(pods, args)
 
 def handle_get_fingerprints(args):
     if args.type == 'service' and args.pods:
         print("Warning: pods specified for service fingerprints, will get all service"
             " fingerprints from the machines corresponding to the specified pods")
-    start_time = args.time
-    end_time = args.end_time
-    if start_time >= end_time:
-        err_exit("time must be before end time")
     muids = []
     pods = None
     if args.clusters:
         for cluster in clusters_input(args):
-            _, clus_muids = get_clust_muids(*read_config(), cluster['uid'], args.time, api_err_exit)
+            _, clus_muids = get_clust_muids(*read_config(), cluster['uid'], time_input(args), api_err_exit)
             muids.extend(clus_muids)
     elif args.machines:
         for machine in machines_input(args):
@@ -188,7 +184,7 @@ def handle_get_fingerprints(args):
                 muids.append(pod['muid'])
     fingerprints = []
     for muid in muids:
-        tmp_fprints = get_fingerprints(*read_config(), muid, start_time, end_time, api_err_exit)
+        tmp_fprints = get_fingerprints(*read_config(), muid, time_input(args), api_err_exit)
         if tmp_fprints is None:
             err_exit("no fingerprints found")
         fingerprints += [Fingerprint(f) for f in tmp_fprints if args.type in f['metadata']['type']]
@@ -201,7 +197,7 @@ def handle_get_fingerprints(args):
                     return True
             return False
         fingerprints = list(filter(in_pods, fingerprints))
-    show(fingerprints, args.output)
+    show(fingerprints, args)
 
 def handle_get_policies(args):
     pass

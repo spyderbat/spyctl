@@ -1,8 +1,6 @@
-import sys
-import subprocess
 import yaml
+from cli import try_print
 from merge import merge_fingerprints, DiffDumper
-from fingerprints import dialog, catch_interrupt
 
 
 red = u"\u001b[41;1m \u001b[0m"
@@ -40,11 +38,12 @@ def check_appears(line, def_dash):
     tag_str = "!Appearances:"
     try:
         list_start = line.index(tag_str) + len(tag_str)
-        appears = [int(n) for n in line[list_start:].split(',')]
+        split_line = line[list_start:].split(' ')
+        appears = [int(n) for n in split_line[0].split(',')]
         has_dash = '- ' in line
-        return appears, has_dash
+        return appears, has_dash, ' '.join(split_line[1:])
     except ValueError:
-        return None, def_dash
+        return None, def_dash, ""
 
 
 def get_largest_less_than(tup_list, max_val):
@@ -69,6 +68,7 @@ def update_max(tup_list, new_tup):
 
 
 def format_appearances(string, inputs):
+    lines: list
     lines = string.split('\n')
     pre_spaces = len(inputs)
     use_count = pre_spaces > 6
@@ -83,14 +83,16 @@ def format_appearances(string, inputs):
     indent_appears = [(-1, [])]
     dash_next = False
     prev_count = 0
-    for line in lines:
-        appears, dash_next = check_appears(line, dash_next)
+    for i, line in enumerate(lines):
+        appears, dash_next, remaining = check_appears(line, dash_next)
         indent = len(line) - len(line.lstrip())
         indent_appears = clear_greater_than(indent_appears, indent)
         if appears is not None:
             if dash_next:
                 indent += 2
             update_max(indent_appears, (indent, appears))
+            if len(remaining) > 0:
+                lines.insert(i + 1, (' ' * indent) + remaining)
         else:
             if dash_next:
                 line = ' ' * (indent - 2) + '- ' + line[indent:]
@@ -113,31 +115,4 @@ def show_fingerprint_diff(fingerprints):
         meta = fprint['metadata']
         return f"{meta['name']}:{meta['muid']}:{meta['root']}"
     string = format_appearances(string, [id_str(fprint) for fprint in fingerprints])
-    less_proc = subprocess.Popen(
-        ['less', '-R', '-S', '-X', '-K'],
-        stdin=subprocess.PIPE, stdout=sys.stdout
-    )
-    less_proc.communicate(string.encode('utf-8'))
-    less_proc.wait()
-
-
-@catch_interrupt
-def save_fingerprint_diff(fingerprints):
-    merged = merge_fingerprints(fingerprints)
-    show_fingerprint_diff(fingerprints)
-    subprocess.call("clear")
-    if dialog("Save comparison for viewing?"):
-        while(True):
-            default = f"compare-fingerprints.txt"
-            filename = input(f"Output filename [{default}]: ")
-            if filename is None or filename == '':
-                filename = default
-            try:
-                string = yaml.dump(merged, Dumper=DiffDumper, sort_keys=False)
-                # feed it a len 7 list to make it use numbers not colors
-                string = format_appearances(string, list(range(7)))
-                with open(filename, 'w') as f:
-                    f.write(string)
-                break
-            except IOError:
-                print("Error: unable to open file")
+    try_print(string)

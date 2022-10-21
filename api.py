@@ -60,7 +60,7 @@ def get_muids(api_url, api_key, org_uid, time, err_fn) -> Tuple:
     except RuntimeError as err:
         err_fn(*err.args)
         return None
-    check_time = zulu.Zulu.fromtimestamp(time).shift(days=-2)
+    check_time = zulu.Zulu.fromtimestamp(time[0]).shift(days=-2)
     for muid, data in list(sources.items()):
         if data['last_data'] >= check_time:
             muids.append(muid)
@@ -76,17 +76,17 @@ def get_clusters(api_url, api_key, org_uid, err_fn):
         json = get(url, api_key).json()
         for cluster in json:
             names.append(cluster['name'])
-            # src_uids.append(cluster['uid'])
-            src_uids.append(cluster['cluster_details']['agent_uid'])
+            src_uids.append(cluster['uid'])
+            # src_uids.append(cluster['cluster_details']['agent_uid'])
     except RuntimeError as err:
         err_fn(*err.args, f"Unable to get clusters in '{org_uid}'")
         return None
     return names, src_uids
 
 
-def get_k8s_data(api_url, api_key, org_uid, clus_uid, err_fn, schema_key, time, time_back=3600):
+def get_k8s_data(api_url, api_key, org_uid, clus_uid, err_fn, schema_key, time):
     url = f"{api_url}/api/v1/org/{org_uid}/data/"
-    url += f"?src={clus_uid}&st={time-time_back}&et={time}&dt=k8s"
+    url += f"?src={clus_uid}&st={time[0]}&et={time[1]}&dt=k8s"
     try:
         resp = get(url, api_key)
         for k8s_json in resp.iter_lines():
@@ -101,6 +101,8 @@ def get_clust_muids(api_url, api_key, org_uid, clus_uid, time, err_fn):
     names = []
     muids = []
     for data in get_k8s_data(api_url, api_key, org_uid, clus_uid, err_fn, 'node', time):
+        if not 'muid' in data:
+            err_fn("Data was not present in records", "try again soon?")
         if data['muid'] not in muids:
             names.append(data['metadata']['name'])
             muids.append(data['muid'])
@@ -142,9 +144,9 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
     #             print(lst[0][i])
     return pods
 
-def get_fingerprints(api_url, api_key, org_uid, muid, start_time, end_time, err_fn):
+def get_fingerprints(api_url, api_key, org_uid, muid, time, err_fn):
     url = f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&" \
-        f"st={int(start_time)}&et={int(end_time)}&dt=fingerprints"
+        f"st={time[0]}&et={time[1]}&dt=fingerprints"
     try:
         fingerprints = []
         resp = get(url, api_key)
