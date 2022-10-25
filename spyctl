@@ -5,7 +5,7 @@ from cli import *
 from diff import show_fingerprint_diff
 from fingerprints import fingerprint_input
 from get import *
-from merge import merge_fingerprints
+from merge import merge_fingerprints, MergeDumper
 
 
 def main():
@@ -83,7 +83,8 @@ def handle_merge(args):
     fingerprints = fingerprint_input(args)
     fingerprints = [f.get_output() for f in fingerprints]
     merged = merge_fingerprints(fingerprints)
-    show(merged, args.output)
+    merged = yaml.load(yaml.dump(merged, Dumper=MergeDumper, sort_keys=False), yaml.Loader)
+    show(merged, args)
 
 
 def handle_policy(args):
