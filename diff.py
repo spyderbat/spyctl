@@ -111,8 +111,13 @@ def format_appearances(string, inputs):
 def show_fingerprint_diff(fingerprints):
     merged = merge_fingerprints(fingerprints)
     string = yaml.dump(merged, Dumper=DiffDumper, sort_keys=False)
-    def id_str(fprint):
-        meta = fprint['metadata']
-        return f"{meta['name']}:{meta['muid']}:{meta['root']}"
-    string = format_appearances(string, [id_str(fprint) for fprint in fingerprints])
+    idx = 0
+    def id_str(fprint, idx):
+        try:
+            meta = fprint['metadata']
+            return f"{meta['name']}:{meta['muid']}:{meta['root']}"
+        except KeyError:
+            idx += 1
+            return f"Fingerprint {idx}"
+    string = format_appearances(string, [id_str(fprint, idx) for fprint in fingerprints])
     try_print(string)

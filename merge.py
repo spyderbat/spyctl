@@ -426,8 +426,14 @@ def merge_fingerprints(fingerprints, ret):
     # fingerprints = mergables[choices[index]]
     if len(fingerprints) < 2:
         raise ValueError("Not enough fingerprints selected to merge")
+    merge_subs(fingerprints, "apiVersion", ret)
+    merge_subs(fingerprints, "kind", ret)
     merge_subs(fingerprints, "spec", ret)
     merge_subs(fingerprints, "metadata", ret)
+
+
+if_all_eq_merge("apiVersion")
+if_all_eq_merge("kind")
 
 
 @dictionary_mod
