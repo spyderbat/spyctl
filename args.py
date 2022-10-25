@@ -59,22 +59,21 @@ class CustomHelpFormatter(RawDescriptionHelpFormatter):
 fmt = lambda prog: CustomHelpFormatter(prog)
 
 
-def time_inp(time_str):
+def time_inp(time_str: str):
     past_seconds = 0
     try:
         try:
             past_seconds = int(time_str) * 60
         except ValueError:
-            last_char = time_str[-1:]
-            if last_char == 's':
+            if time_str.endswith(('s', 'sc')):
                 past_seconds = int(time_str[:-1])
-            elif last_char == 'm':
+            elif time_str.endswith(('m', 'mn')):
                 past_seconds = int(time_str[:-1]) * 60
-            elif last_char == 'h':
+            elif time_str.endswith(('h', 'hr')):
                 past_seconds = int(time_str[:-1]) * 60 * 60
-            elif last_char == 'd':
+            elif time_str.endswith(('d', 'dy')):
                 past_seconds = int(time_str[:-1]) * 60 * 60 * 24
-            elif last_char == 'w':
+            elif time_str.endswith(('w', 'wk')):
                 past_seconds = int(time_str[:-1]) * 60 * 60 * 24 * 7
             else:
                 date = dateparser.parse(time_str)
@@ -124,7 +123,6 @@ def parse_args():
         "ex: -f \"kube\": matches any object with a value containing \"kube\"\n" \
         "    -f \"name=aws-*\": matches any object with a name field starting with \"aws-\""
     parser = ArgumentParser(description=desc, epilog=epilog, formatter_class=fmt)
-    parser.add_argument('-v', '--no-validation', action='store_true', help="disables validation, reducing API calls. disallows object names as inputs")
     subs = parser.add_subparsers(title="subcommands", dest="subcommand", required=True)
     make_configure(subs)
     make_get(subs)
@@ -188,7 +186,7 @@ def make_get_fingerprint(get_subs: _SubParsersAction[ArgumentParser]):
     names = ['fingerprints', 'print', 'prints', 'fingerprint']
     get_fingerprint = get_subs.add_parser(**name_and_aliases(names), formatter_class=fmt)
     get_fingerprint.add_argument('type', choices=['container', 'service'], help="the type of fingerprints to get")
-    selector_group = get_fingerprint.add_mutually_exclusive_group(required=True)
+    selector_group = get_fingerprint.add_mutually_exclusive_group()
     selector_group.add_argument('-c', '--clusters', nargs='?', const='-')
     selector_group.add_argument('-m', '--machines', nargs='?', const='-')
     selector_group.add_argument('-p', '--pods', nargs='?', const='-')

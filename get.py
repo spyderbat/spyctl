@@ -81,7 +81,8 @@ def pods_input(args):
                 found = True
                 break
         if not found:
-            err_exit(f"pod '{string}' did not exist in specified organization")
+            try_log(f"pod '{string}' did not exist in specified organization")
+            # err_exit(f"pod '{string}' did not exist in specified organization")
     pods.sort(key=lambda p: p['name'])
     return pods
 
@@ -167,21 +168,21 @@ def handle_get_fingerprints(args):
     if args.type == 'service' and args.pods:
         print("Warning: pods specified for service fingerprints, will get all service"
             " fingerprints from the machines corresponding to the specified pods")
-    muids = []
+    muids = set()
     pods = None
     if args.clusters:
         for cluster in clusters_input(args):
             _, clus_muids = get_clust_muids(*read_config(), cluster['uid'], time_input(args), api_err_exit)
-            muids.extend(clus_muids)
+            muids += set(clus_muids)
     elif args.machines:
         for machine in machines_input(args):
-            muids.append(machine['muid'])
+            muids.add(machine['muid'])
     elif args.pods:
         pods = []
         for pod in pods_input(args):
             pods.append(pod['name'])
             if pod['muid'] != "unknown":
-                muids.append(pod['muid'])
+                muids.add(pod['muid'])
     fingerprints = []
     for muid in muids:
         tmp_fprints = get_fingerprints(*read_config(), muid, time_input(args), api_err_exit)

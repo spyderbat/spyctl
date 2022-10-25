@@ -121,7 +121,7 @@ def time_input(args):
         return args.within, int(time.time())
     else:
         t = args.time if args.time else time.time()
-        return t - 30 * 60, t
+        return t, t
 
 
 def err_exit(message: str):

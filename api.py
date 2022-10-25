@@ -86,7 +86,7 @@ def get_clusters(api_url, api_key, org_uid, err_fn):
 
 def get_k8s_data(api_url, api_key, org_uid, clus_uid, err_fn, schema_key, time):
     url = f"{api_url}/api/v1/org/{org_uid}/data/"
-    url += f"?src={clus_uid}&st={time[0]}&et={time[1]}&dt=k8s"
+    url += f"?src={clus_uid}&st={time[0] - 60*60}&et={time[1]}&dt=k8s"
     try:
         resp = get(url, api_key)
         for k8s_json in resp.iter_lines():
@@ -134,7 +134,7 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
             idx = pods[namespace][1].index(data['id'])
             if pods[namespace][2][idx] == "unknown":
                 pods[namespace][2][idx] = muid
-            if data['status'] == 'closed':
+            if data['status'] == 'closed' and data['time'] < time[0]:
                 for i in range(3):
                     pods[namespace][i].pop(idx)
     # for ns, lst in pods.items():
@@ -146,7 +146,7 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
 
 def get_fingerprints(api_url, api_key, org_uid, muid, time, err_fn):
     url = f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&" \
-        f"st={time[0]}&et={time[1] + 60*60}&dt=fingerprints"
+        f"st={time[0] - 60*60}&et={time[1]}&dt=fingerprints"
     try:
         fingerprints = []
         resp = get(url, api_key)
