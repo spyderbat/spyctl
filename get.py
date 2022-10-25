@@ -189,7 +189,7 @@ def handle_get_fingerprints(args):
         if len(tmp_fprints) == 0:
             try_log("found no fingerprints for", muid)
         fingerprints += [Fingerprint(f) for f in tmp_fprints if args.type in f['metadata']['type']]
-    fingerprints = [f.get_output() for f in Fingerprint.prepare_many(fingerprints)]
+    fingerprints = [f.get_output() for f in fingerprints]
     if pods is not None and args.type == 'container':
         found_pods = set()
         def in_pods(fprint):

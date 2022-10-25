@@ -123,8 +123,6 @@ def handle_list(list_string: str, obj_to_str=None) -> List[str]:
 def time_input(args):
     if args.within:
         tup = args.within, int(time.time())
-        if tup[1] - tup[0] > 60 * 60 * 22:
-            err_exit("(temporary measure) time range was greater than api max")
         return tup
     else:
         t = args.time if args.time else time.time()
