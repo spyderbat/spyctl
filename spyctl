@@ -30,6 +30,10 @@ def handle_configure(args):
             doc = yaml.load(f, yaml.Loader)
             if doc is None:
                 doc = {}
+    if not args.deployment and not args.api_key and not args.api_url and not args.org:
+        with open(CONFIG_PATH, 'r') as f:
+            try_print(f.read().strip())
+            exit()
     if args.deployment:
         doc["deployment"] = args.deployment
     deployment = doc.get("deployment", "default")
@@ -55,6 +59,7 @@ def handle_configure(args):
     doc[deployment] = sub
     with open(CONFIG_PATH, 'w') as f:
         yaml.dump(doc, f)
+    try_log(f"updated {CONFIG_PATH}")
 
 
 def handle_get(args):
