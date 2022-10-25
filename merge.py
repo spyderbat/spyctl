@@ -2,7 +2,6 @@ import ipaddress as ipaddr
 from typing import Dict, Generator, List, Optional, TypeVar, Union
 from typing_extensions import Self
 from os import path
-from simple_term_menu import TerminalMenu
 
 import yaml
 

@@ -121,7 +121,8 @@ def parse_args():
         "    -t 01-01-2022: Jan 1. 2022 (12:00 AM)\n\n" \
         "as grep works poorly with multiline objects, outputs can be filtered with --filter\n" \
         "ex: -f \"kube\": matches any object with a value containing \"kube\"\n" \
-        "    -f \"name=aws-*\": matches any object with a name field starting with \"aws-\""
+        "    -f \"name=aws-\": matches any object with a global name field containing \"aws-\"\n" \
+        "    -f \"metadata.name=cont\": matches any object with a name field inside a metadata field containing \"cont\""
     parser = ArgumentParser(description=desc, epilog=epilog, formatter_class=fmt)
     subs = parser.add_subparsers(title="subcommands", dest="subcommand", required=True)
     make_configure(subs)

@@ -31,19 +31,23 @@ def try_print(*args, **kwargs):
 
 def contains(obj, args):
     filt_str = args.filter.split('=')
-    key_str = None
+    keys = []
     if len(filt_str) > 1:
-        key_str = filt_str[0]
+        keys = filt_str[0].split('.')
     val_str = filt_str[-1]
-    if isinstance(obj, dict):
-        # returns false if it doesn't have the key
-        for key, val in obj.items():
-            if key_str is not None and key_str != key:
-                continue
-            if val_str in val:
-                return True
-        return False
-    return True
+    def cont_keys(obj, keys):
+        if isinstance(obj, dict):
+            # returns false if it doesn't have the key
+            for key, val in obj.items():
+                if len(keys) > 0 and keys[0] != key:
+                    continue
+                if cont_keys(val, keys[1:]):
+                    return True
+            return False
+        elif isinstance(obj, str):
+            return val_str in obj
+        return True
+    return cont_keys(obj, keys)
 
 
 def try_filter(obj, args):
@@ -118,7 +122,10 @@ def handle_list(list_string: str, obj_to_str=None) -> List[str]:
 
 def time_input(args):
     if args.within:
-        return args.within, int(time.time())
+        tup = args.within, int(time.time())
+        if tup[1] - tup[0] > 60 * 60 * 22:
+            err_exit("(temporary measure) time range was greater than api max")
+        return tup
     else:
         t = args.time if args.time else time.time()
         return t, t
