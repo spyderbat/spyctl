@@ -29,8 +29,8 @@ def try_print(*args, **kwargs):
         sys.exit(1)
 
 
-def contains(obj, args):
-    filt_str = args.filter.split('=')
+def contains(obj, filt):
+    filt_str = filt.split('=')
     keys = []
     if len(filt_str) > 1:
         keys = filt_str[0].split('.')
@@ -50,11 +50,11 @@ def contains(obj, args):
     return cont_keys(obj, keys)
 
 
-def try_filter(obj, args):
+def try_filter(obj, filt):
     if isinstance(obj, dict):
         remove = []
         for key, val in obj.items():
-            try_filter(val, args)
+            try_filter(val, filt)
             if len(val) == 0:
                 remove.append(key)
         for key in remove:
@@ -62,7 +62,7 @@ def try_filter(obj, args):
     elif isinstance(obj, list):
         remove = []
         for i, item in enumerate(obj):
-            if not contains(item, args):
+            if not contains(item, filt):
                 remove.append(i)
         removed = 0
         for i in remove:
@@ -71,8 +71,8 @@ def try_filter(obj, args):
 
 
 def show(obj, args):
-    if args.filter:
-        try_filter(obj, args)
+    for filt in args.filter:
+        try_filter(obj, filt)
     if args.output == "yaml":
         try_print(yaml.dump(obj, sort_keys=False), end="")
     elif args.output == "json":

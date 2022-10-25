@@ -100,7 +100,7 @@ def get_names(command):
 
 def add_output_arg(parser):
     parser.add_argument('-o', '--output', choices=['json', 'yaml'], default='yaml')
-    parser.add_argument('-f', '--filter', help="filter output objects by string")
+    parser.add_argument('-f', '--filter', help="filter output objects by string", action='append', default=[])
 
 def add_time_arg(parser):
     times = parser.add_mutually_exclusive_group()
