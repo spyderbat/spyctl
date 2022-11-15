@@ -124,6 +124,10 @@ def time_input(args):
     if args.within:
         tup = args.within, int(time.time())
         return tup
+    elif args.time_range:
+        if args.time_range[1] < args.time_range[0]:
+            err_exit("start time was before end time")
+        return tuple(args.time_range)
     else:
         t = args.time if args.time else time.time()
         return t, t

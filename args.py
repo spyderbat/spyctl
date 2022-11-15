@@ -105,24 +105,13 @@ def add_output_arg(parser):
 def add_time_arg(parser):
     times = parser.add_mutually_exclusive_group()
     times.add_argument('-t', '--time', help="collect data at this time", type=time_inp)
+    times.add_argument('-r', '--time-range', help="collect data between two times", action="extend", nargs=2, type=time_inp)
     times.add_argument('-w', '--within', help="collect data from this time until now", metavar="TIME", type=time_inp)
 
 
 def parse_args():
     desc = "a tool to help manage Spyderbat fingerprints and policies"
-    epilog = "object inputs can be given as file names, text, or piped\n" \
-        "ex: spyctl get fingerprints --pods file_with_pods.txt\n" \
-        "    spyctl get fingerprints --pods my-pod-fsd23\n" \
-        "    spyctl get pods --namespace default | spyctl get fingerprints --pods\n\n" \
-        "time inputs are by default minutes back, but other formats can be specified\n" \
-        "ex: -t 15: 15 minutes ago\n" \
-        "    -t 2h: 2 hours ago\n" \
-        "    -t 15:30: 3:30 PM today\n" \
-        "    -t 01-01-2022: Jan 1. 2022 (12:00 AM)\n\n" \
-        "as grep works poorly with multiline objects, outputs can be filtered with --filter\n" \
-        "ex: -f \"kube\": matches any object with a value containing \"kube\"\n" \
-        "    -f \"name=aws-\": matches any object with a global name field containing \"aws-\"\n" \
-        "    -f \"metadata.name=cont\": matches any object with a name field inside a metadata field containing \"cont\""
+    epilog = "see TUTORIAL.md for an explanation of usage"
     parser = ArgumentParser(description=desc, epilog=epilog, formatter_class=fmt)
     subs = parser.add_subparsers(title="subcommands", dest="subcommand", required=True)
     make_configure(subs)
