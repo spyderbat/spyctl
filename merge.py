@@ -394,36 +394,6 @@ def dictionary_mod(fn):
 
 @dictionary_mod
 def merge_fingerprints(fingerprints, ret):
-    # if len(fingerprints) < 2:
-    #     raise ValueError("Not enough fingerprints selected to merge")
-    # mergables = {}
-    # for fprint in fingerprints:
-    #     typ = fprint['metadata']['type']
-    #     key = None
-    #     if typ == 'container':
-    #         image = fprint['spec']['containerSelector']['image']
-    #         key = f"Container: {image}"
-    #     elif typ == 'linux-service':
-    #         service = fprint['spec']['serviceSelector']['cgroup']
-    #         key = f"Service: {service}"
-    #     else:
-    #         continue
-    #     if key in mergables:
-    #         mergables[key].append(fprint)
-    #     else:
-    #         mergables[key] = [fprint]
-    # choices = list(mergables.keys())
-    # if len(choices) == 0:
-    #     raise ValueError("Not enough fingerprints selected to merge")
-    # index = 0
-    # if len(choices) > 1:
-    #     index = TerminalMenu(
-    #         choices,
-    #         title="Select a set of fingerprints to merge"
-    #     ).show()
-    #     if index is None:
-    #         return
-    # fingerprints = mergables[choices[index]]
     if len(fingerprints) < 2:
         raise ValueError("Not enough fingerprints selected to merge")
     merge_subs(fingerprints, "apiVersion", ret)

@@ -166,7 +166,7 @@ def handle_get_pods(args):
 
 def handle_get_fingerprints(args):
     if args.type == 'service' and args.pods:
-        print("Warning: pods specified for service fingerprints, will get all service"
+        try_log("Warning: pods specified for service fingerprints, will get all service"
             " fingerprints from the machines corresponding to the specified pods")
     muids = set()
     pods = None
