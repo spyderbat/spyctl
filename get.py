@@ -173,7 +173,7 @@ def handle_get_fingerprints(args):
     if args.clusters:
         for cluster in clusters_input(args):
             _, clus_muids = get_clust_muids(*read_config(), cluster['uid'], time_input(args), api_err_exit)
-            muids += set(clus_muids)
+            muids.update(clus_muids)
     elif args.machines:
         for machine in machines_input(args):
             muids.add(machine['muid'])
