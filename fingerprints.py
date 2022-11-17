@@ -1,6 +1,10 @@
+import time
 from typing import Dict, List
+
 import yaml
 
+FPRINT_TYPE_CONT = "container"
+FPRINT_TYPE_SVC = "service"
 
 class Fingerprint():
     def __init__(self, fprint) -> None:
@@ -34,7 +38,7 @@ class Fingerprint():
             (f"|{fprint_yaml}" if include_yaml else "")
     
     def get_output(self):
-        copy_fields = ['apiVersion', 'kind', 'spec', 'metadata']
+        copy_fields = ['apiVersion', 'kind', 'metadata', 'spec']
         rv = dict()
         for key in copy_fields:
             rv[key] = self.fprint[key]
@@ -91,10 +95,10 @@ class Fingerprint():
         return rv
 
 
-
 def fingerprint_input(args):
     from cli import err_exit, read_stdin
     fingerprints = []
+
     def load_fprint(string):
         try:
             obj = yaml.load(string, yaml.Loader)
@@ -116,3 +120,56 @@ def fingerprint_input(args):
             load_fprint(file.read())
     return fingerprints
     # return Fingerprint.prepare_many(fingerprints)
+
+
+def fingerprint_summary(fingerprints: List[Dict]) -> List[str]:
+    str_list = [
+        "Fingerprint Summary", f"\tCount: {len(fingerprints)}",
+        "-----"]
+    for fprint in fingerprints:
+        proc_pol_len = recursive_length(fprint['spec']['processPolicy'])
+        ingress_len = len(fprint['spec']['networkPolicy']['ingress'])
+        egress_len = len(fprint['spec']['networkPolicy']['egress'])
+        metadata = fprint['metadata']
+        time_created = time.strftime(
+            "%a, %d %b %Y %H:%M:%S %Z",
+            time.localtime(metadata['valid_from']))
+        time_emitted = time.strftime(
+            "%a, %d %b %Y %H:%M:%S %Z",
+            time.localtime(metadata['time']))
+        type = metadata['type']
+        if type == FPRINT_TYPE_CONT:
+            container_selector = fprint['spec'].get('containerSelector', {})
+            s = "Container Name:" + \
+                f" {container_selector.get('containerName', {})}\n" + \
+                f"\tImage Name: {container_selector.get('image', '')} |" + \
+                " Short Img ID:" + \
+                f" {container_selector.get('imageID', '')[:12]}\n" + \
+                f"\tMachine UID: {metadata['muid']} | " + \
+                f" Time Created: {time_created} |" + \
+                f" Time Emitted: {time_emitted}\n" + \
+                f"\tProc Policy Len: {proc_pol_len} | Ingress Len:" + \
+                f" {ingress_len} | Egress Len: {egress_len}"
+            str_list.append(s)
+        elif type == FPRINT_TYPE_SVC:
+            service_selector = fprint['spec'].get('serviceSelector', {})
+            s = "Service Cgroup:" + \
+                f" {service_selector.get('cgroup', {})}\n" + \
+                f"\tMachine UID: {metadata['muid']}" + \
+                f" Time Created: {time_created} |" + \
+                f" Time Emitted: {time_emitted}\n" + \
+                f"\tProc Policy Len: {proc_pol_len} | Ingress Len:" + \
+                f" {ingress_len} | Egress Len: {egress_len}"
+            str_list.append(s)
+    rv = "\n".join(str_list)
+    return rv
+
+
+def recursive_length(node_list):
+    answer = 0
+    for d in node_list:
+        for x in d.values():
+            if isinstance(x, list) and isinstance(x[0], dict):
+                answer += recursive_length(x)
+        answer += 1
+    return(answer)

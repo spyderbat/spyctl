@@ -4,7 +4,13 @@ from argparse import _SubParsersAction
 from datetime import datetime
 import time
 import dateutil.parser as dateparser
+from fingerprints import FPRINT_TYPE_CONT, FPRINT_TYPE_SVC
 
+OUTPUT_DEFAULT = "yaml"
+OUTPUT_YAML = "yaml"
+OUTPUT_JSON = "json"
+OUTPUT_SUMMARY = "summary"
+OUTPUT_CHOICES = [OUTPUT_JSON, OUTPUT_YAML]
 
 class CustomHelpFormatter(RawDescriptionHelpFormatter):
     def _format_action_invocation(self, action):
@@ -98,9 +104,20 @@ def get_names(command):
     return command_names.get(command, command)
 
 
-def add_output_arg(parser):
-    parser.add_argument('-o', '--output', choices=['json', 'yaml'], default='yaml')
+def add_output_arg(parser, output_choices=OUTPUT_CHOICES):
+    parser.add_argument('-o', '--output', choices=output_choices, type=output_argument_helper, default=OUTPUT_DEFAULT)
     parser.add_argument('-f', '--filter', help="filter output objects by string", action='append', default=[])
+
+def output_argument_helper(input: str) -> str:
+    i = input.lower()
+    if i.startswith("y"):
+        return OUTPUT_YAML
+    elif i.startswith("j"):
+        return OUTPUT_JSON
+    elif i.startswith("s"):
+        return OUTPUT_SUMMARY
+    else:
+        return i
 
 def add_time_arg(parser):
     times = parser.add_mutually_exclusive_group()
@@ -175,13 +192,14 @@ def make_get_pod(get_subs: _SubParsersAction[ArgumentParser]):
 def make_get_fingerprint(get_subs: _SubParsersAction[ArgumentParser]):
     names = ['fingerprints', 'print', 'prints', 'fingerprint']
     get_fingerprint = get_subs.add_parser(**name_and_aliases(names), formatter_class=fmt)
-    get_fingerprint.add_argument('type', choices=['container', 'service'], help="the type of fingerprints to get")
+    get_fingerprint.add_argument('type', choices=[FPRINT_TYPE_CONT, FPRINT_TYPE_SVC], help="the type of fingerprints to get")
     selector_group = get_fingerprint.add_mutually_exclusive_group()
     selector_group.add_argument('-c', '--clusters', nargs='?', const='-')
     selector_group.add_argument('-m', '--machines', nargs='?', const='-')
     selector_group.add_argument('-p', '--pods', nargs='?', const='-')
     add_time_arg(get_fingerprint)
-    add_output_arg(get_fingerprint)
+    output_choices = OUTPUT_CHOICES + [OUTPUT_SUMMARY]
+    add_output_arg(get_fingerprint, output_choices)
 
 def make_get_policy(get_subs: _SubParsersAction[ArgumentParser]):
     names = ['policies', 'pol', 'pols', 'policy']

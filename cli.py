@@ -1,9 +1,12 @@
 from genericpath import exists
-import os, sys
+import os
+import sys
 import time
-from typing import List
-import yaml, json
+from typing import List, Dict, Callable
+import yaml
+import json
 from api import *
+from args import OUTPUT_JSON, OUTPUT_YAML, OUTPUT_SUMMARY
 
 
 CONFIG_PATH = "./config.yml"
@@ -35,6 +38,7 @@ def contains(obj, filt):
     if len(filt_str) > 1:
         keys = filt_str[0].split('.')
     val_str = filt_str[-1]
+
     def cont_keys(obj, keys):
         if isinstance(obj, dict):
             # returns false if it doesn't have the key
@@ -70,14 +74,15 @@ def try_filter(obj, filt):
             removed += 1
 
 
-def show(obj, args):
+def show(obj, args, alternative_outputs: Dict[str, Callable] = {}):
     for filt in args.filter:
         try_filter(obj, filt)
-    if args.output == "yaml":
+    if args.output == OUTPUT_YAML:
         try_print(yaml.dump(obj, sort_keys=False), end="")
-    elif args.output == "json":
+    elif args.output == OUTPUT_JSON:
         try_print(json.dumps(obj, sort_keys=False, indent=2))
-        # try_print(json.dumps(obj, sort_keys=False))
+    elif args.output in alternative_outputs:
+        try_print(alternative_outputs[args.output](obj), end="")
 
 
 def read_stdin():
@@ -154,4 +159,6 @@ def read_config():
                 doc[dplymt]['api_key'], \
                 doc[dplymt]['org_uid']
     except (KeyError, OSError):
-        err_exit("config was missing API information. use 'spyctl configure' to add or update it")
+        err_exit(
+            "config was missing API information. use 'spyctl configure' to add"
+            " or update it")

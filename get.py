@@ -1,9 +1,10 @@
 from cli import *
-from fingerprints import Fingerprint
+from fingerprints import Fingerprint, FPRINT_TYPE_CONT, FPRINT_TYPE_SVC, fingerprint_summary
 
 
 def clusters_input(args):
     inp = get_open_input(args.clusters)
+
     def get_uid(clust_obj):
         if 'uid' in clust_obj:
             return clust_obj['uid']
@@ -127,6 +128,7 @@ def handle_get_machines(args):
             machines.append({"name": name, "muid": muid})
         show(machines, args)
 
+
 def handle_get_pods(args):
     clusters = []
     machines = None
@@ -164,34 +166,51 @@ def handle_get_pods(args):
                 pods[cluster['name']][ns] = new_pods
     show(pods, args)
 
+
 def handle_get_fingerprints(args):
-    if args.type == 'service' and args.pods:
-        try_log("Warning: pods specified for service fingerprints, will get all service"
-            " fingerprints from the machines corresponding to the specified pods")
+    if args.type == FPRINT_TYPE_SVC and args.pods:
+        try_log(
+            "Warning: pods specified for service fingerprints, will get all"
+            " service fingerprints from the machines corresponding to the"
+            " specified pods")
     muids = set()
     pods = None
+    specific_search = False
     if args.clusters:
+        specific_search = True
         for cluster in clusters_input(args):
-            _, clus_muids = get_clust_muids(*read_config(), cluster['uid'], time_input(args), api_err_exit)
+            _, clus_muids = get_clust_muids(
+                *read_config(), cluster['uid'], time_input(args), api_err_exit)
             muids.update(clus_muids)
-    elif args.machines:
+    if args.machines:
+        specific_search = True
         for machine in machines_input(args):
             muids.add(machine['muid'])
-    elif args.pods:
+    if args.pods:
+        specific_search = True
         pods = []
         for pod in pods_input(args):
             pods.append(pod['name'])
             if pod['muid'] != "unknown":
                 muids.add(pod['muid'])
+    if not specific_search:
+        # We did not specify a source of muids so lets grab them all
+        ret_muids, _ = get_muids(
+            *read_config(), time_input(args), api_err_exit)
+        muids.update(ret_muids)
     fingerprints = []
     for muid in muids:
-        tmp_fprints = get_fingerprints(*read_config(), muid, time_input(args), api_err_exit)
+        tmp_fprints = get_fingerprints(
+            *read_config(), muid, time_input(args), api_err_exit)
         if len(tmp_fprints) == 0:
             try_log("found no fingerprints for", muid)
-        fingerprints += [Fingerprint(f) for f in tmp_fprints if args.type in f['metadata']['type']]
+        fingerprints += [
+            Fingerprint(f) for f in tmp_fprints
+            if args.type in f['metadata']['type']]
     fingerprints = [f.get_output() for f in fingerprints]
-    if pods is not None and args.type == 'container':
+    if pods is not None and args.type == FPRINT_TYPE_CONT:
         found_pods = set()
+
         def in_pods(fprint):
             container = fprint['spec']['containerSelector']['containerName']
             for pod in pods:
@@ -202,7 +221,11 @@ def handle_get_fingerprints(args):
         fingerprints = list(filter(in_pods, fingerprints))
         for pod in sorted(set(pods) - found_pods):
             try_log("no fingerprints found for pod", pod)
-    show(fingerprints, args)
+    alternative_outputs = {
+        OUTPUT_SUMMARY: fingerprint_summary
+    }
+    show(fingerprints, args, alternative_outputs)
+
 
 def handle_get_policies(args):
     pass

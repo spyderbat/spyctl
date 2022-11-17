@@ -3,6 +3,7 @@ from typing import Dict, Generator, List, Optional, TypeVar, Union
 from typing_extensions import Self
 from os import path
 
+from policies import RESPONSE_FIELD, DEFAULT_RESPONSE_ACTION
 import yaml
 
 
@@ -375,6 +376,7 @@ def wildcard_merge(key):
         return ret
     spec_fns[key] = do_wildcard
 
+
 def if_all_eq_merge(key):
     def do_if_all_eq(objs: list):
         ret = IfAllEqList()
@@ -397,9 +399,11 @@ def merge_fingerprints(fingerprints, ret):
     if len(fingerprints) < 2:
         raise ValueError("Not enough fingerprints selected to merge")
     merge_subs(fingerprints, "apiVersion", ret)
-    merge_subs(fingerprints, "kind", ret)
-    merge_subs(fingerprints, "spec", ret)
+    # merge_subs(fingerprints, "kind", ret)
+    ret['kind'] = "SpyderbatPolicy"
     merge_subs(fingerprints, "metadata", ret)
+    merge_subs(fingerprints, "spec", ret)
+    ret["spec"].setdefault(RESPONSE_FIELD, DEFAULT_RESPONSE_ACTION)
 
 
 if_all_eq_merge("apiVersion")
