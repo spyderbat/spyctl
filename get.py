@@ -146,8 +146,10 @@ def handle_get_pods(args):
         namespaces = namespaces_input(args)
     pods = {}
     for cluster in clusters:
-        pods[cluster['name']] = {}
-        pod_dict = get_clust_pods(*read_config(), cluster['uid'], time_input(args), api_err_exit)
+        cluster_key = f"{cluster['name']} - {cluster['uid']}"
+        pods[cluster_key] = {}
+        pod_dict = get_clust_pods(
+            *read_config(), cluster['uid'], time_input(args), api_err_exit)
         for ns in pod_dict:
             if namespaces is not None:
                 if ns not in namespaces:
@@ -163,7 +165,7 @@ def handle_get_pods(args):
                     'muid': muid
                 })
             if len(new_pods) > 0:
-                pods[cluster['name']][ns] = new_pods
+                pods[cluster_key][ns] = new_pods
     show(pods, args)
 
 
