@@ -1,12 +1,16 @@
+import json
 from typing import List, Tuple
+
 import requests
 import zulu
-import json
 
+# https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
+# connection timout, read timeout
+GET_TIMOUT = (6.10, 27)
 
 def get(url, key):
     headers = {"Authorization": f"Bearer {key}"}
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, timeout=GET_TIMOUT)
     if r.status_code != 200:
         raise RuntimeError(r.status_code, r.reason)
     return r
@@ -143,6 +147,7 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
     #         if muid == "unknown":
     #             print(lst[0][i])
     return pods
+
 
 def get_fingerprints(api_url, api_key, org_uid, muid, time, err_fn):
     url = f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&" \

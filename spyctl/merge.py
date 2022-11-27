@@ -1,11 +1,11 @@
 import ipaddress as ipaddr
-from typing import Dict, Generator, List, Optional, TypeVar, Union
-from typing_extensions import Self
 from os import path
+from typing import Dict, Generator, List, Optional, TypeVar, Union
 
-from policies import RESPONSE_FIELD, DEFAULT_RESPONSE_ACTION
 import yaml
+from typing_extensions import Self
 
+from spyctl.fingerprints import Fingerprint
 
 T1 = TypeVar('T1')
 def find(obj_list: List[T1], obj: T1) -> Optional[T1]:
@@ -34,7 +34,7 @@ class IfAllEqList():
     def __init__(self):
         self.objs = []
         self.prints = []
-    
+
     def add_obj(self, obj):
         if obj not in self.objs:
             self.objs.append(obj)
@@ -42,12 +42,12 @@ class IfAllEqList():
         else:
             idx = self.objs.index(obj)
             self.prints[idx] += f',{current_fingerprint}'
-    
+
     def get_for_merge(self):
         if self.objs[1:] == self.objs[:-1]:
             return self.objs[0]
         return "Could not merge"
-    
+
     def get_for_diff(self):
         return self.objs, self.prints
 
@@ -56,7 +56,7 @@ class WildcardList():
     def __init__(self):
         self.strs = []
         self.prints = []
-    
+
     def add_str(self, string: str):
         if string not in self.strs:
             self.strs.append(string)
@@ -64,10 +64,10 @@ class WildcardList():
         else:
             idx = self.strs.index(string)
             self.prints[idx] += f',{current_fingerprint}'
-    
+
     def get_for_merge(self):
         return make_wildcard(self.strs)
-    
+
     def get_for_diff(self):
         return self.strs, self.prints
 
@@ -78,14 +78,14 @@ class ProcessID():
         self.unique_id = ident
         self.index = current_fingerprint
         self.matching: List[Self] = []
-    
+
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.id == other.id \
                 and self.index == other.index
         else:
             return False
-    
+
     def extend(self, other: Self):
         self.matching.append(other)
         try:
@@ -93,7 +93,7 @@ class ProcessID():
                 ProcessID.all_ids.remove(other)
         except ValueError:
             pass
-    
+
     all_ids: List[Self] = []
 
     @staticmethod
@@ -116,6 +116,7 @@ class ProcessID():
                 return other_id.unique_id
         raise ValueError(f"ID {ident} did not match any processes")
 
+
 class ProcessNode():
     def __init__(self, node: Dict) -> None:
         self.node = node.copy()
@@ -125,7 +126,7 @@ class ProcessNode():
         if 'children' in self.node:
             self.children = [ProcessNode(child) for child in self.node['children']]
         ProcessID.all_ids.append(self.id)
-    
+
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             if self.node.get('name') != other.node.get('name'):
@@ -149,7 +150,7 @@ class ProcessNode():
             return self.node.get('exe') == other.node.get('exe')
         else:
             return False
-    
+
     def extend(self, other: Self):
         if other != self:
             raise ValueError("Other process did not match")
@@ -161,7 +162,7 @@ class ProcessNode():
                 match.extend(child)
             else:
                 self.children.append(child)
-    
+
     def update_node(self):
         self.node['id'] = self.id.unique_id
         if len(self.children) == 0:
@@ -191,18 +192,18 @@ class ConnectionBlock():
             node['dnsSelector'] = [dns.lower() for dns in node['dnsSelector']]
         self.node = node
         self.appearances = set((current_fingerprint,))
-    
+ 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.node == other.node
         else:
             return False
-    
+ 
     def extend(self, other: Self):
         if other != self:
             raise ValueError("Other connection not did not match")
         self.appearances.update(other.appearances)
-    
+
     def as_network(self) -> Optional[ipaddr.IPv4Network]:
         if not self.ip:
             return None
@@ -211,6 +212,7 @@ class ConnectionBlock():
             return ipaddr.IPv4Network(cidr)
         except ValueError:
             return None
+
 
 class ConnectionNode():
     def __init__(self, node: Dict) -> None:
@@ -224,7 +226,7 @@ class ConnectionNode():
         self.appearances = set((current_fingerprint,))
         self.collapse_ips()
         self.unify_ids()
-    
+
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.has_from == other.has_from \
@@ -233,15 +235,15 @@ class ConnectionNode():
                 and self.ports == other.ports
         else:
             return False
-    
+
     @property
     def procs(self):
         return self.node['processes']
-    
+ 
     @property
     def ports(self):
         return self.node['ports']
-    
+ 
     def extend_key(self, other_node, key):
         conn: ConnectionBlock
         for conn in other_node[key]:
@@ -260,7 +262,7 @@ class ConnectionNode():
             self.extend_key(other.node, 'to')
         self.appearances.update(other.appearances)
         # self.collapse_ips()
-    
+
     def collapsed_cidrs(self, key):
         # would need to keep track of appearances somehow
         to_collapse = []
@@ -274,13 +276,13 @@ class ConnectionNode():
                 to_collapse.append(network)
         ret += [ConnectionBlock(ip=add) for add in ipaddr.collapse_addresses(to_collapse)]
         return ret
-    
+
     def collapse_ips(self):
         if self.has_from:
             self.node['from'] = self.collapsed_cidrs('from')
         if self.has_to:
             self.node['to'] = self.collapsed_cidrs('to')
-    
+
     def unify_ids(self):
         new_proc = []
         for proc in self.procs:
@@ -297,17 +299,17 @@ class DiffDumper(yaml.Dumper):
         self.add_representer(IfAllEqList, self.list_representer)
         self.add_representer(WildcardList, self.list_representer)
         self.add_representer(DiffDumper.ListItem, self.list_item_representer)
-    
+
     class ListItem():
         def __init__(self, tag, data):
             self.tag = tag
             self.data = data
-    
+
     @staticmethod
     def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode, ConnectionBlock]):
         tag = f"!Appearances:{','.join([str(i) for i in data.appearances])}"
         return dumper.represent_mapping(tag, data.node)
-    
+
     @staticmethod
     def list_representer(dumper: yaml.Dumper, data: Union[IfAllEqList, WildcardList]):
         objs, appearances = data.get_for_diff()
@@ -315,10 +317,11 @@ class DiffDumper(yaml.Dumper):
         for obj, appear in zip(objs, appearances):
             seq.append(DiffDumper.ListItem(appear, obj))
         return dumper.represent_data(seq)
-    
+
     @staticmethod
     def list_item_representer(dumper: yaml.Dumper, data):
         return dumper.represent_scalar(data.tag, data.data)
+
 
 class MergeDumper(yaml.Dumper):
     def __init__(self, *args, **kwargs) -> None:
@@ -328,11 +331,11 @@ class MergeDumper(yaml.Dumper):
         self.add_representer(ConnectionBlock, self.class_representer)
         self.add_representer(IfAllEqList, self.list_representer)
         self.add_representer(WildcardList, self.list_representer)
-    
+
     @staticmethod
     def class_representer(dumper: yaml.Dumper, data: Union[ProcessNode, ConnectionNode, ConnectionBlock]):
         return dumper.represent_dict(data.node)
-    
+
     @staticmethod
     def list_representer(dumper: yaml.Dumper, data: Union[IfAllEqList, WildcardList]):
         obj = data.get_for_merge()
@@ -386,8 +389,8 @@ def if_all_eq_merge(key):
     spec_fns[key] = do_if_all_eq
 
 
-def dictionary_mod(fn):
-    def wrapper(obj_list):
+def dictionary_mod(fn) -> Dict:
+    def wrapper(obj_list) -> Dict:
         ret = dict()
         fn(obj_list, ret)
         return ret
@@ -395,15 +398,15 @@ def dictionary_mod(fn):
 
 
 @dictionary_mod
-def merge_fingerprints(fingerprints, ret):
+def merge_fingerprints(fingerprints: List[Fingerprint], ret):
     if len(fingerprints) < 2:
         raise ValueError("Not enough fingerprints selected to merge")
     merge_subs(fingerprints, "apiVersion", ret)
-    # merge_subs(fingerprints, "kind", ret)
-    ret['kind'] = "SpyderbatPolicy"
+    merge_subs(fingerprints, "kind", ret)
+    # ret['kind'] = "SpyderbatPolicy"
     merge_subs(fingerprints, "metadata", ret)
     merge_subs(fingerprints, "spec", ret)
-    ret["spec"].setdefault(RESPONSE_FIELD, DEFAULT_RESPONSE_ACTION)
+    # ret["spec"].setdefault(RESPONSE_FIELD, DEFAULT_RESPONSE_ACTION)
 
 
 if_all_eq_merge("apiVersion")

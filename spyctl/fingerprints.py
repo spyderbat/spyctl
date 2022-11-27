@@ -1,34 +1,52 @@
+import json
 import time
 from typing import Dict, List
 
 import yaml
 
+FPRINT_KIND = "SpyderbatFingerprint"
 FPRINT_TYPE_CONT = "container"
 FPRINT_TYPE_SVC = "service"
+FPRINT_TYPES = {FPRINT_TYPE_CONT, FPRINT_TYPE_SVC}
+
+
+class InvalidFingerprintError(KeyError): ...
+
 
 class Fingerprint():
     def __init__(self, fprint) -> None:
         req_keys = ['apiVersion', 'kind', 'spec', 'metadata']
         for key in req_keys:
-            if not key in fprint:
-                raise KeyError(key)
+            if key not in fprint:
+                raise InvalidFingerprintError(key)
         self.fprint = fprint
-        if not 'name' in self.metadata:
-            raise KeyError('metadata.name')
-        self.suppr_str = ""
+        if self.kind != FPRINT_KIND:
+            raise InvalidFingerprintError(f"Invalid kind - {self.kind}")
+        if 'name' not in self.metadata:
+            raise InvalidFingerprintError('metadata.name')
+        if self.fprint_type not in FPRINT_TYPES:
+            raise InvalidFingerprintError(f"{self.fprint_type} is not a valid fingerprint type")
         self.calc_lengths()
         to_metadata = ['time', 'valid_from', 'valid_to']
         for key in to_metadata:
             if key in self.fprint:
                 self.metadata[key] = self.fprint[key]
+
+    @property
+    def metadata(self) -> Dict:
+        return self.fprint['metadata']
+
+    @property
+    def fprint_type(self) -> str:
+        return self.metadata.get("type")
     
     @property
-    def metadata(self):
-        return self.fprint['metadata']
-    
+    def kind(self) -> str:
+        return self.fprint["kind"]
+
     def get_id(self):
         return self.fprint.get('id')
-    
+
     def preview_str(self, include_yaml=False):
         fprint_yaml = yaml.dump(dict(spec=self.fprint['spec']), sort_keys=False)
         return f"{self.metadata['name']}{self.suppr_str} --" + \
@@ -36,17 +54,17 @@ class Fingerprint():
             f" ingress_nodes: {self.fprint['ingress_len']}," + \
             f" egress_nodes: {self.fprint['egress_len']}" + \
             (f"|{fprint_yaml}" if include_yaml else "")
-    
+
     def get_output(self):
         copy_fields = ['apiVersion', 'kind', 'metadata', 'spec']
         rv = dict()
         for key in copy_fields:
             rv[key] = self.fprint[key]
         return rv
-    
+
     def set_num_suppressed(self, num: int):
         self.suppr_str = f" ({num} suppressed)"
-    
+
     def calc_lengths(self):
         proc_fprint_len = 0
         node_queue = self.fprint['spec']['processPolicy'].copy()
@@ -59,7 +77,7 @@ class Fingerprint():
         self.fprint['proc_fprint_len'] = proc_fprint_len
         self.fprint['ingress_len'] = ingress_len
         self.fprint['egress_len'] = egress_len
-    
+
     @staticmethod
     def prepare_many(objs: List) -> List:
         latest: Dict[str, Fingerprint] = {}
@@ -95,42 +113,14 @@ class Fingerprint():
         return rv
 
 
-def fingerprint_input(args):
-    from cli import err_exit, read_stdin
-    fingerprints = []
-
-    def load_fprint(string):
-        try:
-            obj = yaml.load(string, yaml.Loader)
-            if isinstance(obj, list):
-                for o in obj:
-                    fingerprints.append(Fingerprint(o))
-            else:
-                fingerprints.append(Fingerprint(obj))
-        except yaml.YAMLError:
-            err_exit("invalid yaml input")
-        except KeyError as err:
-            key, = err.args
-            err_exit(f"fingerprint was missing key '{key}'")
-    if len(args.files) == 0:
-        inp = read_stdin()
-        load_fprint(inp)
-    else:
-        for file in args.files:
-            load_fprint(file.read())
-    return fingerprints
-    # return Fingerprint.prepare_many(fingerprints)
-
-
 def fingerprint_summary(fingerprints: List[Dict]) -> List[str]:
-    str_list = [
-        "Fingerprint Summary", f"\tCount: {len(fingerprints)}",
-        "-----"]
+    checksums = {}
     for fprint in fingerprints:
         proc_pol_len = recursive_length(fprint['spec']['processPolicy'])
         ingress_len = len(fprint['spec']['networkPolicy']['ingress'])
         egress_len = len(fprint['spec']['networkPolicy']['egress'])
         metadata = fprint['metadata']
+        checksum = metadata['checksum']
         time_created = time.strftime(
             "%a, %d %b %Y %H:%M:%S %Z",
             time.localtime(metadata['valid_from']))
@@ -140,27 +130,40 @@ def fingerprint_summary(fingerprints: List[Dict]) -> List[str]:
         type = metadata['type']
         if type == FPRINT_TYPE_CONT:
             container_selector = fprint['spec'].get('containerSelector', {})
-            s = "Container Name:" + \
-                f" {container_selector.get('containerName', {})}\n" + \
-                f"\tImage Name: {container_selector.get('image', '')} |" + \
+            key = "Container Name:" + \
+                f" {container_selector.get('containerName', {})} |" + \
+                f" Image Name: {container_selector.get('image', '')} |" + \
                 " Short Img ID:" + \
-                f" {container_selector.get('imageID', '')[:12]}\n" + \
-                f"\tMachine UID: {metadata['muid']} | " + \
+                f" {container_selector.get('imageID', '')[:12]}"
+            s = f"\t\tMachine UID: {metadata['muid']} | " + \
                 f" Time Created: {time_created} |" + \
                 f" Time Emitted: {time_emitted}\n" + \
-                f"\tProc Policy Len: {proc_pol_len} | Ingress Len:" + \
+                f"\t\tProc Policy Len: {proc_pol_len} | Ingress Len:" + \
                 f" {ingress_len} | Egress Len: {egress_len}"
-            str_list.append(s)
+            if checksum not in checksums:
+                checksums[checksum] = (proc_pol_len + ingress_len + egress_len, key, s)
         elif type == FPRINT_TYPE_SVC:
             service_selector = fprint['spec'].get('serviceSelector', {})
-            s = "Service Cgroup:" + \
-                f" {service_selector.get('cgroup', {})}\n" + \
-                f"\tMachine UID: {metadata['muid']}" + \
+            key = "Service Cgroup:" + \
+                f" {service_selector.get('cgroup', {})}\n"
+            s = f"\t\tMachine UID: {metadata['muid']}" + \
                 f" Time Created: {time_created} |" + \
                 f" Time Emitted: {time_emitted}\n" + \
-                f"\tProc Policy Len: {proc_pol_len} | Ingress Len:" + \
+                f"\t\tProc Policy Len: {proc_pol_len} | Ingress Len:" + \
                 f" {ingress_len} | Egress Len: {egress_len}"
-            str_list.append(s)
+            if checksum not in checksums:
+                checksums[checksum] = (proc_pol_len + ingress_len + egress_len, key, s)
+    str_list = [
+        "Unique Fingerprint Summary", f"\tTotal Fingerprints Gathered: {len(fingerprints)} -- Unique Fingerprints Shown: {len(checksums)}",
+        "-----"]
+    sum_list = [tup for tup in sorted(checksums.values(), key=lambda tup: tup[0], reverse=True)]
+    sum_tbl = {}
+    for _, key, s in sum_list:
+        sum_tbl.setdefault(key, [])
+        sum_tbl[key].append(s)
+    for key, s_list in sum_tbl.items():
+        str_list.append(key)
+        str_list.extend(s_list)
     rv = "\n".join(str_list)
     return rv
 
