@@ -15,10 +15,9 @@ def handle_create_policy(args, fingerprints: List[Fingerprint] = None):
             fingerprints = [f.get_output() for f in fingerprints]
             fingerprint = merge_fingerprints(fingerprints)
             fingerprint = yaml.load(
-                yaml.dump(
-                    fingerprint, Dumper=MergeDumper,
-                    sort_keys=False),
-                yaml.Loader)
+                yaml.dump(fingerprint, Dumper=MergeDumper, sort_keys=False),
+                yaml.Loader,
+            )
         else:
             fingerprint = fingerprints[0].get_output()
         policy = Policy(args.type, fingerprint)

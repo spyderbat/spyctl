@@ -4,79 +4,51 @@ from spyctl.args import get_names, parse_args
 from spyctl.cli import *
 from spyctl.create import handle_create_policy
 from spyctl.diff import show_fingerprint_diff
+from spyctl.fingerprints import InvalidFingerprintError
 from spyctl.get import *
 from spyctl.merge import MergeDumper, merge_fingerprints
 from spyctl.policies import PolicyTypeError
+import spyctl.manage as manage
+import spyctl.user_config as u_conf
+import spyctl.upload as upload
+import spyctl.delete as d
 
 
 def main():
     args = parse_args()
     cmd = args.subcommand
     if args.selected_deployment:
-        set_selected_deployment(args.selected_deployment)
+        u_conf.set_selected_deployment(args.selected_deployment)
     if cmd in get_names("configure"):
         handle_configure(args)
-    elif cmd in get_names("get"):
-        handle_get(args)
     elif cmd in get_names("compare"):
         handle_compare(args)
-    elif cmd in get_names("merge"):
-        handle_merge(args)
     elif cmd in get_names("create"):
         handle_create(args)
-    elif cmd in get_names("policy"):
-        handle_policy(args)
+    elif cmd in get_names("delete"):
+        handle_delete(args)
+    elif cmd in get_names("get"):
+        handle_get(args)
+    elif cmd in get_names("manage"):
+        handle_manage(args)
+    elif cmd in get_names("merge"):
+        handle_merge(args)
+    elif cmd in get_names("upload"):
+        handle_upload(args)
 
 
 def handle_configure(args):
     cmd = args.config_cmd
     if cmd == "add":
-        handle_config_add(args)
+        u_conf.handle_config_add(args)
     elif cmd == "update":
-        handle_config_update(args)
+        u_conf.handle_config_update(args)
     elif cmd == "default":
-        handle_config_setdefault(args)
+        u_conf.handle_config_setdefault(args)
     elif cmd == "delete":
-        handle_config_delete(args)
+        u_conf.handle_config_delete(args)
     elif cmd == "show":
-        handle_config_show(args)
-
-    # doc = {}
-    # if exists(CONFIG_PATH):
-    #     with open(CONFIG_PATH, 'r') as f:
-    #         doc = yaml.load(f, yaml.Loader)
-    #         if doc is None:
-    #             doc = {}
-    # if not args.deployment and not args.api_key and not args.api_url and not args.org:
-    #     with open(CONFIG_PATH, 'r') as f:
-    #         try_print(f.read().strip())
-    #         exit()
-    # if args.deployment:
-    #     doc["deployment"] = args.deployment
-    # deployment = doc.get("deployment", "default")
-    # sub = doc.get(deployment, {})
-    # if args.api_key:
-    #     sub["api_key"] = args.api_key
-    # if args.api_url:
-    #     sub["api_url"] = args.api_url.strip('/')
-    # if args.org:
-    #     if not sub.get("api_key") or not sub.get("api_url"):
-    #         err_exit("cannot set organization without API key and url")
-    #     orgs = get_orgs(sub["api_url"], sub["api_key"], api_err_exit)
-    #     found = False
-    #     for uid, name in zip(*orgs):
-    #         if args.org == name or args.org == uid:
-    #             if name == "Defend The Flag":
-    #                 err_exit("invalid organization")
-    #             sub["org_uid"] = uid
-    #             found = True
-    #             break
-    #     if not found:
-    #         err_exit("organization did not exist in specified API key and url")
-    # doc[deployment] = sub
-    # with open(CONFIG_PATH, 'w') as f:
-    #     yaml.dump(doc, f)
-    # try_log(f"updated {CONFIG_PATH}")
+        u_conf.handle_config_show(args)
 
 
 def handle_get(args):
@@ -91,7 +63,7 @@ def handle_get(args):
         handle_get_pods(args)
     elif tgt in get_names("fingerprints"):
         handle_get_fingerprints(args)
-    elif tgt in get_names("policies"):
+    elif tgt in get_names("spyderbat-policy"):
         handle_get_policies(args)
 
 
@@ -101,11 +73,19 @@ def handle_compare(args):
     show_fingerprint_diff(fingerprints)
 
 
+def handle_delete(arg):
+    cmd = args.delete_cmd
+    if cmd in get_names("spyderbat-policy"):
+        d.handle_delete_policy(args)
+
+
 def handle_merge(args):
     fingerprints = fingerprint_input(args.files)
     fingerprints = [f.get_output() for f in fingerprints]
     merged = merge_fingerprints(fingerprints)
-    merged = yaml.load(yaml.dump(merged, Dumper=MergeDumper, sort_keys=False), yaml.Loader)
+    merged = yaml.load(
+        yaml.dump(merged, Dumper=MergeDumper, sort_keys=False), yaml.Loader
+    )
     show(merged, args)
 
 
@@ -133,10 +113,16 @@ def handle_create(args):
             handle_create_policy(args)
 
 
-def handle_policy(args):
-    sub = args.policy_subcommand
-    if sub == "template":
-        handle_policy_template(args)
+def handle_upload(args):
+    cmd = args.upload_cmd
+    if cmd in get_names("spyderbat-policy"):
+        upload.handle_upload_policy(args)
+
+
+def handle_manage(args):
+    cmd = args.manage_cmd
+    if cmd in get_names("spyderbat-policy"):
+        manage.handle_manage_policy(args)
 
 
 def handle_policy_template(args):

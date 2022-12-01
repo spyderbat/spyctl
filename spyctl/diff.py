@@ -3,45 +3,46 @@ import yaml
 from spyctl.cli import try_print
 from spyctl.merge import DiffDumper, merge_fingerprints
 
-red = u"\u001b[41;1m \u001b[0m"
-green = u"\u001b[42;1m \u001b[0m"
-yellow = u"\u001b[43;1m \u001b[0m"
-blue = u"\u001b[44;1m \u001b[0m"
-magenta = u"\u001b[45;1m \u001b[0m"
-cyan = u"\u001b[46;1m \u001b[0m"
+red = "\u001b[41;1m \u001b[0m"
+green = "\u001b[42;1m \u001b[0m"
+yellow = "\u001b[43;1m \u001b[0m"
+blue = "\u001b[44;1m \u001b[0m"
+magenta = "\u001b[45;1m \u001b[0m"
+cyan = "\u001b[46;1m \u001b[0m"
 color_arr = [red, green, yellow, blue, magenta, cyan]
 
 
 # pushes all colors to the front
 def col_prefix_front(size, colors):
-    base = ' ' * (size - len(colors))
+    base = " " * (size - len(colors))
     for color in colors:
         base += color_arr[color]
-    return base + ' '
+    return base + " "
+
 
 # keeps all colors in their own columns
 def col_prefix_align(size, colors):
-    base = [' '] * size
+    base = [" "] * size
     for color in colors:
         base[color] = color_arr[color]
-    return ''.join(base) + ' '
+    return "".join(base) + " "
 
 
 def num_prefix(size, num, prev_num):
     if num == 0:
-        return ' ' * (size + 2)
-    s = '|' if num == prev_num else f"{num}."
-    return str.rjust(s, size + 1) + ' '
+        return " " * (size + 2)
+    s = "|" if num == prev_num else f"{num}."
+    return str.rjust(s, size + 1) + " "
 
 
 def check_appears(line, def_dash):
     tag_str = "!Appearances:"
     try:
         list_start = line.index(tag_str) + len(tag_str)
-        split_line = line[list_start:].split(' ')
-        appears = [int(n) for n in split_line[0].split(',')]
-        has_dash = '- ' in line
-        return appears, has_dash, ' '.join(split_line[1:])
+        split_line = line[list_start:].split(" ")
+        appears = [int(n) for n in split_line[0].split(",")]
+        has_dash = "- " in line
+        return appears, has_dash, " ".join(split_line[1:])
     except ValueError:
         return None, def_dash, ""
 
@@ -69,7 +70,7 @@ def update_max(tup_list, new_tup):
 
 def format_appearances(string, inputs):
     lines: list
-    lines = string.split('\n')
+    lines = string.split("\n")
     pre_spaces = len(inputs)
     use_count = pre_spaces > 6
     if use_count:
@@ -79,7 +80,7 @@ def format_appearances(string, inputs):
         for i, inp in enumerate(inputs):
             indicator = col_prefix_front(pre_spaces, [i])
             ret_lines.append(indicator + inp)
-        ret_lines.append(('-' * pre_spaces) + '----')
+        ret_lines.append(("-" * pre_spaces) + "----")
     indent_appears = [(-1, [])]
     dash_next = False
     prev_count = 0
@@ -92,10 +93,10 @@ def format_appearances(string, inputs):
                 indent += 2
             update_max(indent_appears, (indent, appears))
             if len(remaining) > 0:
-                lines.insert(i + 1, (' ' * indent) + remaining)
+                lines.insert(i + 1, (" " * indent) + remaining)
         else:
             if dash_next:
-                line = ' ' * (indent - 2) + '- ' + line[indent:]
+                line = " " * (indent - 2) + "- " + line[indent:]
                 dash_next = False
             appears = get_largest_less_than(indent_appears, indent)
             if use_count:
@@ -105,19 +106,23 @@ def format_appearances(string, inputs):
             else:
                 prefix = col_prefix_align(pre_spaces, appears)
                 ret_lines.append(prefix + line)
-    return '\n'.join(ret_lines) + '\n'
+    return "\n".join(ret_lines) + "\n"
 
 
 def show_fingerprint_diff(fingerprints):
     merged = merge_fingerprints(fingerprints)
     string = yaml.dump(merged, Dumper=DiffDumper, sort_keys=False)
     idx = 0
+
     def id_str(fprint, idx):
         try:
-            meta = fprint['metadata']
+            meta = fprint["metadata"]
             return f"{meta['name']}:{meta['muid']}:{meta['root']}"
         except KeyError:
             idx += 1
             return f"Fingerprint {idx}"
-    string = format_appearances(string, [id_str(fprint, idx) for fprint in fingerprints])
+
+    string = format_appearances(
+        string, [id_str(fprint, idx) for fprint in fingerprints]
+    )
     try_print(string)

@@ -4,19 +4,13 @@ import sys
 import time
 from typing import Callable, Dict, List
 
-import appdirs
 import yaml
 
-from spyctl.api import *
+import spyctl.policies as policy
+import spyctl.user_config as u_conf
+import spyctl.api as api
 from spyctl.args import OUTPUT_JSON, OUTPUT_YAML
 from spyctl.fingerprints import Fingerprint
-
-APP_NAME = "spyctl"
-APP_AUTHOR = "Spyderbat"
-DEFAULT_CONFIG_DIR = appdirs.user_config_dir(APP_NAME, APP_AUTHOR)
-DEFAULT_CONFIG_FILE = "user_config.yml"
-DEFAULT_CONFIG_PATH = os.path.join(DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE)
-SELECTED_DEPLOYMENT = None
 
 yaml.Dumper.ignore_aliases = lambda *args: True
 
@@ -41,11 +35,44 @@ def try_print(*args, **kwargs):
         sys.exit(1)
 
 
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+            It must be "yes" (the default), "no" or None (meaning
+            an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = input().lower()
+        if default is not None and choice == "":
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write(
+                "Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n"
+            )
+
+
 def contains(obj, filt):
-    filt_str = filt.split('=')
+    filt_str = filt.split("=")
     keys = []
     if len(filt_str) > 1:
-        keys = filt_str[0].split('.')
+        keys = filt_str[0].split(".")
     val_str = filt_str[-1]
 
     def cont_keys(obj, keys):
@@ -60,6 +87,7 @@ def contains(obj, filt):
         elif isinstance(obj, str):
             return val_str in obj
         return True
+
     return cont_keys(obj, keys)
 
 
@@ -104,7 +132,7 @@ def get_open_input(string: str):
     if string == "-":
         return read_stdin().strip('"')
     if os.path.exists(string):
-        with open(string, 'r') as f:
+        with open(string, "r") as f:
             return f.read().strip().strip('"')
     return string
 
@@ -152,10 +180,10 @@ def err_exit(message: str):
     exit(1)
 
 
-def api_err_exit(error_code, reason, msg=None):
+def api_err_exit(error_code, reason, *msg):
     title = f"{error_code} ({reason}) error while fetching data"
     if msg is not None:
-        title += ". " + msg
+        title += ". " + " ".join(msg)
     err_exit(title)
 
 
@@ -163,23 +191,26 @@ def clusters_input(args):
     inp = get_open_input(args.clusters)
 
     def get_uid(clust_obj):
-        if 'uid' in clust_obj:
-            return clust_obj['uid']
+        if "uid" in clust_obj:
+            return clust_obj["uid"]
         else:
             err_exit("cluster object input was missing 'uid'")
+
     names_or_uids = handle_list(inp, get_uid)
-    names, uids = get_clusters(*read_config(), api_err_exit)
+    names, uids = api.get_clusters(*u_conf.read_config(), api_err_exit)
     clusters = []
     for string in names_or_uids:
         found = False
         for name, uid in zip(names, uids):
             if string == uid or string == name:
-                clusters.append({'name': name, 'uid': uid})
+                clusters.append({"name": name, "uid": uid})
                 found = True
                 break
         if not found:
-            err_exit(f"cluster '{string}' did not exist in specified organization")
-    clusters.sort(key=lambda c: c['name'])
+            err_exit(
+                f"cluster '{string}' did not exist in specified organization"
+            )
+    clusters.sort(key=lambda c: c["name"])
     return clusters
 
 
@@ -189,23 +220,28 @@ def machines_input(args):
     def get_muid(mach):
         if isinstance(mach, list):
             return [get_muid(m) for m in mach]
-        elif 'muid' in mach:
-            return mach['muid']
+        elif "muid" in mach:
+            return mach["muid"]
         else:
             err_exit("machine object was missing 'muid'")
+
     names_or_uids = handle_list(inp, get_muid)
-    muids, names = get_muids(*read_config(), time_input(args), api_err_exit)
+    muids, names = api.get_muids(
+        *u_conf.read_config(), time_input(args), api_err_exit
+    )
     machs = []
     for string in names_or_uids:
         found = False
         for name, muid in zip(names, muids):
             if string == muid or string == name:
-                machs.append({'name': name, 'muid': muid})
+                machs.append({"name": name, "muid": muid})
                 found = True
                 break
         if not found:
-            err_exit(f"machine '{string}' did not exist in specified organization")
-    machs.sort(key=lambda m: m['name'])
+            err_exit(
+                f"machine '{string}' did not exist in specified organization"
+            )
+    machs.sort(key=lambda m: m["name"])
     return machs
 
 
@@ -215,8 +251,8 @@ def pods_input(args):
     def get_uid(pod_obj):
         if isinstance(pod_obj, list):
             return [get_uid(p) for p in pod_obj]
-        elif 'uid' in pod_obj:
-            return pod_obj['uid']
+        elif "uid" in pod_obj:
+            return pod_obj["uid"]
         else:
             ret = []
             for sub in pod_obj.values():
@@ -224,12 +260,15 @@ def pods_input(args):
                     err_exit("pod object was missing 'uid'")
                 ret.extend(get_uid(sub))
             return ret
+
     names_or_uids = handle_list(inp, get_uid)
-    _, clus_uids = get_clusters(*read_config(), api_err_exit)
+    _, clus_uids = api.get_clusters(*u_conf.read_config(), api_err_exit)
     pods = []
     all_pods = ([], [], [])
     for clus_uid in clus_uids:
-        pod_dict = get_clust_pods(*read_config(), clus_uid, time_input(args), api_err_exit)
+        pod_dict = api.get_clust_pods(
+            *u_conf.read_config(), clus_uid, time_input(args), api_err_exit
+        )
         for list_tup in pod_dict.values():
             for i in range(len(all_pods)):
                 all_pods[i].extend(list_tup[i])
@@ -237,13 +276,12 @@ def pods_input(args):
         found = False
         for name, uid, muid in zip(*all_pods):
             if string == name or string == uid:
-                pods.append({'name': name, 'uid': uid, 'muid': muid})
+                pods.append({"name": name, "uid": uid, "muid": muid})
                 found = True
                 break
         if not found:
             try_log(f"pod '{string}' did not exist in specified organization")
-            # err_exit(f"pod '{string}' did not exist in specified organization")
-    pods.sort(key=lambda p: p['name'])
+    pods.sort(key=lambda p: p["name"])
     return pods
 
 
@@ -261,8 +299,9 @@ def fingerprint_input(files: List) -> List[Fingerprint]:
         except yaml.YAMLError:
             err_exit("invalid yaml input")
         except KeyError as err:
-            key, = err.args
+            (key,) = err.args
             err_exit(f"fingerprint was missing key '{key}'")
+
     if len(files) == 0:
         inp = read_stdin()
         load_fprint(inp)
@@ -270,6 +309,44 @@ def fingerprint_input(files: List) -> List[Fingerprint]:
         for file in files:
             load_fprint(file.read())
     return fingerprints
+
+
+def policy_input(files: List) -> List[policy.Policy]:
+    policies = []
+
+    def load_pols(string):
+        try:
+            obj = yaml.load(string, yaml.Loader)
+            if isinstance(obj, list):
+                for o in obj:
+                    pol_type = o[policy.K8S_METADATA_FIELD][
+                        policy.METADATA_TYPE_FIELD
+                    ]
+                    policies.append(policy.Policy(pol_type))
+            else:
+                pol_type = obj[policy.K8S_METADATA_FIELD][
+                    policy.METADATA_TYPE_FIELD
+                ]
+                policies.append(policy.Policy(pol_type, obj))
+        except yaml.YAMLError:
+            err_exit("invalid yaml input")
+        except KeyError as err:
+            (key,) = err.args
+            err_exit(f"policy was missing key '{key}'")
+
+    if len(files) == 0:
+        inp = read_stdin()
+        load_pols(inp)
+    else:
+        for file in files:
+            try:
+                load_pols(file.read())
+            except IOError:
+                try_log(f"Unable to read file {file}")
+                continue
+            except Exception:
+                continue
+    return policies
 
 
 def namespaces_input(args):
@@ -280,227 +357,5 @@ def namespaces_input(args):
             return [get_strings(n) for n in namespace]
         else:
             return namespace
+
     return sorted(handle_list(inp, get_strings))
-
-
-def set_selected_deployment(deployment: str):
-    global SELECTED_DEPLOYMENT
-    SELECTED_DEPLOYMENT = deployment
-
-
-LOADED_DEPLOYMENT = None
-
-
-def read_config() -> Tuple:
-    """Loads the user config from disk and looks for the selected deployment.
-    If selected deployment is None loads the default. If no selected deployment
-    exists and no default deployment exists, the program exits.
-
-    Returns:
-        Tuple: _description_
-    """
-    global LOADED_DEPLOYMENT
-    if LOADED_DEPLOYMENT is None:
-        try:
-            with open(DEFAULT_CONFIG_PATH, 'r') as f:
-                doc = yaml.load(f, yaml.Loader)
-                if SELECTED_DEPLOYMENT is not None:
-                    try:
-                        dplymt = doc[SELECTED_DEPLOYMENT]
-                    except KeyError:
-                        err_exit(
-                            "User configuration missing API information for"
-                            f" {SELECTED_DEPLOYMENT} deployment."
-                            " Use 'spyctl configure add' to add a deployment.")
-                else:
-                    dplymt = doc["default"]
-                LOADED_DEPLOYMENT = (
-                    doc[dplymt]['api_url'],
-                    doc[dplymt]['api_key'],
-                    doc[dplymt]['org_uid'])
-        except (KeyError, OSError):
-            err_exit(
-                "User configuration missing API information."
-                " Use 'spyctl configure' to add or update it")
-    return LOADED_DEPLOYMENT
-
-
-def handle_config_add(args):
-    d_name = args.deployment_name
-    api_key = args.api_key
-    api_url = args.api_url
-    org = args.org
-    if not os.path.exists(DEFAULT_CONFIG_DIR):
-        os.makedirs(DEFAULT_CONFIG_DIR)
-    doc = {}
-    try:
-        with open(DEFAULT_CONFIG_PATH, 'r') as f:
-            doc = yaml.load(f, yaml.Loader)
-            if doc is None:
-                doc = {}
-    except OSError:
-        pass
-    if d_name in doc:
-        err_exit("Add unsuccessful, deployment with this name already exists")
-    sub = {}
-    sub["api_key"] = api_key
-    sub["api_url"] = api_url.strip('/')
-    try:
-        orgs = get_orgs(sub["api_url"], sub["api_key"], try_log)
-    except Exception:
-        orgs = None
-    found = False
-    if orgs is not None:
-        for uid, name in zip(*orgs):
-            if org == name or org == uid:
-                if name == "Defend The Flag":
-                    err_exit("invalid organization")
-                sub["org_uid"] = uid
-                found = True
-                break
-    if not found:
-        try_log("\nWarning: unable to verify organization for specified API key and url\n")
-        sub["org_uid"] = org
-    if "default" not in doc or args.set_default:
-        try_log(f"Updated default configuration")
-        doc["default"] = sub
-    doc[d_name] = sub
-    with open(DEFAULT_CONFIG_PATH, 'w') as f:
-        yaml.dump(doc, f)
-    try_log(f"Added {d_name} deployment to {DEFAULT_CONFIG_PATH}")
-
-
-def handle_config_update(args):
-    d_name = args.deployment_name
-    api_key = args.api_key
-    api_url = args.api_url
-    org = args.org
-    if (not os.path.exists(DEFAULT_CONFIG_PATH)
-            or not os.path.isfile(DEFAULT_CONFIG_PATH)):
-        err_exit(
-            "User configuration does not exist, no deployments to update,"
-            " use 'spyctl config add'")
-    doc = {}
-    try:
-        with open(DEFAULT_CONFIG_PATH, 'r') as f:
-            doc = yaml.load(f, yaml.Loader)
-            if doc is None:
-                doc = {}
-    except IOError:
-        err_exit("Unable to open user configuration file")
-    except Exception:
-        pass
-    if d_name not in doc:
-        err_exit(
-            f"Unable to update deployment, '{d_name}' not in user"
-            " configuration file")
-    sub = {}
-    sub["api_key"] = api_key if api_key is not None \
-        else doc[d_name]["api_key"]
-    sub["api_url"] = api_url.strip('/') if api_url is not None \
-        else doc[d_name]["api_url"]
-    uid = org if org is not None else doc[d_name]["org_uid"]
-    if org is not None:
-        try:
-            orgs = get_orgs(sub["api_url"], sub["api_key"], try_log)
-        except Exception:
-            orgs = None
-        found = False
-        if orgs is not None:
-            for uid, name in zip(*orgs):
-                if org == name or org == uid:
-                    if name == "Defend The Flag":
-                        err_exit("invalid organization")
-                    sub["org_uid"] = uid
-                    found = True
-                    break
-        if not found:
-            try_log("\nWarning: unable to verify organization for specified API key and url\n")
-            sub["org_uid"] = org
-    else:
-        sub["org_uid"] = uid
-    if "default" not in doc or args.set_default:
-        try_log(f"Updated default configuration")
-        doc["default"] = sub
-    doc[d_name] = sub
-    with open(DEFAULT_CONFIG_PATH, 'w') as f:
-        yaml.dump(doc, f)
-    try_log(f"Updated {d_name} deployment")
-
-
-def handle_config_setdefault(args):
-    d_name = args.deployment_name
-    if (not os.path.exists(DEFAULT_CONFIG_PATH)
-            or not os.path.isfile(DEFAULT_CONFIG_PATH)):
-        err_exit(
-            "User configuration does not exist, no deployments to update,"
-            " use 'spyctl config add'")
-    doc = {}
-    try:
-        with open(DEFAULT_CONFIG_PATH, 'r') as f:
-            doc = yaml.load(f, yaml.Loader)
-            if doc is None:
-                doc = {}
-    except IOError:
-        err_exit("Unable to open user configuration file")
-    except Exception:
-        pass
-    if d_name not in doc:
-        err_exit(
-            f"Unable to set deployment as default, '{d_name}' not in user"
-            " configuration file")
-    doc["default"] = doc[d_name]
-    with open(DEFAULT_CONFIG_PATH, 'w') as f:
-        yaml.dump(doc, f)
-    try_log(f"Set {d_name} as default deployment")
-
-
-def handle_config_delete(args):
-    d_name = args.deployment_name
-    if (not os.path.exists(DEFAULT_CONFIG_PATH)
-            or not os.path.isfile(DEFAULT_CONFIG_PATH)):
-        err_exit(
-            "User configuration does not exist, no deployments to update,"
-            " use 'spyctl config add'")
-    doc = {}
-    try:
-        with open(DEFAULT_CONFIG_PATH, 'r') as f:
-            doc = yaml.load(f, yaml.Loader)
-            if doc is None:
-                doc = {}
-    except IOError:
-        err_exit("Unable to open user configuration file")
-    except Exception:
-        pass
-    if d_name not in doc:
-        err_exit(
-            f"Unable to delete deployment, '{d_name}' not in user"
-            " configuration file")
-    del doc[d_name]
-    with open(DEFAULT_CONFIG_PATH, 'w') as f:
-        yaml.dump(doc, f)
-    try_log(f"Deleted {d_name} deployment from configuration file")
-
-
-def handle_config_show(args):
-    if (not os.path.exists(DEFAULT_CONFIG_PATH)
-            or not os.path.isfile(DEFAULT_CONFIG_PATH)):
-        err_exit(
-            "User configuration does not exist, no deployments to update,"
-            " use 'spyctl config add'")
-    doc = {}
-    try:
-        with open(DEFAULT_CONFIG_PATH, 'r') as f:
-            doc = yaml.load(f, yaml.Loader)
-            if doc is None:
-                doc = {}
-    except IOError:
-        err_exit("Unable to open user configuration file")
-    except Exception:
-        pass
-    if len(doc) == 0:
-        try_print(
-            "No deployments loaded in configuration, use"
-            " 'spyctl config add' to add a deployment")
-    else:
-        try_print(yaml.dump(doc, sort_keys=False), end="")
