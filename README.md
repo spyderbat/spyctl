@@ -158,7 +158,7 @@ From within a configured context, you can use spyctl to view and manage spyderba
 
 `spyctl get` is the command to view said resources. It will either download artifacts using Spyderbat's API or display documents stored locally, but it is the primary tool for exploring your environment.
 
-To retrieve a list of machines with the spyderbat `Nano Agent` installed use the following command:
+To retrieve a list of machines with the spyderbat `Nano Agent` installed issue the following command:
 ```
 spyctl get machines
 ```
@@ -170,11 +170,11 @@ Another key component of Spyderbat is the `Spyderbat Fingerprints` feature. Spyd
 
 These `Spyderbat Fingerprints` can then be used to baseline your containers and services. Ultimately, the baselines can be converted into `Spyderbat Policies` which are effective at both reducing noise and notifying you when deviations from the baseline occur.
 
-To get Spyderbat Fingerprints you can use the command:
+To get `Spyderbat Fingerprints` you can issue the command:
 ```
 spyctl get fingerprints
 ```
-By default this will return a `Fingerprints Group` object of all fingerprints generated in the last hour, this object can contain rather large list so it is generally more useful to find fingerprints for a specific container or service. Using `get linux-services` or `get images` will show you what is currently running in your environment, then you can use the following command to get more specific fingerprints:
+By default this will return a `Fingerprints Group` object of all fingerprints generated in the last hour, this object can contain a rather large list so it is generally more useful to `get` fingerprints for a specific container or Linux service. Using `get linux-services` or `get images` will show you what is currently running in your environment, then you can issue the following command to get more specific fingerprints:
 
 ```
 spyctl get fingerprints --image my/application_image:latest
@@ -346,7 +346,7 @@ spec:
 
 Now that we have an initial baseline its probably best to let the system run for a time. Spyderbat will continue to automatically build and update fingerprints for your deployed Linux services and containers.
 
-After some time passes you may want to verify that the latest fingerprints haven't deviated from the baseline. To do this, use the following command:
+After some time passes you may want to verify that the latest fingerprints haven't deviated from the baseline. To do this, issue the following command:
 ```
 spyctl diff --baseline my_application_image_baseline --latest
 ```
@@ -365,7 +365,7 @@ Once you have a stable baseline the next step is to create a `Spyderbat Policy`
 
 Benefits of a `Spyderbat Policy` include:
 - reduce redflag noise by excluding all flags within a policy
-- generate new redflags whenever a deviations from a policy occurs
+- generate new redflags whenever a deviations from policy occur
 - response actions such as webhook notifications or even automatically killing a pod
 - security as policy
 
@@ -400,7 +400,7 @@ spec:
       severity: high
     actions: []
 ```
-To see a list of `Spyderbat Policies` you have created use the following command:
+To see a list of `Spyderbat Policies` you have created issue the following command:
 ```
 spyctl get policies
 ```
@@ -408,14 +408,14 @@ the output looks like this:
 ```
 $ spyctl get policies
 LOCAL:
-ID           Type          Name                           Processes   Ingress   Egress
+ID           Type          Name                          Processes   Ingress   Egress
 XXXXXXXXX    container     my_application_image_policy   4           1         1
 
 REMOTE:
 ID           Type          Name                          Processes   Ingress   Egress
 ```
 
-To add response actions use the command:
+To add response actions issue the command:
 ```
 spyctl edit my_application_image_policy
 ```
@@ -435,7 +435,7 @@ response:
 ```
 What this means is that when a container running the `my/application_image*` image deviates from `my_application_image_policy` from a K8s Pod in the `dev` environment spyderbat will generate a low severity flag, and send a message with information about the deviation to the specified url.
 
-Local `Spyderbat Policies` have not been `applied` so they will not generate flags or take response actions for deviations yet. In order to enable the policy you may use the command:
+Local `Spyderbat Policies` have not been `applied` so they will not generate flags or take response actions for deviations yet. In order to enable the policy you may issue the command:
 ```
 spyctl apply my_application_image_policy
 ```
@@ -454,15 +454,15 @@ At this point you now have an applied policy that will reduce noise, generate fl
 
 Should deviations occur there are a few steps you can take to update the policy. The first option is to merge in the latest `Fingerprint Group` similar to the Baseline Workflow:
 ```
-spyctl diff my_application_image_policy:applied  --latest
+spyctl diff my_application_image_policy:applied --latest
 ```
 if there are deviations:
 ```
-spyctl merge my_application_image_policy:applied  --latest --apply
+spyctl merge my_application_image_policy:applied --latest --apply
 ```
 This performs a `merge` and the `--apply` flag will automatically apply the changes. 
 
-If the apply flag is not provided, this will create a new local policy with the same ID as the remote policy:
+If the `--apply` flag is not provided, this will create a new local policy with the same ID as the remote policy:
 ```
 LOCAL:
 ID           Type          Name                          Processes   Ingress   Egress
@@ -483,7 +483,7 @@ Since policies can be running for a while without a deviation, `merging` with th
 ```
 spyctl get deviations YYYYYYYYY
 ```
-This will simply display the deviations, use the following to generate a `Fingerprint Group` from the deviations:
+This will simply display the deviations, issue the following to generate a `Fingerprint Group` from the deviations:
 ```
 spyctl get deviations YYYYYYYYY -o fingerprint-group > deviations.yml
 ```
