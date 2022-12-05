@@ -73,7 +73,7 @@ def handle_compare(args):
     show_fingerprint_diff(fingerprints)
 
 
-def handle_delete(arg):
+def handle_delete(args):
     cmd = args.delete_cmd
     if cmd in get_names("spyderbat-policy"):
         d.handle_delete_policy(args)
