@@ -5,7 +5,7 @@ from typing import Dict, Generator, List, Optional, TypeVar, Union
 import yaml
 from typing_extensions import Self
 
-from spyctl.fingerprints import Fingerprint
+from spyctl.resources.fingerprints import Fingerprint
 
 T1 = TypeVar("T1")
 

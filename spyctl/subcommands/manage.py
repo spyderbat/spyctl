@@ -1,9 +1,10 @@
 from typing import List
 
 import spyctl.cli as cli
-import spyctl.delete as d
-import spyctl.policies as p
-import spyctl.upload as upload
+import spyctl.subcommands.delete as d
+import spyctl.spyctl_lib as lib
+import spyctl.resources.policies as p
+import spyctl.subcommands.upload as upload
 
 
 def manage_policy_input(args) -> p.Policy:
@@ -40,30 +41,30 @@ def handle_manage_add_resp(args):
     policy = manage_policy_input(args)
     resp_action = {}
     action_name = args.action
-    resp_action[p.RESP_ACTION_NAME_FIELD] = action_name
-    if action_name == p.ACTION_WEBHOOK:
+    resp_action[lib.RESP_ACTION_NAME_FIELD] = action_name
+    if action_name == lib.ACTION_WEBHOOK:
         template = args.template
         if template is None:
             cli.err_exit(
-                f"template required when action is '{p.ACTION_WEBHOOK}'"
+                f"template required when action is '{lib.ACTION_WEBHOOK}'"
             )
-        resp_action[p.RESP_TEMPLATE_FIELD] = template
+        resp_action[lib.RESP_TEMPLATE_FIELD] = template
         url = args.url
         if url is None:
-            cli.err_exit(f"url required when action is '{p.ACTION_WEBHOOK}'")
-        resp_action[p.RESP_URL_FIELD] = url
+            cli.err_exit(f"url required when action is '{lib.ACTION_WEBHOOK}'")
+        resp_action[lib.RESP_URL_FIELD] = url
     severity = args.severity
     if severity is not None:
-        resp_action[p.RESP_SEVERITY_FILED] = severity
+        resp_action[lib.RESP_SEVERITY_FILED] = severity
     pod_labels = args.pod_labels
     if pod_labels is not None:
-        resp_action[p.POD_SELECTOR_FIELD] = {
-            p.K8S_MATCH_LABELS_FIELD: pod_labels
+        resp_action[lib.POD_SELECTOR_FIELD] = {
+            lib.MATCH_LABELS_FIELD: pod_labels
         }
     namespace_labels = args.namespace_labels
     if namespace_labels is not None:
-        resp_action[p.NAMESPACE_SELECTOR_FIELD] = {
-            p.K8S_MATCH_LABELS_FIELD: namespace_labels
+        resp_action[lib.NAMESPACE_SELECTOR_FIELD] = {
+            lib.MATCH_LABELS_FIELD: namespace_labels
         }
     policy.add_response_action(resp_action)
     cli.show(policy.get_output(), args)

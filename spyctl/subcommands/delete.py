@@ -1,7 +1,14 @@
 import spyctl.api as api
 import spyctl.cli as cli
-import spyctl.policies as p
-import spyctl.user_config as u_conf
+import spyctl.resources.policies as p
+import spyctl.config.configs as u_conf
+import spyctl.config.secrets as s
+import spyctl.spyctl_lib as lib
+
+
+def handle_delete(resource, name_or_id):
+    if resource == lib.SECRETS_ALIASES:
+        s.delete_secret(name_or_id)
 
 
 def del_policy_input(args) -> p.Policy:

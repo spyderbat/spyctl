@@ -1,10 +1,12 @@
 import json
-from typing import List, Tuple, Dict, Callable
-import spyctl.policies as p
-import spyctl.cli as cli
+import time
+from typing import Callable, Dict, List, Tuple
 
 import requests
 import zulu
+
+import spyctl.cli as cli
+import spyctl.spyctl_lib as lib
 
 # Get policy parameters
 GET_POL_TYPE = "type"
@@ -17,13 +19,15 @@ GET_POL_UID_EQUALS = "uid_equals"
 
 # https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
 # connection timeout, read timeout
-TIMEOUT = (6.10, 27)
+TIMEOUT = (6.10, 300)
+AUTO_HIDE_TIME = zulu.now().shift(days=-1)
 
 
 def get(url, key, params=None):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
     if r.status_code != 200:
+        print(r.headers.get("X-Context-Uid"))
         raise RuntimeError(r.status_code, r.reason, r.text)
     return r
 
@@ -67,11 +71,55 @@ def get_orgs(api_url, api_key, err_fn) -> List[Tuple]:
         return None
 
 
-def get_muids(api_url, api_key, org_uid, time, err_fn) -> Tuple:
+def get_machines(api_url, api_key, org_uid, err_fn) -> List[Dict]:
+    machines: Dict[str, Dict] = {}
+    url = f"{api_url}/api/v1/org/{org_uid}/source/"
+    try:
+        source_json = get(url, api_key).json()
+        for source in source_json:
+            src_uid = source["uid"]
+            if not src_uid.startswith("global"):
+                machines[src_uid] = source
+    except RuntimeError as err:
+        err_fn(*err.args)
+        return None
+    # agents API call to find "description" (name used by the UI)
+    url = f"{api_url}/api/v1/org/{org_uid}/agent/"
+    try:
+        agent_json = get(url, api_key).json()
+        for agent in agent_json:
+            src_uid = agent["runtime_details"]["src_uid"]
+            description = agent["description"]
+            if not agent["uid"].startswith("global"):
+                source = machines.get(src_uid)
+                if source is None:
+                    continue
+                source.update(agent)
+                machine = {}
+                machine["uid"] = src_uid
+                machine["name"] = description
+                del source["uid"]
+                del source["description"]
+                del source["name"]
+                machine.update(source)
+                machines[src_uid] = machine
+    except RuntimeError as err:
+        err_fn(*err.args)
+        return None
+    # Auto-hide inactive machines
+    rv = []
+    for machine in machines.values():
+        if (
+            zulu.Zulu.parse(machine["last_data"]) >= AUTO_HIDE_TIME
+            and "runtime_details" in machine
+        ):
+            rv.append(machine)
+    return rv
+
+
+def get_muids(api_url, api_key, org_uid, err_fn) -> Tuple:
     last_datas = {}
     sources = {}
-    muids = []
-    hostnames = []
     # get all sources to get last data
     url = f"{api_url}/api/v1/org/{org_uid}/source/"
     try:
@@ -100,28 +148,32 @@ def get_muids(api_url, api_key, org_uid, time, err_fn) -> Tuple:
     except RuntimeError as err:
         err_fn(*err.args)
         return None
-    check_time = zulu.Zulu.fromtimestamp(time[0]).shift(days=-2)
+    check_time = zulu.Zulu.fromtimestamp(time.time()).shift(days=-1)
+    machines = []
     for muid, data in list(sources.items()):
         if data["last_data"] >= check_time:
-            muids.append(muid)
-            hostnames.append(data["name"])
-    return muids, hostnames
+            machines.append(
+                {
+                    "name": data["name"],
+                    "uid": muid,
+                    "machine_details": {"last_data": str(data["last_data"])},
+                }
+            )
+    return machines
 
 
 def get_clusters(api_url, api_key, org_uid, err_fn):
-    names = []
-    src_uids = []
+    clusters = []
     url = f"{api_url}/api/v1/org/{org_uid}/cluster/"
     try:
         json = get(url, api_key).json()
         for cluster in json:
-            names.append(cluster["name"])
-            src_uids.append(cluster["uid"])
-            # src_uids.append(cluster['cluster_details']['agent_uid'])
+            if "/" not in cluster["uid"]:
+                clusters.append(cluster)
     except RuntimeError as err:
         err_fn(*err.args, f"Unable to get clusters in '{org_uid}'")
         return None
-    return names, src_uids
+    return clusters
 
 
 def get_k8s_data(
@@ -154,13 +206,47 @@ def get_clust_muids(api_url, api_key, org_uid, clus_uid, time, err_fn):
 
 
 def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time, err_fn):
-    latest = {"time": "0"}
+    ns = set()
     for data in get_k8s_data(
         api_url, api_key, org_uid, clus_uid, err_fn, "cluster", time
     ):
-        if float(latest["time"]) < float(data["time"]):
-            latest = data
-    return sorted(latest.get(["namespaces"], []))
+        data_ns = data.get("namespaces", set())
+        ns.update(data_ns)
+    return sorted(ns)
+
+
+def get_namespaces(api_url, api_key, org_uid, clusters, time, err_fn):
+    namespaces = []
+    for cluster in clusters:
+        if "/" in cluster["uid"]:
+            continue
+        ns_list = get_clust_namespaces(
+            api_url,
+            api_key,
+            org_uid,
+            cluster["uid"],
+            time,
+            err_fn,
+        )
+        namespaces.append(
+            {
+                "cluster_name": cluster["name"],
+                "cluster_uid": cluster["uid"],
+                "namespaces": ns_list,
+            }
+        )
+    return namespaces
+
+
+def get_pods(api_url, api_key, org_uid, clusters, time, err_fn) -> List[Dict]:
+    pods = []
+    for cluster in clusters:
+        pods.extend(
+            get_clust_pods(
+                api_url, api_key, org_uid, cluster["uid"], time, err_fn
+            )
+        )
+    return pods
 
 
 def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
@@ -168,47 +254,44 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
     for data in get_k8s_data(
         api_url, api_key, org_uid, clus_uid, err_fn, "pod", time
     ):
-        namespace = data["metadata"]["namespace"]
-        muid = data.get("muid", "unknown")
-        if namespace not in pods:
-            pods[namespace] = [data["metadata"]["name"]], [data["id"]], [muid]
+        pod_id = data["id"]
+        if pod_id not in pods:
+            pods[pod_id] = data
+        elif pods[pod_id]["time"] < data["time"]:
+            pods[pod_id] = data
+        # pod_name = data[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
+        # pod_uid = data["id"]
+        # if data["status"] != "closed":
+        #     pods[pod_uid] = {
+        #         lib.METADATA_NAME_FIELD: pod_name,
+        #         "uid": pod_uid,
+        #         "pod_details": {
+        #             "cluster_uid": data["cluster_uid"],
+        #             "cluster_name": data["cluster_name"],
+        #             "namespace": data[lib.METADATA_FIELD]["namespace"],
+        #             "time_seen": data["time"],
+        #         },
+        #     }
+    return list(pods.values())
+
+
+def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
+    fingerprints = []
+    for muid in muids:
+        url = (
+            f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&"
+            f"st={time[0] - 60*60}&et={time[1]}&dt=fingerprints"
+        )
+        try:
+            resp = get(url, api_key)
+            for fprint_json in resp.iter_lines():
+                fprint = json.loads(fprint_json)
+                if "metadata" in fprint:
+                    fingerprints.append(fprint)
+        except RuntimeError as err:
+            err_fn(*err.args, f"Unable to get fingerprints from {muid}")
             continue
-        if not data["id"] in pods[namespace][1]:
-            if data["status"] != "closed":
-                pods[namespace][0].append(data["metadata"]["name"])
-                pods[namespace][1].append(data["id"])
-                pods[namespace][2].append(muid)
-        else:
-            idx = pods[namespace][1].index(data["id"])
-            if pods[namespace][2][idx] == "unknown":
-                pods[namespace][2][idx] = muid
-            if data["status"] == "closed" and data["time"] < time[0]:
-                for i in range(3):
-                    pods[namespace][i].pop(idx)
-    # for ns, lst in pods.items():
-    #     print("namespace:", ns)
-    #     for i, muid in enumerate(lst[2]):
-    #         if muid == "unknown":
-    #             print(lst[0][i])
-    return pods
-
-
-def get_fingerprints(api_url, api_key, org_uid, muid, time, err_fn):
-    url = (
-        f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&"
-        f"st={time[0] - 60*60}&et={time[1]}&dt=fingerprints"
-    )
-    try:
-        fingerprints = []
-        resp = get(url, api_key)
-        for fprint_json in resp.iter_lines():
-            fprint = json.loads(fprint_json)
-            if "metadata" in fprint:
-                fingerprints.append(fprint)
-        return fingerprints
-    except RuntimeError as err:
-        err_fn(*err.args, f"Unable to get fingerprints from {muid}")
-        return None
+    return fingerprints
 
 
 def get_policies(api_url, api_key, org_uid, err_fn: Callable, params):
@@ -222,7 +305,7 @@ def get_policies(api_url, api_key, org_uid, err_fn: Callable, params):
                 print(pol)
                 uid = pol["uid"]
                 policy = pol["policy"]
-                policy[p.K8S_METADATA_FIELD][p.METADATA_UID_FIELD] = uid
+                policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
                 policies.append(policy)
         return policies
     except RuntimeError as err:
@@ -239,7 +322,7 @@ def get_policy(api_url, api_key, org_uid, pol_uid, err_fn: Callable):
             pol = json.loads(pol_json)
             uid = pol["uid"]
             policy = pol["policy"]
-            policy[p.K8S_METADATA_FIELD][p.METADATA_UID_FIELD] = uid
+            policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
             policies.append(policy)
         return policies
     except RuntimeError as err:

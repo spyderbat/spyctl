@@ -1,131 +1,972 @@
 #! /usr/bin/env python3
 
-from spyctl.args import get_names, parse_args
-from spyctl.cli import *
-from spyctl.create import handle_create_policy
-from spyctl.diff import show_fingerprint_diff
-from spyctl.fingerprints import InvalidFingerprintError
-from spyctl.get import *
-from spyctl.merge import MergeDumper, merge_fingerprints
-from spyctl.policies import PolicyTypeError
-import spyctl.manage as manage
-import spyctl.user_config as u_conf
-import spyctl.upload as upload
-import spyctl.delete as d
+import time
+from typing import Dict, List
+
+import click
+
+import spyctl.config.configs as cfgs
+import spyctl.config.secrets as s
+import spyctl.spyctl_lib as lib
+import spyctl.subcommands.get as g
+from spyctl.subcommands.apply import handle_apply
+from spyctl.subcommands.delete import handle_delete
+
+MAIN_EPILOG = (
+    'Use "spyctl <command> --help" for more information about a given command'
+)
+DEFAULT_API_URL = "https://api.spyderbat.com"
+DEFAULT_START_TIME = 1614811600
 
 
-def main():
-    args = parse_args()
-    cmd = args.subcommand
-    if args.selected_deployment:
-        u_conf.set_selected_deployment(args.selected_deployment)
-    if cmd in get_names("configure"):
-        handle_configure(args)
-    elif cmd in get_names("compare"):
-        handle_compare(args)
-    elif cmd in get_names("create"):
-        handle_create(args)
-    elif cmd in get_names("delete"):
-        handle_delete(args)
-    elif cmd in get_names("get"):
-        handle_get(args)
-    elif cmd in get_names("manage"):
-        handle_manage(args)
-    elif cmd in get_names("merge"):
-        handle_merge(args)
-    elif cmd in get_names("upload"):
-        handle_upload(args)
+# ----------------------------------------------------------------- #
+#                     Command Tree Entrypoint                       #
+# ----------------------------------------------------------------- #
 
 
-def handle_configure(args):
-    cmd = args.config_cmd
-    if cmd == "add":
-        u_conf.handle_config_add(args)
-    elif cmd == "update":
-        u_conf.handle_config_update(args)
-    elif cmd == "default":
-        u_conf.handle_config_setdefault(args)
-    elif cmd == "delete":
-        u_conf.handle_config_delete(args)
-    elif cmd == "show":
-        u_conf.handle_config_show(args)
+@click.group(cls=lib.CustomGroup, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.pass_context
+def main(ctx):
+    """spyctl displays and controls resources within your Spyderbat
+    environment
+    """
+    cfgs.load_config()
 
 
-def handle_get(args):
-    tgt = args.get_target
-    if tgt in get_names("clusters"):
-        handle_get_clusters(args)
-    if tgt in get_names("namespaces"):
-        handle_get_namespaces(args)
-    elif tgt in get_names("machines"):
-        handle_get_machines(args)
-    elif tgt in get_names("pods"):
-        handle_get_pods(args)
-    elif tgt in get_names("fingerprints"):
-        handle_get_fingerprints(args)
-    elif tgt in get_names("spyderbat-policy"):
-        handle_get_policies(args)
+# ----------------------------------------------------------------- #
+#                         Apply Subcommand                          #
+# ----------------------------------------------------------------- #
 
 
-def handle_compare(args):
-    fingerprints = fingerprint_input(args.files)
-    fingerprints = [f.get_output() for f in fingerprints]
-    show_fingerprint_diff(fingerprints)
+@main.command("apply", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True, is_eager=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename containing Spyderbat resource.",
+    metavar="",
+)
+def apply(filename):
+    """Apply a configuration to a resource by file name."""
+    handle_apply(filename)
 
 
-def handle_delete(args):
-    cmd = args.delete_cmd
-    if cmd in get_names("spyderbat-policy"):
-        d.handle_delete_policy(args)
+# ----------------------------------------------------------------- #
+#                         Config Subcommand                         #
+# ----------------------------------------------------------------- #
 
 
-def handle_merge(args):
-    fingerprints = fingerprint_input(args.files)
-    fingerprints = [f.get_output() for f in fingerprints]
-    merged = merge_fingerprints(fingerprints)
-    merged = yaml.load(
-        yaml.dump(merged, Dumper=MergeDumper, sort_keys=False), yaml.Loader
+@main.group("config", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+def config():
+    """Modify spyctl config files."""
+    pass
+
+
+@config.command("delete-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-g",
+    "--global",
+    "force_global",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this forces a change to"
+    " the global spyctl config.",
+)
+@click.argument("name")
+def delete_context(name, force_global):
+    """Delete the specified context from a spyctl configuration file."""
+    cfgs.delete_context(name, force_global)
+
+
+@config.command("current-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-g",
+    "--global",
+    "force_global",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this forces a change to"
+    " the global spyctl config.",
+)
+def current_context(force_global):
+    """Display the current-context."""
+    cfgs.current_context(force_global)
+
+
+@config.command("set-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-g",
+    "--global",
+    "force_global",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this forces a change to"
+    " the global spyctl config.",
+)
+@click.option(
+    "-u",
+    "--use-context",
+    "use_ctx",
+    is_flag=True,
+    help="Use this context when set. Sets the current-context field in the"
+    " config file. The first context added to a config is automatically set as"
+    " current-context.",
+)
+@click.option(
+    "-s",
+    "--secret",
+    help="Name of api config secret.",
+    metavar="",
+    required=True,
+)
+@click.option(
+    "-o",
+    "--organization",
+    help="ID or name of Spyderbat organization.",
+    metavar="",
+    required=True,
+)
+@click.option(
+    "-c",
+    "--cluster",
+    help="Name or Spyderbat ID of Kubernetes cluster.",
+    metavar="",
+)
+@click.option(
+    "-n",
+    "--namespace",
+    help="Name or Spyderbat ID of Kubernetes namespace.",
+    metavar="",
+)
+@click.option(
+    "-p", "--pod", help="Name or Spyderbat ID of Kubernetes pod.", metavar=""
+)
+@click.option(
+    "-m",
+    "--machines",
+    help="Name of machine group, or name or Spyderbat ID of a machine (node).",
+    metavar="",
+)
+@click.option(
+    "-i",
+    "--image",
+    help="Name of container image, wildcards allowed.",
+    metavar="",
+)
+@click.option("-d", "--image-id", help="Container image ID.", metavar="")
+@click.option(
+    "-N", "--container-name", help="Name of specific container.", metavar=""
+)
+@click.option("-C", "--cgroup", help="Linux service cgroup.", metavar="")
+@click.argument("name")
+def set_context(name, secret, force_global, use_ctx, **context):
+    """Set a context entry in a spyctl configuration file."""
+    context = {
+        key: value for key, value in context.items() if value is not None
+    }
+    cfgs.set_context(name, secret, force_global, use_ctx, **context)
+
+
+@config.command("use-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-g",
+    "--global",
+    "force_global",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this forces a change to"
+    " the global spyctl config.",
+)
+@click.argument("name")
+def use_context(name, force_global):
+    """Set the current-context in a spyctl configuration file."""
+    cfgs.use_context(name, force_global)
+
+
+@config.command("view", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-g",
+    "--global",
+    "force_global",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this forces a change to"
+    " the global spyctl config.",
+)
+@click.option(
+    "-w",
+    "--workspace",
+    "force_workspace",
+    is_flag=True,
+    help="View merged configuration file. Supply a flag to view global"
+    " configuration file or local workspace configuration file.",
+)
+@click.option("-o", "--output", default=lib.OUTPUT_YAML, metavar="")
+def view(force_global, force_workspace, output):
+    """View the current spyctl configuration file(s)."""
+    cfgs.view_config(force_global, force_workspace, output)
+
+
+# ----------------------------------------------------------------- #
+#                         Create Subcommand                         #
+# ----------------------------------------------------------------- #
+
+
+@main.group("create", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+def create():
+    """Create a resource from a file."""
+    pass
+
+
+@create.command("baseline", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--from-file",
+    "filename",
+    help="File that contains the FingerprintsGroup object, from which spyctl"
+    " creates a baseline.",
+    metavar="",
+)
+def create_baseline(filename):
+    """Create a Baseline from a file, outputted to stdout"""
+    click.echo(filename)
+
+
+@create.command("policy", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--from-file",
+    "filename",
+    help="File that contains the FingerprintsGroup or SpyderbatBaseline"
+    " object, from which spyctl creates a policy",
+    metavar="",
+)
+def create_policy(filename):
+    """Create a Policy object from a file, outputted to stdout"""
+    pass
+
+
+@create.group("secret", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+def create_secret():
+    """Create a Secret object from the command line."""
+    pass
+
+
+@create_secret.command("apicfg", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-k",
+    "--apikey",
+    "--api-key",
+    "api_key",
+    help="API key generated via the Spyderbat UI, base64 encoded."
+    " Use 'echo -n <apikey> | base64 -w 0'",
+    metavar="",
+)
+@click.option(
+    "-u",
+    "--apiurl",
+    "--api-url",
+    "api_url",
+    help=f"URL target for api queries. Default: {DEFAULT_API_URL}",
+    default=DEFAULT_API_URL,
+    metavar="",
+)
+@click.argument("name")
+def create_apicfg_secret(name, api_key, api_url):
+    """Create an apicfg secret. spyctl requires an api secret be applied to a
+    context in order to run successful api queries.
+    """
+    s.create_secret(
+        name,
+        s.S_TYPE_APICFG,
+        data={lib.API_KEY_FIELD: api_key},
+        string_data={lib.API_URL_FIELD: api_url},
     )
-    show(merged, args)
 
 
-def handle_create(args):
-    tgt = args.create_target
-    if tgt in get_names("spyderbat-policy"):
-        if args.fingerprints is not None:
-            try:
-                if args.fingerprints == "-":
-                    files = []
-                else:
-                    files = [open(args.fingerprints)]
-                fingerprints = fingerprint_input(files)
-                handle_create_policy(args, fingerprints)
-            except InvalidFingerprintError as e:
-                try_log(" ".join(e.args))
-            except PolicyTypeError as e:
-                try_log(" ".join(e.args))
-            finally:
-                try:
-                    files[0].close()
-                except Exception:
-                    pass
-        else:
-            handle_create_policy(args)
+@create_secret.command("opaque", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "--data",
+    help="Key/value pairs, base64 encoded.",
+    metavar="",
+)
+@click.option(
+    "--string-data",
+    "string_data",
+    help="Key/value pairs, plain text.",
+    default=DEFAULT_API_URL,
+    metavar="",
+)
+@click.argument("name")
+def create_opque_secret(name, data=None, string_data=None):
+    """Create an opaque secret. May contain an arbitrary amount of base64
+    encoded data and plaintext string data.
+    """
+    s.create_secret(name, s.S_TYPE_OPAQUE, data, string_data)
 
 
-def handle_upload(args):
-    cmd = args.upload_cmd
-    if cmd in get_names("spyderbat-policy"):
-        upload.handle_upload_policy(args)
+# ----------------------------------------------------------------- #
+#                        Delete Subcommand                          #
+# ----------------------------------------------------------------- #
 
 
-def handle_manage(args):
-    cmd = args.manage_cmd
-    if cmd in get_names("spyderbat-policy"):
-        manage.handle_manage_policy(args)
+@main.command("delete", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource")
+@click.argument("name_or_id")
+def delete(resource, name_or_id):
+    """Delete resources by resource and names, or by resource and ids"""
+    handle_delete(resource, name_or_id)
 
 
-def handle_policy_template(args):
+# ----------------------------------------------------------------- #
+#                          Diff Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("diff", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Target file of the diff.",
+    metavar="",
+)
+@click.option(
+    "-w",
+    "--with-file",
+    help="File to diff with target file.",
+    metavar="",
+)
+@click.option(
+    "-l",
+    "--latest",
+    help="Diff file with latest records using the value of lastTimestamp in"
+    " metadata",
+    metavar="",
+)
+def diff(filename, with_file=None, latest=None):
+    """Diff FingerprintsGroups with SpyderbatBaselines and SpyderbatPolicies"""
+    pass
+
+
+# ----------------------------------------------------------------- #
+#                          Get Subcommand                           #
+# ----------------------------------------------------------------- #
+
+
+@main.group("get", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource")
+@click.argument("name_or_id", required=False)
+@click.option(
+    f"--{cfgs.IMG_FIELD}",
+    help="Only show clusters with pods or nodes running this container image."
+    " Overrides value current context if it exists.",
+)
+@click.option(
+    f"--{cfgs.IMGID_FIELD}",
+    help="Only show clusters with pods or nodes running containers with this"
+    " image id. Overrides value current context if it exists.",
+)
+@click.option(
+    f"--{cfgs.CONTAINER_NAME_FIELD}",
+    help="Only show clusters with pods or node running containers with this"
+    " container name. Overrides value current context if it exists.",
+)
+@click.option(
+    f"--{cfgs.CGROUP_FIELD}",
+    help="Only show clusters with nodes running Linux services with this"
+    " cgroup. Overrides value current context if it exists.",
+)
+@click.option(
+    f"--{cfgs.POD_FIELD}",
+    help="Only show clusters with nodes running this pod."
+    " Overrides value current context if it exists.",
+)
+@click.option(
+    f"--{cfgs.MACHINES_FIELD}",
+    "--nodes",
+    help="Only show clusters linked to these nodes."
+    " Overrides value current context if it exists.",
+)
+@click.option(
+    f"--{cfgs.NAMESPACE_FIELD}",
+    help="Only show clusters with this namespace."
+    " Overrides value current context if it exists.",
+)
+@click.option(
+    f"--{cfgs.CLUSTER_FIELD}",
+    help="Only show this cluster."
+    " Overrides value current context if it exists.",
+)
+@click.option("-o", "--output", default=lib.OUTPUT_DEFAULT)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Start time of the query. Default is beginning of time.",
+    default="2h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query. Default is now.",
+    default=time.time(),
+    type=lib.time_inp,
+)
+def get(resource, st, et, output, name_or_id=None, **filters):
+    """Display one or many resources."""
+    filters = {
+        key: value for key, value in filters.items() if value is not None
+    }
+    g.handle_get(resource, name_or_id, st, et, output, **filters)
+
+
+# @get.command("clusters", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     f"--{cfgs.IMG_FIELD}",
+#     help="Only show clusters with pods or nodes running this container image."
+#     " Overrides value current context if it exists.",
+# )
+# @click.option(
+#     f"--{cfgs.IMGID_FIELD}",
+#     help="Only show clusters with pods or nodes running containers with this"
+#     " image id. Overrides value current context if it exists.",
+# )
+# @click.option(
+#     f"--{cfgs.CONTAINER_NAME_FIELD}",
+#     help="Only show clusters with pods or node running containers with this"
+#     " container name. Overrides value current context if it exists.",
+# )
+# @click.option(
+#     f"--{cfgs.CGROUP_FIELD}",
+#     help="Only show clusters with nodes running Linux services with this"
+#     " cgroup. Overrides value current context if it exists.",
+# )
+# @click.option(
+#     f"--{cfgs.POD_FIELD}",
+#     help="Only show clusters with nodes running this pod."
+#     " Overrides value current context if it exists.",
+# )
+# @click.option(
+#     f"--{cfgs.MACHINES_FIELD}",
+#     "--nodes",
+#     help="Only show clusters linked to these nodes."
+#     " Overrides value current context if it exists.",
+# )
+# @click.option(
+#     f"--{cfgs.NAMESPACE_FIELD}",
+#     help="Only show clusters with this namespace."
+#     " Overrides value current context if it exists.",
+# )
+# @click.option(
+#     f"--{cfgs.CLUSTER_FIELD}",
+#     help="Only show this cluster."
+#     " Overrides value current context if it exists.",
+# )
+# @click.option("-o", "--output", default=lib.OUTPUT_YAML)
+# def get_clusters(output, **filters):
+#     """Display one or many clusters."""
+#     filters = {
+#         key: value for key, value in filters.items() if value is not None
+#     }
+#     g.handle_get_clusters(output, **filters)
+
+
+# @get.command("container-images", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--image",
+#     help="Only show container images matching this image criteria. Overrides"
+#     " current context.",
+# )
+# @click.option(
+#     "--image-id",
+#     help="Only show container images matching this id criteria."
+#     " Overrides current context.",
+# )
+# @click.option(
+#     "--container-name",
+#     help="Only show container images matching this container name criteria"
+#     " this container name criteria. Overrides current context.",
+# )
+# @click.option(
+#     "--pods",
+#     help="Only show container images for containers running in these pods."
+#     " Overrides current context",
+# )
+# @click.option(
+#     "-l",
+#     "--pod-selectors",
+#     help="Pod selector (label query) to filter on, supports '=', '==', and"
+#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "-n",
+#     "--namespace-selectors",
+#     help="Namespace selector (label query) to filter on, supports '=', '==',"
+#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "--machines",
+#     "--nodes",
+#     help="Only show container images for containers linked to these nodes."
+#     " Overrides current context.",
+# )
+# @click.option(
+#     "--clusters",
+#     help="Only show container images for containers within these clusters."
+#     " Overrides current context",
+# )
+# @click.option(
+#     "-t" "--start-time",
+#     help="Start time of the query. Default is beginning of time.",
+# )
+# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
+# def get_container_images():
+#     """Display one or many container images. Displays image and image ID"""
+#     pass
+
+
+# @get.command("container-names", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--image",
+#     help="Only show container-names with this container image. Overrides"
+#     " current context.",
+# )
+# @click.option(
+#     "--image-id",
+#     help="Only show container names with with"
+#     " this image id. Overrides current context.",
+# )
+# @click.option(
+#     "--container-name",
+#     help="Only show container names matching"
+#     " this container name criteria. Overrides current context.",
+# )
+# @click.option(
+#     "--pods",
+#     help="Only show container names for containers running in these pods."
+#     " Overrides current context",
+# )
+# @click.option(
+#     "-l",
+#     "--pod-selectors",
+#     help="Pod selector (label query) to filter on, supports '=', '==', and"
+#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "-n",
+#     "--namespace-selectors",
+#     help="Namespace selector (label query) to filter on, supports '=', '==',"
+#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "--machines",
+#     "--nodes",
+#     help="Only show container names for containers linked to these nodes."
+#     " Overrides current context.",
+# )
+# @click.option(
+#     "--clusters",
+#     help="Only show container names for containers within these clusters."
+#     " Overrides current context",
+# )
+# @click.option(
+#     "-t" "--start-time",
+#     help="Start time of the query. Default is beginning of time.",
+# )
+# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
+# def get_images():
+#     """Display one or many names of containers running in your"
+#     " environment.
+#     """
+#     pass
+
+
+# @get.command("fingerprints", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--image",
+#     help="Only show fingerprints with this container image. Overrides current"
+#     " context.",
+# )
+# @click.option(
+#     "--image-id",
+#     help="Only show fingerprints with with"
+#     " this image id. Overrides current context.",
+# )
+# @click.option(
+#     "--container-name",
+#     help="Only show fingerprints with"
+#     " this container name. Overrides current context.",
+# )
+# @click.option(
+#     "--cgroup",
+#     help="Only show fingerprints of Linux services with this"
+#     " cgroup. Overrides current context.",
+# )
+# @click.option(
+#     "--pods",
+#     help="Only show fingerprints with nodes running these pods. Overrides"
+#     " current context",
+# )
+# @click.option(
+#     "-l",
+#     "--pod-selectors",
+#     help="Pod selector (label query) to filter on, supports '=', '==', and"
+#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "-n",
+#     "--namespace-selectors",
+#     help="Namespace selector (label query) to filter on, supports '=', '==',"
+#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "--machines",
+#     "--nodes",
+#     help="Only show fingerprints linked to these nodes. Overrides current"
+#     " context.",
+# )
+# @click.option(
+#     "--clusters",
+#     help="Only show fingerprints within these clusters. Overrides current"
+#     " context",
+# )
+# @click.option(
+#     "-t" "--start-time",
+#     help="Start time of the query. Default is beginning of time.",
+# )
+# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
+# def get_fingerprints():
+#     """Display one or many fingerprints."""
+#     pass
+
+
+# @get.command("linux-services", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--cgroup",
+#     help="Only show linux-services with nodes running Linux services with this"
+#     " name. Overrides current context.",
+# )
+# @click.option(
+#     "--machines",
+#     "--nodes",
+#     help="Only show linux-services on these machines. Overrides current"
+#     " context.",
+# )
+# @click.option(
+#     "--clusters",
+#     help="Only show linux-services within these clusters. Overrides current"
+#     " context",
+# )
+# @click.option(
+#     "-t" "--start-time",
+#     help="Start time of the query. Default is beginning of time.",
+# )
+# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
+# @click.option(
+#     "-t" "--start-time",
+#     help="Start time of the query. Default is beginning of time.",
+# )
+# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
+# def get_linux_services():
+#     """Display one or many linux services."""
+#     pass
+
+
+# @get.command("machines", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--image",
+#     help="Only show machines with pods or nodes running this container"
+#     " image. Overrides current context.",
+# )
+# @click.option(
+#     "--image-id",
+#     help="Only show machines with pods or nodes running containers with"
+#     " this image id. Overrides current context.",
+# )
+# @click.option(
+#     "--container-name",
+#     help="Only show machines with pods or node running containers with"
+#     " this name. Overrides current context.",
+# )
+# @click.option(
+#     "--cgroup",
+#     help="Only show machines with nodes running Linux services with this"
+#     " name. Overrides current context.",
+# )
+# @click.option(
+#     "--pods",
+#     help="Only show machines with nodes running these pods. Overrides"
+#     " current context",
+# )
+# @click.option(
+#     "--machines",
+#     "--nodes",
+#     help="Only show machines matching this criteria. Overrides current"
+#     " context.",
+# )
+# @click.option(
+#     "--clusters",
+#     help="Only show machines within these clusters. Overrides current"
+#     " context",
+# )
+# @click.option(
+#     "-t" "--start-time",
+#     help="Start time of the query. Default is beginning of time.",
+# )
+# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
+# def get_machines():
+#     """Display one or many machines."""
+#     pass
+
+
+# @get.command("machine-groups", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# def get_machines_groups():
+#     """Display one or many machine-groups."""
+#     pass
+
+
+# @get.command("namespaces", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--image",
+#     help="Only show namespaces with pods or nodes running this container"
+#     " image. Overrides current context.",
+# )
+# @click.option(
+#     "--image-id",
+#     help="Only show namespaces with pods or nodes running containers with"
+#     " this image id. Overrides current context.",
+# )
+# @click.option(
+#     "--container-name",
+#     help="Only show namespaces with pods or node running containers with"
+#     " this name. Overrides current context.",
+# )
+# @click.option(
+#     "--cgroup",
+#     help="Only show namespaces with nodes running Linux services with this"
+#     " name. Overrides current context.",
+# )
+# @click.option(
+#     "--pods",
+#     help="Only show namespaces with nodes running these pods. Overrides"
+#     " current context",
+# )
+# @click.option(
+#     "--machines",
+#     "--nodes",
+#     help="Only show namespaces with resources on these machines (nodes)."
+#     " Overrides current context.",
+# )
+# @click.option(
+#     "--namepspace",
+#     help="Only show namespaces matching this criteria. Overrides current"
+#     " context.",
+# )
+# @click.option(
+#     "--clusters",
+#     help="Only show namespaces within these clusters. Overrides current"
+#     " context",
+# )
+# @click.option("-o", "--output", default=lib.OUTPUT_YAML)
+# @click.option(
+#     "-t",
+#     "--start-time",
+#     "st",
+#     help="Start time of the query. Default is beginning of time.",
+#     default="2h",
+#     type=lib.time_inp,
+# )
+# @click.option(
+#     "-e",
+#     "--end-time",
+#     "et",
+#     help="End time of the query. Default is now.",
+#     default=time.time(),
+#     type=lib.time_inp,
+# )
+# def get_namespaces(st, et, output, **filters):
+#     """Display one or many namespaces."""
+#     print(st, et)
+#     filters = {
+#         key: value for key, value in filters.items() if value is not None
+#     }
+#     g.handle_get_namespaces(st, et, output, **filters)
+
+
+# @get.command("pods", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--image",
+#     help="Only show pods running this container"
+#     " image. Overrides current context.",
+# )
+# @click.option(
+#     "--image-id",
+#     help="Only show pods running containers with"
+#     " this image id. Overrides current context.",
+# )
+# @click.option(
+#     "--container-name",
+#     help="Only show pods running containers with"
+#     " this name. Overrides current context.",
+# )
+# @click.option(
+#     "--pods",
+#     help="Only show pods matching this criteria. Overrides current context",
+# )
+# @click.option(
+#     "-l",
+#     "--pod-selectors",
+#     help="Pod selector (label query) to filter on, supports '=', '==', and"
+#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "-n",
+#     "--namespace-selectors",
+#     help="Namespace selector (label query) to filter on, supports '=', '==',"
+#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "--machines",
+#     "--nodes",
+#     help="Only show pods running on these nodes. Overrides current"
+#     " context.",
+# )
+# @click.option(
+#     "--clusters",
+#     help="Only show pods within these clusters. Overrides current context",
+# )
+# @click.option(
+#     "-t" "--start-time",
+#     help="Start time of the query. Default is beginning of time.",
+# )
+# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
+# def get_pods():
+#     """Display one or many pods."""
+#     pass
+
+
+# @get.command("policies", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option(
+#     "--image",
+#     help="Only show machines with pods or nodes running this container"
+#     " image. Overrides current context.",
+# )
+# @click.option(
+#     "--image-id",
+#     help="Only show machines with pods or nodes running containers with"
+#     " this image id. Overrides current context.",
+# )
+# @click.option(
+#     "--container-name",
+#     help="Only show machines with pods or node running containers with"
+#     " this name. Overrides current context.",
+# )
+# @click.option(
+#     "--cgroup",
+#     help="Only show machines with nodes running Linux services with this"
+#     " name. Overrides current context.",
+# )
+# @click.option(
+#     "-l",
+#     "--pod-selectors",
+#     help="Pod selector (label query) to filter on, supports '=', '==', and"
+#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# @click.option(
+#     "-n",
+#     "--namespace-selectors",
+#     help="Namespace selector (label query) to filter on, supports '=', '==',"
+#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
+#     "objects must satisfy all of the specified label constraints.",
+# )
+# def get_policies():
+#     """Display one or many policies."""
+#     pass
+
+
+# @get.command("secrets", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+# @click.help_option("-h", "--help", hidden=True)
+# @click.option("-o", "--output", default=lib.OUTPUT_YAML)
+# @click.argument(lib.NAME_FIELD, required=False)
+# def get_secrets(output=None, name=None):
+#     """Display one or many secrets."""
+#     g.handle_get_secrets(output, name)
+
+
+# ----------------------------------------------------------------- #
+#                         Init Subcommand                           #
+# ----------------------------------------------------------------- #
+
+
+@main.command("init", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+def init():
+    """Initialize a workspace"""
+    cfgs.init()
+
+
+# ----------------------------------------------------------------- #
+#                         Merge Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("merge", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Target file of the merge.",
+    metavar="",
+)
+@click.option(
+    "-w",
+    "--with-file",
+    help="File to merge into target file.",
+    metavar="",
+)
+@click.option(
+    "-l",
+    "--latest",
+    help="Merge file with latest records using the value of lastTimestamp in"
+    " metadata",
+    metavar="",
+)
+def merge(filename, with_file=None, latest=None):
+    """Merge FingerprintsGroups into SpyderbatBaselines and
+    SpyderbatPolicies
+    """
     pass
 
 

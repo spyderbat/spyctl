@@ -6,11 +6,12 @@ from typing import Callable, Dict, List
 
 import yaml
 
-import spyctl.policies as policy
-import spyctl.user_config as u_conf
+import spyctl.resources.policies as p
+import spyctl.spyctl_lib as lib
+import spyctl.config.configs as u_conf
 import spyctl.api as api
-from spyctl.args import OUTPUT_JSON, OUTPUT_YAML
-from spyctl.fingerprints import Fingerprint
+
+from spyctl.resources.fingerprints import Fingerprint
 
 yaml.Dumper.ignore_aliases = lambda *args: True
 
@@ -111,15 +112,13 @@ def try_filter(obj, filt):
             removed += 1
 
 
-def show(obj, args, alternative_outputs: Dict[str, Callable] = {}):
-    for filt in args.filter:
-        try_filter(obj, filt)
-    if args.output == OUTPUT_YAML:
+def show(obj, output, alternative_outputs: Dict[str, Callable] = {}):
+    if output == lib.OUTPUT_YAML:
         try_print(yaml.dump(obj, sort_keys=False), end="")
-    elif args.output == OUTPUT_JSON:
+    elif output == lib.OUTPUT_JSON:
         try_print(json.dumps(obj, sort_keys=False, indent=2))
-    elif args.output in alternative_outputs:
-        try_print(alternative_outputs[args.output](obj), end="")
+    elif output in alternative_outputs:
+        try_print(alternative_outputs[output](obj))
 
 
 def read_stdin():
@@ -311,7 +310,7 @@ def fingerprint_input(files: List) -> List[Fingerprint]:
     return fingerprints
 
 
-def policy_input(files: List) -> List[policy.Policy]:
+def policy_input(files: List) -> List[p.Policy]:
     policies = []
 
     def load_pols(string):
@@ -319,15 +318,11 @@ def policy_input(files: List) -> List[policy.Policy]:
             obj = yaml.load(string, yaml.Loader)
             if isinstance(obj, list):
                 for o in obj:
-                    pol_type = o[policy.K8S_METADATA_FIELD][
-                        policy.METADATA_TYPE_FIELD
-                    ]
-                    policies.append(policy.Policy(pol_type))
+                    pol_type = o[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+                    policies.append(p.Policy(pol_type))
             else:
-                pol_type = obj[policy.K8S_METADATA_FIELD][
-                    policy.METADATA_TYPE_FIELD
-                ]
-                policies.append(policy.Policy(pol_type, obj))
+                pol_type = obj[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+                policies.append(p.Policy(pol_type, obj))
         except yaml.YAMLError:
             err_exit("invalid yaml input")
         except KeyError as err:

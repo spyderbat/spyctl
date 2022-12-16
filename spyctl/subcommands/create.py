@@ -3,9 +3,9 @@ from typing import List
 import yaml
 
 from spyctl.cli import show
-from spyctl.fingerprints import Fingerprint
-from spyctl.merge import MergeDumper, merge_fingerprints
-from spyctl.policies import Policy
+from spyctl.resources.fingerprints import Fingerprint
+from spyctl.subcommands.merge import MergeDumper, merge_fingerprints
+from spyctl.resources.policies import Policy
 
 
 def handle_create_policy(args, fingerprints: List[Fingerprint] = None):

@@ -1,7 +1,7 @@
 import yaml
 
 from spyctl.cli import try_print
-from spyctl.merge import DiffDumper, merge_fingerprints
+from spyctl.subcommands.merge import DiffDumper, merge_fingerprints
 
 red = "\u001b[41;1m \u001b[0m"
 green = "\u001b[42;1m \u001b[0m"

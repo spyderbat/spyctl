@@ -1,0 +1,637 @@
+import inspect
+import json
+import os
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Iterable, List, Tuple
+
+import click
+import dateutil.parser as dateparser
+import yaml
+
+_click7 = click.__version__[0] >= "7"
+
+
+class Aliases:
+    def __init__(self, aliases: Iterable[str]) -> None:
+        self.aliases = set(aliases)
+
+    def __eq__(self, __o: object) -> bool:
+        return __o in self.aliases
+
+
+# Resource Aliases
+CLUSTERS_RESOURCE = Aliases(["clusters", "cluster", "clust", "clusts"])
+NAMESPACES_RESOURCE = Aliases(
+    ["namespaces", "name", "names", "namesp", "namesps", "namespace"]
+)
+MACHINES_RESOURCE = Aliases(
+    ["machines", "mach", "machs", "machine", "node", "nodes"]
+)
+PODS_RESOURCE = Aliases(["pods", "pod"])
+SECRETS_RESOURCE = Aliases(["secrets", "secret"])
+FINGERPRINTS_RESOURCE = Aliases(
+    [
+        "fingerprints",
+        "print",
+        "prints",
+        "fingerprint",
+        "fprint",
+        "f",
+        "fprints",
+    ]
+)
+
+# Top-level yaml Fields
+API_FIELD = "apiVersion"
+API_VERSION = "spyderbat/v1"
+DATA_FIELD = "data"
+ITEMS_FIELD = "items"
+KIND_FIELD = "kind"
+METADATA_FIELD = "metadata"
+SPEC_FIELD = "spec"
+STATUS_FIELD = "status"
+STRING_DATA_FIELD = "stringData"
+TYPE_FIELD = "type"
+
+# Redflag Severities
+S_CRIT = "critical"
+S_HIGH = "high"
+S_MED = "medium"
+S_LOW = "low"
+S_INFO = "info"
+ALLOWED_SEVERITIES = {S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO}
+
+# Config
+API_KEY_FIELD = "apikey"
+API_URL_FIELD = "apiurl"
+
+# Response Actions
+ACTION_KILL_POD = "kill-pod"
+ACTION_KILL_PROC = "kill-process"
+ACTION_KILL_PROC_GRP = "kill-process-group"
+ACTION_WEBHOOK = "webhook"
+ALLOWED_TEMPLATES = {"json", "yaml", "slack"}
+ALLOWED_ACTIONS = {
+    ACTION_WEBHOOK,
+    ACTION_KILL_POD,
+    ACTION_KILL_PROC,
+    ACTION_KILL_PROC_GRP,
+}
+RESPONSE_FIELD = "response"
+RESP_DEFAULT_FIELD = "default"
+RESP_ACTIONS_FIELD = "actions"
+RESP_ACTION_NAME_FIELD = "actionName"
+RESP_URL_FIELD = "url"
+RESP_TEMPLATE_FIELD = "template"
+RESP_SEVERITY_FIELD = "severity"
+
+# Selectors
+CONT_SELECTOR_FIELD = "containerSelector"
+DNS_SELECTOR_FIELD = "dnsSelector"
+MACHINE_SELECTOR_FIELD = "machineSelector"
+NAMESPACE_SELECTOR_FIELD = "namespaceSelector"
+POD_SELECTOR_FIELD = "podSelector"
+SVC_SELECTOR_FIELD = "serviceSelector"
+MATCH_LABELS_FIELD = "matchLabels"
+# Container Selector Fields
+IMAGE_FIELD = "image"
+IMAGEID_FIELD = "imageID"
+CONT_NAME_FIELD = "containerName"
+# Service Selector Fields
+CGROUP_FIELD = "cgroup"
+
+# Policies/Fingerprints
+POL_KIND = "SpyderbatPolicy"
+POL_TYPE_CONT = "container"
+POL_TYPE_SVC = "service"
+POL_TYPES = {POL_TYPE_SVC, POL_TYPE_CONT}
+ENABLED_FIELD = "enabled"
+METADATA_NAME_FIELD = "name"
+METADATA_TAGS_FIELD = "tags"
+METADATA_TYPE_FIELD = "type"
+METADATA_UID_FIELD = "uid"
+NET_POLICY_FIELD = "networkPolicy"
+PROC_POLICY_FIELD = "processPolicy"
+
+# Processes
+NAME_FIELD = "name"
+EXE_FIELD = "exe"
+ID_FIELD = "id"
+EUSER_FIELD = "euser"
+CHILDREN_FIELD = "children"
+
+# Network
+CIDR_FIELD = "cidr"
+EGRESS_FIELD = "egress"
+EXCEPT_FIELD = "except"
+FROM_FIELD = "from"
+INGRESS_FIELD = "ingress"
+IP_BLOCK_FIELD = "ipBlock"
+PORTS_FIELD = "ports"
+PORT_FIELD = "port"
+PROCESSES_FIELD = "processes"
+PROTO_FIELD = "protocol"
+TO_FIELD = "to"
+
+# Output
+OUTPUT_YAML = "yaml"
+OUTPUT_JSON = "json"
+OUTPUT_DEFAULT = "default"
+
+# spyctl Options
+CLUSTER_OPTION = "cluster"
+NAMESPACE_OPTION = "namespace"
+
+# Templates
+METADATA_NAME_TEMPLATE = "foobar-policy"
+
+CONTAINER_SELECTOR_TEMPLATE = {
+    IMAGE_FIELD: "foo",
+    IMAGEID_FIELD: "sha256:bar",
+    CONT_NAME_FIELD: "/foobar",
+}
+SVC_SELECTOR_TEMPLATE = {CGROUP_FIELD: "systemd:/system.slice/foobar.service"}
+PROCESS_POLICY_TEMPLATE = [
+    {
+        NAME_FIELD: "foo",
+        EXE_FIELD: ["/usr/bin/foo", "/usr/sbin/foo"],
+        ID_FIELD: "foo_0",
+        EUSER_FIELD: ["root"],
+        CHILDREN_FIELD: [
+            {NAME_FIELD: "bar", EXE_FIELD: ["/usr/bin/bar"], ID_FIELD: "bar_0"}
+        ],
+    }
+]
+NETWORK_POLICY_TEMPLATE = {
+    INGRESS_FIELD: [
+        {
+            FROM_FIELD: [
+                {
+                    IP_BLOCK_FIELD: {
+                        CIDR_FIELD: "0.0.0.0/0",
+                    }
+                }
+            ],
+            PORTS_FIELD: [{PROTO_FIELD: "TCP", PORT_FIELD: 1337}],
+            PROCESSES_FIELD: ["foo_0"],
+        }
+    ],
+    EGRESS_FIELD: [
+        {
+            TO_FIELD: [{DNS_SELECTOR_FIELD: ["foobar.com"]}],
+            PORTS_FIELD: [{PROTO_FIELD: "TCP", PORT_FIELD: 1337}],
+            PROCESSES_FIELD: ["bar_0"],
+        }
+    ],
+}
+RESPONSE_ACTION_TEMPLATE = {
+    RESP_DEFAULT_FIELD: {RESP_SEVERITY_FIELD: S_HIGH},
+    RESP_ACTIONS_FIELD: [],
+}
+METADATA_TEMPLATES = {
+    POL_TYPE_CONT: {
+        METADATA_NAME_FIELD: METADATA_NAME_TEMPLATE,
+        METADATA_TYPE_FIELD: POL_TYPE_CONT,
+    },
+    POL_TYPE_SVC: {
+        METADATA_NAME_FIELD: METADATA_NAME_TEMPLATE,
+        METADATA_TYPE_FIELD: POL_TYPE_SVC,
+    },
+}
+SPEC_TEMPLATES = {
+    POL_TYPE_CONT: {
+        CONT_SELECTOR_FIELD: CONTAINER_SELECTOR_TEMPLATE,
+        PROC_POLICY_FIELD: PROCESS_POLICY_TEMPLATE,
+        NET_POLICY_FIELD: NETWORK_POLICY_TEMPLATE,
+        RESPONSE_FIELD: RESPONSE_ACTION_TEMPLATE,
+    },
+    POL_TYPE_SVC: {
+        SVC_SELECTOR_FIELD: SVC_SELECTOR_TEMPLATE,
+        PROC_POLICY_FIELD: PROCESS_POLICY_TEMPLATE,
+        NET_POLICY_FIELD: NETWORK_POLICY_TEMPLATE,
+        RESPONSE_FIELD: RESPONSE_ACTION_TEMPLATE,
+    },
+}
+
+
+def valid_api_version(api_ver: str) -> bool:
+    return api_ver == API_VERSION
+
+
+def valid_kind(rec_kind, kind):
+    return rec_kind == kind
+
+
+def walk_up_tree(global_path, local_path) -> List[Tuple[Path, Dict]]:
+    """Walks up the directory tree from cwd joining each directory with
+    local_path. If a local_path file exists, loads the file and appends
+    it to the return value. Finally, the file at global_path is loaded.
+
+    Returns:
+        List[Dict]: List of tuples (strpath, filedata). List[0] is the
+        most specific local file. List[-1] is the global
+        file if one exists.
+    """
+    rv = []
+    cwd = Path.cwd()
+    config_path = Path.joinpath(cwd, local_path)
+    if Path.is_file(config_path):
+        conf = load_file(config_path)
+        if conf is not None:
+            rv.append((config_path, conf))
+    for parent in cwd.parents:
+        config_path = Path.joinpath(parent, local_path)
+        if Path.is_file(config_path):
+            conf = load_file(config_path)
+            if conf is not None:
+                rv.append((config_path, conf))
+    if Path.is_file(global_path):
+        conf = load_file(global_path)
+        if conf is not None:
+            rv.append((global_path, conf))
+    return rv
+
+
+def load_file(path: Path) -> Dict:
+    try:
+        with path.open("r") as f:
+            try:
+                file_data = yaml.load(f, yaml.Loader)
+            except Exception as e:
+                try:
+                    file_data = json.load(f)
+                except Exception:
+                    try_log(
+                        f"Unable to load file at {str(path)}."
+                        f" Is it valid yaml or json?"
+                    )
+                return None
+    except IOError:
+        try_log(f"Unable to read file at {str(path)}. Check permissions.")
+    return file_data
+
+
+class CustomGroup(click.Group):
+    SECTION_BASIC = "Basic Commands"
+    SECTION_OTHER = "Other Commands"
+    command_sections = [SECTION_BASIC, SECTION_OTHER]
+    cmd_to_section_map = {
+        "apply": SECTION_BASIC,
+        "create": SECTION_BASIC,
+        "delete": SECTION_BASIC,
+        "diff": SECTION_BASIC,
+        "get": SECTION_BASIC,
+        "merge": SECTION_BASIC,
+    }
+
+    def format_help(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        self.format_help_text(ctx, formatter)
+        self.format_options(ctx, formatter)
+        self.format_usage(ctx, formatter)
+        self.format_epilog(ctx, formatter)
+
+    def format_help_text(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        text = self.help if self.help is not None else ""
+
+        if text:
+            text = inspect.cleandoc(text).partition("\f")[0]
+            formatter.write_paragraph()
+            formatter.write_text(text)
+
+    def format_usage(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        formatter.write_paragraph()
+        formatter.write_text("Usage:")
+        formatter.indent()
+        formatter.write_text("spyctl [flags] [options]")
+        formatter.dedent()
+
+    def format_epilog(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        """Writes the epilog into the formatter if it exists."""
+        if self.epilog:
+            epilog = inspect.cleandoc(self.epilog)
+            formatter.write_paragraph()
+            formatter.write_text(epilog)
+
+    def format_commands(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.get_command(ctx, subcommand)
+            # What is this, the tool lied about a command.  Ignore it
+            if cmd is None:
+                continue
+            if cmd.hidden:
+                continue
+
+            commands.append((subcommand, cmd))
+
+        # allow for 3 times the default spacing
+        if len(commands):
+            limit = formatter.width - 6 - max(len(cmd[0]) for cmd in commands)
+
+            sections: Dict[str, List] = {}
+            for section_title in self.command_sections:
+                sections.setdefault(section_title, [])
+            for subcommand, cmd in commands:
+                section_title = self.cmd_to_section_map.get(subcommand)
+                if not section_title:
+                    section_title = self.SECTION_OTHER
+                help = cmd.get_short_help_str(limit)
+                sections[section_title].append((subcommand, help))
+
+            for title, rows in sections.items():
+                if rows:
+                    with formatter.section(title):
+                        formatter.write_dl(rows, col_spacing=4)
+
+
+class CustomSubGroup(click.Group):
+    def group(self, *args, **kwargs):
+        """Behaves the same as `click.Group.group()` except if passed
+        a list of names, all after the first will be aliases for the first.
+        """
+
+        def decorator(f):
+            aliased_group = []
+            if isinstance(args[0], list):
+                # we have a list so create group aliases
+                _args = [args[0][0]] + list(args[1:])
+                for alias in args[0][1:]:
+                    grp = super(CustomSubGroup, self).group(
+                        alias, *args[1:], **kwargs
+                    )(f)
+                    grp.short_help = "Alias for '{}'".format(_args[0])
+                    aliased_group.append(grp)
+            else:
+                _args = args
+
+            # create the main group
+            grp = super(CustomSubGroup, self).group(*_args, **kwargs)(f)
+
+            # for all of the aliased groups, share the main group commands
+            for aliased in aliased_group:
+                aliased.commands = grp.commands
+
+            return grp
+
+        return decorator
+
+    def format_help(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        self.format_help_text(ctx, formatter)
+        self.format_options(ctx, formatter)
+        self.format_usage(ctx, formatter)
+        self.format_epilog(ctx, formatter)
+
+    def format_help_text(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        text = self.help if self.help is not None else ""
+
+        if text:
+            text = inspect.cleandoc(text).partition("\f")[0]
+            formatter.write_paragraph()
+            formatter.write_text(text)
+
+    def format_usage(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        formatter.write_paragraph()
+        prefix = "Usage:\n  "
+        pieces = self.collect_usage_pieces(ctx)
+        formatter.write_usage(
+            ctx.command_path, " ".join(pieces), prefix=prefix
+        )
+        formatter.dedent()
+
+    def format_epilog(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        """Writes the epilog into the formatter if it exists."""
+        if self.epilog:
+            epilog = inspect.cleandoc(self.epilog)
+            formatter.write_paragraph()
+            formatter.write_text(epilog)
+
+    def format_commands(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.get_command(ctx, subcommand)
+            # What is this, the tool lied about a command.  Ignore it
+            if cmd is None:
+                continue
+            if cmd.hidden:
+                continue
+
+            commands.append((subcommand, cmd))
+
+        # allow for 3 times the default spacing
+        if len(commands):
+            limit = formatter.width - 6 - max(len(cmd[0]) for cmd in commands)
+
+            rows = []
+            for subcommand, cmd in commands:
+                help = cmd.get_short_help_str(limit)
+                rows.append((subcommand, help))
+
+            if rows:
+                with formatter.section("Available Commands"):
+                    formatter.write_dl(rows, col_spacing=4)
+
+
+class CustomCommand(click.Command):
+    def format_help(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        self.format_help_text(ctx, formatter)
+        self.format_options(ctx, formatter)
+        self.format_usage(ctx, formatter)
+        self.format_epilog(ctx, formatter)
+
+    def format_help_text(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        text = self.help if self.help is not None else ""
+
+        if text:
+            text = inspect.cleandoc(text).partition("\f")[0]
+            formatter.write_paragraph()
+            formatter.write_text(text)
+
+    def format_usage(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        formatter.write_paragraph()
+        prefix = "Usage:\n  "
+        pieces = self.collect_usage_pieces(ctx)
+        formatter.write_usage(
+            ctx.command_path, " ".join(pieces), prefix=prefix
+        )
+        formatter.dedent()
+
+    def format_epilog(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
+        """Writes the epilog into the formatter if it exists."""
+        if self.epilog:
+            epilog = inspect.cleandoc(self.epilog)
+            formatter.write_paragraph()
+            formatter.write_text(epilog)
+
+
+class ClickAliasedGroup(click.Group):
+    """Copyright (c) 2016 Robbin Bonthond
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+
+    https://github.com/click-contrib/click-aliases
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(ClickAliasedGroup, self).__init__(*args, **kwargs)
+        self._commands = {}
+        self._aliases = {}
+
+    def command(self, *args, **kwargs):
+        aliases = kwargs.pop("aliases", [])
+        decorator = super(ClickAliasedGroup, self).command(*args, **kwargs)
+        if not aliases:
+            return decorator
+
+        def _decorator(f):
+            cmd = decorator(f)
+            if aliases:
+                self._commands[cmd.name] = aliases
+                for alias in aliases:
+                    self._aliases[alias] = cmd.name
+            return cmd
+
+        return _decorator
+
+    def group(self, *args, **kwargs):
+        aliases = kwargs.pop("aliases", [])
+        decorator = super(ClickAliasedGroup, self).group(*args, **kwargs)
+        if not aliases:
+            return decorator
+
+        def _decorator(f):
+            cmd = decorator(f)
+            if aliases:
+                self._commands[cmd.name] = aliases
+                for alias in aliases:
+                    self._aliases[alias] = cmd.name
+            return cmd
+
+        return _decorator
+
+    def resolve_alias(self, cmd_name):
+        if cmd_name in self._aliases:
+            return self._aliases[cmd_name]
+        return cmd_name
+
+    def get_command(self, ctx, cmd_name):
+        cmd_name = self.resolve_alias(cmd_name)
+        command = super(ClickAliasedGroup, self).get_command(ctx, cmd_name)
+        if command:
+            return command
+
+    def format_commands(self, ctx, formatter):
+        rows = []
+
+        sub_commands = self.list_commands(ctx)
+
+        max_len = max(len(cmd) for cmd in sub_commands)
+        limit = formatter.width - 6 - max_len
+
+        for sub_command in sub_commands:
+            cmd = self.get_command(ctx, sub_command)
+            if cmd is None:
+                continue
+            if hasattr(cmd, "hidden") and cmd.hidden:
+                continue
+            if sub_command in self._commands:
+                aliases = ",".join(sorted(self._commands[sub_command]))
+                sub_command = "{0} ({1})".format(sub_command, aliases)
+            if _click7:
+                cmd_help = cmd.get_short_help_str(limit)
+            else:
+                cmd_help = cmd.short_help or ""
+            rows.append((sub_command, cmd_help))
+
+        if rows:
+            with formatter.section("Commands"):
+                formatter.write_dl(rows)
+
+
+def try_log(*args, **kwargs):
+    try:
+        print(*args, **kwargs, file=sys.stderr)
+        sys.stderr.flush()
+    except BrokenPipeError:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stderr.fileno())
+        sys.exit(1)
+
+
+def time_inp(time_str: str) -> int:
+    past_seconds = 0
+    epoch_time = None
+    try:
+        try:
+            epoch_time = int(time_str)
+        except ValueError:
+            if time_str.endswith(("s", "sc")):
+                past_seconds = int(time_str[:-1])
+            elif time_str.endswith(("m", "mn")):
+                past_seconds = int(time_str[:-1]) * 60
+            elif time_str.endswith(("h", "hr")):
+                past_seconds = int(time_str[:-1]) * 60 * 60
+            elif time_str.endswith(("d", "dy")):
+                past_seconds = int(time_str[:-1]) * 60 * 60 * 24
+            elif time_str.endswith(("w", "wk")):
+                past_seconds = int(time_str[:-1]) * 60 * 60 * 24 * 7
+            else:
+                date = dateparser.parse(time_str)
+                diff = datetime.now() - date
+                past_seconds = diff.total_seconds()
+    except (ValueError, dateparser.ParserError):
+        raise ValueError("invalid time input (see global help menu)") from None
+    if epoch_time is not None:
+        if epoch_time > time.time():
+            raise ValueError("time must be in the past")
+        return epoch_time
+    else:
+        if past_seconds < 0:
+            raise ValueError("time must be in the past")
+        return int(time.time() - past_seconds)
