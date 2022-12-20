@@ -9,6 +9,8 @@ import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
 import spyctl.subcommands.get as g
+import spyctl.subcommands.create as c
+import spyctl.subcommands.merge as m
 from spyctl.subcommands.apply import handle_apply
 from spyctl.subcommands.delete import handle_delete
 
@@ -231,9 +233,10 @@ def create():
     " creates a baseline.",
     metavar="",
 )
-def create_baseline(filename):
+@click.option("-o", "--output", default=lib.OUTPUT_YAML, metavar="")
+def create_baseline(filename, output):
     """Create a Baseline from a file, outputted to stdout"""
-    click.echo(filename)
+    c.handle_create_baseline(filename, output)
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -374,6 +377,7 @@ def diff(filename, with_file=None, latest=None):
 )
 @click.option(
     f"--{cfgs.IMGID_FIELD}",
+    "imageID",
     help="Only show clusters with pods or nodes running containers with this"
     " image id. Overrides value current context if it exists.",
 )
@@ -410,6 +414,14 @@ def diff(filename, with_file=None, latest=None):
 )
 @click.option("-o", "--output", default=lib.OUTPUT_DEFAULT)
 @click.option(
+    "-l",
+    "--latest",
+    help=f"Filename for resource. If there is a {lib.LATEST_TIMESTAMP_FIELD}"
+    " in the resources metadata field, the start time of the query is set to"
+    " that.",
+    metavar="",
+)
+@click.option(
     "-t",
     "--start-time",
     "st",
@@ -425,504 +437,12 @@ def diff(filename, with_file=None, latest=None):
     default=time.time(),
     type=lib.time_inp,
 )
-def get(resource, st, et, output, name_or_id=None, **filters):
+def get(resource, st, et, output, name_or_id=None, latest=None, **filters):
     """Display one or many resources."""
     filters = {
         key: value for key, value in filters.items() if value is not None
     }
-    g.handle_get(resource, name_or_id, st, et, output, **filters)
-
-
-# @get.command("clusters", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     f"--{cfgs.IMG_FIELD}",
-#     help="Only show clusters with pods or nodes running this container image."
-#     " Overrides value current context if it exists.",
-# )
-# @click.option(
-#     f"--{cfgs.IMGID_FIELD}",
-#     help="Only show clusters with pods or nodes running containers with this"
-#     " image id. Overrides value current context if it exists.",
-# )
-# @click.option(
-#     f"--{cfgs.CONTAINER_NAME_FIELD}",
-#     help="Only show clusters with pods or node running containers with this"
-#     " container name. Overrides value current context if it exists.",
-# )
-# @click.option(
-#     f"--{cfgs.CGROUP_FIELD}",
-#     help="Only show clusters with nodes running Linux services with this"
-#     " cgroup. Overrides value current context if it exists.",
-# )
-# @click.option(
-#     f"--{cfgs.POD_FIELD}",
-#     help="Only show clusters with nodes running this pod."
-#     " Overrides value current context if it exists.",
-# )
-# @click.option(
-#     f"--{cfgs.MACHINES_FIELD}",
-#     "--nodes",
-#     help="Only show clusters linked to these nodes."
-#     " Overrides value current context if it exists.",
-# )
-# @click.option(
-#     f"--{cfgs.NAMESPACE_FIELD}",
-#     help="Only show clusters with this namespace."
-#     " Overrides value current context if it exists.",
-# )
-# @click.option(
-#     f"--{cfgs.CLUSTER_FIELD}",
-#     help="Only show this cluster."
-#     " Overrides value current context if it exists.",
-# )
-# @click.option("-o", "--output", default=lib.OUTPUT_YAML)
-# def get_clusters(output, **filters):
-#     """Display one or many clusters."""
-#     filters = {
-#         key: value for key, value in filters.items() if value is not None
-#     }
-#     g.handle_get_clusters(output, **filters)
-
-
-# @get.command("container-images", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--image",
-#     help="Only show container images matching this image criteria. Overrides"
-#     " current context.",
-# )
-# @click.option(
-#     "--image-id",
-#     help="Only show container images matching this id criteria."
-#     " Overrides current context.",
-# )
-# @click.option(
-#     "--container-name",
-#     help="Only show container images matching this container name criteria"
-#     " this container name criteria. Overrides current context.",
-# )
-# @click.option(
-#     "--pods",
-#     help="Only show container images for containers running in these pods."
-#     " Overrides current context",
-# )
-# @click.option(
-#     "-l",
-#     "--pod-selectors",
-#     help="Pod selector (label query) to filter on, supports '=', '==', and"
-#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "-n",
-#     "--namespace-selectors",
-#     help="Namespace selector (label query) to filter on, supports '=', '==',"
-#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "--machines",
-#     "--nodes",
-#     help="Only show container images for containers linked to these nodes."
-#     " Overrides current context.",
-# )
-# @click.option(
-#     "--clusters",
-#     help="Only show container images for containers within these clusters."
-#     " Overrides current context",
-# )
-# @click.option(
-#     "-t" "--start-time",
-#     help="Start time of the query. Default is beginning of time.",
-# )
-# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
-# def get_container_images():
-#     """Display one or many container images. Displays image and image ID"""
-#     pass
-
-
-# @get.command("container-names", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--image",
-#     help="Only show container-names with this container image. Overrides"
-#     " current context.",
-# )
-# @click.option(
-#     "--image-id",
-#     help="Only show container names with with"
-#     " this image id. Overrides current context.",
-# )
-# @click.option(
-#     "--container-name",
-#     help="Only show container names matching"
-#     " this container name criteria. Overrides current context.",
-# )
-# @click.option(
-#     "--pods",
-#     help="Only show container names for containers running in these pods."
-#     " Overrides current context",
-# )
-# @click.option(
-#     "-l",
-#     "--pod-selectors",
-#     help="Pod selector (label query) to filter on, supports '=', '==', and"
-#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "-n",
-#     "--namespace-selectors",
-#     help="Namespace selector (label query) to filter on, supports '=', '==',"
-#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "--machines",
-#     "--nodes",
-#     help="Only show container names for containers linked to these nodes."
-#     " Overrides current context.",
-# )
-# @click.option(
-#     "--clusters",
-#     help="Only show container names for containers within these clusters."
-#     " Overrides current context",
-# )
-# @click.option(
-#     "-t" "--start-time",
-#     help="Start time of the query. Default is beginning of time.",
-# )
-# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
-# def get_images():
-#     """Display one or many names of containers running in your"
-#     " environment.
-#     """
-#     pass
-
-
-# @get.command("fingerprints", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--image",
-#     help="Only show fingerprints with this container image. Overrides current"
-#     " context.",
-# )
-# @click.option(
-#     "--image-id",
-#     help="Only show fingerprints with with"
-#     " this image id. Overrides current context.",
-# )
-# @click.option(
-#     "--container-name",
-#     help="Only show fingerprints with"
-#     " this container name. Overrides current context.",
-# )
-# @click.option(
-#     "--cgroup",
-#     help="Only show fingerprints of Linux services with this"
-#     " cgroup. Overrides current context.",
-# )
-# @click.option(
-#     "--pods",
-#     help="Only show fingerprints with nodes running these pods. Overrides"
-#     " current context",
-# )
-# @click.option(
-#     "-l",
-#     "--pod-selectors",
-#     help="Pod selector (label query) to filter on, supports '=', '==', and"
-#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "-n",
-#     "--namespace-selectors",
-#     help="Namespace selector (label query) to filter on, supports '=', '==',"
-#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "--machines",
-#     "--nodes",
-#     help="Only show fingerprints linked to these nodes. Overrides current"
-#     " context.",
-# )
-# @click.option(
-#     "--clusters",
-#     help="Only show fingerprints within these clusters. Overrides current"
-#     " context",
-# )
-# @click.option(
-#     "-t" "--start-time",
-#     help="Start time of the query. Default is beginning of time.",
-# )
-# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
-# def get_fingerprints():
-#     """Display one or many fingerprints."""
-#     pass
-
-
-# @get.command("linux-services", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--cgroup",
-#     help="Only show linux-services with nodes running Linux services with this"
-#     " name. Overrides current context.",
-# )
-# @click.option(
-#     "--machines",
-#     "--nodes",
-#     help="Only show linux-services on these machines. Overrides current"
-#     " context.",
-# )
-# @click.option(
-#     "--clusters",
-#     help="Only show linux-services within these clusters. Overrides current"
-#     " context",
-# )
-# @click.option(
-#     "-t" "--start-time",
-#     help="Start time of the query. Default is beginning of time.",
-# )
-# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
-# @click.option(
-#     "-t" "--start-time",
-#     help="Start time of the query. Default is beginning of time.",
-# )
-# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
-# def get_linux_services():
-#     """Display one or many linux services."""
-#     pass
-
-
-# @get.command("machines", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--image",
-#     help="Only show machines with pods or nodes running this container"
-#     " image. Overrides current context.",
-# )
-# @click.option(
-#     "--image-id",
-#     help="Only show machines with pods or nodes running containers with"
-#     " this image id. Overrides current context.",
-# )
-# @click.option(
-#     "--container-name",
-#     help="Only show machines with pods or node running containers with"
-#     " this name. Overrides current context.",
-# )
-# @click.option(
-#     "--cgroup",
-#     help="Only show machines with nodes running Linux services with this"
-#     " name. Overrides current context.",
-# )
-# @click.option(
-#     "--pods",
-#     help="Only show machines with nodes running these pods. Overrides"
-#     " current context",
-# )
-# @click.option(
-#     "--machines",
-#     "--nodes",
-#     help="Only show machines matching this criteria. Overrides current"
-#     " context.",
-# )
-# @click.option(
-#     "--clusters",
-#     help="Only show machines within these clusters. Overrides current"
-#     " context",
-# )
-# @click.option(
-#     "-t" "--start-time",
-#     help="Start time of the query. Default is beginning of time.",
-# )
-# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
-# def get_machines():
-#     """Display one or many machines."""
-#     pass
-
-
-# @get.command("machine-groups", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# def get_machines_groups():
-#     """Display one or many machine-groups."""
-#     pass
-
-
-# @get.command("namespaces", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--image",
-#     help="Only show namespaces with pods or nodes running this container"
-#     " image. Overrides current context.",
-# )
-# @click.option(
-#     "--image-id",
-#     help="Only show namespaces with pods or nodes running containers with"
-#     " this image id. Overrides current context.",
-# )
-# @click.option(
-#     "--container-name",
-#     help="Only show namespaces with pods or node running containers with"
-#     " this name. Overrides current context.",
-# )
-# @click.option(
-#     "--cgroup",
-#     help="Only show namespaces with nodes running Linux services with this"
-#     " name. Overrides current context.",
-# )
-# @click.option(
-#     "--pods",
-#     help="Only show namespaces with nodes running these pods. Overrides"
-#     " current context",
-# )
-# @click.option(
-#     "--machines",
-#     "--nodes",
-#     help="Only show namespaces with resources on these machines (nodes)."
-#     " Overrides current context.",
-# )
-# @click.option(
-#     "--namepspace",
-#     help="Only show namespaces matching this criteria. Overrides current"
-#     " context.",
-# )
-# @click.option(
-#     "--clusters",
-#     help="Only show namespaces within these clusters. Overrides current"
-#     " context",
-# )
-# @click.option("-o", "--output", default=lib.OUTPUT_YAML)
-# @click.option(
-#     "-t",
-#     "--start-time",
-#     "st",
-#     help="Start time of the query. Default is beginning of time.",
-#     default="2h",
-#     type=lib.time_inp,
-# )
-# @click.option(
-#     "-e",
-#     "--end-time",
-#     "et",
-#     help="End time of the query. Default is now.",
-#     default=time.time(),
-#     type=lib.time_inp,
-# )
-# def get_namespaces(st, et, output, **filters):
-#     """Display one or many namespaces."""
-#     print(st, et)
-#     filters = {
-#         key: value for key, value in filters.items() if value is not None
-#     }
-#     g.handle_get_namespaces(st, et, output, **filters)
-
-
-# @get.command("pods", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--image",
-#     help="Only show pods running this container"
-#     " image. Overrides current context.",
-# )
-# @click.option(
-#     "--image-id",
-#     help="Only show pods running containers with"
-#     " this image id. Overrides current context.",
-# )
-# @click.option(
-#     "--container-name",
-#     help="Only show pods running containers with"
-#     " this name. Overrides current context.",
-# )
-# @click.option(
-#     "--pods",
-#     help="Only show pods matching this criteria. Overrides current context",
-# )
-# @click.option(
-#     "-l",
-#     "--pod-selectors",
-#     help="Pod selector (label query) to filter on, supports '=', '==', and"
-#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "-n",
-#     "--namespace-selectors",
-#     help="Namespace selector (label query) to filter on, supports '=', '==',"
-#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "--machines",
-#     "--nodes",
-#     help="Only show pods running on these nodes. Overrides current"
-#     " context.",
-# )
-# @click.option(
-#     "--clusters",
-#     help="Only show pods within these clusters. Overrides current context",
-# )
-# @click.option(
-#     "-t" "--start-time",
-#     help="Start time of the query. Default is beginning of time.",
-# )
-# @click.option("-e" "--end-time", help="End time of the query. Default is now.")
-# def get_pods():
-#     """Display one or many pods."""
-#     pass
-
-
-# @get.command("policies", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option(
-#     "--image",
-#     help="Only show machines with pods or nodes running this container"
-#     " image. Overrides current context.",
-# )
-# @click.option(
-#     "--image-id",
-#     help="Only show machines with pods or nodes running containers with"
-#     " this image id. Overrides current context.",
-# )
-# @click.option(
-#     "--container-name",
-#     help="Only show machines with pods or node running containers with"
-#     " this name. Overrides current context.",
-# )
-# @click.option(
-#     "--cgroup",
-#     help="Only show machines with nodes running Linux services with this"
-#     " name. Overrides current context.",
-# )
-# @click.option(
-#     "-l",
-#     "--pod-selectors",
-#     help="Pod selector (label query) to filter on, supports '=', '==', and"
-#     " '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# @click.option(
-#     "-n",
-#     "--namespace-selectors",
-#     help="Namespace selector (label query) to filter on, supports '=', '==',"
-#     " and '!='.(e.g. -l key1=value1,key2=value2). Matching"
-#     "objects must satisfy all of the specified label constraints.",
-# )
-# def get_policies():
-#     """Display one or many policies."""
-#     pass
-
-
-# @get.command("secrets", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-# @click.help_option("-h", "--help", hidden=True)
-# @click.option("-o", "--output", default=lib.OUTPUT_YAML)
-# @click.argument(lib.NAME_FIELD, required=False)
-# def get_secrets(output=None, name=None):
-#     """Display one or many secrets."""
-#     g.handle_get_secrets(output, name)
+    g.handle_get(resource, name_or_id, st, et, latest, output, **filters)
 
 
 # ----------------------------------------------------------------- #
@@ -949,6 +469,7 @@ def init():
     "--filename",
     help="Target file of the merge.",
     metavar="",
+    required=True,
 )
 @click.option(
     "-w",
@@ -959,15 +480,19 @@ def init():
 @click.option(
     "-l",
     "--latest",
-    help="Merge file with latest records using the value of lastTimestamp in"
-    " metadata",
+    is_flag=True,
+    help=f"Merge file with latest records using the value of"
+    f" {lib.LATEST_TIMESTAMP_FIELD} in the input file's metadata",
     metavar="",
 )
-def merge(filename, with_file=None, latest=None):
+@click.option("-o", "--output", default=lib.OUTPUT_DEFAULT)
+def merge(filename, output, with_file=None, latest=False):
     """Merge FingerprintsGroups into SpyderbatBaselines and
     SpyderbatPolicies
     """
-    pass
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
+    m.handle_merge(filename, with_file, latest, output)
 
 
 if __name__ == "__main__":

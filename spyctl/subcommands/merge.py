@@ -1,13 +1,34 @@
 import ipaddress as ipaddr
 from os import path
 from typing import Dict, Generator, List, Optional, TypeVar, Union
+from difflib import SequenceMatcher
 
 import yaml
 from typing_extensions import Self
 
-from spyctl.resources.fingerprints import Fingerprint
+import spyctl.spyctl_lib as lib
+import spyctl.cli as cli
+import spyctl.resources.baselines as spyctl_baselines
 
 T1 = TypeVar("T1")
+
+
+def handle_merge(filename, with_file, latest, output):
+    if not with_file and not latest:
+        cli.err_exit("Nothing to merge")
+    elif with_file and latest:
+        cli.try_log("Latest and with-file detected. Only merging with file.")
+        latest = False
+    resource = lib.load_resource_file(filename)
+    resrc_kind = resource.get(lib.KIND_FIELD)
+    if with_file:
+        with_resource = lib.load_resource_file(with_file)
+    else:
+        with_resource = None
+    if resrc_kind == lib.BASELINE_KIND:
+        spyctl_baselines.merge_baseline(
+            resource, with_resource, latest, output
+        )
 
 
 def find(obj_list: List[T1], obj: T1) -> Optional[T1]:
@@ -21,14 +42,26 @@ def make_wildcard(strs: List[str]):
     if len(strs) == 1:
         return strs[0]
     ret = ""
-    for chars in zip(*strs):
-        if chars[:-1] != chars[1:]:
-            return ret + "*"
-        ret += chars[0]
     comp = len(strs[0])
     for name in strs:
         if len(name) != comp:
-            return ret + "*"
+            ret = ret + "*"
+    if ret == "*":
+        # Simple substring match didn't work so lets see if there is a
+        # better match (takes more computation)
+        sub_str = strs[0]
+        for name in strs[1:]:
+            name = name.strip("*")
+            match = SequenceMatcher(None, sub_str, name).find_longest_match(
+                0, len(sub_str), 0, len(name)
+            )
+            sub_str = sub_str[match.a : match.a + match.size]
+            if len(sub_str) < 3:
+                break
+        if len(sub_str) < 3:
+            ret = "*"
+        else:
+            ret = "*" + sub_str + "*"
     return ret
 
 
@@ -48,7 +81,7 @@ class IfAllEqList:
     def get_for_merge(self):
         if self.objs[1:] == self.objs[:-1]:
             return self.objs[0]
-        return "Could not merge"
+        return None
 
     def get_for_diff(self):
         return self.objs, self.prints
@@ -237,7 +270,6 @@ class ConnectionNode:
                 ConnectionBlock(node=conn) for conn in self.node["to"]
             ]
         self.appearances = set((current_fingerprint,))
-        self.collapse_ips()
         self.unify_ids()
 
     def __eq__(self, other):
@@ -250,6 +282,15 @@ class ConnectionNode:
             )
         else:
             return False
+
+    # def __contains__(self, item):
+    #     if isinstance(item, self.__class__):
+    #         return(
+    #             self.has_from == item.has_from
+    #             and self.has_to == item.has_to
+    #             and self.ports == item.ports
+    #             and self.
+    #         )
 
     @property
     def procs(self):
@@ -277,29 +318,6 @@ class ConnectionNode:
             self.extend_key(other.node, "to")
         self.appearances.update(other.appearances)
         # self.collapse_ips()
-
-    def collapsed_cidrs(self, key):
-        # would need to keep track of appearances somehow
-        to_collapse = []
-        ret = []
-        block: ConnectionBlock
-        for block in self.node[key]:
-            network = block.as_network()
-            if network is None:
-                ret.append(block)
-            else:
-                to_collapse.append(network)
-        ret += [
-            ConnectionBlock(ip=add)
-            for add in ipaddr.collapse_addresses(to_collapse)
-        ]
-        return ret
-
-    def collapse_ips(self):
-        if self.has_from:
-            self.node["from"] = self.collapsed_cidrs("from")
-        if self.has_to:
-            self.node["to"] = self.collapsed_cidrs("to")
 
     def unify_ids(self):
         new_proc = []
@@ -396,6 +414,8 @@ def merge_subs(objs, key, ret):
             return
     except KeyError:
         return
+    except Exception:
+        print("hi")
     new = None
     if key in spec_fns:
         new = spec_fns[key](sub_list)
@@ -426,28 +446,25 @@ def if_all_eq_merge(key):
 
 
 def dictionary_mod(fn) -> Dict:
-    def wrapper(obj_list) -> Dict:
+    def wrapper(obj_list, fields: Union[List[str], str] = None) -> Dict:
         ret = dict()
-        fn(obj_list, ret)
+        if fields is not None:
+            if isinstance(fields, str):
+                fields = [fields]
+            fn(obj_list, ret, fields)
+        else:
+            fn(obj_list, ret)
         return ret
 
     return wrapper
 
 
 @dictionary_mod
-def merge_fingerprints(fingerprints: List[Fingerprint], ret):
-    if len(fingerprints) < 2:
-        raise ValueError("Not enough fingerprints selected to merge")
-    merge_subs(fingerprints, "apiVersion", ret)
-    merge_subs(fingerprints, "kind", ret)
-    # ret['kind'] = "SpyderbatPolicy"
-    merge_subs(fingerprints, "metadata", ret)
-    merge_subs(fingerprints, "spec", ret)
-    # ret["spec"].setdefault(RESPONSE_FIELD, DEFAULT_RESPONSE_ACTION)
-
-
-if_all_eq_merge("apiVersion")
-if_all_eq_merge("kind")
+def merge_objects(
+    objects: List[Dict], ret: Dict, fields=[lib.METADATA_FIELD, lib.SPEC_FIELD]
+):
+    for field in fields:
+        merge_subs(objects, field, ret)
 
 
 @dictionary_mod
@@ -476,13 +493,13 @@ def merge_containerSelector(selectors):
     merge_subs(selectors, "containerName", ret)
     merge_subs(selectors, "image", ret)
     merge_subs(selectors, "imageID", ret)
-    if len(ret) == 3:
+    if len(ret) > 0:
         return ret
     return None
 
 
 wildcard_merge("containerName")
-if_all_eq_merge("image")
+wildcard_merge("image")
 if_all_eq_merge("imageID")
 
 
@@ -511,14 +528,7 @@ wildcard_merge("kubernetes.io/metadata.name")
 
 
 if_all_eq_merge("serviceSelector")
-
-
-@dictionary_mod
-def merge_machineSelector(selectors, ret):
-    merge_subs(selectors, "hostname", ret)
-
-
-wildcard_merge("hostname")
+if_all_eq_merge("machineSelector")
 
 
 def merge_processPolicy(profiles):

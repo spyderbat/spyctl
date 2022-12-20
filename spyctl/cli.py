@@ -69,49 +69,6 @@ def query_yes_no(question, default="yes"):
             )
 
 
-def contains(obj, filt):
-    filt_str = filt.split("=")
-    keys = []
-    if len(filt_str) > 1:
-        keys = filt_str[0].split(".")
-    val_str = filt_str[-1]
-
-    def cont_keys(obj, keys):
-        if isinstance(obj, dict):
-            # returns false if it doesn't have the key
-            for key, val in obj.items():
-                if len(keys) > 0 and keys[0] != key:
-                    continue
-                if cont_keys(val, keys[1:]):
-                    return True
-            return False
-        elif isinstance(obj, str):
-            return val_str in obj
-        return True
-
-    return cont_keys(obj, keys)
-
-
-def try_filter(obj, filt):
-    if isinstance(obj, dict):
-        remove = []
-        for key, val in obj.items():
-            try_filter(val, filt)
-            if len(val) == 0:
-                remove.append(key)
-        for key in remove:
-            del obj[key]
-    elif isinstance(obj, list):
-        remove = []
-        for i, item in enumerate(obj):
-            if not contains(item, filt):
-                remove.append(i)
-        removed = 0
-        for i in remove:
-            del obj[i - removed]
-            removed += 1
-
-
 def show(obj, output, alternative_outputs: Dict[str, Callable] = {}):
     if output == lib.OUTPUT_YAML:
         try_print(yaml.dump(obj, sort_keys=False), end="")

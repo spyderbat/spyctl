@@ -7,6 +7,7 @@ import zulu
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
+import spyctl.resources.fingerprints as spyctl_fprints
 
 # Get policy parameters
 GET_POL_TYPE = "type"
@@ -259,19 +260,6 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
             pods[pod_id] = data
         elif pods[pod_id]["time"] < data["time"]:
             pods[pod_id] = data
-        # pod_name = data[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
-        # pod_uid = data["id"]
-        # if data["status"] != "closed":
-        #     pods[pod_uid] = {
-        #         lib.METADATA_NAME_FIELD: pod_name,
-        #         "uid": pod_uid,
-        #         "pod_details": {
-        #             "cluster_uid": data["cluster_uid"],
-        #             "cluster_name": data["cluster_name"],
-        #             "namespace": data[lib.METADATA_FIELD]["namespace"],
-        #             "time_seen": data["time"],
-        #         },
-        #     }
     return list(pods.values())
 
 
@@ -286,6 +274,13 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
             resp = get(url, api_key)
             for fprint_json in resp.iter_lines():
                 fprint = json.loads(fprint_json)
+                try:
+                    fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
+                except Exception as e:
+                    cli.try_log(
+                        f"Error parsing fingerprint. {' '.join(e.args)}"
+                    )
+                    continue
                 if "metadata" in fprint:
                     fingerprints.append(fprint)
         except RuntimeError as err:

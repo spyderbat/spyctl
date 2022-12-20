@@ -1,11 +1,14 @@
+import copy
 import inspect
 import json
 import os
 import sys
 import time
+from base64 import urlsafe_b64encode as b64url
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
+from uuid import uuid4
 
 import click
 import dateutil.parser as dateparser
@@ -44,6 +47,11 @@ FINGERPRINTS_RESOURCE = Aliases(
     ]
 )
 
+# Resource Kinds
+POL_KIND = "SpyderbatPolicy"
+BASELINE_KIND = "SpyderbatBaseline"
+
+
 # Top-level yaml Fields
 API_FIELD = "apiVersion"
 API_VERSION = "spyderbat/v1"
@@ -67,6 +75,11 @@ ALLOWED_SEVERITIES = {S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO}
 # Config
 API_KEY_FIELD = "apikey"
 API_URL_FIELD = "apiurl"
+ORG_FIELD = "organization"
+POD_FIELD = "pod"
+CLUSTER_FIELD = "cluster"
+NAMESPACE_FIELD = "namespace"
+MACHINES_FIELD = "machines"
 
 # Response Actions
 ACTION_KILL_POD = "kill-pod"
@@ -100,11 +113,24 @@ MATCH_LABELS_FIELD = "matchLabels"
 IMAGE_FIELD = "image"
 IMAGEID_FIELD = "imageID"
 CONT_NAME_FIELD = "containerName"
+CONT_ID_FIELD = "containerID"
 # Service Selector Fields
 CGROUP_FIELD = "cgroup"
 
+SELECTOR_FIELDS = {
+    CONT_SELECTOR_FIELD: [
+        IMAGE_FIELD,
+        IMAGEID_FIELD,
+        CONT_NAME_FIELD,
+        CONT_ID_FIELD,
+    ],
+    SVC_SELECTOR_FIELD: [CGROUP_FIELD],
+    MACHINE_SELECTOR_FIELD: [],
+    NAMESPACE_SELECTOR_FIELD: [MATCH_LABELS_FIELD],
+    POD_SELECTOR_FIELD: [MATCH_LABELS_FIELD],
+}
+
 # Policies/Fingerprints
-POL_KIND = "SpyderbatPolicy"
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "service"
 POL_TYPES = {POL_TYPE_SVC, POL_TYPE_CONT}
@@ -115,6 +141,8 @@ METADATA_TYPE_FIELD = "type"
 METADATA_UID_FIELD = "uid"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
+FIRST_TIMESTAMP_FIELD = "firstTimestamp"
+LATEST_TIMESTAMP_FIELD = "latestTimestamp"
 
 # Processes
 NAME_FIELD = "name"
@@ -626,7 +654,7 @@ def time_inp(time_str: str) -> int:
                 diff = datetime.now() - date
                 past_seconds = diff.total_seconds()
     except (ValueError, dateparser.ParserError):
-        raise ValueError("invalid time input (see global help menu)") from None
+        raise ValueError("invalid time input (see documentation)") from None
     if epoch_time is not None:
         if epoch_time > time.time():
             raise ValueError("time must be in the past")
@@ -635,3 +663,51 @@ def time_inp(time_str: str) -> int:
         if past_seconds < 0:
             raise ValueError("time must be in the past")
         return int(time.time() - past_seconds)
+
+
+def selectors_to_filters(resource: Dict, **filters) -> Dict:
+    """Generates filters based on the selectors found in a resource's
+    spec field. Does not overwrite filters inputted from cmdline. Does
+    overwrite filters from current-context.
+
+    Args:
+        resource (Dict): A dictionary containing data for a given
+            resource.
+
+    Returns:
+        Dict: A dictionary of filters build from a resource's selectors.
+    """
+    if not isinstance(resource, dict):
+        try_log("Unable to find selectors, resource is not a dictionary")
+        return filters
+    spec = resource.get(SPEC_FIELD, {})
+    if not isinstance(spec, dict):
+        try_log("Unable to find selectors, spec is not a dictionary")
+        return filters
+    rv: Dict = copy.deepcopy(spec.get(CONT_SELECTOR_FIELD, {}))
+    rv.update(copy.deepcopy(spec.get(SVC_SELECTOR_FIELD, {})))
+    rv.update(filters)
+    return rv
+
+
+def make_uuid():
+    return b64url(uuid4().bytes).decode("ascii").strip("=")
+
+
+def err_exit(message: str):
+    sys.stderr.write(f"Error: {message}\n")
+    exit(1)
+
+
+def load_resource_file(filename):
+    try:
+        with open(filename) as f:
+            resrc_data = yaml.load(f, yaml.Loader)
+    except Exception:
+        try:
+            resrc_data = json.load(filename)
+        except Exception:
+            err_exit("Unable to load resource file.")
+    if not isinstance(resrc_data, dict):
+        err_exit("Resource file does not contain a dictionary.")
+    return resrc_data

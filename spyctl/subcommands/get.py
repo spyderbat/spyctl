@@ -1,5 +1,8 @@
+import json
 import time
 from typing import Dict, List, Tuple
+
+import yaml
 
 import spyctl.api as api
 import spyctl.cli as cli
@@ -14,15 +17,29 @@ import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
-from spyctl.resources.fingerprints import (
-    FPRINT_TYPE_CONT,
-    FPRINT_TYPE_SVC,
-    Fingerprint,
-    fingerprint_summary,
-)
 
 
-def handle_get(resource, name_or_id, st, et, output, **filters):
+def handle_get(resource, name_or_id, st, et, latest, output, **filters):
+    if latest is not None:
+        try:
+            with open(latest) as f:
+                resrc_data = yaml.load(f, yaml.Loader)
+        except Exception:
+            try:
+                resrc_data = json.load(latest)
+            except Exception:
+                cli.err_exit("Unable to load resource file.")
+        latest_timestamp = resrc_data.get(lib.METADATA_FIELD, {}).get(
+            lib.LATEST_TIMESTAMP_FIELD
+        )
+        if latest_timestamp is not None:
+            st = lib.time_inp(latest_timestamp)
+        else:
+            cli.try_log(
+                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided resource"
+                " metadata field."
+            )
+        filters = lib.selectors_to_filters(resrc_data)
     if resource == lib.CLUSTERS_RESOURCE:
         handle_get_clusters(output, **filters)
     if resource == lib.FINGERPRINTS_RESOURCE:
@@ -130,8 +147,10 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
     fingerprints = api.get_fingerprints(
         *ctx.get_api_data(), muids, (st, et), cli.api_err_exit
     )
+    fingerprints = filt.filter_fingerprints(fingerprints, **filters)
     fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
     if name_or_id:
+        name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
         cont_fprint_grps, svc_fprint_grps = fprint_groups
         cont_fprint_grps = filt.filter_obj(
             cont_fprint_grps,
@@ -149,7 +168,7 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
             name_or_id,
         )
         fprint_groups = (cont_fprint_grps, svc_fprint_grps)
-    fprint_groups = filt.filter_fingerprints(fprint_groups, **filters)
+    fprint_groups = filt.filter_fprint_groups(fprint_groups, **filters)
     if output != lib.OUTPUT_DEFAULT:
         tmp_grps = []
         for grps in fprint_groups:
@@ -160,86 +179,6 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
         output,
         {lib.OUTPUT_DEFAULT: spyctl_fprints.fprint_grp_output_summary},
     )
-
-
-# def handle_get_fingerprints(args):
-#     if args.type == FPRINT_TYPE_SVC and args.pods:
-#         cli.try_log(
-#             "Warning: pods specified for service fingerprints, will get all"
-#             " service fingerprints from the machines corresponding to the"
-#             " specified pods"
-#         )
-#     muids = set()
-#     pods = None
-#     specific_search = False
-#     if args.clusters:
-#         specific_search = True
-#         for cluster in cli.clusters_input(args):
-#             _, clus_muids = api.get_clust_muids(
-#                 *u_conf.read_config(),
-#                 cluster["uid"],
-#                 cli.time_input(args),
-#                 cli.api_err_exit,
-#             )
-#             muids.update(clus_muids)
-#     if args.machines:
-#         specific_search = True
-#         for machine in cli.machines_input(args):
-#             muids.add(machine["muid"])
-#     if args.pods:
-#         specific_search = True
-#         pods = []
-#         for pod in cli.pods_input(args):
-#             pods.append(pod["name"])
-#             if pod["muid"] != "unknown":
-#                 muids.add(pod["muid"])
-#     if not specific_search:
-#         # We did not specify a source of muids so lets grab them all
-#         ret_muids, _ = api.get_muids(
-#             *u_conf.read_config(), cli.time_input(args), cli.api_err_exit
-#         )
-#         muids.update(ret_muids)
-#     fingerprints = []
-#     found_machs = set()
-#     for muid in muids:
-#         tmp_fprints = api.get_fingerprints(
-#             *u_conf.read_config(), muid, cli.time_input(args), cli.api_err_exit
-#         )
-#         if len(tmp_fprints) == 0:
-#             pass
-#             # cli.try_log(f"found no {args.type} fingerprints for", muid)
-#         else:
-#             found_machs.add(muid)
-#         fingerprints += [
-#             Fingerprint(f)
-#             for f in tmp_fprints
-#             if args.type in f["metadata"]["type"]
-#         ]
-#     cli.try_log(
-#         f"found {args.type} fingerprints on {len(found_machs)}/{len(muids)}"
-#         " machines"
-#     )
-#     fingerprints = [f.get_output() for f in fingerprints]
-#     if pods is not None and args.type == FPRINT_TYPE_CONT:
-#         found_pods = set()
-
-#         def in_pods(fprint):
-#             # TODO: Add pod name to metadata field
-#             container = fprint["spec"]["containerSelector"]["containerName"]
-#             for pod in pods:
-#                 if pod in container:
-#                     found_pods.add(pod)
-#                     return True
-#             return False
-
-#         fingerprints = list(filter(in_pods, fingerprints))
-#         for pod in sorted(set(pods) - found_pods):
-#             cli.try_log("no fingerprints found for pod", pod)
-#         cli.try_log(
-#             f"Found fingerprints in {len(found_pods)}/{len(pods)} pods"
-#         )
-#     alternative_outputs = {"summary": fingerprint_summary}
-#     cli.show(fingerprints, args, alternative_outputs)
 
 
 def get_policy_input(args) -> p.Policy:
