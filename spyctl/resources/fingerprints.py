@@ -8,6 +8,7 @@ from tabulate import tabulate
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
+import spyctl.merge_lib as m_lib
 
 FPRINT_KIND = "SpyderbatFingerprint"
 FPRINT_TYPE_CONT = "container"
@@ -21,6 +22,19 @@ CONT_NAMES_FIELD = "containerNames"
 CONT_IDS_FIELD = "containerIDs"
 MACHINES_FIELD = "machines"
 NOT_AVAILABLE = "N/A"
+
+FPRINT_METADATA_MERGE_SCHEMA = m_lib.MergeSchema(
+    lib.METADATA_FIELD,
+    merge_functions={
+        lib.METADATA_NAME_FIELD: m_lib.wildcard_merge,
+        lib.METADATA_TYPE_FIELD: m_lib.all_eq_merge,
+        lib.LATEST_TIMESTAMP_FIELD: m_lib.greatest_value_merge,
+    },
+)
+FPRINT_MERGE_SCHEMAS = [
+    FPRINT_METADATA_MERGE_SCHEMA,
+    m_lib.SPEC_MERGE_SCHEMA,
+]
 
 
 class InvalidFingerprintError(Exception):

@@ -7,7 +7,7 @@ import time
 from base64 import urlsafe_b64encode as b64url
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple, Union
 from uuid import uuid4
 
 import click
@@ -160,6 +160,7 @@ INGRESS_FIELD = "ingress"
 IP_BLOCK_FIELD = "ipBlock"
 PORTS_FIELD = "ports"
 PORT_FIELD = "port"
+ENDPORT_FIELD = "endPort"
 PROCESSES_FIELD = "processes"
 PROTO_FIELD = "protocol"
 TO_FIELD = "to"
@@ -711,3 +712,17 @@ def load_resource_file(filename):
     if not isinstance(resrc_data, dict):
         err_exit("Resource file does not contain a dictionary.")
     return resrc_data
+
+
+def dictionary_mod(fn) -> Dict:
+    def wrapper(obj_list, fields: Union[List[str], str] = None) -> Dict:
+        ret = dict()
+        if fields is not None:
+            if isinstance(fields, str):
+                fields = [fields]
+            fn(obj_list, ret, fields)
+        else:
+            fn(obj_list, ret)
+        return ret
+
+    return wrapper

@@ -10,10 +10,12 @@ import spyctl.subcommands.merge as merge
 import spyctl.api as api
 import spyctl.config.configs as cfgs
 import spyctl.filter_resource as filt
+import spyctl.merge_lib as m_lib
 
 FPRINT_KIND = spyctl_fprints.FPRINT_KIND
 GROUP_KIND = spyctl_fprints.GROUP_KIND
 BASELINE_KIND = lib.BASELINE_KIND
+BASELINE_MERGE_SCHEMAS = [m_lib.SPEC_MERGE_SCHEMA]
 
 
 class InvalidBaselineError(Exception):
@@ -41,7 +43,9 @@ class Baseline:
                 raise InvalidBaselineError(
                     f"Missing {lib.DATA_FIELD} for input object"
                 )
-            fprints = obj[lib.DATA_FIELD][spyctl_fprints.FINGERPRINTS_FIELD]
+            fprints = obj[lib.DATA_FIELD].get(
+                spyctl_fprints.FINGERPRINTS_FIELD, []
+            )
             fprint_grps = spyctl_fprints.make_fingerprint_groups(fprints)
             all_grps = []
             for grps_list in fprint_grps:
@@ -50,22 +54,33 @@ class Baseline:
                 raise InvalidBaselineError(
                     "Detected Fingerprints Group with mismatched Fingerprints."
                 )
-            baseline_data = merge.merge_objects(fprints)
-            baseline_data = yaml.load(
-                yaml.dump(
-                    baseline_data, Dumper=merge.MergeDumper, sort_keys=False
-                ),
-                yaml.Loader,
+            fprint_merge_base = m_lib.MergeObject(
+                fprints[0],
+                spyctl_fprints.FPRINT_MERGE_SCHEMAS,
+                spyctl_fprints.Fingerprint,
             )
-            latest_timestamp = (
-                all_grps[0]
-                .get(lib.METADATA_FIELD, {})
-                .get(lib.LATEST_TIMESTAMP_FIELD)
-            )
-            if latest_timestamp is not None:
-                baseline_data[lib.METADATA_FIELD][
-                    lib.LATEST_TIMESTAMP_FIELD
-                ] = latest_timestamp
+            for i, fprint in enumerate(fprints[1:]):
+                cli.try_log(f"merging {i} of {len(fprints[1:])}")
+                fprint_merger = m_lib.MergeObject(fprint, None, None)
+                fprint_merge_base.symmetric_merge(fprint_merger)
+            if fprint_merge_base.is_valid_obj():
+                baseline_data = fprint_merge_base.get_obj_data()
+            # baseline_data = merge.merge_objects(fprints)
+            # baseline_data = yaml.load(
+            #     yaml.dump(
+            #         baseline_data, Dumper=merge.MergeDumper, sort_keys=False
+            #     ),
+            #     yaml.Loader,
+            # )
+            # latest_timestamp = (
+            #     all_grps[0]
+            #     .get(lib.METADATA_FIELD, {})
+            #     .get(lib.LATEST_TIMESTAMP_FIELD)
+            # )
+            # if latest_timestamp is not None:
+            #     baseline_data[lib.METADATA_FIELD][
+            #         lib.LATEST_TIMESTAMP_FIELD
+            #     ] = latest_timestamp
         else:
             if lib.SPEC_FIELD not in obj:
                 raise InvalidBaselineError(
@@ -102,22 +117,19 @@ def merge_baseline(baseline: Dict, with_obj: Dict, latest, output):
         with_obj.get(lib.KIND_FIELD) if isinstance(with_obj, dict) else None
     )
     if with_obj_kind == GROUP_KIND:
-        merged_spec = merge.merge_objects(
-            with_obj[lib.DATA_FIELD][spyctl_fprints.FINGERPRINTS_FIELD],
-            lib.SPEC_FIELD,
+        base_merge_obj = m_lib.MergeObject(
+            baseline, BASELINE_MERGE_SCHEMAS, Baseline
         )
-        merged_spec = yaml.load(
-            yaml.dump(merged_spec, Dumper=merge.MergeDumper, sort_keys=False),
-            yaml.Loader,
+        fingerprints = with_obj.get(lib.DATA_FIELD, {}).get(
+            spyctl_fprints.FINGERPRINTS_FIELD, []
         )
-        merged_spec = merge.merge_objects(
-            [merged_spec, baseline], lib.SPEC_FIELD
-        )
-        merged_spec = yaml.load(
-            yaml.dump(merged_spec, Dumper=merge.MergeDumper, sort_keys=False),
-            yaml.Loader,
-        )
-        baseline[lib.SPEC_FIELD] = merged_spec[lib.SPEC_FIELD]
+        for fprint in fingerprints:
+            fprint_merge_obj = m_lib.MergeObject(fprint, None, None)
+            base_merge_obj.asymmetric_merge(fprint_merge_obj)
+        if base_merge_obj.is_valid_obj():
+            baseline = base_merge_obj.get_obj_data()
+        else:
+            baseline = {}
     elif latest:
         latest_timestamp = baseline.get(lib.METADATA_FIELD, {}).get(
             lib.LATEST_TIMESTAMP_FIELD

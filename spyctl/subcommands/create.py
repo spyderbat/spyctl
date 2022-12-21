@@ -8,7 +8,6 @@ import spyctl.spyctl_lib as lib
 from spyctl.resources.fingerprints import Fingerprint
 import spyctl.resources.baselines as b
 from spyctl.resources.policies import Policy
-from spyctl.subcommands.merge import MergeDumper
 
 
 def handle_create_baseline(filename, output):
