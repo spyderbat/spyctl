@@ -126,6 +126,7 @@ def current_context(force_global):
 @click.option(
     "-o",
     "--organization",
+    "--org",
     help="ID or name of Spyderbat organization.",
     metavar="",
     required=True,
@@ -269,7 +270,7 @@ def create_secret():
     "--api-key",
     "api_key",
     help="API key generated via the Spyderbat UI, base64 encoded."
-    " Use 'echo -n <apikey> | base64 -w 0'",
+    " Use 'echo -n <apikey> | base64 -w 1000'",
     metavar="",
 )
 @click.option(

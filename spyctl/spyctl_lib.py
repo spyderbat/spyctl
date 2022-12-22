@@ -174,6 +174,9 @@ OUTPUT_DEFAULT = "default"
 CLUSTER_OPTION = "cluster"
 NAMESPACE_OPTION = "namespace"
 
+# deviations
+DEVIATION_DESCRIPTION = "deviationDescription"
+
 # Templates
 METADATA_NAME_TEMPLATE = "foobar-policy"
 
