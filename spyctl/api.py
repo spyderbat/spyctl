@@ -1,13 +1,15 @@
 import json
+import sys
 import time
 from typing import Callable, Dict, List, Tuple
 
 import requests
+import tqdm
 import zulu
 
 import spyctl.cli as cli
-import spyctl.spyctl_lib as lib
 import spyctl.resources.fingerprints as spyctl_fprints
+import spyctl.spyctl_lib as lib
 
 # Get policy parameters
 GET_POL_TYPE = "type"
@@ -182,15 +184,12 @@ def get_k8s_data(
     api_url, api_key, org_uid, clus_uid, err_fn, schema_key, time
 ):
     url = f"{api_url}/api/v1/org/{org_uid}/data/"
-    url += f"?src={clus_uid}&st={time[0] - 60*60}&et={time[1]}&dt=k8s"
-    try:
-        resp = get(url, api_key)
-        for k8s_json in resp.iter_lines():
-            data = json.loads(k8s_json)
-            if schema_key in data["schema"]:
-                yield data
-    except RuntimeError as err:
-        err_fn(*err.args, f"Unable to get machines from cluster '{clus_uid}'")
+    url += f"?src={clus_uid}&st={time[0]}&et={time[1]}&dt=k8s"
+    resp = get(url, api_key)
+    for k8s_json in resp.iter_lines():
+        data = json.loads(k8s_json)
+        if schema_key in data["schema"]:
+            yield data
 
 
 def get_clust_muids(api_url, api_key, org_uid, clus_uid, time, err_fn):
@@ -219,35 +218,55 @@ def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time, err_fn):
 
 def get_namespaces(api_url, api_key, org_uid, clusters, time, err_fn):
     namespaces = []
+    pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
     for cluster in clusters:
-        if "/" in cluster["uid"]:
-            continue
-        ns_list = get_clust_namespaces(
-            api_url,
-            api_key,
-            org_uid,
-            cluster["uid"],
-            time,
-            err_fn,
-        )
-        namespaces.append(
-            {
-                "cluster_name": cluster["name"],
-                "cluster_uid": cluster["uid"],
-                "namespaces": ns_list,
-            }
-        )
+        try:
+            if "/" in cluster["uid"]:
+                continue
+            ns_list = get_clust_namespaces(
+                api_url,
+                api_key,
+                org_uid,
+                cluster["uid"],
+                time,
+                err_fn,
+            )
+            namespaces.append(
+                {
+                    "cluster_name": cluster["name"],
+                    "cluster_uid": cluster["uid"],
+                    "namespaces": ns_list,
+                }
+            )
+        except RuntimeError as err:
+            pbar.close()
+            err_fn(
+                *err.args,
+                f"Unable to get namespaces for cluster '{cluster['uid']}'",
+            )
+        pbar.update(1)
+    pbar.close()
     return namespaces
 
 
 def get_pods(api_url, api_key, org_uid, clusters, time, err_fn) -> List[Dict]:
     pods = []
+    pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
     for cluster in clusters:
-        pods.extend(
-            get_clust_pods(
-                api_url, api_key, org_uid, cluster["uid"], time, err_fn
+        try:
+            pods.extend(
+                get_clust_pods(
+                    api_url, api_key, org_uid, cluster["uid"], time, err_fn
+                )
             )
-        )
+        except RuntimeError as err:
+            pbar.close()
+            err_fn(
+                *err.args,
+                f"Unable to get pods from cluster '{cluster['uid']}'",
+            )
+        pbar.update(1)
+    pbar.close()
     return pods
 
 
@@ -266,10 +285,11 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
 
 def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
     fingerprints = []
-    for muid in muids:
+    pbar = tqdm.tqdm(total=len(muids), leave=False, file=sys.stderr)
+    for i, muid in enumerate(muids):
         url = (
             f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&"
-            f"st={time[0] - 60*60}&et={time[1]}&dt=fingerprints"
+            f"st={time[0]}&et={time[1]}&dt=fingerprints"
         )
         try:
             resp = get(url, api_key)
@@ -285,8 +305,11 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
                 if "metadata" in fprint:
                     fingerprints.append(fprint)
         except RuntimeError as err:
+            pbar.close()
             err_fn(*err.args, f"Unable to get fingerprints from {muid}")
             continue
+        pbar.update(1)
+    pbar.close()
     return fingerprints
 
 

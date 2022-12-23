@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spyctl"
-version = "0.0.18"
+version = "0.0.19"
 authors = [
   { name="Brent Haub", email="dev@spyderbat.com" },
   { name="Kyle Smith Hanna", email="dev@spyderbat.com" },
@@ -25,6 +25,7 @@ dependencies = [
     "typing_extensions",
     "click",
     "tabulate",
+    "tqdm",
 ]
 
 [project.urls]
