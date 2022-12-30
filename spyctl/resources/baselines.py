@@ -162,3 +162,56 @@ def merge_baseline(baseline: Dict, with_obj: Dict, latest, output):
         )
         return
     cli.show(baseline, output)
+
+
+def diff_baseline(baseline: Dict, with_obj: Dict, latest):
+    try:
+        _ = Baseline(baseline)
+    except InvalidBaselineError as e:
+        cli.err_exit(f"Invalid baseline as input. {' '.join(e.args)}")
+    with_obj_kind = (
+        with_obj.get(lib.KIND_FIELD) if isinstance(with_obj, dict) else None
+    )
+    base_merge_obj = m_lib.MergeObject(
+        baseline, BASELINE_MERGE_SCHEMAS, Baseline
+    )
+    if with_obj_kind == GROUP_KIND:
+        fingerprints = with_obj.get(lib.DATA_FIELD, {}).get(
+            spyctl_fprints.FINGERPRINTS_FIELD, []
+        )
+        for fprint in fingerprints:
+            base_merge_obj.asymmetric_merge(fprint)
+        diff = base_merge_obj.get_diff()
+    elif latest:
+        latest_timestamp = baseline.get(lib.METADATA_FIELD, {}).get(
+            lib.LATEST_TIMESTAMP_FIELD
+        )
+        if latest_timestamp is not None:
+            st = lib.time_inp(latest_timestamp)
+        else:
+            cli.err_exit(
+                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided resource"
+                " metadata field. Defaulting to all time."
+            )
+        et = time.time()
+        filters = lib.selectors_to_filters(baseline)
+        ctx = cfgs.get_current_context()
+        machines = api.get_machines(*ctx.get_api_data(), cli.api_err_exit)
+        machines = filt.filter_machines(machines, filters)
+        muids = [m["uid"] for m in machines]
+        fingerprints = api.get_fingerprints(
+            *ctx.get_api_data(),
+            muids=muids,
+            time=(st, et),
+            err_fn=cli.api_err_exit,
+        )
+        fingerprints = filt.filter_fingerprints(fingerprints, **filters)
+        for fingerprint in fingerprints:
+            base_merge_obj.asymmetric_merge(fingerprint)
+        diff = base_merge_obj.get_diff()
+    else:
+        cli.try_log(
+            f"Merging baseline with {with_obj_kind} is not yet supported."
+        )
+        return
+    cli.show(diff, lib.OUTPUT_RAW)

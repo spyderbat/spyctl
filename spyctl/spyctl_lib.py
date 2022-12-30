@@ -169,6 +169,7 @@ TO_FIELD = "to"
 OUTPUT_YAML = "yaml"
 OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
+OUTPUT_RAW = "raw"
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"

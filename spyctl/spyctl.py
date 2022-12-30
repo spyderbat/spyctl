@@ -11,6 +11,7 @@ import spyctl.spyctl_lib as lib
 import spyctl.subcommands.get as g
 import spyctl.subcommands.create as c
 import spyctl.subcommands.merge as m
+import spyctl.subcommands.diff as d
 from spyctl.subcommands.apply import handle_apply
 from spyctl.subcommands.delete import handle_delete
 
@@ -353,13 +354,14 @@ def delete(resource, name_or_id):
 @click.option(
     "-l",
     "--latest",
+    is_flag=True,
     help="Diff file with latest records using the value of lastTimestamp in"
     " metadata",
     metavar="",
 )
-def diff(filename, with_file=None, latest=None):
+def diff(filename, with_file=None, latest=False):
     """Diff FingerprintsGroups with SpyderbatBaselines and SpyderbatPolicies"""
-    pass
+    d.handle_diff(filename, with_file, latest)
 
 
 # ----------------------------------------------------------------- #

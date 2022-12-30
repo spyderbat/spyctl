@@ -74,6 +74,8 @@ def show(obj, output, alternative_outputs: Dict[str, Callable] = {}):
         try_print(yaml.dump(obj, sort_keys=False), end="")
     elif output == lib.OUTPUT_JSON:
         try_print(json.dumps(obj, sort_keys=False, indent=2))
+    elif output == lib.OUTPUT_RAW:
+        try_print(obj)
     elif output in alternative_outputs:
         try_print(alternative_outputs[output](obj))
 
