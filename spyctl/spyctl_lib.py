@@ -109,6 +109,8 @@ NAMESPACE_SELECTOR_FIELD = "namespaceSelector"
 POD_SELECTOR_FIELD = "podSelector"
 SVC_SELECTOR_FIELD = "serviceSelector"
 MATCH_LABELS_FIELD = "matchLabels"
+# Machine Selector Fields
+HOSTNAME_FIELD = "hostname"
 # Container Selector Fields
 IMAGE_FIELD = "image"
 IMAGEID_FIELD = "imageID"
@@ -170,6 +172,7 @@ OUTPUT_YAML = "yaml"
 OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
 OUTPUT_RAW = "raw"
+OUTPUT_CHOICES = (OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT)
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"

@@ -7,7 +7,7 @@ import spyctl.spyctl_lib as lib
 
 
 def handle_delete(resource, name_or_id):
-    if resource == lib.SECRETS_ALIASES:
+    if resource == lib.SECRETS_RESOURCE:
         s.delete_secret(name_or_id)
 
 

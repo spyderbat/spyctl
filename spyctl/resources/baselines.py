@@ -1,20 +1,19 @@
-from typing import Dict
-
-import yaml
 import time
+from typing import Dict, Optional
 
-import spyctl.cli as cli
-import spyctl.resources.fingerprints as spyctl_fprints
-import spyctl.spyctl_lib as lib
-import spyctl.subcommands.merge as merge
 import spyctl.api as api
+import spyctl.cli as cli
 import spyctl.config.configs as cfgs
 import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
+import spyctl.resources.fingerprints as spyctl_fprints
+import spyctl.resources.policies as spyctl_policies
+import spyctl.spyctl_lib as lib
 
 FPRINT_KIND = spyctl_fprints.FPRINT_KIND
 GROUP_KIND = spyctl_fprints.GROUP_KIND
 BASELINE_KIND = lib.BASELINE_KIND
+POLICY_KIND = lib.POL_KIND
 BASELINE_META_MERGE_SCHEMA = m_lib.MergeSchema(
     lib.METADATA_FIELD,
     merge_functions={
@@ -31,7 +30,7 @@ class InvalidBaselineError(Exception):
 
 
 class Baseline:
-    valid_obj_kinds = {GROUP_KIND, FPRINT_KIND, BASELINE_KIND}
+    valid_obj_kinds = {GROUP_KIND, FPRINT_KIND, BASELINE_KIND, POLICY_KIND}
     required_keys = {lib.API_FIELD, lib.KIND_FIELD, lib.METADATA_FIELD}
 
     def __init__(self, obj: Dict) -> None:
@@ -56,7 +55,7 @@ class Baseline:
             )
             if len(fprints) == 0:
                 raise InvalidBaselineError(
-                    "No fingerprints to create baseline from."
+                    "No fingerprints to create object from."
                 )
             elif len(fprints) == 1:
                 fprint_merge_base = m_lib.MergeObject(
@@ -77,6 +76,9 @@ class Baseline:
                     fprint_merge_base.symmetric_merge(fprint)
                 if fprint_merge_base.is_valid_obj():
                     baseline_data = fprint_merge_base.get_obj_data()
+        elif obj_kind == POLICY_KIND:
+            policy = spyctl_policies.Policy(obj)
+            baseline_data = policy.as_dict()
         else:
             if lib.SPEC_FIELD not in obj:
                 raise InvalidBaselineError(
@@ -104,67 +106,9 @@ def create_baseline(obj: Dict):
     return baseline.as_dict()
 
 
-def merge_baseline(baseline: Dict, with_obj: Dict, latest, output):
-    try:
-        _ = Baseline(baseline)
-    except InvalidBaselineError as e:
-        cli.err_exit(f"Invalid baseline as input. {' '.join(e.args)}")
-    with_obj_kind = (
-        with_obj.get(lib.KIND_FIELD) if isinstance(with_obj, dict) else None
-    )
-    if with_obj_kind == GROUP_KIND:
-        base_merge_obj = m_lib.MergeObject(
-            baseline, BASELINE_MERGE_SCHEMAS, Baseline
-        )
-        fingerprints = with_obj.get(lib.DATA_FIELD, {}).get(
-            spyctl_fprints.FINGERPRINTS_FIELD, []
-        )
-        for fprint in fingerprints:
-            base_merge_obj.asymmetric_merge(fprint)
-        if base_merge_obj.is_valid_obj():
-            baseline = base_merge_obj.get_obj_data()
-        else:
-            baseline = {}
-    elif latest:
-        base_merge_obj = m_lib.MergeObject(
-            baseline, BASELINE_MERGE_SCHEMAS, Baseline
-        )
-        latest_timestamp = baseline.get(lib.METADATA_FIELD, {}).get(
-            lib.LATEST_TIMESTAMP_FIELD
-        )
-        if latest_timestamp is not None:
-            st = lib.time_inp(latest_timestamp)
-        else:
-            cli.err_exit(
-                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided resource"
-                " metadata field. Defaulting to all time."
-            )
-        et = time.time()
-        filters = lib.selectors_to_filters(baseline)
-        ctx = cfgs.get_current_context()
-        machines = api.get_machines(*ctx.get_api_data(), cli.api_err_exit)
-        machines = filt.filter_machines(machines, filters)
-        muids = [m["uid"] for m in machines]
-        fingerprints = api.get_fingerprints(
-            *ctx.get_api_data(),
-            muids=muids,
-            time=(st, et),
-            err_fn=cli.api_err_exit,
-        )
-        fingerprints = filt.filter_fingerprints(fingerprints, **filters)
-        for fingerprint in fingerprints:
-            base_merge_obj.asymmetric_merge(fingerprint)
-        if base_merge_obj.is_valid_obj():
-            baseline = base_merge_obj.get_obj_data()
-    else:
-        cli.try_log(
-            f"Merging baseline with {with_obj_kind} is not yet supported."
-        )
-        return
-    cli.show(baseline, output)
-
-
-def diff_baseline(baseline: Dict, with_obj: Dict, latest):
+def merge_baseline(
+    baseline: Dict, with_obj: Dict, latest
+) -> Optional[m_lib.MergeObject]:
     try:
         _ = Baseline(baseline)
     except InvalidBaselineError as e:
@@ -181,7 +125,33 @@ def diff_baseline(baseline: Dict, with_obj: Dict, latest):
         )
         for fprint in fingerprints:
             base_merge_obj.asymmetric_merge(fprint)
-        diff = base_merge_obj.get_diff()
+        if not base_merge_obj.is_valid_obj():
+            cli.try_log("Merge was unable to create a valid baseline")
+    elif with_obj_kind == BASELINE_KIND:
+        try:
+            _ = Baseline(with_obj)
+        except (
+            InvalidBaselineError,
+            spyctl_fprints.InvalidFingerprintError,
+        ) as e:
+            cli.err_exit(
+                "Invalid baseline object as 'with object' input."
+                f" {' '.join(e.args)}"
+            )
+        base_merge_obj.asymmetric_merge(with_obj)
+        if not base_merge_obj.is_valid_obj():
+            cli.try_log("Merge was unable to create a valid policy")
+    elif with_obj == POLICY_KIND:
+        try:
+            _ = spyctl_policies.Policy(with_obj)
+        except spyctl_policies.InvalidPolicyError as e:
+            cli.err_exit(
+                "Invalid policy object as 'with object' input."
+                f" {' '.join(e.args)}"
+            )
+        base_merge_obj.asymmetric_merge(with_obj)
+        if not base_merge_obj.is_valid_obj():
+            cli.try_log("Merge was unable to create a valid policy")
     elif latest:
         latest_timestamp = baseline.get(lib.METADATA_FIELD, {}).get(
             lib.LATEST_TIMESTAMP_FIELD
@@ -191,7 +161,7 @@ def diff_baseline(baseline: Dict, with_obj: Dict, latest):
         else:
             cli.err_exit(
                 f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided resource"
-                " metadata field. Defaulting to all time."
+                f" {lib.METADATA_FIELD} field. Defaulting to all time."
             )
         et = time.time()
         filters = lib.selectors_to_filters(baseline)
@@ -208,10 +178,19 @@ def diff_baseline(baseline: Dict, with_obj: Dict, latest):
         fingerprints = filt.filter_fingerprints(fingerprints, **filters)
         for fingerprint in fingerprints:
             base_merge_obj.asymmetric_merge(fingerprint)
-        diff = base_merge_obj.get_diff()
+        if not base_merge_obj.is_valid_obj():
+            cli.try_log("Merge was unable to create a valid baseline")
     else:
         cli.try_log(
             f"Merging baseline with {with_obj_kind} is not yet supported."
         )
         return
+    return base_merge_obj
+
+
+def diff_baseline(baseline: Dict, with_obj: Dict, latest):
+    base_merge_obj = merge_baseline(baseline, with_obj, latest)
+    if not base_merge_obj:
+        cli.err_exit("Unable to perform Diff")
+    diff = base_merge_obj.get_diff()
     cli.show(diff, lib.OUTPUT_RAW)

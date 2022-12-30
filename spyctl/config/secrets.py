@@ -237,6 +237,11 @@ def delete_secret(secret_name: Dict):
             f"Unable to delete secret '{secret_name}'. Does not exist."
         )
         return
+    if not cli.query_yes_no(
+        f'Are you sure you want to delete the secret "{secret_name}"?'
+    ):
+        cli.try_log("Delete cancelled, exiting...")
+        return
     del SECRETS[secret_name]
     output_data = []
     for s in SECRETS.values():

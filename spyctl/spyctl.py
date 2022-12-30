@@ -207,7 +207,12 @@ def use_context(name, force_global):
     help="View merged configuration file. Supply a flag to view global"
     " configuration file or local workspace configuration file.",
 )
-@click.option("-o", "--output", default=lib.OUTPUT_YAML, metavar="")
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
 def view(force_global, force_workspace, output):
     """View the current spyctl configuration file(s)."""
     cfgs.view_config(force_global, force_workspace, output)
@@ -235,7 +240,12 @@ def create():
     " creates a baseline.",
     metavar="",
 )
-@click.option("-o", "--output", default=lib.OUTPUT_YAML, metavar="")
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
 def create_baseline(filename, output):
     """Create a Baseline from a file, outputted to stdout"""
     c.handle_create_baseline(filename, output)
@@ -251,9 +261,15 @@ def create_baseline(filename, output):
     " object, from which spyctl creates a policy",
     metavar="",
 )
-def create_policy(filename):
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def create_policy(filename, output):
     """Create a Policy object from a file, outputted to stdout"""
-    pass
+    c.handle_create_policy(filename, output)
 
 
 @create.group("secret", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
@@ -311,7 +327,7 @@ def create_apicfg_secret(name, api_key, api_url):
     metavar="",
 )
 @click.argument("name")
-def create_opque_secret(name, data=None, string_data=None):
+def create_opaque_secret(name, data=None, string_data=None):
     """Create an opaque secret. May contain an arbitrary amount of base64
     encoded data and plaintext string data.
     """
@@ -374,48 +390,63 @@ def diff(filename, with_file=None, latest=False):
 @click.argument("resource")
 @click.argument("name_or_id", required=False)
 @click.option(
-    f"--{cfgs.IMG_FIELD}",
-    help="Only show clusters with pods or nodes running this container image."
+    "--image",
+    cfgs.IMG_FIELD,
+    help="Only show resources tied to this container image."
     " Overrides value current context if it exists.",
 )
 @click.option(
-    f"--{cfgs.IMGID_FIELD}",
-    "imageID",
-    help="Only show clusters with pods or nodes running containers with this"
+    "--image-id",
+    cfgs.IMGID_FIELD,
+    help="Only show resources tied to containers running with this"
     " image id. Overrides value current context if it exists.",
 )
 @click.option(
-    f"--{cfgs.CONTAINER_NAME_FIELD}",
-    help="Only show clusters with pods or node running containers with this"
+    "--container-name",
+    cfgs.CONTAINER_NAME_FIELD,
+    help="Only show resources tied to containers running with this"
     " container name. Overrides value current context if it exists.",
 )
 @click.option(
-    f"--{cfgs.CGROUP_FIELD}",
-    help="Only show clusters with nodes running Linux services with this"
-    " cgroup. Overrides value current context if it exists.",
+    "--container-id",
+    cfgs.CONT_ID_FIELD,
+    help="Only show resources tied to containers running with this"
+    " container id. Overrides value current context if it exists.",
 )
 @click.option(
-    f"--{cfgs.POD_FIELD}",
-    help="Only show clusters with nodes running this pod."
+    "--cgroup",
+    cfgs.CGROUP_FIELD,
+    help="Only show resources tied to machines running Linux services with"
+    " this cgroup. Overrides value current context if it exists.",
+)
+@click.option(
+    "--pod",
+    cfgs.POD_FIELD,
+    help="Only show resources tied to this pod uid."
     " Overrides value current context if it exists.",
 )
 @click.option(
     f"--{cfgs.MACHINES_FIELD}",
     "--nodes",
-    help="Only show clusters linked to these nodes."
+    help="Only show resources to these nodes."
     " Overrides value current context if it exists.",
 )
 @click.option(
     f"--{cfgs.NAMESPACE_FIELD}",
-    help="Only show clusters with this namespace."
+    help="Only show resources tied to this namespace."
     " Overrides value current context if it exists.",
 )
 @click.option(
     f"--{cfgs.CLUSTER_FIELD}",
-    help="Only show this cluster."
+    help="Only show resources tied to this cluster."
     " Overrides value current context if it exists.",
 )
-@click.option("-o", "--output", default=lib.OUTPUT_DEFAULT)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
 @click.option(
     "-l",
     "--latest",
@@ -488,7 +519,12 @@ def init():
     f" {lib.LATEST_TIMESTAMP_FIELD} in the input file's metadata",
     metavar="",
 )
-@click.option("-o", "--output", default=lib.OUTPUT_DEFAULT)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
 def merge(filename, output, with_file=None, latest=False):
     """Merge FingerprintsGroups into SpyderbatBaselines and
     SpyderbatPolicies

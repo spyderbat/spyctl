@@ -3,6 +3,7 @@ import yaml
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
 import spyctl.resources.baselines as spyctl_baselines
+import spyctl.resources.policies as spyctl_policies
 
 
 def handle_diff(filename, with_file, latest):
@@ -19,3 +20,5 @@ def handle_diff(filename, with_file, latest):
         with_resource = None
     if resrc_kind == lib.BASELINE_KIND:
         spyctl_baselines.diff_baseline(resource, with_resource, latest)
+    elif resrc_kind == lib.POL_KIND:
+        spyctl_policies.diff_policy(resource, with_resource, latest)
