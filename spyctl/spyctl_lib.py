@@ -13,6 +13,7 @@ from uuid import uuid4
 import click
 import dateutil.parser as dateparser
 import yaml
+import zulu
 
 _click7 = click.__version__[0] >= "7"
 
@@ -26,7 +27,7 @@ class Aliases:
 
 
 # Resource Aliases
-CLUSTERS_RESOURCE = Aliases(["clusters", "cluster", "clust", "clusts"])
+CLUSTERS_RESOURCE = Aliases(["clusters", "cluster", "clust", "clusts", "clus"])
 NAMESPACES_RESOURCE = Aliases(
     ["namespaces", "name", "names", "namesp", "namesps", "namespace"]
 )
@@ -44,6 +45,19 @@ FINGERPRINTS_RESOURCE = Aliases(
         "fprint",
         "f",
         "fprints",
+    ]
+)
+POLICIES_RESOURCE = Aliases(
+    [
+        "spyderbat-policy",
+        "spyderbat-policies",
+        "spy-pol",
+        "spol",
+        "sp",
+        "policies",
+        "policy",
+        "pol",
+        "p",
     ]
 )
 
@@ -135,12 +149,13 @@ SELECTOR_FIELDS = {
 # Policies/Fingerprints
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "service"
-POL_TYPES = {POL_TYPE_SVC, POL_TYPE_CONT}
+POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT]
 ENABLED_FIELD = "enabled"
 METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"
 METADATA_UID_FIELD = "uid"
+METADATA_CREATE_TIME = "createTime"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
@@ -733,3 +748,7 @@ def dictionary_mod(fn) -> Dict:
         return ret
 
     return wrapper
+
+
+def _to_timestamp(zulu_str):
+    return zulu.Zulu.parse(zulu_str).timestamp()

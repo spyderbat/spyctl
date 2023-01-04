@@ -1,5 +1,9 @@
+import json
 import time
 from typing import Dict, List, Optional, Tuple
+
+import zulu
+from tabulate import tabulate
 
 import spyctl.api as api
 import spyctl.cli as cli
@@ -13,7 +17,7 @@ import spyctl.spyctl_lib as lib
 # For the Spyderbat API
 API_REQ_FIELD_NAME = "name"
 API_REQ_FIELD_POLICY = "policy"
-API_REQ_FIELD_POL_SELECTORS = "policy_selectors"
+API_REQ_FIELD_POL_SELECTORS = "selectors"
 API_REQ_FIELD_TAGS = "tags"
 API_REQ_FIELD_TYPE = "type"
 API_REQ_FIELD_UID = "uid"
@@ -92,29 +96,6 @@ class Policy:
         }
         return rv
 
-    def get_data_for_api_call(self) -> Tuple[Optional[str], str]:
-        policy = self.as_dict()
-        name = policy[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
-        type = policy[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-        tags = policy[lib.METADATA_FIELD].get(lib.METADATA_TAGS_FIELD)
-        uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
-        policy_selectors = {
-            key: value
-            for key, value in policy[lib.SPEC_FIELD].items()
-            if key.endswith("Selector")
-        }
-        data = {
-            API_REQ_FIELD_NAME: name[:32],
-            API_REQ_FIELD_POLICY: policy,
-            API_REQ_FIELD_POL_SELECTORS: policy_selectors,
-            API_REQ_FIELD_TYPE: type,
-        }
-        if tags:
-            data[API_REQ_FIELD_TAGS] = tags
-        else:
-            data[API_REQ_FIELD_TAGS] = []
-        return uid, data
-
     def add_response_action(self, resp_action: Dict):
         resp_actions: List[Dict] = self.policy[lib.SPEC_FIELD][
             lib.RESPONSE_FIELD
@@ -129,6 +110,31 @@ class Policy:
         spec = self.policy[lib.SPEC_FIELD]
         if lib.ENABLED_FIELD in spec:
             del spec[lib.ENABLED_FIELD]
+
+
+def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
+    policy = policy.as_dict()
+    name = policy[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
+    type = policy[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+    tags = policy[lib.METADATA_FIELD].get(lib.METADATA_TAGS_FIELD)
+    uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD, "")
+    policy_selectors = {
+        key: value
+        for key, value in policy[lib.SPEC_FIELD].items()
+        if key.endswith("Selector")
+    }
+    data = {
+        API_REQ_FIELD_NAME: name[:32],
+        API_REQ_FIELD_POLICY: json.dumps(policy),
+        API_REQ_FIELD_POL_SELECTORS: json.dumps(policy_selectors),
+        API_REQ_FIELD_TYPE: type,
+        API_REQ_FIELD_UID: uid,
+    }
+    if tags:
+        data[API_REQ_FIELD_TAGS] = tags
+    else:
+        data[API_REQ_FIELD_TAGS] = []
+    return uid, data
 
 
 def create_policy(obj: Dict):
@@ -239,3 +245,39 @@ def diff_policy(policy: Dict, with_obj: Dict, latest):
         cli.err_exit("Unable to perform Diff")
     diff = pol_merge_obj.get_diff()
     cli.show(diff, lib.OUTPUT_RAW)
+
+
+def policies_output(policies: List[Dict]):
+    if len(policies) == 1:
+        return policies[0]
+    elif len(policies) > 1:
+        return {lib.API_FIELD: lib.API_VERSION, lib.ITEMS_FIELD: policies}
+    else:
+        return {}
+
+
+def policies_summary_output(policies: List[Dict]):
+    headers = ["UID", "NAME", "STATUS", "TYPE", "CREATE_TIME"]
+    data = []
+    for policy in policies:
+        data.append(policy_summary_data(policy))
+    data.sort(key=lambda x: [x[3], x[1], lib._to_timestamp(x[4])])
+    return tabulate(data, headers, tablefmt="plain")
+
+
+def policy_summary_data(policy: Dict):
+    status = policy[lib.SPEC_FIELD].get(lib.ENABLED_FIELD)
+    if status is False:
+        status = "Disabled"
+    else:
+        status = "Enforcing"
+    create_time = policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME]
+    create_time = zulu.parse(create_time).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+    rv = [
+        policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD),
+        policy[lib.METADATA_FIELD][lib.NAME_FIELD],
+        status,
+        policy[lib.METADATA_FIELD][lib.TYPE_FIELD],
+        create_time,
+    ]
+    return rv

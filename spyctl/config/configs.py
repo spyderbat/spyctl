@@ -565,6 +565,8 @@ def view_config(force_global, force_workspace, output):
         cfg_to_view = LOADED_CONFIGS[str(config.config_path)].as_dict()
     else:
         cfg_to_view = config.as_dict()
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
     cli.show(cfg_to_view, output)
 
 

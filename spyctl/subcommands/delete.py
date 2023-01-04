@@ -1,14 +1,16 @@
 import spyctl.api as api
 import spyctl.cli as cli
-import spyctl.resources.policies as p
-import spyctl.config.configs as u_conf
+import spyctl.config.configs as cfg
 import spyctl.config.secrets as s
+import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
 
 
 def handle_delete(resource, name_or_id):
     if resource == lib.SECRETS_RESOURCE:
         s.delete_secret(name_or_id)
+    if resource == lib.POLICIES_RESOURCE:
+        handle_delete_policy(name_or_id)
 
 
 def del_policy_input(args) -> p.Policy:
@@ -23,13 +25,9 @@ def del_policy_input(args) -> p.Policy:
     return policies[0]
 
 
-def handle_delete_policy(args):
-    uid = args.uid
-    if uid is None:
-        uid = del_policy_input(args).get_uid()
-    if uid is None:
-        cli.err_exit("No uid found")
-    if args.yes:
+def handle_delete_policy(uid, yes=False):
+    ctx = cfg.get_current_context()
+    if yes:
         perform_delete = True
     else:
         perform_delete = cli.query_yes_no(
@@ -37,6 +35,7 @@ def handle_delete_policy(args):
         )
     if perform_delete:
         api.delete_policy(
-            *u_conf.read_config(),
+            *ctx.get_api_data(),
             uid,
+            cli.api_err_exit,
         )

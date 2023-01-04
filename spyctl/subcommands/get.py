@@ -15,7 +15,7 @@ import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.pods as spyctl_pods
-import spyctl.resources.policies as p
+import spyctl.resources.policies as spyctl_policies
 import spyctl.spyctl_lib as lib
 
 
@@ -52,6 +52,8 @@ def handle_get(resource, name_or_id, st, et, latest, output, **filters):
         handle_get_pods(name_or_id, st, et, output, **filters)
     if resource == lib.SECRETS_RESOURCE:
         handle_get_secrets(output, name_or_id)
+    if resource == lib.POLICIES_RESOURCE:
+        handle_get_policies(name_or_id, output, **filters)
 
 
 def handle_get_secrets(output, name=None):
@@ -181,34 +183,24 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
     )
 
 
-def get_policy_input(args) -> p.Policy:
-    policies = cli.policy_input([args.policy_file])
-    if len(policies) > 1:
-        cli.err_exit(
-            "multiple policies provided; only retrieving first policy"
-            " at a time"
+def handle_get_policies(name_or_id, output, **filters):
+    ctx = cfg.get_current_context()
+    policies = api.get_policies(*ctx.get_api_data(), cli.api_err_exit)
+    policies = filt.filter_policies(policies, **filters)
+    if name_or_id:
+        name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
+        policies = filt.filter_obj(
+            policies,
+            [
+                f"{lib.METADATA_FIELD}.{lib.NAME_FIELD}",
+                f"{lib.METADATA_FIELD}.{lib.METADATA_UID_FIELD}",
+            ],
+            name_or_id,
         )
-    elif len(policies) == 0:
-        return None
-    return policies[0]
-
-
-def handle_get_policies(args):
-    uid = args.uid
-    if uid is None:
-        policy = get_policy_input(args)
-        if policy is not None:
-            uid = policy.get_uid()
-    if uid is None:
-        params = {api.GET_POL_TYPE: args.type}
-        # Get list of all policies
-        policies = api.get_policies(
-            *u_conf.read_config(), cli.api_err_exit, params
-        )
-        policies = [p.Policy(pol) for pol in policies]
-        cli.show(policies, args)
-    else:
-        # Get specific policy
-        policy = api.get_policy(*u_conf.read_config(), uid, cli.api_err_exit)
-        policy = p.Policy(policy)
-        cli.show(policy, args)
+    if output != lib.OUTPUT_DEFAULT:
+        policies = spyctl_policies.policies_output(policies)
+    cli.show(
+        policies,
+        output,
+        {lib.OUTPUT_DEFAULT: spyctl_policies.policies_summary_output},
+    )

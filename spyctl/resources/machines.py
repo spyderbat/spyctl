@@ -11,7 +11,7 @@ def machines_summary_output(machines: List[Dict]):
     data = []
     for machine in machines:
         data.append(machine_summary_data(machine))
-    data.sort(key=lambda x: [x[0], _to_timestamp(x[3])])
+    data.sort(key=lambda x: [x[0], lib._to_timestamp(x[3])])
     return tabulate(data, headers, tablefmt="plain")
 
 
@@ -23,10 +23,6 @@ def machine_summary_data(machine: Dict):
         machine["last_data"],
     ]
     return rv
-
-
-def _to_timestamp(zulu_str):
-    return zulu.Zulu.parse(zulu_str).timestamp()
 
 
 def machines_output(machines: List[Dict]):

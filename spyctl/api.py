@@ -37,7 +37,7 @@ def get(url, key, params=None):
 
 def post(url, data, key):
     headers = {"Authorization": f"Bearer {key}"}
-    r = requests.post(url, data, headers=headers, timeout=TIMEOUT)
+    r = requests.post(url, json=data, headers=headers, timeout=TIMEOUT)
     if r.status_code != 200:
         raise RuntimeError(r.status_code, r.reason, str(r.headers), r.text)
     return r
@@ -45,7 +45,7 @@ def post(url, data, key):
 
 def put(url, data, key):
     headers = {"Authorization": f"Bearer {key}"}
-    r = requests.put(url, data, headers=headers, timeout=TIMEOUT)
+    r = requests.put(url, json=data, headers=headers, timeout=TIMEOUT)
     if r.status_code != 200:
         raise RuntimeError(r.status_code, r.reason)
     return r
@@ -313,23 +313,32 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
     return fingerprints
 
 
-def get_policies(api_url, api_key, org_uid, err_fn: Callable, params):
+def get_policies(api_url, api_key, org_uid, err_fn: Callable, params=None):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
-    try:
-        resp = get(url, api_key, params)
-        policies = []
-        for pol_json in resp.iter_lines():
-            pol_list = json.loads(pol_json)
-            for pol in pol_list:
-                print(pol)
-                uid = pol["uid"]
-                policy = pol["policy"]
-                policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                policies.append(policy)
-        return policies
-    except RuntimeError as err:
-        err_fn(*err.args, "Unable to get policies")
-        return None
+    params = {} if params is None else params
+    if lib.METADATA_TYPE_FIELD in params:
+        types = [params[lib.METADATA_TYPE_FIELD]]
+    else:
+        types = [lib.POL_TYPE_CONT]
+    policies = []
+    for type in types:
+        params[lib.METADATA_TYPE_FIELD] = type
+        try:
+            resp = get(url, api_key, params)
+            for pol_json in resp.iter_lines():
+                pol_list = json.loads(pol_json)
+                for pol in pol_list:
+                    uid = pol["uid"]
+                    policy = json.loads(pol["policy"])
+                    policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
+                    policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
+                        "valid_from"
+                    ]
+                    policies.append(policy)
+        except RuntimeError as err:
+            err_fn(*err.args, "Unable to get policies")
+            return None
+    return policies
 
 
 def get_policy(api_url, api_key, org_uid, pol_uid, err_fn: Callable):
@@ -349,11 +358,11 @@ def get_policy(api_url, api_key, org_uid, pol_uid, err_fn: Callable):
         return None
 
 
-def post_new_policy(api_url, api_key, org_uid, data, err_fn: Callable):
+def post_new_policy(api_url, api_key, org_uid, data: Dict, err_fn: Callable):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     try:
         resp = post(url, data, api_key)
-        cli.try_log(resp.headers, resp.text)
+        # cli.try_log(resp.text)
         return resp
     except RuntimeError as err:
         err_fn(*err.args, "Unable to upload new policy")
@@ -361,11 +370,12 @@ def post_new_policy(api_url, api_key, org_uid, data, err_fn: Callable):
 
 
 def put_policy_update(
-    api_url, api_key, org_uid, pol_uid, data, err_fn: Callable
+    api_url, api_key, org_uid, pol_uid, data: Dict, err_fn: Callable
 ):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
     try:
         resp = put(url, data, api_key)
+        return resp
     except RuntimeError as err:
         err_fn(*err.args, "Unable to update policy")
         return None

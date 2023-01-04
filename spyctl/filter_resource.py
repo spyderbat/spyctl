@@ -327,6 +327,48 @@ def filter_fprint_groups(
     return fprint_grp_data
 
 
+def filter_policies(
+    policy_data: List[Dict],
+    namespaces_data=None,
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    ctx_filters = cfgs.get_current_context().get_filters()
+    if cfgs.CLUSTER_FIELD in filters:
+        pass
+    elif cfgs.CLUSTER_FIELD in ctx_filters:
+        pass
+    if cfgs.NAMESPACE_FIELD in filters:
+        pass
+    elif cfgs.NAMESPACE_FIELD in ctx_filters:
+        pass
+    if cfgs.MACHINES_FIELD in filters:
+        pass
+    elif cfgs.MACHINES_FIELD in ctx_filters:
+        pass
+    if cfgs.POD_FIELD in filters:
+        pass
+    elif cfgs.POD_FIELD in ctx_filters:
+        pass
+    if cfgs.CGROUP_FIELD in filters:
+        pass
+    elif cfgs.CGROUP_FIELD in ctx_filters:
+        pass
+    if cfgs.CONTAINER_NAME_FIELD in filters:
+        pass
+    elif cfgs.CONTAINER_NAME_FIELD in ctx_filters:
+        pass
+    if cfgs.IMG_FIELD in filters:
+        pass
+    elif cfgs.IMGID_FIELD in ctx_filters:
+        pass
+    return policy_data
+
+
 def filter_pods(
     pods_data: List[Dict],
     namespaces_data=None,
