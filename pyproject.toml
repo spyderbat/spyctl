@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spyctl"
+version = "0.0.23"
+authors = [
+  { name="Brent Haub", email="dev@spyderbat.com" },
+  { name="Kyle Smith Hanna", email="dev@spyderbat.com" },
+]
+description = "A command line tool for viewing and managing Spyderbat object"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "python-dateutil",
+    "requests",
+    "pyyaml >= 6.0",
+    "zulu",
+    "typing_extensions",
+    "click",
+    "tabulate",
+    "tqdm",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pypa/sampleproject"
+"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+
+[project.scripts]
+spyctl = "spyctl.spyctl:main"

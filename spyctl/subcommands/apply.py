@@ -1,0 +1,37 @@
+from typing import Dict
+import json
+
+import spyctl.config.secrets as secrets
+import spyctl.spyctl_lib as lib
+import spyctl.resources.policies as p
+import spyctl.api as api
+import spyctl.config.configs as cfg
+import spyctl.cli as cli
+
+
+def handle_apply(filename):
+    resrc_data = lib.load_resource_file(filename)
+    kind = resrc_data.get(lib.KIND_FIELD)
+    if kind == secrets.SECRET_KIND:
+        secrets.apply_secret(resrc_data)
+    elif kind == lib.POL_KIND:
+        handle_apply_policy(resrc_data)
+
+
+def handle_apply_policy(policy: Dict):
+    ctx = cfg.get_current_context()
+    policy = p.Policy(policy)
+    uid, api_data = p.get_data_for_api_call(policy)
+    if uid:
+        resp = api.put_policy_update(
+            *ctx.get_api_data(), uid, api_data, cli.api_err_exit
+        )
+        if resp.status_code == 200:
+            cli.try_log(f"Successfully updated policy {uid}")
+    else:
+        resp = api.post_new_policy(
+            *ctx.get_api_data(), api_data, cli.api_err_exit
+        )
+        if resp and resp.text:
+            uid = json.loads(resp.text).get("uid", "")
+            cli.try_log(f"Successfully applied new policy with uid: {uid}")

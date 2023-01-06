@@ -1,2 +1,3 @@
 __pycache__/
 *.yml
+*.code-workspace
