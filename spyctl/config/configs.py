@@ -290,25 +290,6 @@ def load_config():
             # Reversed so that most local config takes priority
             for config in reversed(configs):
                 base_config.merge(config)
-            if len(base_config.contexts) == 0:
-                cli.try_log(
-                    "No valid contexts. Try using 'spyctl config"
-                    " set-context'."
-                )
-            elif (
-                base_config.current_context == CURR_CONTEXT_NONE
-                or not base_config.current_context
-            ):
-                cli.try_log(
-                    "Current context is not set. Try using"
-                    " 'spyctl config use-context'"
-                )
-            elif base_config.current_context not in base_config.contexts:
-                cli.try_log(
-                    "Unable to locate current context"
-                    f" '{base_config.current_context}'."
-                    " Try using 'spyctl config use-context'."
-                )
             LOADED_CONFIG = base_config
             CURRENT_CONTEXT = base_config.contexts.get(
                 base_config.current_context
@@ -320,7 +301,34 @@ def get_loaded_config() -> Optional[Config]:
 
 
 def get_current_context() -> Context:
-    if CURRENT_CONTEXT is None:
+    config = get_loaded_config()
+    secrets = s.get_secrets()
+    if len(secrets) == 0:
+        cli.try_log(
+            "No secrets found. Create a secret for accessing the spyderbat api"
+            " via the command 'spyctl create secret apicfg'.",
+            is_warning=True,
+        )
+    if len(config.contexts) == 0:
+        cli.err_exit(
+            "No valid contexts. Try using 'spyctl config set-context' to"
+            " create one."
+        )
+    elif (
+        config.current_context == CURR_CONTEXT_NONE
+        or not config.current_context
+    ):
+        cli.err_exit(
+            "Current context is not set. Try using"
+            " 'spyctl config use-context'"
+        )
+    elif config.current_context not in config.contexts:
+        cli.err_exit(
+            "Unable to locate current context"
+            f" '{config.current_context}'."
+            " Try using 'spyctl config use-context'."
+        )
+    elif CURRENT_CONTEXT is None:
         cli.err_exit("No current context set")
     return CURRENT_CONTEXT
 
@@ -551,6 +559,68 @@ def use_context(name, force_global):
             )
     except Exception as e:
         cli.err_exit(f"Unable to delete context. {' '.join(e.args)}")
+
+
+def get_contexts(name, force_global, output):
+    if force_global:
+        # global flag was set so update/set context at the global level
+        config = LOADED_CONFIGS[str(GLOBAL_CONFIG_PATH)].as_dict()
+    else:
+        config = get_loaded_config()
+    contexts = [ctx.as_dict() for ctx in config.contexts.values()]
+    if name:
+        contexts = filter(lambda x: x[lib.NAME_FIELD] == name, contexts)
+    cli.show(
+        (contexts, config.current_context),
+        output,
+        {
+            lib.OUTPUT_WIDE: context_wide_output,
+            lib.OUTPUT_DEFAULT: context_summary_output,
+        },
+    )
+
+
+def context_summary_output(contexts_tup: Tuple[List[Dict], str]) -> str:
+    contexts, current = contexts_tup
+    headers = ["CURRENT", "NAME", "ORGANIZATION", "FILTERS"]
+    data = []
+    for context in contexts:
+        name = context[lib.NAME_FIELD]
+        org = context[CONTEXT_FIELD][ORG_FIELD]
+        len_ctx_filters_minus_org = len(context[CONTEXT_FIELD]) - 1
+        data.append(
+            [
+                "*" if name == current else "",
+                name,
+                org,
+                len_ctx_filters_minus_org,
+            ]
+        )
+    data.sort(key=lambda x: x[1])
+    return tabulate(data, headers, tablefmt="plain")
+
+
+def context_wide_output(contexts_tup: Tuple[List[Dict], str]) -> str:
+    contexts, current = contexts_tup
+    headers = ["CURRENT", "NAME", "ORGANIZATION", "FILTERS"]
+    data = []
+    for context in contexts:
+        name = context[lib.NAME_FIELD]
+        org = context[CONTEXT_FIELD][ORG_FIELD]
+        filters: Dict = context[CONTEXT_FIELD].copy()
+        filters.pop(ORG_FIELD)
+        data.append(
+            [
+                "*" if name == current else "",
+                name,
+                org,
+                "\n".join(
+                    [f"{key}: {value}" for key, value in filters.items()]
+                ),
+            ]
+        )
+    data.sort(key=lambda x: x[1])
+    return tabulate(data, headers, tablefmt="plain")
 
 
 def view_config(force_global, force_workspace, output):

@@ -15,10 +15,18 @@ from spyctl.resources.fingerprints import Fingerprint
 
 yaml.Dumper.ignore_aliases = lambda *args: True
 
+WARNING_MSG = "is_warning"
+WARNING_COLOR = "\033[38;5;203m"
+COLOR_END = "\033[0m"
+
 
 def try_log(*args, **kwargs):
     try:
-        print(*args, **kwargs, file=sys.stderr)
+        if kwargs.pop(WARNING_MSG, False):
+            msg = f"{WARNING_COLOR}{' '.join(args)}{COLOR_END}"
+            print(msg, **kwargs, file=sys.stderr)
+        else:
+            print(*args, **kwargs, file=sys.stderr)
         sys.stderr.flush()
     except BrokenPipeError:
         devnull = os.open(os.devnull, os.O_WRONLY)
@@ -34,6 +42,12 @@ def try_print(*args, **kwargs):
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
         sys.exit(1)
+
+
+def unsupported_output_msg(output: str, command: str = None) -> str:
+    if command is None:
+        command = lib.get_click_command()
+    return f"--output {output} is not supported for {command}."
 
 
 def query_yes_no(question, default="yes"):
@@ -78,6 +92,8 @@ def show(obj, output, alternative_outputs: Dict[str, Callable] = {}):
         try_print(obj)
     elif output in alternative_outputs:
         try_print(alternative_outputs[output](obj))
+    else:
+        err_exit(unsupported_output_msg(output))
 
 
 def read_stdin():
@@ -134,7 +150,7 @@ def time_input(args):
 
 
 def err_exit(message: str):
-    sys.stderr.write(f"Error: {message}\n")
+    sys.stderr.write(f"{WARNING_COLOR}Error: {message}{COLOR_END}\n")
     exit(1)
 
 

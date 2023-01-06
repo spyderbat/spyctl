@@ -9,22 +9,26 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple, Union
 from uuid import uuid4
+import io
 
 import click
 import dateutil.parser as dateparser
 import yaml
 import zulu
-
-_click7 = click.__version__[0] >= "7"
+from click.shell_completion import CompletionItem
 
 
 class Aliases:
     def __init__(self, aliases: Iterable[str]) -> None:
+        self.name = aliases[0]
         self.aliases = set(aliases)
 
     def __eq__(self, __o: object) -> bool:
         return __o in self.aliases
 
+
+CLICK_COMMAND = []
+APP_NAME = "spyctl"
 
 # Resource Aliases
 CLUSTERS_RESOURCE = Aliases(["clusters", "cluster", "clust", "clusts", "clus"])
@@ -155,7 +159,7 @@ METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"
 METADATA_UID_FIELD = "uid"
-METADATA_CREATE_TIME = "createTime"
+METADATA_CREATE_TIME = "creationTimestamp"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
@@ -187,7 +191,8 @@ OUTPUT_YAML = "yaml"
 OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
 OUTPUT_RAW = "raw"
-OUTPUT_CHOICES = (OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT)
+OUTPUT_WIDE = "wide"
+OUTPUT_CHOICES = (OUTPUT_YAML, OUTPUT_JSON, OUTPUT_WIDE, OUTPUT_DEFAULT)
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"
@@ -545,104 +550,14 @@ class CustomCommand(click.Command):
             formatter.write_text(epilog)
 
 
-class ClickAliasedGroup(click.Group):
-    """Copyright (c) 2016 Robbin Bonthond
+# class FilenameType(click.ParamType):
+#     name = "filename_t"
 
-    Permission is hereby granted, free of charge, to any person obtaining a
-    copy of this software and associated documentation files (the "Software"),
-    to deal in the Software without restriction, including without limitation
-    the rights to use, copy, modify, merge, publish, distribute, sublicense,
-    and/or sell copies of the Software, and to permit persons to whom the
-    Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-    DEALINGS IN THE SOFTWARE.
-
-    https://github.com/click-contrib/click-aliases
-    """
-
-    def __init__(self, *args, **kwargs):
-        super(ClickAliasedGroup, self).__init__(*args, **kwargs)
-        self._commands = {}
-        self._aliases = {}
-
-    def command(self, *args, **kwargs):
-        aliases = kwargs.pop("aliases", [])
-        decorator = super(ClickAliasedGroup, self).command(*args, **kwargs)
-        if not aliases:
-            return decorator
-
-        def _decorator(f):
-            cmd = decorator(f)
-            if aliases:
-                self._commands[cmd.name] = aliases
-                for alias in aliases:
-                    self._aliases[alias] = cmd.name
-            return cmd
-
-        return _decorator
-
-    def group(self, *args, **kwargs):
-        aliases = kwargs.pop("aliases", [])
-        decorator = super(ClickAliasedGroup, self).group(*args, **kwargs)
-        if not aliases:
-            return decorator
-
-        def _decorator(f):
-            cmd = decorator(f)
-            if aliases:
-                self._commands[cmd.name] = aliases
-                for alias in aliases:
-                    self._aliases[alias] = cmd.name
-            return cmd
-
-        return _decorator
-
-    def resolve_alias(self, cmd_name):
-        if cmd_name in self._aliases:
-            return self._aliases[cmd_name]
-        return cmd_name
-
-    def get_command(self, ctx, cmd_name):
-        cmd_name = self.resolve_alias(cmd_name)
-        command = super(ClickAliasedGroup, self).get_command(ctx, cmd_name)
-        if command:
-            return command
-
-    def format_commands(self, ctx, formatter):
-        rows = []
-
-        sub_commands = self.list_commands(ctx)
-
-        max_len = max(len(cmd) for cmd in sub_commands)
-        limit = formatter.width - 6 - max_len
-
-        for sub_command in sub_commands:
-            cmd = self.get_command(ctx, sub_command)
-            if cmd is None:
-                continue
-            if hasattr(cmd, "hidden") and cmd.hidden:
-                continue
-            if sub_command in self._commands:
-                aliases = ",".join(sorted(self._commands[sub_command]))
-                sub_command = "{0} ({1})".format(sub_command, aliases)
-            if _click7:
-                cmd_help = cmd.get_short_help_str(limit)
-            else:
-                cmd_help = cmd.short_help or ""
-            rows.append((sub_command, cmd_help))
-
-        if rows:
-            with formatter.section("Commands"):
-                formatter.write_dl(rows)
+#     def shell_complete(self, ctx, param, incomplete):
+#         return [
+#             CompletionItem(name)
+#             for name in os.listdir() if name.startswith(incomplete)
+#         ]
 
 
 def try_log(*args, **kwargs):
@@ -722,13 +637,20 @@ def err_exit(message: str):
     exit(1)
 
 
-def load_resource_file(filename):
+def load_resource_file(file: Union[str, io.TextIOWrapper]):
     try:
-        with open(filename) as f:
-            resrc_data = yaml.load(f, yaml.Loader)
+        if isinstance(file, io.TextIOWrapper):
+            resrc_data = yaml.load(file, yaml.Loader)
+        else:
+            with open(file) as f:
+                resrc_data = yaml.load(f, yaml.Loader)
     except Exception:
         try:
-            resrc_data = json.load(filename)
+            if isinstance(file, io.TextIOWrapper):
+                resrc_data = json.load(file)
+            else:
+                with open(file) as f:
+                    resrc_data = json.load(f)
         except Exception:
             err_exit("Unable to load resource file.")
     if not isinstance(resrc_data, dict):
@@ -752,3 +674,12 @@ def dictionary_mod(fn) -> Dict:
 
 def _to_timestamp(zulu_str):
     return zulu.Zulu.parse(zulu_str).timestamp()
+
+
+def add_to_cmd_tree(command_name: str):
+    global CLICK_COMMAND
+    CLICK_COMMAND.append(command_name)
+
+
+def get_click_command() -> str:
+    return " ".join(CLICK_COMMAND)

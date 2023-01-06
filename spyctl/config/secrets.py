@@ -1,9 +1,12 @@
 import json
+import time
 from base64 import b64decode
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import yaml
+import zulu
+from tabulate import tabulate
 
 import spyctl.cli as cli
 import spyctl.config.configs as cfgs
@@ -66,7 +69,7 @@ class Secret:
         if self.type == S_TYPE_APICFG:
             self.__validate_apicfg_type()
 
-    def as_dict(self) -> Dict:
+    def as_dict(self, creation_time=None) -> Dict:
         rv = {
             lib.API_FIELD: lib.API_VERSION,
             lib.KIND_FIELD: SECRET_KIND,
@@ -77,6 +80,8 @@ class Secret:
             rv[lib.DATA_FIELD] = self.data
         if len(self.string_data) > 0:
             rv[lib.STRING_DATA_FIELD] = self.string_data
+        if creation_time:
+            rv[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = creation_time
         return rv
 
     def get_credentials(self) -> Dict:
@@ -151,11 +156,6 @@ def load_secrets():
                         f"{secrets_path} has an invalid secret."
                         f" {' '.join(e.args)}"
                     )
-        if len(SECRETS) == 0:
-            cli.try_log(
-                "No secrets found. Create a secrets resource and issue the"
-                " command 'spyctl apply -f foo_secret.yaml'"
-            )
 
 
 def create_secret(
@@ -187,7 +187,7 @@ def create_secret(
     SECRETS[name] = new_secret
     output_data = []
     for s in SECRETS.values():
-        output_data.append(s.as_dict())
+        output_data.append(s.as_dict(int(time.time())))
     try:
         with cfgs.GLOBAL_SECRETS_PATH.open("w") as f:
             try:
@@ -260,21 +260,49 @@ def delete_secret(secret_name: Dict):
         cli.err_exit("Unable to write to secrets file. Check permissions.")
 
 
-def get_secrets(output, secret_name=None):
-    if len(SECRETS) > 0:
-        if secret_name is None:
-            obj = []
-            for secret in SECRETS.values():
-                obj.append(secret.as_dict())
-            cli.show(obj, output)
-        else:
-            if secret_name in SECRETS:
-                obj = SECRETS[secret_name].as_dict()
-                cli.show(obj, output)
-            else:
-                cli.try_log("Unable to find secret by that name.")
+def get_secrets():
+    rv = []
+    for secret in SECRETS.values():
+        rv.append(secret.as_dict())
+    return rv
+
+
+def secrets_summary_output(secrets: List[Dict]):
+    header = ["NAME", "TYPE", "DATA", "AGE"]
+    data = []
+    for secret in secrets:
+        data.append(secret_summary_data(secret))
+    return tabulate(data, header, tablefmt="plain")
+
+
+def secret_summary_data(secret: Dict):
+    creation_timestamp = secret[lib.METADATA_FIELD].get(
+        lib.METADATA_CREATE_TIME
+    )
+    if creation_timestamp:
+        creation_zulu = zulu.Zulu.fromtimestamp(creation_timestamp)
+        age = (f"{(zulu.now() - creation_zulu).days}d",)
     else:
-        cli.try_log("No secrets to get.")
+        age = "unknown"
+    data_len = len(secret.get(lib.DATA_FIELD, [])) + len(
+        secret.get(lib.STRING_DATA_FIELD, [])
+    )
+    rv = [
+        secret[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
+        secret[lib.TYPE_FIELD],
+        data_len,
+        age,
+    ]
+    return rv
+
+
+def secrets_output(secrets: List[Dict]):
+    if len(secrets) == 1:
+        return secrets[0]
+    elif len(secrets) > 1:
+        return {lib.API_FIELD: lib.API_VERSION, lib.ITEMS_FIELD: secrets}
+    else:
+        return
 
 
 def find_secret(secret_name) -> Optional[Secret]:

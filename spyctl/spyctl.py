@@ -21,7 +21,6 @@ MAIN_EPILOG = (
 DEFAULT_API_URL = "https://api.spyderbat.com"
 DEFAULT_START_TIME = 1614811600
 
-
 # ----------------------------------------------------------------- #
 #                     Command Tree Entrypoint                       #
 # ----------------------------------------------------------------- #
@@ -30,11 +29,12 @@ DEFAULT_START_TIME = 1614811600
 @click.group(cls=lib.CustomGroup, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.pass_context
-def main(ctx):
+def main(ctx: click.Context):
     """spyctl displays and controls resources within your Spyderbat
     environment
     """
     cfgs.load_config()
+    lib.add_to_cmd_tree(lib.APP_NAME)
 
 
 # ----------------------------------------------------------------- #
@@ -49,6 +49,7 @@ def main(ctx):
     "--filename",
     help="Filename containing Spyderbat resource.",
     metavar="",
+    type=click.File(),
 )
 def apply(filename):
     """Apply a configuration to a resource by file name."""
@@ -62,9 +63,10 @@ def apply(filename):
 
 @main.group("config", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-def config():
+@click.pass_context
+def config(ctx: click.Context):
     """Modify spyctl config files."""
-    pass
+    lib.add_to_cmd_tree(ctx.command.name)
 
 
 @config.command("delete-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -96,6 +98,31 @@ def delete_context(name, force_global):
 def current_context(force_global):
     """Display the current-context."""
     cfgs.current_context(force_global)
+
+
+@config.command("get-contexts", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("name", required=False)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(
+        [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE], case_sensitive=False
+    ),
+)
+@click.option(
+    "-g",
+    "--global",
+    "force_global",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this forces a change to"
+    " the global spyctl config.",
+)
+def get_contexts(force_global, output, name=None):
+    """Describe one or many contexts"""
+    lib.add_to_cmd_tree(click.get_current_context().command.name)
+    cfgs.get_contexts(name, force_global, output)
 
 
 @config.command("set-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -239,6 +266,7 @@ def create():
     help="File that contains the FingerprintsGroup object, from which spyctl"
     " creates a baseline.",
     metavar="",
+    type=click.File(),
 )
 @click.option(
     "-o",
@@ -260,6 +288,7 @@ def create_baseline(filename, output):
     help="File that contains the FingerprintsGroup or SpyderbatBaseline"
     " object, from which spyctl creates a policy",
     metavar="",
+    type=click.File(),
 )
 @click.option(
     "-o",
@@ -360,12 +389,14 @@ def delete(resource, name_or_id):
     "--filename",
     help="Target file of the diff.",
     metavar="",
+    type=click.File(),
 )
 @click.option(
     "-w",
     "--with-file",
     help="File to diff with target file.",
     metavar="",
+    type=click.File(),
 )
 @click.option(
     "-l",
@@ -476,6 +507,7 @@ def get(resource, st, et, output, name_or_id=None, latest=None, **filters):
     filters = {
         key: value for key, value in filters.items() if value is not None
     }
+    lib.add_to_cmd_tree(click.get_current_context().command.name)
     g.handle_get(resource, name_or_id, st, et, latest, output, **filters)
 
 
@@ -504,12 +536,14 @@ def init():
     help="Target file of the merge.",
     metavar="",
     required=True,
+    type=click.File(),
 )
 @click.option(
     "-w",
     "--with-file",
     help="File to merge into target file.",
     metavar="",
+    type=click.File(),
 )
 @click.option(
     "-l",
