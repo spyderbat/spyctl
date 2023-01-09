@@ -55,7 +55,9 @@ will return results relevant to your entire organization.::
 
     spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
 
-For example:::
+For example:
+
+.. highlight:: none
 
     spyctl config set-context --org "John's Org" --secret staging_secret staging_context
 
@@ -71,7 +73,7 @@ You should see something like this:::
     - name: staging_context
       secret: staging_secret
       context:
-      organization: John\'s Org
+      organization: John's Org
     current-context: staging_context
 
 **The global configuration file located at** *$HOME/.spyctl/config*
