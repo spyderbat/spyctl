@@ -9,12 +9,12 @@ services & containers.
 Prerequisites
 =============
 
-If you haven't already done so, follow the instructions for installing Spyctl:
+.. If you haven't already done so, follow the instructions for installing Spyctl:
 
-.. toctree::
-   :maxdepth: 1
+.. .. toctree::
+..    :maxdepth: 1
 
-   /getting_started/install
+..    /getting_started/install
 
 In order to properly utilize Spyctl you must:
 * Have a Spyderbat account
