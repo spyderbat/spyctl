@@ -55,9 +55,9 @@ will return results relevant to your entire organization.::
 
     spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
 
-For example:::
+For example:
 
-.. highlight:: none
+.. code-block:: none
 
     spyctl config set-context --org "John's Org" --secret staging_secret staging_context
 
