@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "spyctl"
-copyright = "2022, Brent Haub, Kyle Smith Hanna"
-author = "Brent Haub, Kyle Smith Hanna"
+copyright = "2023, Brent Haub, Kyle Smith-Hanna"
+author = "Brent Haub, Kyle Smith-Hanna"
 release = "0.0.24"
 
 # -- General configuration ---------------------------------------------------
@@ -17,7 +17,7 @@ release = "0.0.24"
 extensions = []
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
 # -- Options for HTML output -------------------------------------------------
