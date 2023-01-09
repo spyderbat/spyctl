@@ -30,19 +30,19 @@ Create a Secret
 Creating at least one secret is required for Spyctl to get your data via the
 Spyderbat API.
 
-#. Base64 encode the api key you generated from the Spyderbat Console::
+#. Base64 encode the api key you generated from the Spyderbat Console:::
 
-   echo -n <apikey> | base64 -w 1000
+    echo -n <apikey> | base64 -w 1000
 
-#. Use the base64 encoded key to create a secret::
+#. Use the base64 encoded key to create a secret:::
 
-   spyctl create secret apicfg -k <base64 encoded apikey> NAME
+    spyctl create secret apicfg -k <base64 encoded apikey> NAME
 
 For example:::
 
-   spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
-   Ehsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2pfTTctV3FCMl
-   pUc2J5NXM= staging_secret
+    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
+    Ehsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2pfTTctV3FCMl
+    pUc2J5NXM= staging_secret
 
 **Spyctl saves secrets in** *$HOME/.spyctl/.secrets/secrets*
 
@@ -53,26 +53,26 @@ Contexts will let Spyctl know where to look for data. The broadest possible Cont
 is organization-wide. This means that when you run Spyctl commands, the Spyderbat API
 will return results relevant to your entire organization.::
 
-   spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
+    spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
 
 For example:::
 
-   spyctl config set-context --org "John's Org" --secret staging_secret staging_context
+    spyctl config set-context --org "John's Org" --secret staging_secret staging_context
 
 You can view your configuration by issuing the following command:::
 
-   spyctl config view
+    spyctl config view
 
 You should see something like this:::
 
-   apiVersion: spyderbat/v1
-   kind: Config
-   contexts:
-   - name: staging_context
-     secret: staging_secret
-     context:
-       organization: John's Org
-   current-context: staging_context
+    apiVersion: spyderbat/v1
+    kind: Config
+    contexts:
+    - name: staging_context
+      secret: staging_secret
+      context:
+      organization: John's Org
+    current-context: staging_context
 
 **The global configuration file located at** *$HOME/.spyctl/config*
 
@@ -94,17 +94,17 @@ The 'get' Command
 To retrieve the list of machines with the Spyderbat Nano Agent installed issue the
 following command:::
 
-   spyctl get machines
+    spyctl get machines
 
 By default, this displays a table of information about the resources you retrieved. It is
 possible to output these resources in other formats:::
 
-   spyctl get machines -o yaml
+    spyctl get machines -o yaml
 
 This will combine all of the retrieved resources into a single yaml document. If you wish
 to retrieve a specific object you may also supply a name or id with the command:::
 
-   spyctl get machines -o yaml NAME_OR_ID
+    spyctl get machines -o yaml NAME_OR_ID
 
 
 **Note:** *A full list of resources can be found here:* :ref:`Resources`
@@ -126,46 +126,46 @@ are important because they are the bu
 
 For example:::
 
-  apiVersion: spyderbat/v1
-  kind: SpyderbatBaseline
-  metadata:
-    name: webserver_baseline
-    type: container
-    latestTimestamp: 1670001133
-  spec:
-    containerSelector:
-      image: "python_webserver:latest"
-    processPolicy:
-    - name: sh
-      exe:
-      - /bin/dash
-      id: sh_0
-      euser:
-      - root
-      children:
-      - name: python
+    apiVersion: spyderbat/v1
+    kind: SpyderbatBaseline
+    metadata:
+      name: webserver_baseline
+      type: container
+      latestTimestamp: 1670001133
+    spec:
+      containerSelector:
+        image: "python_webserver:latest"
+      processPolicy:
+      - name: sh
         exe:
-        - /usr/local/bin/python3.7
-        id: python_0
-    networkPolicy:
-      ingress:
-      - from:
-        - ipBlock:
-            cidr: 192.168.0.0/16
-        processes:
-        - python_0
-        ports:
-        - protocol: TCP
-          port: 8080
-      egress:
-      - to:
-        - dnsSelector:
-          - mongodb.my_app.svc.cluster.local
-        processes:
-        - python_0
-        ports:
-        - protocol: TCP
-          port: 27017
+        - /bin/dash
+        id: sh_0
+        euser:
+        - root
+        children:
+        - name: python
+          exe:
+          - /usr/local/bin/python3.7
+          id: python_0
+      networkPolicy:
+        ingress:
+        - from:
+          - ipBlock:
+              cidr: 192.168.0.0/16
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 8080
+        egress:
+        - to:
+          - dnsSelector:
+            - mongodb.my_app.svc.cluster.local
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 27017
 
 In this example the root process of the container is `sh` run as `root` with a child `python`
 process. The `ingress` traffic is coming from `192.168.0.0/16` and the only `egress` traffic
