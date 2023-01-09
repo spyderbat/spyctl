@@ -1,4 +1,0 @@
-.. _tutorial:
-
-Spyctl Tutorial
-========================

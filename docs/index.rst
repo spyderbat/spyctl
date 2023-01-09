@@ -12,34 +12,35 @@ Release v\ |version|. (:ref:`Installation <install>`)
    :alt: GitHub all releases
 
 .. image:: https://img.shields.io/github/issues/spyderbat/spyctl
+   :target: https://github.com/spyderbat/spyctl/issues
    :alt: GitHub issues
 
 .. image:: https://img.shields.io/github/issues-closed/spyderbat/spyctl
+   :target: https://github.com/spyderbat/spyctl/issues?q=is%3Aissue+is%3Aclosed
    :alt: GitHub closed issues
-
-.. image:: https://img.shields.io/github/stars/spyderbat/spyctl?style=social
-   :alt: GitHub Repo stars
 
 .. image:: https://img.shields.io/github/license/spyderbat/spyctl
    :alt: GitHub
 
+.. image:: https://img.shields.io/github/stars/spyderbat/spyctl?style=social
+   :alt: GitHub Repo stars
+
+
 **Spyctl** is a tool for viewing and managing Spyderbat resources.
 
 
-The User Guide
---------------
+Understanding Spyctl
+----------------------
 
-This part of the documentation, which is mostly prose, begins with some
-background information about Requests, then focuses on step-by-step
-instructions for getting the most out of Requests.
+Learn about Spyctl and its fundamental concepts.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   user/install
-   
+   getting_started/getting_started
+   tutorials/tutorials
 
-Indices and tables
+Indices and Tables
 ==================
 
 * :ref:`search`

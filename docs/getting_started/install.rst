@@ -12,3 +12,9 @@ $ python -m pip install spyctl
 To install Spyctl, simply run this simple command in your terminal of choice::
 
     $ python -m pip install spyctl
+
+What's next
+.. toctree::
+   :maxdepth: 1
+
+   tutorials/spyctl_basics
