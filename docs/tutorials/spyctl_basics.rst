@@ -65,7 +65,9 @@ You can view your configuration by issuing the following command:::
 
     spyctl config view
 
-You should see something like this:::
+You should see something like this:
+
+.. code-block:: yaml
 
     apiVersion: spyderbat/v1
     kind: Config
@@ -80,8 +82,7 @@ You should see something like this:::
 
 **Note:** *It is possible to create more specific contexts, such as a group of machines
 or a specific container image. You can think of the fields in your context as filters.
-
-.. Follow this link to learn more about contexts:* :ref:`Contexts`
+Follow this link to learn more about contexts:* :ref:`Contexts`
 
 Basic usage
 ===========
