@@ -78,7 +78,8 @@ You should see something like this:::
 
 **Note:** *It is possible to create more specific contexts, such as a group of machines
 or a specific container image. You can think of the fields in your context as filters.
-Follow this link to learn more about contexts:* :ref:`Contexts`
+
+.. Follow this link to learn more about contexts:* :ref:`Contexts`
 
 Basic usage
 ===========
@@ -107,7 +108,7 @@ to retrieve a specific object you may also supply a name or id with the command:
     spyctl get machines -o yaml NAME_OR_ID
 
 
-**Note:** *A full list of resources can be found here:* :ref:`Resources`
+.. **Note:** *A full list of resources can be found here:* :ref:`Resources`
 
 Baselining Workflow
 ===================
@@ -122,7 +123,7 @@ of what your containers and services are doing.
 
 From the perspective of Spyctl, as baseline is a compact
 representation of a process tree, ingress connections, and egress connections. **Baselines
-are important because they are the bu
+are important because they are the bu**
 
 For example:::
 
