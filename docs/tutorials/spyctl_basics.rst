@@ -111,7 +111,7 @@ to retrieve a specific object you may also supply a name or id with the command:
     spyctl get machines -o yaml NAME_OR_ID
 
 
-.. **Note:** *A full list of resources can be found here:* :ref:`Resources`
+**Note:** *A full list of resources can be found here:* :ref:`Resources`
 
 Baselining Workflow
 ===================
@@ -128,7 +128,9 @@ From the perspective of Spyctl, as baseline is a compact
 representation of a process tree, ingress connections, and egress connections. **Baselines
 are important because they are the bu**
 
-For example:::
+For example:
+
+.. code-block:: yaml
 
     apiVersion: spyderbat/v1
     kind: SpyderbatBaseline
