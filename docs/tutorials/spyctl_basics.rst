@@ -55,7 +55,7 @@ will return results relevant to your entire organization.::
 
     spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
 
-For example:
+For example:::
 
 .. highlight:: none
 
