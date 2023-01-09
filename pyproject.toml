@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spyctl"
-version = "0.0.23"
+version = "0.0.24"
 authors = [
   { name="Brent Haub", email="dev@spyderbat.com" },
   { name="Kyle Smith Hanna", email="dev@spyderbat.com" },
@@ -29,8 +29,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+"Homepage" = "https://spyctl.readthedocs.io/en/latest/"
+"Documentation" = "https://spyctl.readthedocs.io/en/latest/"
+"Source" = "https://github.com/spyderbat/spyctl"
 
 [project.scripts]
 spyctl = "spyctl.spyctl:main"
