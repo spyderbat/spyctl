@@ -41,6 +41,6 @@ Learn about Spyctl and its fundamental concepts.
    tutorials/tutorials
 
 Indices and Tables
-==================
+-------------------
 
 * :ref:`search`

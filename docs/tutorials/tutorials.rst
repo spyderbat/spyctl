@@ -1,6 +1,6 @@
 .. _tutorial:
 
-Spyctl Tutorial
+Spyctl Tutorials
 ========================
 
 This section of the Spyctl documentation contains the tutorials. A tutorial
@@ -12,4 +12,4 @@ Basics
 .. toctree::
    :maxdepth: 1
 
-   user/install
+   spyctl_basics

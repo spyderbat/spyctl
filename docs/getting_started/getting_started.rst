@@ -8,8 +8,8 @@ This section is the entry point for setting up spyctl and getting a basic unders
 .. toctree::
    :maxdepth: 1
 
-   getting_started/install
-   tutorials/spyctl_basics
+   install
+   /tutorials/spyctl_basics
 
 
 
