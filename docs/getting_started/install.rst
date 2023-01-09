@@ -19,4 +19,4 @@ What's next
 .. toctree::
    :maxdepth: 1
 
-   tutorials/spyctl_basics
+   /tutorials/spyctl_basics
