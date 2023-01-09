@@ -71,7 +71,7 @@ You should see something like this:::
     - name: staging_context
       secret: staging_secret
       context:
-      organization: John's Org
+      organization: John\'s Org
     current-context: staging_context
 
 **The global configuration file located at** *$HOME/.spyctl/config*
