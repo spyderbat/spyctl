@@ -272,32 +272,28 @@ In this example the root process of the container is `sh` run as `root` with a c
 process. The `ingress` traffic is coming from `192.168.0.0/16` and the only `egress` traffic
 is going to a database with the dns name `mongodb.my_app.svc.cluster.local`.
 
-.. |context| replace:: `Context`
-.. |contexts| replace:: `Contexts`
-.. _contexts: :ref:`contexts`
+.. |context| replace:: :ref:`Context<Contexts>`
+.. |contexts| replace:: :ref:`Contexts<Contexts>`
 .. |baselines| replace:: `Baselines`
 .. |baseline| replace:: `Baseline`
-.. |fprints| replace:: `Fingerprints`
-.. _fprints: :ref:`Fingerprints`
-.. |fprint| replace:: `Fingerprint`
-.. |fprint_grp| replace:: `Fingerprint Group`
-.. |fprint_grps| replace:: `Fingerprint Groups`
-.. _fprint_grps: :ref:`Fingerprint_Groups`
-.. |machs| replace:: `Machines`
-.. _machs: :ref:`Machines`
-.. |mach| replace:: `Machine`
+.. |fprints| replace:: :ref:`Fingerprints<Fingerprints>`
+.. |fprint| replace:: :ref:`Fingerprint<Fingerprints>`
+.. |fprint_grp| replace:: :ref:`Fingerprint Group<Fingerprint_Groups>`
+.. |fprint_grps| replace:: :ref:`Fingerprint Groups<Fingerprint_Groups>`
+.. |mach| replace:: :ref:`Machine<Machines>`
+.. |machs| replace:: :ref:`Machines<Machines>`
 .. |na| replace:: `Nano Agent`
-.. |policies| replace:: `Policies`
-.. |policy| replace:: `Policy`
-.. |resource| replace:: `Resource`
+.. |policies| replace:: :ref:`Policies<Policies>`
+.. |policy| replace:: :ref:`Policy<Policies>`
+.. |resource| replace:: :ref:`Resource<Resources>`
 .. |resources| replace:: :ref:`Resources<Resources>`
 .. |spyctl| replace:: `Spyctl:`
-.. |secret| replace:: `Secret`
+.. |secret| replace:: :ref:`Secret<Secrets>`
 
 .. |s_na| replace:: `Spyderbat Nano Agent`
 .. |s_baselines| replace:: `Spyderbat Baselines`
 .. |s_baseline| replace:: `Spyderbat Baseline`
-.. |s_fprints| replace:: `Spyderbat Fingerprints`
-.. |s_fprint| replace:: `Spyderbat Fingerprint`
-.. |s_policies| replace:: `Spyderbat Policies`
-.. |s_policy| replace:: `Spyderbat Policy`
+.. |s_fprints| replace:: :ref:`Spyderbat Fingerprints<Fingerprints>`
+.. |s_fprint| replace:: :ref:`Spyderbat Fingerprint<Fingerprints>`
+.. |s_policies| replace:: :ref:`Spyderbat Policies<Policies>`
+.. |s_policy| replace:: :ref:`Spyderbat Policy<Policies>`
