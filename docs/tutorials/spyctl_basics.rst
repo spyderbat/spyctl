@@ -283,7 +283,7 @@ Continuing the example from above, we would issue this command:
 
     spyctl create baseline --from-file python_srv_fprints.yaml > python_srv_baseline.yaml
 
-The resulting baseline would look something like this:
+The resulting |baseline| would look something like this:
 
 .. code-block:: yaml
 
