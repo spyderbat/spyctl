@@ -28,15 +28,15 @@ Create a Secret
 Creating at least one |secret| is required for Spyctl to get your data via the
 Spyderbat API.
 
-#. Base64 encode the api key you generated from the `Spyderbat Console`:::
+#. Base64 encode the api key you generated from the `Spyderbat Console`\:::
 
     echo -n <apikey> | base64 -w 1000
 
-#. Use the base64 encoded key to create a |secret|:::
+#. Use the base64 encoded key to create a |secret|\:::
 
     spyctl create secret apicfg -k <base64 encoded apikey> NAME
 
-For example:::
+For example\:::
 
     spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
     Ehsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2pfTTctV3FCMl
