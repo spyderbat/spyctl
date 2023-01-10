@@ -40,6 +40,15 @@ Learn about Spyctl and its fundamental concepts.
    getting_started/getting_started
    tutorials/tutorials
 
+Reference
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   user/configuration
+   user/resources
+
 Indices and Tables
 -------------------
 
