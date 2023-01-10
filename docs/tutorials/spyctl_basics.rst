@@ -1,18 +1,19 @@
 ======================
-Spyctl Basics Tutorial
+Basics Tutorial
 ======================
 
 This tutorial will teach you how to configure |spyctl|. It will also provide
-basic instructions for viewing your Spyderbat |Resources|_ and baselining your
+basic instructions for viewing your Spyderbat |Resources| and baselining your
 services & containers.
 
 Prerequisites
 =============
 
 If you haven't already done so, follow the instructions
-for installing Spyctl: :ref:`Install<install>`
+for installing Spyctl: :ref:`Installation<install>`
 
 In order to properly utilize Spyctl you must:
+
 * Have a Spyderbat account
 * Have installed at least one |s_na| installed on a machine of your choosing
 * Have generated a key to access the `Spyderbat API`
@@ -20,34 +21,46 @@ In order to properly utilize Spyctl you must:
 Initial Configuration
 =====================
 
-In this section you will learn how to configure Spyctl to 
+In this section you will learn how to configure Spyctl to enable data retrieval
+from across your entire organization. To do so, you must first
+create a |secret| and then use that |secret| to set a |context|.
+
+.. _create_a_secret:
 
 Create a Secret
 ---------------
 
-Creating at least one |secret| is required for Spyctl to get your data via the
+Creating at least one |secret| is required for Spyctl to access your data via the
 Spyderbat API.
 
-#. Base64 encode the api key you generated from the `Spyderbat Console`:::
+#. Base64 encode the api key you generated from the ``Spyderbat Console``:
+
+.. code-block:: none
 
     echo -n <apikey> | base64 -w 1000
 
-#. Use the base64 encoded key to create a |secret|:::
+#. Use the base64 encoded key to create a |secret|:
+
+.. code-block:: none
 
     spyctl create secret apicfg -k <base64 encoded apikey> NAME
 
-For example:::
+For example:
 
-    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
-    Ehsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2pfTTctV3FCMl
-    pUc2J5NXM= staging_secret
+.. code-block:: none
+
+    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNklu
+    TmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZW
+    Tk1VS2pfTTctV3FCMlpUc2J5NXM= staging_secret
 
 **Spyctl saves secrets in** *$HOME/.spyctl/.secrets/secrets*
 
-Configure a Context
+.. _set_a_context:
+
+Set a Context
 -------------------
 
-|contexts|_ will let Spyctl know where to look for data. The broadest possible |context|
+|contexts| will let Spyctl know where to look for data. The broadest possible |context|
 is organization-wide. This means that when you run Spyctl commands, the Spyderbat API
 will return results relevant to your entire organization.::
 
@@ -59,7 +72,9 @@ For example:
 
     spyctl config set-context --org "John's Org" --secret staging_secret staging_context
 
-You can view your configuration by issuing the following command:::
+You can view your configuration by issuing the following command:
+
+.. code-block:: none
 
     spyctl config view
 
@@ -73,62 +88,81 @@ You should see something like this:
     - name: staging_context
       secret: staging_secret
       context:
-      organization: John's Org
+        organization: John's Org
     current-context: staging_context
 
 **The global configuration file located at** *$HOME/.spyctl/config*
 
-**Note:** *It is possible to create more specific contexts, such as a group of machines
-or a specific container image. You can think of the fields in your context as filters.
-Follow this link to learn more about contexts:* :ref:`Contexts`
+.. note::
+    It is possible to create more specific contexts, such as a group of machines
+    or a specific container image. You can think of the fields in your context as filters
+    to limit your scope. Follow this link to learn more about contexts: :ref:`Contexts`
 
 Basic Usage
 ===========
 
 Now that you have configured a |context| for your organization you can use Spyctl
-to view and manage your Spyderbat |resources|_.
+to view and manage your Spyderbat |resources|. In this section you will learn about the
+``get`` command.
 
 The 'get' Command
 -----------------
 
-`spyctl get <resource>` is the command to retrieve data from the Spyderbat API.
+To retrieve data from the Spyderbat API, you can use the ``get`` command:
 
-To retrieve the list of |machs|_ with the |s_na| installed issue the
-following command:::
+.. code-block:: none
+
+    spyctl get RESOURCE [OPTIONS] [NAME_OR_ID]
+
+To retrieve the list of |machs| with the |s_na| installed, issue the
+following command:
+
+.. code-block:: none
 
     spyctl get machines
 
 By default, this displays a table of information about the resources you retrieved. It is
-possible to output these resources in other formats:::
+possible to output these resources in other formats:
+
+.. code-block:: none
 
     spyctl get machines -o yaml
 
 This will combine all of the retrieved resources into a single yaml document. If you wish
-to retrieve a specific object you may also supply a name or id with the command:::
+to retrieve a specific object you may also supply a name or id with the command:
+
+.. code-block:: none
 
     spyctl get machines -o yaml NAME_OR_ID
 
 
-**Note:** *A full list of resources can be found here:* :ref:`Resources`
+.. note::
+    A full list of resources can be found here: :ref:`Resources`
 
 Baselining Workflow
 ===================
 
-Fingerprints
-------------
+In this section you will learn about how auto-generated |s_fprints| are viewed and how
+they are used to |baseline| your services and containers. You will also learn how to
+manage |baselines| once you've created them.
+
+Viewing Fingerprints
+--------------------
 
 When you install the |s_na|, Spyderbat immediately starts building up
-|fprints|_ for the services and containers running on the machine. |fprints| are the foundation
-of what baselines are created from. |fprints| are a compact representation of process
+|fprints| for the services and containers running on the machine. |fprints| are used
+to create |baselines|. |fprints| are a compact representation of process
 and network activity for a given instance of a service or container,
 and can update over time.
 
-To see a tabular summary of the fingerprints in your current |context| issue the command:::
+To see a tabular summary of the |fprints| in your current |context| issue the command:
+
+.. code-block:: none
 
     spyctl get fingerprints
 
 When you retrieve |fprints| from the Spyderbat API, you are actually retrieving are
-|fprint_grps|_. Container |fprints| are grouped by image ID, and Linux Service |fprints| are
+|fprint_grps|. Container |fprints| are grouped by image ID, and Linux Service |fprints| are
 grouped by cgroup. This means that if the same service is running on multiple machines, all
 of the fingerprints across those machines get grouped together. The reason for this will become
 clear you move through the baselining process. 
@@ -150,15 +184,8 @@ Here is an example of a |fprint_grp|:
           ...
         spec:
           containerSelector:
-            image: 42985722144.plm.aws.com/analytics-ingest:latest
+            image: python_webserver:latest
             imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
-            containerName: /ingest_container_83147472713
-          podSelector:
-            matchLabels:
-              env: prod
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: analytics
           processPolicy:
           - name: sh
             exe:
@@ -188,15 +215,8 @@ Here is an example of a |fprint_grp|:
         - ...
         spec:
           containerSelector:
-            image: 42985722144.plm.aws.com/analytics-ingest:latest
+            image: python_webserver:latest
             imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
-            containerName: /ingest_container_1273684113
-          podSelector:
-            matchLabels:
-              env: dev
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: analytics
           processPolicy:
           - ...
           networkPolicy:
@@ -211,19 +231,59 @@ Here is an example of a |fprint_grp|:
                 port: 8080
             egress: []
 
-Baselines
----------
+Every |fprint| will have the same four fields, ``apiVersion``, ``kind``, ``metadata``, and
+``spec``. The |fprint_grp| shown above is for a specific container image. In the spec of
+every |fprint| you will find one or more ``Selector`` fields. For now, just know that the
+``containerSelector`` is used to group container |fprints| together and the ``serviceSelector``
+is used to group service |fprints| together. In a separate tutorial you will learn how
+``Selectors`` are used with |policies|.
 
-With Spyctl you can create a |baseline| for the individual containers and Linux services
-running on your machines. Baselines are powerful because they give you a compact picture
-of what your containers and services are doing. 
+Creating a Baseline
+-------------------
 
+|baselines| are created from 1 or more |fprint_grps| merged into a single document. The purpose
+of a |baseline| is to represent the expected activity of a service or container image.
 
-From the perspective of Spyctl, as baseline is a compact
-representation of a process tree, ingress connections, and egress connections. **Baselines
-are important because they are the bu**
+The first step to create a |baseline| is to retrieve a |fprint_grp| and save it to a file. To
+do this, you use the ``get fingerprints`` command mentioned above. This will show you a table
+view of the available |fprint_grps|. 
 
-For example:
+For containers you can use the image or the image ID to retrieve a specific one:
+
+.. code-block:: none
+
+    spyctl get fingerprints -o yaml IMAGE_OR_IMAGE_ID > fprint_grp.yaml
+
+For services you can use the cgroup:
+
+.. code-block:: none
+
+    spyctl get fingerprints -o yaml CGROUP > fprint_grp.yaml
+
+For example, we want to save the |fprint_grp| for a container image
+``python_webserver:latest``:
+
+.. code-block:: none
+
+    spyctl get fingerprints -o yaml "python_webserver:latest" > python_srv_fprints.yaml
+
+We just saved the auto-generated |fprints| for all instances of the container image to a
+single yaml file.
+
+The next step is to create a |baseline| from that |fprint_grp|. The command to create a
+|baseline| is:
+
+.. code-block:: none
+
+    spyctl create baseline --from-file FILENAME > baseline.yaml
+
+Continuing the example from above, we would issue this command:
+
+.. code-block:: none
+
+    spyctl create baseline --from-file python_srv_fprints.yaml > python_srv_baseline.yaml
+
+The resulting |baseline| would look something like this:
 
 .. code-block:: yaml
 
@@ -252,7 +312,7 @@ For example:
         ingress:
         - from:
           - ipBlock:
-              cidr: 192.168.0.0/16
+              cidr: 192.168.1.10/32
           processes:
           - python_0
           ports:
@@ -268,37 +328,101 @@ For example:
           - protocol: TCP
             port: 27017
 
-In this example the root process of the container is `sh` run as `root` with a child `python`
-process. The `ingress` traffic is coming from `192.168.0.0/16` and the only `egress` traffic
-is going to a database with the dns name `mongodb.my_app.svc.cluster.local`.
+In this example the root process of the container is ``sh`` run as ``root`` with
+a child ``python`` process. The ``ingress`` traffic is coming from ``192.168.1.10/32``
+and the only ``egress`` traffic is going to a database with the dns name
+``mongodb.my_app.svc.cluster.local``.
 
-.. |context| replace:: `Context`
-.. |contexts| replace:: `Contexts`
-.. _contexts: :ref:`contexts`
-.. |baselines| replace:: `Baselines`
-.. |baseline| replace:: `Baseline`
-.. |fprints| replace:: `Fingerprints`
-.. _fprints: :ref:`Fingerprints`
-.. |fprint| replace:: `Fingerprint`
-.. |fprint_grp| replace:: `Fingerprint Group`
-.. |fprint_grps| replace:: `Fingerprint Groups`
-.. _fprint_grps: :ref:`Fingerprint_Groups`
-.. |machs| replace:: `Machines`
-.. _machs: :ref:`Machines`
-.. |mach| replace:: `Machine`
-.. |na| replace:: `Nano Agent`
-.. |policies| replace:: `Policies`
-.. |policy| replace:: `Policy`
-.. |resource| replace:: `Resource`
-.. |resources| replace:: `Resources`
-.. _resources: :ref:`Resources`
-.. |spyctl| replace:: `Spyctl:`
-.. |secret| replace:: `Secret`
+|fprints| only capture activity that has occurred, so if you want your |baselines|
+to include other expected activity, you can take steps to generalize the document.
+This can be done by simply editing the baseline document with your favorite text editor.
 
-.. |s_na| replace:: `Spyderbat Nano Agent`
-.. |s_baselines| replace:: `Spyderbat Baselines`
-.. |s_baseline| replace:: `Spyderbat Baseline`
-.. |s_fprints| replace:: `Spyderbat Fingerprints`
-.. |s_fprint| replace:: `Spyderbat Fingerprint`
-.. |s_policies| replace:: `Spyderbat Policies`
-.. |s_policy| replace:: `Spyderbat Policy`
+For example:
+
+.. code-block:: none
+
+    vim python_srv_baseline.yaml
+
+Some ways to generalize a |baseline| are to:
+
+- add wildcards to text fields (e.g. updating the image to incorporate all versions):
+
+.. code-block:: none
+
+    image: python_webserver:*
+
+- expand an ip block's cidr range (e.g. say there is a /16 network that we expect traffic from):
+
+.. code-block:: none
+
+    cidr: 192.168.0.0/16
+
+Managing A Baseline
+-------------------
+
+We now have a |baseline| ``python_srv_baseline.yaml`` that we have generalized. The goal now is
+to stabilize the |baseline|. Your services and containers will continue to generate updated
+|fprints| which may contain activity that deviates from the |baseline|. The way to detect this
+is with the ``diff`` command:
+
+.. code-block:: none
+
+    spyctl diff -f BASELINE_FILE --latest
+
+For example:
+
+.. code-block:: none
+
+    spyctl diff -f python_srv_baseline.yaml --latest
+
+The output of the diff command will display all activity that doesn't match the |baseline|.
+If there are deviations, and those deviations should be added to the |baseline|, you can
+use the ``merge`` command to add them to the |baseline|:
+
+.. code-block:: none
+
+    spyctl merge -f BASELINE_FILE --latest > merged_baseline.yaml
+
+For example:
+
+.. code-block:: none
+
+    spyctl merge -f python_srv_baseline.yaml --latest > python_srv_merged_baseline.yaml
+
+.. warning:: 
+    Never redirect output to the same file you are using as input, the file will be wiped
+    before spyctl can read it.
+
+At this point you may want to edit the file again to generalize more fields. Repeat these
+management steps until you're satisfied that your |baseline| has stabilized.
+
+What's Next
+===========
+
+:ref:`Policy Management Tutorial<Policy_Management>`
+
+.. |context| replace:: :ref:`Context<Contexts>`
+.. |contexts| replace:: :ref:`Contexts<Contexts>`
+.. |baselines| replace:: ``Baselines``
+.. |baseline| replace:: ``Baseline``
+.. |fprints| replace:: :ref:`Fingerprints<Fingerprints>`
+.. |fprint| replace:: :ref:`Fingerprint<Fingerprints>`
+.. |fprint_grp| replace:: :ref:`Fingerprint Group<Fingerprint_Groups>`
+.. |fprint_grps| replace:: :ref:`Fingerprint Groups<Fingerprint_Groups>`
+.. |mach| replace:: :ref:`Machine<Machines>`
+.. |machs| replace:: :ref:`Machines<Machines>`
+.. |na| replace:: ``Nano Agent``
+.. |policies| replace:: :ref:`Policies<Policies>`
+.. |policy| replace:: :ref:`Policy<Policies>`
+.. |resource| replace:: :ref:`Resource<Resources>`
+.. |resources| replace:: :ref:`Resources<Resources>`
+.. |spyctl| replace:: ``Spyctl``
+.. |secret| replace:: :ref:`Secret<Secrets>`
+
+.. |s_na| replace:: ``Spyderbat Nano Agent``
+.. |s_baselines| replace:: ``Spyderbat Baselines``
+.. |s_baseline| replace:: ``Spyderbat Baseline``
+.. |s_fprints| replace:: :ref:`Spyderbat Fingerprints<Fingerprints>`
+.. |s_fprint| replace:: :ref:`Spyderbat Fingerprint<Fingerprints>`
+.. |s_policies| replace:: :ref:`Spyderbat Policies<Policies>`
+.. |s_policy| replace:: :ref:`Spyderbat Policy<Policies>`

@@ -13,3 +13,4 @@ Basics
    :maxdepth: 1
 
    spyctl_basics
+   policy_management
