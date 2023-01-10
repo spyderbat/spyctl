@@ -28,15 +28,19 @@ Create a Secret
 Creating at least one |secret| is required for Spyctl to get your data via the
 Spyderbat API.
 
-#. Base64 encode the api key you generated from the `Spyderbat Console`\:::
+#. Base64 encode the api key you generated from the `Spyderbat Console`:
+
+.. code-block:: none
 
     echo -n <apikey> | base64 -w 1000
 
-#. Use the base64 encoded key to create a |secret|\:::
+#. Use the base64 encoded key to create a |secret|:
+
+.. code-block:: none
 
     spyctl create secret apicfg -k <base64 encoded apikey> NAME
 
-For example\:::
+For example:
 
     spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
     Ehsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2pfTTctV3FCMl
@@ -59,7 +63,9 @@ For example:
 
     spyctl config set-context --org "John's Org" --secret staging_secret staging_context
 
-You can view your configuration by issuing the following command:::
+You can view your configuration by issuing the following command:
+
+.. code-block:: none
 
     spyctl config view
 
@@ -94,17 +100,23 @@ The 'get' Command
 `spyctl get <resource>` is the command to retrieve data from the Spyderbat API.
 
 To retrieve the list of |machs| with the |s_na| installed issue the
-following command:::
+following command:
+
+.. code-block:: none
 
     spyctl get machines
 
 By default, this displays a table of information about the resources you retrieved. It is
-possible to output these resources in other formats:::
+possible to output these resources in other formats:
+
+.. code-block:: none
 
     spyctl get machines -o yaml
 
 This will combine all of the retrieved resources into a single yaml document. If you wish
-to retrieve a specific object you may also supply a name or id with the command:::
+to retrieve a specific object you may also supply a name or id with the command:
+
+.. code-block:: none
 
     spyctl get machines -o yaml NAME_OR_ID
 
@@ -123,7 +135,9 @@ of what baselines are created from. |fprints| are a compact representation of pr
 and network activity for a given instance of a service or container,
 and can update over time.
 
-To see a tabular summary of the fingerprints in your current |context| issue the command:::
+To see a tabular summary of the fingerprints in your current |context| issue the command:
+
+.. code-block:: none
 
     spyctl get fingerprints
 
