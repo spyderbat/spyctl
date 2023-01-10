@@ -1,5 +1,5 @@
 ======================
-Spyctl Basics Tutorial
+Basics Tutorial
 ======================
 
 This tutorial will teach you how to configure |spyctl|. It will also provide
@@ -20,7 +20,11 @@ In order to properly utilize Spyctl you must:
 Initial Configuration
 =====================
 
-In this section you will learn how to configure Spyctl to 
+In this section you will learn how to configure Spyctl to enable it to pull
+information from the Spyderbat API across your entire organization. You must first
+create a |secret| and then use that |secret| to set a |context|.
+
+.. _create_a_secret:
 
 Create a Secret
 ---------------
@@ -42,13 +46,17 @@ Spyderbat API.
 
 For example:
 
-    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
-    Ehsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2pfTTctV3FCMl
-    pUc2J5NXM= staging_secret
+.. code-block:: none
+
+    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTml
+    JaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2
+    pfTTctV3FCMlpUc2J5NXM= staging_secret
 
 **Spyctl saves secrets in** *$HOME/.spyctl/.secrets/secrets*
 
-Configure a Context
+.. _set_a_context:
+
+Set a Context
 -------------------
 
 |contexts| will let Spyctl know where to look for data. The broadest possible |context|
@@ -84,15 +92,17 @@ You should see something like this:
 
 **The global configuration file located at** *$HOME/.spyctl/config*
 
-**Note:** *It is possible to create more specific contexts, such as a group of machines
-or a specific container image. You can think of the fields in your context as filters.
-Follow this link to learn more about contexts:* :ref:`Contexts`
+.. note::
+    It is possible to create more specific contexts, such as a group of machines
+    or a specific container image. You can think of the fields in your context as filters
+    to limit your scope. Follow this link to learn more about contexts: :ref:`Contexts`
 
 Basic Usage
 ===========
 
 Now that you have configured a |context| for your organization you can use Spyctl
-to view and manage your Spyderbat |resources|.
+to view and manage your Spyderbat |resources|. In this section you will learn about the
+'get' command.
 
 The 'get' Command
 -----------------
@@ -121,10 +131,14 @@ to retrieve a specific object you may also supply a name or id with the command:
     spyctl get machines -o yaml NAME_OR_ID
 
 
-**Note:** *A full list of resources can be found here:* :ref:`Resources`
+.. note::
+    A full list of resources can be found here: :ref:`Resources`
 
 Baselining Workflow
 ===================
+
+In this section you will learn about how auto-generated |s_fprints| are viewed and how
+they can be used to |baseline| your services and containers.
 
 Fingerprints
 ------------
@@ -164,15 +178,8 @@ Here is an example of a |fprint_grp|:
           ...
         spec:
           containerSelector:
-            image: 42985722144.plm.aws.com/analytics-ingest:latest
+            image: python_webserver:latest
             imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
-            containerName: /ingest_container_83147472713
-          podSelector:
-            matchLabels:
-              env: prod
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: analytics
           processPolicy:
           - name: sh
             exe:
@@ -202,15 +209,8 @@ Here is an example of a |fprint_grp|:
         - ...
         spec:
           containerSelector:
-            image: 42985722144.plm.aws.com/analytics-ingest:latest
+            image: python_webserver:latest
             imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
-            containerName: /ingest_container_1273684113
-          podSelector:
-            matchLabels:
-              env: dev
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: analytics
           processPolicy:
           - ...
           networkPolicy:
@@ -288,25 +288,25 @@ is going to a database with the dns name `mongodb.my_app.svc.cluster.local`.
 
 .. |context| replace:: :ref:`Context<Contexts>`
 .. |contexts| replace:: :ref:`Contexts<Contexts>`
-.. |baselines| replace:: `Baselines`
-.. |baseline| replace:: `Baseline`
+.. |baselines| replace:: ``Baselines``
+.. |baseline| replace:: ``Baseline``
 .. |fprints| replace:: :ref:`Fingerprints<Fingerprints>`
 .. |fprint| replace:: :ref:`Fingerprint<Fingerprints>`
 .. |fprint_grp| replace:: :ref:`Fingerprint Group<Fingerprint_Groups>`
 .. |fprint_grps| replace:: :ref:`Fingerprint Groups<Fingerprint_Groups>`
 .. |mach| replace:: :ref:`Machine<Machines>`
 .. |machs| replace:: :ref:`Machines<Machines>`
-.. |na| replace:: `Nano Agent`
+.. |na| replace:: ``Nano Agent``
 .. |policies| replace:: :ref:`Policies<Policies>`
 .. |policy| replace:: :ref:`Policy<Policies>`
 .. |resource| replace:: :ref:`Resource<Resources>`
 .. |resources| replace:: :ref:`Resources<Resources>`
-.. |spyctl| replace:: `Spyctl:`
+.. |spyctl| replace:: ``Spyctl:``
 .. |secret| replace:: :ref:`Secret<Secrets>`
 
-.. |s_na| replace:: `Spyderbat Nano Agent`
-.. |s_baselines| replace:: `Spyderbat Baselines`
-.. |s_baseline| replace:: `Spyderbat Baseline`
+.. |s_na| replace:: ``Spyderbat Nano Agent``
+.. |s_baselines| replace:: ``Spyderbat Baselines``
+.. |s_baseline| replace:: ``Spyderbat Baseline``
 .. |s_fprints| replace:: :ref:`Spyderbat Fingerprints<Fingerprints>`
 .. |s_fprint| replace:: :ref:`Spyderbat Fingerprint<Fingerprints>`
 .. |s_policies| replace:: :ref:`Spyderbat Policies<Policies>`
