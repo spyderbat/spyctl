@@ -114,7 +114,7 @@ To retrieve data from the Spyderbat API, you can use the ``get`` command:
 
     spyctl get RESOURCE [OPTIONS] [NAME_OR_ID]
 
-To retrieve the list of |machs| with the |s_na| installed issue the
+To retrieve the list of |machs| with the |s_na| installed, issue the
 following command:
 
 .. code-block:: none
@@ -150,8 +150,8 @@ Viewing Fingerprints
 --------------------
 
 When you install the |s_na|, Spyderbat immediately starts building up
-|fprints| for the services and containers running on the machine. |fprints| are the foundation
-of what |baselines| are created from. |fprints| are a compact representation of process
+|fprints| for the services and containers running on the machine. |fprints| are used
+to create |baselines|. |fprints| are a compact representation of process
 and network activity for a given instance of a service or container,
 and can update over time.
 
@@ -260,7 +260,8 @@ For services you can use the cgroup:
 
     spyctl get fingerprints -o yaml CGROUP > fprint_grp.yaml
 
-For example, say we have a |fprint_grp| for a container image ``python_webserver:latest``:
+For example, we want to save the |fprint_grp| for a container image
+``python_webserver:latest``:
 
 .. code-block:: none
 
@@ -350,7 +351,7 @@ Some ways to generalize a |baseline| are to:
 
     image: python_webserver:*
 
-- expand an ip block's cidr range (e.g. say there is a /16 network that we expect traffic from):abbr:
+- expand an ip block's cidr range (e.g. say there is a /16 network that we expect traffic from):
 
 .. code-block:: none
 
@@ -361,7 +362,7 @@ Managing A Baseline
 
 We now have a |baseline| ``python_srv_baseline.yaml`` that we have generalized. The goal now is
 to stabilize the |baseline|. Your services and containers will continue to generate updated
-|fprints| which may contain activity that deviates from the baseline. They way to detect this
+|fprints| which may contain activity that deviates from the |baseline|. The way to detect this
 is with the ``diff`` command:
 
 .. code-block:: none
@@ -374,9 +375,9 @@ For example:
 
     spyctl diff -f python_srv_baseline.yaml --latest
 
-The output of the diff command will display all activity that doesn't match the baseline.
-If there are deviations, and those deviations should be added to the baseline, you can
-use the ``merge`` command to add them to the baseline:
+The output of the diff command will display all activity that doesn't match the |baseline|.
+If there are deviations, and those deviations should be added to the |baseline|, you can
+use the ``merge`` command to add them to the |baseline|:
 
 .. code-block:: none
 
@@ -393,7 +394,7 @@ For example:
     before spyctl can read it.
 
 At this point you may want to edit the file again to generalize more fields. Repeat these
-management steps until you're satisfied that your baseline has stabilized.
+management steps until you're satisfied that your |baseline| has stabilized.
 
 What's Next
 ===========
