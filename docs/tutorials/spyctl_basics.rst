@@ -3,7 +3,7 @@ Spyctl Basics Tutorial
 ======================
 
 This tutorial will teach you how to configure |spyctl|. It will also provide
-basic instructions for viewing your Spyderbat |Resources|_ and baselining your
+basic instructions for viewing your Spyderbat |Resources| and baselining your
 services & containers.
 
 Prerequisites
@@ -86,7 +86,7 @@ Basic Usage
 ===========
 
 Now that you have configured a |context| for your organization you can use Spyctl
-to view and manage your Spyderbat |resources|_.
+to view and manage your Spyderbat |resources|.
 
 The 'get' Command
 -----------------
@@ -290,8 +290,7 @@ is going to a database with the dns name `mongodb.my_app.svc.cluster.local`.
 .. |policies| replace:: `Policies`
 .. |policy| replace:: `Policy`
 .. |resource| replace:: `Resource`
-.. |resources| replace:: `Resources`
-.. _resources: :ref:`Resources`
+.. |resources| replace:: :ref:`Resources`
 .. |spyctl| replace:: `Spyctl:`
 .. |secret| replace:: `Secret`
 
