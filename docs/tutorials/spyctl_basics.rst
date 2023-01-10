@@ -47,7 +47,7 @@ For example:::
 Configure a Context
 -------------------
 
-|contexts|_ will let Spyctl know where to look for data. The broadest possible |context|
+|contexts| will let Spyctl know where to look for data. The broadest possible |context|
 is organization-wide. This means that when you run Spyctl commands, the Spyderbat API
 will return results relevant to your entire organization.::
 
@@ -93,7 +93,7 @@ The 'get' Command
 
 `spyctl get <resource>` is the command to retrieve data from the Spyderbat API.
 
-To retrieve the list of |machs|_ with the |s_na| installed issue the
+To retrieve the list of |machs| with the |s_na| installed issue the
 following command:::
 
     spyctl get machines
@@ -118,7 +118,7 @@ Fingerprints
 ------------
 
 When you install the |s_na|, Spyderbat immediately starts building up
-|fprints|_ for the services and containers running on the machine. |fprints| are the foundation
+|fprints| for the services and containers running on the machine. |fprints| are the foundation
 of what baselines are created from. |fprints| are a compact representation of process
 and network activity for a given instance of a service or container,
 and can update over time.
@@ -128,7 +128,7 @@ To see a tabular summary of the fingerprints in your current |context| issue the
     spyctl get fingerprints
 
 When you retrieve |fprints| from the Spyderbat API, you are actually retrieving are
-|fprint_grps|_. Container |fprints| are grouped by image ID, and Linux Service |fprints| are
+|fprint_grps|. Container |fprints| are grouped by image ID, and Linux Service |fprints| are
 grouped by cgroup. This means that if the same service is running on multiple machines, all
 of the fingerprints across those machines get grouped together. The reason for this will become
 clear you move through the baselining process. 
