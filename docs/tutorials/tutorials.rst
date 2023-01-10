@@ -1,6 +1,6 @@
 .. _tutorial:
 
-Spyctl Tutorials
+Tutorials
 ========================
 
 This section of the Spyctl documentation contains the tutorials. A tutorial

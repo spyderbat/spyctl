@@ -1,5 +1,5 @@
 ====================
-Spyctl Configuration
+Configuration
 ====================
 
 .. _Contexts:
