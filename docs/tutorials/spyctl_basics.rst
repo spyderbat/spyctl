@@ -10,9 +10,10 @@ Prerequisites
 =============
 
 If you haven't already done so, follow the instructions
-for installing Spyctl: :ref:`Install<install>`
+for installing Spyctl: :ref:`Installation<install>`
 
 In order to properly utilize Spyctl you must:
+
 * Have a Spyderbat account
 * Have installed at least one |s_na| installed on a machine of your choosing
 * Have generated a key to access the `Spyderbat API`
@@ -388,7 +389,7 @@ What's next
 .. |policy| replace:: :ref:`Policy<Policies>`
 .. |resource| replace:: :ref:`Resource<Resources>`
 .. |resources| replace:: :ref:`Resources<Resources>`
-.. |spyctl| replace:: ``Spyctl:``
+.. |spyctl| replace:: ``Spyctl``
 .. |secret| replace:: :ref:`Secret<Secrets>`
 
 .. |s_na| replace:: ``Spyderbat Nano Agent``
