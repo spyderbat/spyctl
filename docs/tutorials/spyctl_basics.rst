@@ -290,7 +290,7 @@ is going to a database with the dns name `mongodb.my_app.svc.cluster.local`.
 .. |policies| replace:: `Policies`
 .. |policy| replace:: `Policy`
 .. |resource| replace:: `Resource`
-.. |resources| replace:: :ref:`Resources`
+.. |resources| replace:: :ref:`Resources<Resources>`
 .. |spyctl| replace:: `Spyctl:`
 .. |secret| replace:: `Secret`
 
