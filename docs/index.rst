@@ -26,7 +26,7 @@ Release v\ |version|. (:ref:`Installation <install>`)
    :alt: GitHub Repo stars
 
 
-**Spyctl** is a tool for viewing and managing Spyderbat resources.
+**Spyctl** is a tool for viewing and managing Spyderbat Resources.
 
 
 Understanding Spyctl
@@ -39,6 +39,15 @@ Learn about Spyctl and its fundamental concepts.
 
    getting_started/getting_started
    tutorials/tutorials
+
+Reference
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   user/configuration
+   user/resources
 
 Indices and Tables
 -------------------

@@ -6,6 +6,10 @@ Installation of Spyctl
 This part of the documentation covers the installation of Spyctl.
 The first step to using any software package is getting it properly installed.
 
+Prerequisites
+-------------
+* Python 3.7 or newer
+
 $ python -m pip install spyctl
 --------------------------------
 
