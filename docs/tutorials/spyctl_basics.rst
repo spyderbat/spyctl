@@ -21,8 +21,8 @@ In order to properly utilize Spyctl you must:
 Initial Configuration
 =====================
 
-In this section you will learn how to configure Spyctl to enable it to pull
-information from the Spyderbat API across your entire organization. You must first
+In this section you will learn how to configure Spyctl to enable data retrieval
+from across your entire organization. To do so, you must first
 create a |secret| and then use that |secret| to set a |context|.
 
 .. _create_a_secret:
@@ -30,10 +30,10 @@ create a |secret| and then use that |secret| to set a |context|.
 Create a Secret
 ---------------
 
-Creating at least one |secret| is required for Spyctl to get your data via the
+Creating at least one |secret| is required for Spyctl to access your data via the
 Spyderbat API.
 
-#. Base64 encode the api key you generated from the `Spyderbat Console`:
+#. Base64 encode the api key you generated from the ``Spyderbat Console``:
 
 .. code-block:: none
 
@@ -49,9 +49,9 @@ For example:
 
 .. code-block:: none
 
-    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTml
-    JaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZWTk1VS2
-    pfTTctV3FCMlpUc2J5NXM= staging_secret
+    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNklu
+    TmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZW
+    Tk1VS2pfTTctV3FCMlpUc2J5NXM= staging_secret
 
 **Spyctl saves secrets in** *$HOME/.spyctl/.secrets/secrets*
 
@@ -88,7 +88,7 @@ You should see something like this:
     - name: staging_context
       secret: staging_secret
       context:
-      organization: John's Org
+        organization: John's Org
     current-context: staging_context
 
 **The global configuration file located at** *$HOME/.spyctl/config*
@@ -109,6 +109,8 @@ The 'get' Command
 -----------------
 
 To retrieve data from the Spyderbat API, you can use the ``get`` command:
+
+.. code-block:: none
 
     spyctl get RESOURCE [OPTIONS] [NAME_OR_ID]
 
@@ -248,13 +250,19 @@ view of the available |fprint_grps|.
 
 For containers you can use the image or the image ID to retrieve a specific one:
 
+.. code-block:: none
+
     spyctl get fingerprints -o yaml IMAGE_OR_IMAGE_ID > fprint_grp.yaml
 
 For services you can use the cgroup:
 
+.. code-block:: none
+
     spyctl get fingerprints -o yaml CGROUP > fprint_grp.yaml
 
 For example, say we have a |fprint_grp| for a container image ``python_webserver:latest``:
+
+.. code-block:: none
 
     spyctl get fingerprints -o yaml "python_webserver:latest" > python_srv_fprints.yaml
 
@@ -264,9 +272,13 @@ single yaml file.
 The next step is to create a |baseline| from that |fprint_grp|. The command to create a
 |baseline| is:
 
+.. code-block:: none
+
     spyctl create baseline --from-file FILENAME > baseline.yaml
 
 Continuing the example from above, we would issue this command:
+
+.. code-block:: none
 
     spyctl create baseline --from-file python_srv_fprints.yaml > python_srv_baseline.yaml
 
@@ -326,15 +338,21 @@ This can be done by simply editing the baseline document with your favorite text
 
 For example:
 
+.. code-block:: none
+
     vim python_srv_baseline.yaml
 
 Some ways to generalize a |baseline| are to:
 
 - add wildcards to text fields (e.g. updating the image to incorporate all versions):
 
+.. code-block:: none
+
     image: python_webserver:*
 
 - expand an ip block's cidr range (e.g. say there is a /16 network that we expect traffic from):abbr:
+
+.. code-block:: none
 
     cidr: 192.168.0.0/16
 
@@ -346,9 +364,13 @@ to stabilize the |baseline|. Your services and containers will continue to gener
 |fprints| which may contain activity that deviates from the baseline. They way to detect this
 is with the ``diff`` command:
 
+.. code-block:: none
+
     spyctl diff -f BASELINE_FILE --latest
 
 For example:
+
+.. code-block:: none
 
     spyctl diff -f python_srv_baseline.yaml --latest
 
@@ -356,9 +378,13 @@ The output of the diff command will display all activity that doesn't match the 
 If there are deviations, and those deviations should be added to the baseline, you can
 use the ``merge`` command to add them to the baseline:
 
+.. code-block:: none
+
     spyctl merge -f BASELINE_FILE --latest > merged_baseline.yaml
 
 For example:
+
+.. code-block:: none
 
     spyctl merge -f python_srv_baseline.yaml --latest > python_srv_merged_baseline.yaml
 
@@ -369,7 +395,7 @@ For example:
 At this point you may want to edit the file again to generalize more fields. Repeat these
 management steps until you're satisfied that your baseline has stabilized.
 
-What's next
+What's Next
 ===========
 
 :ref:`Policy Management Tutorial<Policy_Management>`
