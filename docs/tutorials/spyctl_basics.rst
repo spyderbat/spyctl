@@ -102,12 +102,14 @@ Basic Usage
 
 Now that you have configured a |context| for your organization you can use Spyctl
 to view and manage your Spyderbat |resources|. In this section you will learn about the
-'get' command.
+``get`` command.
 
 The 'get' Command
 -----------------
 
-`spyctl get <resource>` is the command to retrieve data from the Spyderbat API.
+To retrieve data from the Spyderbat API, you can use the ``get`` command:
+
+    spyctl get RESOURCE [OPTIONS] [NAME_OR_ID]
 
 To retrieve the list of |machs| with the |s_na| installed issue the
 following command:
@@ -138,18 +140,19 @@ Baselining Workflow
 ===================
 
 In this section you will learn about how auto-generated |s_fprints| are viewed and how
-they can be used to |baseline| your services and containers.
+they are used to |baseline| your services and containers. You will also learn how to
+manage |baselines| once you've created them.
 
-Fingerprints
-------------
+Viewing Fingerprints
+--------------------
 
 When you install the |s_na|, Spyderbat immediately starts building up
 |fprints| for the services and containers running on the machine. |fprints| are the foundation
-of what baselines are created from. |fprints| are a compact representation of process
+of what |baselines| are created from. |fprints| are a compact representation of process
 and network activity for a given instance of a service or container,
 and can update over time.
 
-To see a tabular summary of the fingerprints in your current |context| issue the command:
+To see a tabular summary of the |fprints| in your current |context| issue the command:
 
 .. code-block:: none
 
@@ -225,19 +228,48 @@ Here is an example of a |fprint_grp|:
                 port: 8080
             egress: []
 
-Baselines
----------
+Every |fprint| will have the same four fields, ``apiVersion``, ``kind``, ``metadata``, and
+``spec``. The |fprint_grp| shown above is for a specific container image. In the spec of
+every |fprint| you will find one or more ``Selector`` fields. For now, just know that the
+``containerSelector`` is used to group container |fprints| together and the ``serviceSelector``
+is used to group service |fprints| together. In a separate tutorial you will learn how
+``Selectors`` are used with |policies|.
 
-With Spyctl you can create a |baseline| for the individual containers and Linux services
-running on your machines. Baselines are powerful because they give you a compact picture
-of what your containers and services are doing. 
+Creating a Baseline
+-------------------
 
+|baselines| are created from 1 or more |fprint_grps| merged into a single document. The purpose
+of a |baseline| is to represent the expected activity of a service or container image.
 
-From the perspective of Spyctl, as baseline is a compact
-representation of a process tree, ingress connections, and egress connections. **Baselines
-are important because they are the bu**
+The first step to create a |baseline| is to retrieve a |fprint_grp| and save it to a file. To
+do this, you use the ``get fingerprints`` command mentioned above. This will show you a table
+view of the available |fprint_grps|. 
 
-For example:
+For containers you can use the image or the image ID to retrieve a specific one:
+
+    spyctl get fingerprints -o yaml IMAGE_OR_IMAGE_ID > fprint_grp.yaml
+
+For services you can use the cgroup:
+
+    spyctl get fingerprints -o yaml CGROUP > fprint_grp.yaml
+
+For example, say we have a |fprint_grp| for a container image ``python_webserver:latest``:
+
+    spyctl get fingerprints -o yaml "python_webserver:latest" > python_srv_fprints.yaml
+
+We just saved the auto-generated |fprints| for all instances of the container image to a
+single yaml file.
+
+The next step is to create a |baseline| from that |fprint_grp|. The command to create a
+|baseline| is:
+
+    spyctl create baseline --from-file FILENAME > baseline.yaml
+
+Continuing the example from above, we would issue this command:
+
+    spyctl create baseline --from-file python_srv_fprints.yaml > python_srv_baseline.yaml
+
+The resulting baseline would look something like this:
 
 .. code-block:: yaml
 
@@ -266,7 +298,7 @@ For example:
         ingress:
         - from:
           - ipBlock:
-              cidr: 192.168.0.0/16
+              cidr: 192.168.1.10/32
           processes:
           - python_0
           ports:
@@ -282,9 +314,64 @@ For example:
           - protocol: TCP
             port: 27017
 
-In this example the root process of the container is `sh` run as `root` with a child `python`
-process. The `ingress` traffic is coming from `192.168.0.0/16` and the only `egress` traffic
-is going to a database with the dns name `mongodb.my_app.svc.cluster.local`.
+In this example the root process of the container is ``sh`` run as ``root`` with
+a child ``python`` process. The ``ingress`` traffic is coming from ``192.168.1.10/32``
+and the only ``egress`` traffic is going to a database with the dns name
+``mongodb.my_app.svc.cluster.local``.
+
+|fprints| only capture activity that has occurred, so if you want your |baselines|
+to include other expected activity, you can take steps to generalize the document.
+This can be done by simply editing the baseline document with your favorite text editor.
+
+For example:
+
+    vim python_srv_baseline.yaml
+
+Some ways to generalize a |baseline| are to:
+
+- add wildcards to text fields (e.g. updating the image to incorporate all versions):
+
+    image: python_webserver:*
+
+- expand an ip block's cidr range (e.g. say there is a /16 network that we expect traffic from):abbr:
+
+    cidr: 192.168.0.0/16
+
+Managing A Baseline
+-------------------
+
+We now have a |baseline| ``python_srv_baseline.yaml`` that we have generalized. The goal now is
+to stabilize the |baseline|. Your services and containers will continue to generate updated
+|fprints| which may contain activity that deviates from the baseline. They way to detect this
+is with the ``diff`` command:
+
+    spyctl diff -f BASELINE_FILE --latest
+
+For example:
+
+    spyctl diff -f python_srv_baseline.yaml --latest
+
+The output of the diff command will display all activity that doesn't match the baseline.
+If there are deviations, and those deviations should be added to the baseline, you can
+use the ``merge`` command to add them to the baseline:
+
+    spyctl merge -f BASELINE_FILE --latest > merged_baseline.yaml
+
+For example:
+
+    spyctl merge -f python_srv_baseline.yaml --latest > python_srv_merged_baseline.yaml
+
+.. warning:: 
+    Never redirect output to the same file you are using as input, the file will be wiped
+    before spyctl can read it.
+
+At this point you may want to edit the file again to generalize more fields. Repeat these
+management steps until you're satisfied that your baseline has stabilized.
+
+What's next
+===========
+
+:ref:`Policy Management Tutorial<Policy_Management>`
 
 .. |context| replace:: :ref:`Context<Contexts>`
 .. |contexts| replace:: :ref:`Contexts<Contexts>`
