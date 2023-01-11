@@ -13,7 +13,7 @@ environment.
 
 ---
 
-<p align="center"> A 
+<p align="center"> 
     <br> 
 </p>
 
