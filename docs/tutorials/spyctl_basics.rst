@@ -37,23 +37,37 @@ Spyderbat API.
 
 #. Base64 encode the api key you generated from the |console|:
 
-.. code-block:: none
+.. code-block:: console
 
     echo -n <apikey> | base64 -w 1000
 
 #. Use the base64 encoded key to create a |secret|:
 
-.. code-block:: none
+.. code-block:: console
 
     spyctl create secret apicfg -k <base64 encoded apikey> NAME
 
 For example:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNklu
-    TmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmFaWZRLk9EbGxuSEdlb1picnVzajhPUnZ1amZW
-    Tk1VS2pfTTctV3FCMlpUc2J5NXM= staging_secret
+    echo -n eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE3MDQ5OTc5
+    MjAsImlhdCI6MTY3MzQ2MTkxOSwiaXNzIjoia2FuZ2Fyb29iYXQubmV0Iiwic3ViIjoicHhWb0p2UExI
+    WjBHcUIwdW13S0EifQ.djqZDB93nRpxEAtQN2CFk9NsnT9gd-7KXOO5LFAd-FI | base64 -w 1000
+
+    ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmxlSEFp
+    T2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM016UTJNVGt4T1N3aWFYTnpJam9pYTJGdVoyRnliMjlp
+    WVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhXYjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNu
+    UnB4RUF0UU4yQ0ZrOU5zblQ5Z2QtN0tYT081TEZBZC1GSQ==
+
+.. code-block:: console
+
+    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
+    Ehsd0lqb2lTbGRVSW4wLmV5SmxlSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM016UTJNVGt4T
+    1N3aWFYTnpJam9pYTJGdVoyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhXYjBwMlVFeElXakJIY
+    1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2QtN0tYT081TEZBZC1GSQ== my_secret
+
+    Created new secret 'my_secret' in /home/demouser/.spyctl/.secrets/secrets
 
 **Spyctl saves secrets in** *$HOME/.spyctl/.secrets/secrets*
 
