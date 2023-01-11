@@ -27,6 +27,16 @@ Spydertrace
 
 *a.k.a. Trace*
 
+.. _Spyderbat_API:
+
+Spyderbat API
+=============
+
+.. _Spyderbat_Console:
+
+Spyderbat Console
+=================
+
 .. _Nano_Agent:
 
 Spyderbat Nano Agent

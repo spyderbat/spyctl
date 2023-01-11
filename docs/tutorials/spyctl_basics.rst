@@ -18,7 +18,7 @@ In order to properly utilize Spyctl you must:
 
 * Have a Spyderbat account
 * Have installed at least one |s_na| installed on a machine of your choosing
-* Have generated a key to access the `Spyderbat API`
+* Have generated a key to access the |api|
 
 Initial Configuration
 =====================
@@ -35,7 +35,7 @@ Create a Secret
 Creating at least one |secret| is required for Spyctl to access your data via the
 Spyderbat API.
 
-#. Base64 encode the api key you generated from the ``Spyderbat Console``:
+#. Base64 encode the api key you generated from the |console|:
 
 .. code-block:: none
 
@@ -403,6 +403,8 @@ What's Next
 
 :ref:`Policy Management Tutorial<Policy_Management>`
 
+.. |api| replace:: :ref:`Spyderbat API<Spyderbat_API>`
+.. |console| replace:: :ref:`Spyderbat Console<Spyderbat_Console>`
 .. |context| replace:: :ref:`Context<Contexts>`
 .. |contexts| replace:: :ref:`Contexts<Contexts>`
 .. |baselines| replace:: :ref:`Baselines<Baselines>`
