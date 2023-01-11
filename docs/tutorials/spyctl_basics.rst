@@ -51,7 +51,7 @@ For example:
 
 .. code-block:: console
 
-    echo -n eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE3MDQ5OTc5
+    $ echo -n eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE3MDQ5OTc5
     MjAsImlhdCI6MTY3MzQ2MTkxOSwiaXNzIjoia2FuZ2Fyb29iYXQubmV0Iiwic3ViIjoicHhWb0p2UExI
     WjBHcUIwdW13S0EifQ.djqZDB93nRpxEAtQN2CFk9NsnT9gd-7KXOO5LFAd-FI | base64 -w 1000
 
@@ -62,7 +62,7 @@ For example:
 
 .. code-block:: console
 
-    spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
+    $ spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZ
     Ehsd0lqb2lTbGRVSW4wLmV5SmxlSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM016UTJNVGt4T
     1N3aWFYTnpJam9pYTJGdVoyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhXYjBwMlVFeElXakJIY
     1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2QtN0tYT081TEZBZC1GSQ== my_secret
