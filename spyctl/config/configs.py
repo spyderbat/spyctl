@@ -10,6 +10,7 @@ import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
+import click
 
 APP_NAME = "spyctl"
 APP_DIR = f".{APP_NAME}"
@@ -144,7 +145,9 @@ class Context:
         if self.org_uid is None:
             cli.err_exit(
                 "Unable to validate organization name or ID."
-                " Check context settings."
+                " Check context settings. The api key in the 'secret' must be"
+                " allowed to access the organization you specified,"
+                " and the organization name or uid must be correct."
             )
         return (api_url, api_key, self.org_uid)
 
@@ -375,6 +378,8 @@ def set_context(
     }
     try:
         new_context = Context(new_context)
+        # Initiate a validation of the org
+        new_context.get_api_data()
     except InvalidContextDataError as e:
         cli.err_exit(f"Unable to set context. {' '.join(e.args)}")
     config = get_loaded_config()

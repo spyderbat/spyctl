@@ -23,4 +23,4 @@ def handle_merge(filename, with_file, latest, output):
     elif resrc_kind == lib.POL_KIND:
         result = p.merge_policy(resource, with_resource, latest)
     if result:
-        cli.show(result.get_obj_data())
+        cli.show(result.get_obj_data(), output)

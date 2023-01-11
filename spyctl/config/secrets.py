@@ -1,11 +1,12 @@
-import json
+import os
 import time
 from base64 import b64decode
-from pathlib import Path
 from typing import Dict, List, Optional
 
+import click
 import yaml
 import zulu
+from click.shell_completion import CompletionItem
 from tabulate import tabulate
 
 import spyctl.cli as cli
@@ -138,7 +139,7 @@ class Secret:
                 )
 
 
-def load_secrets():
+def load_secrets(silent=False):
     global SECRETS
     if SECRETS is None:
         SECRETS = {}
@@ -152,10 +153,11 @@ def load_secrets():
                     secret = Secret(secret_data)
                     SECRETS[secret.name] = secret
                 except InvalidSecretError as e:
-                    cli.try_log(
-                        f"{secrets_path} has an invalid secret."
-                        f" {' '.join(e.args)}"
-                    )
+                    if not silent:
+                        cli.try_log(
+                            f"{secrets_path} has an invalid secret."
+                            f" {' '.join(e.args)}"
+                        )
 
 
 def create_secret(
@@ -307,3 +309,20 @@ def secrets_output(secrets: List[Dict]):
 
 def find_secret(secret_name) -> Optional[Secret]:
     return SECRETS.get(secret_name)
+
+
+class SecretsParam(click.ParamType):
+    name = "secrets_param"
+
+    def shell_complete(self, ctx, param, incomplete):
+        load_secrets(silent=True)
+        secrets = get_secrets()
+        secret_names = [
+            secret[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
+            for secret in secrets
+        ]
+        return [
+            CompletionItem(secret_name)
+            for secret_name in secret_names
+            if secret_name.startswith(incomplete)
+        ]

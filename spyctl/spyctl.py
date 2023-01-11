@@ -28,6 +28,7 @@ DEFAULT_START_TIME = 1614811600
 
 @click.group(cls=lib.CustomGroup, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
+@click.version_option()
 @click.pass_context
 def main(ctx: click.Context):
     """spyctl displays and controls resources within your Spyderbat
@@ -150,6 +151,7 @@ def get_contexts(force_global, output, name=None):
     help="Name of api config secret.",
     metavar="",
     required=True,
+    type=s.SecretsParam(),
 )
 @click.option(
     "-o",
