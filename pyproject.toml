@@ -4,34 +4,42 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spyctl"
-version = "0.0.24"
+version = "0.1.0"
+
+description = "A command line tool for viewing and managing Spyderbat Resources"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+keywords = ["spyctl", "spyderbat", "kubectl", "kubernetes"]
 authors = [
   { name="Brent Haub", email="dev@spyderbat.com" },
   { name="Kyle Smith Hanna", email="dev@spyderbat.com" },
 ]
-description = "A command line tool for viewing and managing Spyderbat object"
-readme = "README.md"
-requires-python = ">=3.8"
+maintainers = [
+  {name="Brent Haub", email="dev@spyderbat.com"}
+]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache 2.0"
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "python-dateutil",
-    "requests",
+    "python-dateutil >= 2.8",
+    "requests >= 2.28",
     "pyyaml >= 6.0",
-    "zulu",
-    "typing_extensions",
-    "click",
-    "tabulate",
-    "tqdm",
+    "zulu >= 2.0",
+    "typing_extensions >= 4.0",
+    "click >= 8.1",
+    "tabulate >= 0.9",
+    "tqdm >= 4.0",
 ]
 
 [project.urls]
 "Homepage" = "https://spyctl.readthedocs.io/en/latest/"
 "Documentation" = "https://spyctl.readthedocs.io/en/latest/"
 "Source" = "https://github.com/spyderbat/spyctl"
+"Spyderbat" = "https://www.spyderbat.com/"
 
 [project.scripts]
 spyctl = "spyctl.spyctl:main"
