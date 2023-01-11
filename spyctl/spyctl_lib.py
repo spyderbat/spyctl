@@ -15,7 +15,6 @@ import click
 import dateutil.parser as dateparser
 import yaml
 import zulu
-from click.shell_completion import CompletionItem
 
 
 class Aliases:
@@ -548,16 +547,6 @@ class CustomCommand(click.Command):
             epilog = inspect.cleandoc(self.epilog)
             formatter.write_paragraph()
             formatter.write_text(epilog)
-
-
-# class FilenameType(click.ParamType):
-#     name = "filename_t"
-
-#     def shell_complete(self, ctx, param, incomplete):
-#         return [
-#             CompletionItem(name)
-#             for name in os.listdir() if name.startswith(incomplete)
-#         ]
 
 
 def try_log(*args, **kwargs):
