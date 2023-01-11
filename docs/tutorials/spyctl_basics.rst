@@ -37,13 +37,13 @@ in order for Spyctl to access your data via theSpyderbat API.
 
 To create a secret, follow these steps: 
 
-#. Base64 encode the api key you generated from the |console|:
+1. Base64 encode the api key you generated from the |console|:
 
 .. code-block:: console
 
     $ echo -n <apikey> | base64 -w 1000
 
-#. Use the base64 encoded key to create a |secret|:
+2. Use the base64 encoded key to create a |secret|:
 
 .. code-block:: console
 
