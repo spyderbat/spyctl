@@ -32,8 +32,8 @@ create a |secret| and then use that |secret| to set a |context|.
 Create a Secret
 ---------------
 
-Creating at least one |secret| is required for Spyctl to access your data via the
-Spyderbat API.
+A Secret encapsulates your Spyderbat API credentials.  You must create at least one |secret|
+in order for Spyctl to access your data via theSpyderbat API.
 
 #. Base64 encode the api key you generated from the |console|:
 
