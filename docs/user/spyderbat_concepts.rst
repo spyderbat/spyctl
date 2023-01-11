@@ -20,12 +20,32 @@ Redflags are indicators of security-related activity. They range in severity fro
 In isolation, redflags are generally not a direct indicator of a threat, however if a number of flags
 are causally grouped together in a high-scoring |trace|, they are more likely to indicate a threat.
 
+.. _Redflag_Severities:
+
+Severities
+----------
+
+The severity labels that can be applied to a redflag are listed here in increasing severity:
+
+* info
+* low
+* medium
+* high
+* critical
+
 .. _Spydertrace:
 
 Spydertrace
 ===========
 
 *a.k.a. Trace*
+
+.. _sba:
+
+Spyderbat Analytics Engine
+==========================
+
+*a.k.a SBA*
 
 .. _Spyderbat_API:
 

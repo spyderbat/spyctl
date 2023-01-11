@@ -22,5 +22,7 @@ def handle_merge(filename, with_file, latest, output):
         result = b.merge_baseline(resource, with_resource, latest)
     elif resrc_kind == lib.POL_KIND:
         result = p.merge_policy(resource, with_resource, latest)
+    else:
+        cli.err_exit(f"The 'merge' command is not supported for {resrc_kind}")
     if result:
         cli.show(result.get_obj_data(), output)

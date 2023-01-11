@@ -16,6 +16,8 @@ def handle_apply(filename):
         secrets.apply_secret(resrc_data)
     elif kind == lib.POL_KIND:
         handle_apply_policy(resrc_data)
+    else:
+        cli.err_exit(f"The 'apply' command is not supported for {kind}")
 
 
 def handle_apply_policy(policy: Dict):
