@@ -8,12 +8,12 @@ This page has definitions and details relating to various Spyderbat-specific con
 
 .. _Opsflags:
 
-Opsflags
+Opsflag
 ========
 
 .. _Redflags:
 
-Redflags
+Redflag
 ========
 
 Redflags are indicators of security-related activity. They range in severity from "info" to "critical".
@@ -22,7 +22,27 @@ are causally grouped together in a high-scoring |trace|, they are more likely to
 
 .. _Spydertrace:
 
-Spydertrace (a.k.a. Trace)
-==========================
+Spydertrace
+===========
+
+*a.k.a. Trace*
+
+.. _Spyderbat_API:
+
+Spyderbat API
+=============
+
+.. _Spyderbat_Console:
+
+Spyderbat Console
+=================
+
+.. _Nano_Agent:
+
+Spyderbat Nano Agent
+====================
+
+*a.k.a. Nano Agent*
+
 
 .. |trace| replace:: :ref:`Spydertrace<Spydertrace>`
