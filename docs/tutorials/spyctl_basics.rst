@@ -39,13 +39,13 @@ Spyderbat API.
 
 .. code-block:: console
 
-    echo -n <apikey> | base64 -w 1000
+    $ echo -n <apikey> | base64 -w 1000
 
 #. Use the base64 encoded key to create a |secret|:
 
 .. code-block:: console
 
-    spyctl create secret apicfg -k <base64 encoded apikey> NAME
+    $ spyctl create secret apicfg -k <base64 encoded apikey> NAME
 
 For example:
 
@@ -78,21 +78,23 @@ Set a Context
 
 |contexts| will let Spyctl know where to look for data. The broadest possible |context|
 is organization-wide. This means that when you run Spyctl commands, the Spyderbat API
-will return results relevant to your entire organization.::
+will return results relevant to your entire organization.
 
-    spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
+.. code-block:: console
+
+    $ spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
 
 For example:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl config set-context --org "John's Org" --secret staging_secret staging_context
+    $ spyctl config set-context --org "John's Org" --secret staging_secret staging_context
 
 You can view your configuration by issuing the following command:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl config view
+    $ spyctl config view
 
 You should see something like this:
 
@@ -126,30 +128,30 @@ The 'get' Command
 
 To retrieve data from the Spyderbat API, you can use the ``get`` command:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get RESOURCE [OPTIONS] [NAME_OR_ID]
+    $ spyctl get RESOURCE [OPTIONS] [NAME_OR_ID]
 
 To retrieve the list of |machs| with the |s_na| installed, issue the
 following command:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get machines
+    $ spyctl get machines
 
 By default, this displays a table of information about the resources you retrieved. It is
 possible to output these resources in other formats:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get machines -o yaml
+    $ spyctl get machines -o yaml
 
 This will combine all of the retrieved resources into a single yaml document. If you wish
 to retrieve a specific object you may also supply a name or id with the command:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get machines -o yaml NAME_OR_ID
+    $ spyctl get machines -o yaml NAME_OR_ID
 
 
 .. note::
@@ -173,9 +175,9 @@ and can update over time.
 
 To see a tabular summary of the |fprints| in your current |context| issue the command:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get fingerprints
+    $ spyctl get fingerprints
 
 When you retrieve |fprints| from the Spyderbat API, you are actually retrieving are
 |fprint_grps|. Container |fprints| are grouped by image ID, and Linux Service |fprints| are
@@ -266,22 +268,22 @@ view of the available |fprint_grps|.
 
 For containers you can use the image or the image ID to retrieve a specific one:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get fingerprints -o yaml IMAGE_OR_IMAGE_ID > fprint_grp.yaml
+    $ spyctl get fingerprints -o yaml IMAGE_OR_IMAGE_ID > fprint_grp.yaml
 
 For services you can use the cgroup:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get fingerprints -o yaml CGROUP > fprint_grp.yaml
+    $ spyctl get fingerprints -o yaml CGROUP > fprint_grp.yaml
 
 For example, we want to save the |fprint_grp| for a container image
 ``python_webserver:latest``:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl get fingerprints -o yaml "python_webserver:latest" > python_srv_fprints.yaml
+    $ spyctl get fingerprints -o yaml "python_webserver:latest" > python_srv_fprints.yaml
 
 We just saved the auto-generated |fprints| for all instances of the container image to a
 single yaml file.
@@ -289,15 +291,15 @@ single yaml file.
 The next step is to create a |baseline| from that |fprint_grp|. The command to create a
 |baseline| is:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl create baseline --from-file FILENAME > baseline.yaml
+    $ spyctl create baseline --from-file FILENAME > baseline.yaml
 
 Continuing the example from above, we would issue this command:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl create baseline --from-file python_srv_fprints.yaml > python_srv_baseline.yaml
+    $ spyctl create baseline --from-file python_srv_fprints.yaml > python_srv_baseline.yaml
 
 The resulting |baseline| would look something like this:
 
@@ -355,9 +357,9 @@ This can be done by simply editing the baseline document with your favorite text
 
 For example:
 
-.. code-block:: none
+.. code-block:: console
 
-    vim python_srv_baseline.yaml
+    $ vim python_srv_baseline.yaml
 
 Some ways to generalize a |baseline| are to:
 
@@ -381,29 +383,29 @@ to stabilize the |baseline|. Your services and containers will continue to gener
 |fprints| which may contain activity that deviates from the |baseline|. The way to detect this
 is with the ``diff`` command:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl diff -f BASELINE_FILE --latest
+    $ spyctl diff -f BASELINE_FILE --latest
 
 For example:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl diff -f python_srv_baseline.yaml --latest
+    $ spyctl diff -f python_srv_baseline.yaml --latest
 
 The output of the diff command will display all activity that doesn't match the |baseline|.
 If there are deviations, and those deviations should be added to the |baseline|, you can
 use the ``merge`` command to add them to the |baseline|:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl merge -f BASELINE_FILE --latest > merged_baseline.yaml
+    $ spyctl merge -f BASELINE_FILE --latest > merged_baseline.yaml
 
 For example:
 
-.. code-block:: none
+.. code-block:: console
 
-    spyctl merge -f python_srv_baseline.yaml --latest > python_srv_merged_baseline.yaml
+    $ spyctl merge -f python_srv_baseline.yaml --latest > python_srv_merged_baseline.yaml
 
 .. warning:: 
     Never redirect output to the same file you are using as input, the file will be wiped
