@@ -25,7 +25,9 @@ Initial Configuration
 
 In this section you will learn how to configure Spyctl to enable data retrieval
 from across your entire organization. To do so, you must first
-create a |secret| and then use that |secret| to set a |context|.
+create a |secret| and then use that |secret| to set a |context|. A Secret
+encapsulates your Spyderbat API credentials; the Context specifies which subset
+of Spyderbat resources to use (e.g., an organization, cluster, service, or image).
 
 .. _create_a_secret:
 
