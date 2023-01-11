@@ -25,7 +25,9 @@ Initial Configuration
 
 In this section you will learn how to configure Spyctl to enable data retrieval
 from across your entire organization. To do so, you must first
-create a |secret| and then use that |secret| to set a |context|.
+create a |secret| and then use that |secret| to set a |context|. A Secret
+encapsulates your Spyderbat API credentials; the Context specifies which subset
+of Spyderbat resources to use (e.g., an organization, cluster, service, or image).
 
 .. _create_a_secret:
 
@@ -53,13 +55,23 @@ For example:
 
 .. code-block:: console
 
-    $ echo -n eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE3MDQ5OTc5MjAsImlhdCI6MTY3MzQ2MTkxOSwiaXNzIjoia2FuZ2Fyb29iYXQubmV0Iiwic3ViIjoicHhWb0p2UExIWjBHcUIwdW13S0EifQ.djqZDB93nRpxEAtQN2CFk9NsnT9gd-7KXOO5LFAd-FI | base64 -w 1000
+    $ echo -n eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE3M\
+    DQ5OTc5MjAsImlhdCI6MTY3MzQ2MTkxOSwiaXNzIjoia2FuZ2Fyb29iYXQubmV0Iiwic3ViIjoi\
+    cHhWb0p2UExIWjBHcUIwdW13S0EifQ.djqZDB93nRpxEAtQN2CFk9NsnT9gd-7KXOO5LFAd-FI \
+    | base64 -w 1000
 
-    ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmxlSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM016UTJNVGt4T1N3aWFYTnpJam9pYTJGdVoyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhXYjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2QtN0tYT081TEZBZC1GSQ==
+    ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5Smx
+    lSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM016UTJNVGt4T1N3aWFYTnpJam9pYTJGdV
+    oyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhXYjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZ
+    lEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2QtN0tYT081TEZBZC1GSQ==
 
 .. code-block:: console
 
-    $ spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmxlSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM016UTJNVGt4T1N3aWFYTnpJam9pYTJGdVoyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhXYjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2QtN0tYT081TEZBZC1GSQ== my_secret
+    $ spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTm\
+    lJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmxlSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM\
+    016UTJNVGt4T1N3aWFYTnpJam9pYTJGdVoyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhX\
+    YjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2Q\
+    tN0tYT081TEZBZC1GSQ== my_secret
 
     Created new secret 'my_secret' in /home/demouser/.spyctl/.secrets/secrets
 
