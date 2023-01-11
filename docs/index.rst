@@ -48,6 +48,8 @@ Reference
 
    user/configuration
    user/resources
+   user/spyderbat_concepts
+   user/subcommands
 
 Indices and Tables
 -------------------

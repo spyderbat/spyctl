@@ -1,3 +1,5 @@
+.. _Basics_Tutorial:
+
 ======================
 Basics Tutorial
 ======================

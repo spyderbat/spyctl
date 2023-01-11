@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "spyctl"
-copyright = "2023, Brent Haub, Kyle Smith-Hanna"
+copyright = "2023, SPYDERBAT, Inc., All Rights Reserved"
 author = "Brent Haub, Kyle Smith-Hanna"
-release = "0.0.24"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
