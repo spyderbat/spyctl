@@ -475,7 +475,7 @@ Our stable (for now) baseline now looks as follows:
 What's Next
 ===========
 
-:ref:`Policy Management Tutorial<Policy_Management>`
+* :ref:`Policy Management Tutorial<Policy_Management>`
 
 .. |api| replace:: :ref:`Spyderbat API<Spyderbat_API>`
 .. |console| replace:: :ref:`Spyderbat Console<Spyderbat_Console>`
