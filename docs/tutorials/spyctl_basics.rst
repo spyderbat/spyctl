@@ -4,7 +4,7 @@
 Basics Tutorial
 ======================
 
-This tutorial will teach you how to configure |spyctl|. It will also provide
+This tutorial will teach you how to configure Spyctl. It will also provide
 basic instructions for viewing your Spyderbat |Resources| and baselining your
 services & containers.
 
@@ -405,25 +405,24 @@ What's Next
 
 .. |context| replace:: :ref:`Context<Contexts>`
 .. |contexts| replace:: :ref:`Contexts<Contexts>`
-.. |baselines| replace:: ``Baselines``
-.. |baseline| replace:: ``Baseline``
+.. |baselines| replace:: :ref:`Baselines<Baselines>`
+.. |baseline| replace:: :ref:`Baseline<Baselines>`
 .. |fprints| replace:: :ref:`Fingerprints<Fingerprints>`
 .. |fprint| replace:: :ref:`Fingerprint<Fingerprints>`
 .. |fprint_grp| replace:: :ref:`Fingerprint Group<Fingerprint_Groups>`
 .. |fprint_grps| replace:: :ref:`Fingerprint Groups<Fingerprint_Groups>`
 .. |mach| replace:: :ref:`Machine<Machines>`
 .. |machs| replace:: :ref:`Machines<Machines>`
-.. |na| replace:: ``Nano Agent``
+.. |na| replace:: :ref:`Nano Agent<Nano_Agent>`
 .. |policies| replace:: :ref:`Policies<Policies>`
 .. |policy| replace:: :ref:`Policy<Policies>`
 .. |resource| replace:: :ref:`Resource<Resources>`
 .. |resources| replace:: :ref:`Resources<Resources>`
-.. |spyctl| replace:: ``Spyctl``
 .. |secret| replace:: :ref:`Secret<Secrets>`
 
-.. |s_na| replace:: ``Spyderbat Nano Agent``
-.. |s_baselines| replace:: ``Spyderbat Baselines``
-.. |s_baseline| replace:: ``Spyderbat Baseline``
+.. |s_na| replace:: :ref:`Spyderbat Nano Agent<Nano_Agent>`
+.. |s_baselines| replace:: :ref:`Spyderbat Baselines<Baselines>`
+.. |s_baseline| replace:: :ref:`Spyderbat Baseline<Baselines>`
 .. |s_fprints| replace:: :ref:`Spyderbat Fingerprints<Fingerprints>`
 .. |s_fprint| replace:: :ref:`Spyderbat Fingerprint<Fingerprints>`
 .. |s_policies| replace:: :ref:`Spyderbat Policies<Policies>`
