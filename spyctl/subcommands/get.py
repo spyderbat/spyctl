@@ -61,6 +61,8 @@ def handle_get(resource, name_or_id, st, et, latest, output, **filters):
     if resource == lib.POLICIES_RESOURCE:
         lib.add_to_cmd_tree(lib.POLICIES_RESOURCE.name)
         handle_get_policies(name_or_id, output, **filters)
+    else:
+        cli.err_exit(f"The 'get' command is not supported for {resource}")
 
 
 def handle_get_secrets(name, output):

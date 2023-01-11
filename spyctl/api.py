@@ -385,6 +385,7 @@ def delete_policy(api_url, api_key, org_uid, pol_uid, err_fn: Callable):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
     try:
         resp = delete(url, api_key)
+        return resp
     except RuntimeError as err:
         err_fn(*err.args, "Unable to delete policy")
         return None

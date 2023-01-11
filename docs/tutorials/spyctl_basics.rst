@@ -163,6 +163,8 @@ to retrieve a specific object you may also supply a name or id with the command:
 .. note::
     A full list of resources can be found here: :ref:`Resources`
 
+.. _Baselining_Workflow:
+
 Baselining Workflow
 ===================
 
@@ -357,6 +359,11 @@ a child ``python`` process. The ``ingress`` traffic is coming from ``192.168.1.1
 and the only ``egress`` traffic is going to a database with the dns name
 ``mongodb.my_app.svc.cluster.local``.
 
+.. _Generalizing_A_Baseline:
+
+Generalizing a Baseline
+-----------------------
+
 |fprints| only capture activity that has occurred, so if you want your |baselines|
 to include other expected activity, you can take steps to generalize the document.
 This can be done by simply editing the baseline document with your favorite text editor.
@@ -420,10 +427,55 @@ For example:
 At this point you may want to edit the file again to generalize more fields. Repeat these
 management steps until you're satisfied that your |baseline| has stabilized.
 
+Our stable (for now) baseline now looks as follows:
+
+.. code-block:: yaml
+
+    apiVersion: spyderbat/v1
+    kind: SpyderbatBaseline
+    metadata:
+      name: webserver_baseline
+      type: container
+      latestTimestamp: 1670001133
+    spec:
+      containerSelector:
+        image: "python_webserver:*"
+      processPolicy:
+      - name: sh
+        exe:
+        - /bin/dash
+        id: sh_0
+        euser:
+        - root
+        children:
+        - name: python
+          exe:
+          - /usr/local/bin/python3.7
+          id: python_0
+      networkPolicy:
+        ingress:
+        - from:
+          - ipBlock:
+              cidr: 192.168.0.0/16
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 8080
+        egress:
+        - to:
+          - dnsSelector:
+            - mongodb.my_app.svc.cluster.local
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 27017
+
 What's Next
 ===========
 
-:ref:`Policy Management Tutorial<Policy_Management>`
+* :ref:`Policy Management Tutorial<Policy_Management>`
 
 .. |api| replace:: :ref:`Spyderbat API<Spyderbat_API>`
 .. |console| replace:: :ref:`Spyderbat Console<Spyderbat_Console>`

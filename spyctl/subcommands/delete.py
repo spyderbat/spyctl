@@ -11,6 +11,8 @@ def handle_delete(resource, name_or_id):
         s.delete_secret(name_or_id)
     if resource == lib.POLICIES_RESOURCE:
         handle_delete_policy(name_or_id)
+    else:
+        cli.err_exit(f"The 'delete' command is not supported for {resource}")
 
 
 def del_policy_input(args) -> p.Policy:
@@ -39,3 +41,4 @@ def handle_delete_policy(uid, yes=False):
             uid,
             cli.api_err_exit,
         )
+        cli.try_log(f"Successfully deleted policy {uid}")
