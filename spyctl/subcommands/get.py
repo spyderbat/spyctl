@@ -125,7 +125,6 @@ def handle_get_machines(output: str, **filters: Dict):
     ctx = cfg.get_current_context()
     machines = api.get_machines(*ctx.get_api_data(), cli.api_err_exit)
     machines = filt.filter_machines(machines, **filters)
-    cli.show(machines, output)
     if output != lib.OUTPUT_DEFAULT:
         machines = spyctl_machines.machines_output(machines)
     cli.show(
