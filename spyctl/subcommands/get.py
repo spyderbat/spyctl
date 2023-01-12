@@ -43,22 +43,22 @@ def handle_get(resource, name_or_id, st, et, latest, output, **filters):
     if resource == lib.CLUSTERS_RESOURCE:
         lib.add_to_cmd_tree(lib.CLUSTERS_RESOURCE.name)
         handle_get_clusters(output, **filters)
-    if resource == lib.FINGERPRINTS_RESOURCE:
+    elif resource == lib.FINGERPRINTS_RESOURCE:
         lib.add_to_cmd_tree(lib.FINGERPRINTS_RESOURCE.name)
         handle_get_fingerprints(name_or_id, st, et, output, **filters)
-    if resource == lib.MACHINES_RESOURCE:
+    elif resource == lib.MACHINES_RESOURCE:
         lib.add_to_cmd_tree(lib.MACHINES_RESOURCE.name)
         handle_get_machines(output, **filters)
-    if resource == lib.NAMESPACES_RESOURCE:
+    elif resource == lib.NAMESPACES_RESOURCE:
         lib.add_to_cmd_tree(lib.NAMESPACES_RESOURCE.name)
         handle_get_namespaces(name_or_id, st, et, output, **filters)
-    if resource == lib.PODS_RESOURCE:
+    elif resource == lib.PODS_RESOURCE:
         lib.add_to_cmd_tree(lib.PODS_RESOURCE.name)
         handle_get_pods(name_or_id, st, et, output, **filters)
-    if resource == lib.SECRETS_RESOURCE:
+    elif resource == lib.SECRETS_RESOURCE:
         lib.add_to_cmd_tree(lib.SECRETS_RESOURCE.name)
         handle_get_secrets(name_or_id, output)
-    if resource == lib.POLICIES_RESOURCE:
+    elif resource == lib.POLICIES_RESOURCE:
         lib.add_to_cmd_tree(lib.POLICIES_RESOURCE.name)
         handle_get_policies(name_or_id, output, **filters)
     else:
