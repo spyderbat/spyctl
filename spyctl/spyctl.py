@@ -83,7 +83,8 @@ def config(ctx: click.Context):
     "--yes",
     "--assume-yes",
     is_flag=True,
-    help='Automatic yes to prompts; assume "yes" as answer to all prompts and run non-interactively.',
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
 )
 @click.argument("name")
 def delete_context(name, force_global, yes=False):
@@ -100,7 +101,8 @@ def delete_context(name, force_global, yes=False):
     "--yes",
     "--assume-yes",
     is_flag=True,
-    help='Automatic yes to prompts; assume "yes" as answer to all prompts and run non-interactively.',
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
 )
 @click.argument("name", type=s.SecretsParam())
 def delete_apisecret(name, yes=False):
@@ -151,12 +153,14 @@ def get_contexts(force_global, output, name=None):
 
 @config.command("get-apisecrets", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.argument("name", required=False)
+@click.argument("name", required=False, type=s.SecretsParam())
 @click.option(
     "-o",
     "--output",
     default=lib.OUTPUT_DEFAULT,
-    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+    type=click.Choice(
+        lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
+    ),
 )
 def get_api_secrets(output, name=None):
     """Describe one or many apisecrets"""
@@ -382,7 +386,8 @@ def create_policy(filename, output):
     "--yes",
     "--assume-yes",
     is_flag=True,
-    help='Automatic yes to prompts; assume "yes" as answer to all prompts and run non-interactively.',
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
 )
 def delete(resource, name_or_id, yes=False):
     """Delete resources by resource and names, or by resource and ids"""
@@ -493,19 +498,36 @@ def diff(filename, with_file=None, latest=False):
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
 @click.option(
+    "-f",
+    "--filename",
+    help="Input file to create filters from. Used if you want to get resources"
+    " directly related to another resource. E.g. the Fingerprint Groups for a"
+    " given Baseline file.",
+    metavar="",
+    type=click.File(),
+)
+@click.option(
     "-l",
     "--latest",
-    help=f"Filename for resource. If there is a {lib.LATEST_TIMESTAMP_FIELD}"
-    " in the resources metadata field, the start time of the query is set to"
-    " that.",
-    metavar="",
+    help="Starting time of the query is set to the"
+    f" {lib.LATEST_TIMESTAMP_FIELD}"
+    f" field the input resource's {lib.METADATA_FIELD}."
+    " [Requires '--filename' option to be set]",
+    is_flag=True,
+)
+@click.option(
+    "-E",
+    "--exact",
+    "--exact-match",
+    is_flag=True,
+    help="Exact match for name or ID.",
 )
 @click.option(
     "-t",
     "--start-time",
     "st",
-    help="Start time of the query. Default is beginning of time.",
-    default="2h",
+    help="Start time of the query. Default is 24 hours ago.",
+    default="24h",
     type=lib.time_inp,
 )
 @click.option(
@@ -516,12 +538,32 @@ def diff(filename, with_file=None, latest=False):
     default=time.time(),
     type=lib.time_inp,
 )
-def get(resource, st, et, output, name_or_id=None, latest=None, **filters):
+def get(
+    resource,
+    st,
+    et,
+    output,
+    filename=None,
+    exact=False,
+    name_or_id=None,
+    latest=None,
+    **filters,
+):
     """Display one or many resources."""
     filters = {
         key: value for key, value in filters.items() if value is not None
     }
-    g.handle_get(resource, name_or_id, st, et, latest, output, **filters)
+    g.handle_get(
+        resource,
+        name_or_id,
+        st,
+        et,
+        filename,
+        latest,
+        exact,
+        output,
+        **filters,
+    )
 
 
 # ----------------------------------------------------------------- #

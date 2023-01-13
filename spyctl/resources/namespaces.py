@@ -7,7 +7,7 @@ import spyctl.spyctl_lib as lib
 
 def namespace_summary_output(namespaces: List[Dict]) -> str:
     output = ""
-    header = ["NAME"]
+    header = ["NAMESPACE"]
     if len(namespaces) == 1:
         data = [
             [namespace] for namespace in next(iter(namespaces))["namespaces"]
@@ -21,11 +21,11 @@ def namespace_summary_output(namespaces: List[Dict]) -> str:
                 f" - {cluster_group['cluster_uid']}"
             )
             output.append(cluster_key)
-            data = [
-                [namespace]
-                for namespace in next(iter(namespaces))["namespaces"]
-            ]
-            output.append(tabulate(data, header, tablefmt="plain"))
+            data = [[namespace] for namespace in cluster_group["namespaces"]]
+            if len(data) > 0:
+                output.append(tabulate(data, header, tablefmt="plain") + "\n")
+            else:
+                output.append("No Namespace Data\n")
         output = "\n".join(output)
     return output
 

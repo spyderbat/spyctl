@@ -132,6 +132,7 @@ ALLOWED_SEVERITIES = {S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO}
 # Config
 API_KEY_FIELD = "apikey"
 API_URL_FIELD = "apiurl"
+LOCATION_FIELD = "location"
 ORG_FIELD = "organization"
 POD_FIELD = "pod"
 CLUSTER_FIELD = "cluster"
@@ -232,7 +233,7 @@ OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
 OUTPUT_RAW = "raw"
 OUTPUT_WIDE = "wide"
-OUTPUT_CHOICES = (OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT)
+OUTPUT_CHOICES = [OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT]
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"
@@ -623,14 +624,22 @@ def time_inp(time_str: str) -> int:
                 past_seconds = diff.total_seconds()
     except (ValueError, dateparser.ParserError):
         raise ValueError("invalid time input (see documentation)") from None
+    now = time.time()
+    one_day_ago = now - 86400
     if epoch_time is not None:
-        if epoch_time > time.time():
+        if epoch_time > now:
             raise ValueError("time must be in the past")
+        # TODO: Make API calls robust to times older than one day
+        if epoch_time < one_day_ago:
+            epoch_time = one_day_ago
         return epoch_time
     else:
         if past_seconds < 0:
             raise ValueError("time must be in the past")
-        return int(time.time() - past_seconds)
+        # TODO: Make API calls robust to times older than one day
+        if past_seconds > 86400:
+            past_seconds = 86400
+        return int(now - past_seconds)
 
 
 def selectors_to_filters(resource: Dict, **filters) -> Dict:

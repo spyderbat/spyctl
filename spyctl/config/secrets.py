@@ -2,6 +2,7 @@ import os
 import time
 from base64 import b64decode
 from typing import Dict, List, Optional
+from numbers import Real
 
 import click
 import yaml
@@ -47,6 +48,14 @@ class Secret:
         self.name = self.metadata.get(lib.METADATA_NAME_FIELD)
         if not self.name:
             raise InvalidSecretError("Invalid name")
+        self.creation_time = self.metadata.get(lib.METADATA_CREATE_TIME)
+        if self.creation_time is not None and not isinstance(
+            self.creation_time, Real
+        ):
+            raise InvalidSecretError("Invalid creation time")
+        if self.creation_time is None:
+            self.creation_time = time.time()
+            self.metadata[lib.METADATA_CREATE_TIME] = self.creation_time
         self.data = {}
         if lib.DATA_FIELD in secret_data:
             if not isinstance(secret_data[lib.DATA_FIELD], dict):
@@ -63,7 +72,7 @@ class Secret:
             self.string_data = secret_data[lib.STRING_DATA_FIELD]
         self.__validate_apisecret_data()
 
-    def as_dict(self, creation_time=None) -> Dict:
+    def as_dict(self) -> Dict:
         rv = {
             lib.API_FIELD: lib.API_VERSION,
             lib.KIND_FIELD: SECRET_KIND,
@@ -73,14 +82,15 @@ class Secret:
             rv[lib.DATA_FIELD] = self.data
         if len(self.string_data) > 0:
             rv[lib.STRING_DATA_FIELD] = self.string_data
-        if creation_time:
-            rv[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = creation_time
         return rv
 
     def get_credentials(self) -> Dict:
         rv = {}
         rv.update(self.__get_creds())
         return rv
+
+    def validate(self):
+        self.__validate_apisecret_data()
 
     def __get_creds(self) -> Dict:
         if lib.API_KEY_FIELD in self.data:
@@ -147,7 +157,7 @@ def set_secret(name: str, apiurl: str = None, apikey: str = None):
     if name in SECRETS:
         updated = True
         secret = SECRETS[name]
-        if apikey and (
+        if not apikey and (
             not apiurl or apiurl == secret.string_data.get(lib.API_URL_FIELD)
         ):
             cli.try_log("Nothing to update.")
@@ -157,6 +167,10 @@ def set_secret(name: str, apiurl: str = None, apikey: str = None):
                 secret.string_data[lib.API_KEY_FIELD] = apikey
             if apiurl:
                 secret.string_data[lib.API_URL_FIELD] = apiurl
+            try:
+                secret.validate()
+            except InvalidSecretError as e:
+                cli.err_exit(f"Invalid apisecret format. {' '.join(e.args)}")
     else:
         if not apikey:
             cli.err_exit("Missing apikey.")
@@ -181,7 +195,7 @@ def set_secret(name: str, apiurl: str = None, apikey: str = None):
         SECRETS[name] = new_secret
     output_data = []
     for s in SECRETS.values():
-        output_data.append(s.as_dict(int(time.time())))
+        output_data.append(s.as_dict())
     try:
         with cfgs.GLOBAL_SECRETS_PATH.open("w") as f:
             try:
@@ -238,9 +252,16 @@ def handle_get_secrets(name, output):
         secrets = filt.filter_obj(
             secrets, [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}"], name
         )
-    if output != lib.OUTPUT_DEFAULT:
+    if output not in [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE]:
         secrets = secrets_output(secrets)
-    cli.show(secrets, output, {lib.OUTPUT_DEFAULT: secrets_summary_output})
+    cli.show(
+        secrets,
+        output,
+        {
+            lib.OUTPUT_DEFAULT: secrets_summary_output,
+            lib.OUTPUT_WIDE: secrets_wide_output,
+        },
+    )
 
 
 def get_secrets():
@@ -251,10 +272,11 @@ def get_secrets():
 
 
 def secrets_summary_output(secrets: List[Dict]):
-    header = ["NAME", "DATA", "AGE"]
+    header = ["NAME", "AGE"]
     data = []
     for secret in secrets:
         data.append(secret_summary_data(secret))
+    data.sort(key=lambda x: x[0])
     return tabulate(data, header, tablefmt="plain")
 
 
@@ -267,15 +289,43 @@ def secret_summary_data(secret: Dict):
         age = f"{(zulu.now() - creation_zulu).days}d"
     else:
         age = "unknown"
-    data_len = len(secret.get(lib.DATA_FIELD, [])) + len(
-        secret.get(lib.STRING_DATA_FIELD, [])
-    )
     rv = [
         secret[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
-        data_len,
         age,
     ]
     return rv
+
+
+def secrets_wide_output(secrets: List[Dict]) -> str:
+    headers = ["NAME", "AGE", "KEY", "URL"]
+    data = []
+    for secret in secrets:
+        creation_timestamp = secret[lib.METADATA_FIELD].get(
+            lib.METADATA_CREATE_TIME
+        )
+        if creation_timestamp:
+            creation_zulu = zulu.Zulu.fromtimestamp(creation_timestamp)
+            age = f"{(zulu.now() - creation_zulu).days}d"
+        else:
+            age = "unknown"
+        data_field = secret.get(lib.DATA_FIELD)
+        if data_field and lib.API_KEY_FIELD in data_field:
+            api_key = b64decode(data_field[lib.API_KEY_FIELD]).decode("ascii")
+        else:
+            api_key = secret[lib.STRING_DATA_FIELD][lib.API_KEY_FIELD]
+        if data_field and lib.API_URL_FIELD in data_field:
+            api_url = b64decode(data_field[lib.API_URL_FIELD]).decode("ascii")
+        else:
+            api_url = secret[lib.STRING_DATA_FIELD][lib.API_URL_FIELD]
+        datum = [
+            secret[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
+            age,
+            "****" + api_key[-4:],
+            api_url,
+        ]
+        data.append(datum)
+    data.sort(key=lambda x: x[0])
+    return tabulate(data, headers, tablefmt="plain")
 
 
 def secrets_output(secrets: List[Dict]):
@@ -300,7 +350,8 @@ class SecretsParam(click.ParamType):
         secret_names = [
             secret[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
             for secret in secrets
-        ].sort()
+        ]
+        secret_names.sort()
         return [
             CompletionItem(secret_name)
             for secret_name in secret_names

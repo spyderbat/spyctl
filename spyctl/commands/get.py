@@ -1,14 +1,11 @@
 import json
-import time
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import yaml
 
 import spyctl.api as api
 import spyctl.cli as cli
-import spyctl.config.configs as u_conf
 import spyctl.config.configs as cfg
-import spyctl.config.secrets as s
 import spyctl.filter_resource as filt
 import spyctl.resources.clusters as spyctl_clusts
 import spyctl.resources.fingerprints as spyctl_fprints
@@ -19,33 +16,43 @@ import spyctl.resources.policies as spyctl_policies
 import spyctl.spyctl_lib as lib
 
 
-def handle_get(resource, name_or_id, st, et, latest, output, **filters):
-    if latest is not None:
-        try:
-            with open(latest) as f:
-                resrc_data = yaml.load(f, yaml.Loader)
-        except Exception:
-            try:
-                resrc_data = json.load(latest)
-            except Exception:
-                cli.err_exit("Unable to load resource file.")
-        latest_timestamp = resrc_data.get(lib.METADATA_FIELD, {}).get(
-            lib.LATEST_TIMESTAMP_FIELD
+def handle_get(
+    resource, name_or_id, st, et, file, latest, exact, output, **filters
+):
+    if latest and not file:
+        cli.err_exit(
+            "filename must be provided to use '--latest' flag. Spyctl uses the"
+            " input file to generate proper filters and also uses its"
+            f" {lib.LATEST_TIMESTAMP_FIELD} for the starting time of the"
+            " search if applicable."
         )
-        if latest_timestamp is not None:
-            st = lib.time_inp(latest_timestamp)
-        else:
-            cli.try_log(
-                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided resource"
-                " metadata field."
+    if file:
+        resrc_data = lib.load_resource_file(file)
+        if latest:
+            latest_timestamp = resrc_data.get(lib.METADATA_FIELD, {}).get(
+                lib.LATEST_TIMESTAMP_FIELD
             )
+            if not latest_timestamp:
+                cli.err_exit(
+                    f"Resource has no {lib.LATEST_TIMESTAMP_FIELD} field in"
+                    f" its {lib.METADATA_FIELD}"
+                )
+            st = lib.time_inp(latest_timestamp)
         filters = lib.selectors_to_filters(resrc_data)
+        if len(filters) == 0:
+            cli.err_exit(
+                "Unable generate filters from input document. Does it have a"
+                " spec field with selectors?"
+            )
+    if name_or_id and not exact:
+        name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
+        name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
     if resource == lib.CLUSTERS_RESOURCE:
-        handle_get_clusters(output, **filters)
+        handle_get_clusters(name_or_id, output, **filters)
     elif resource == lib.FINGERPRINTS_RESOURCE:
         handle_get_fingerprints(name_or_id, st, et, output, **filters)
     elif resource == lib.MACHINES_RESOURCE:
-        handle_get_machines(output, **filters)
+        handle_get_machines(name_or_id, output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.PODS_RESOURCE:
@@ -56,7 +63,7 @@ def handle_get(resource, name_or_id, st, et, latest, output, **filters):
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
 
-def handle_get_clusters(output: str, **filters: Dict):
+def handle_get_clusters(name_or_id, output: str, **filters: Dict):
     ctx = cfg.get_current_context()
     clusters = api.get_clusters(*ctx.get_api_data(), cli.api_err_exit)
     clusters = filt.filter_clusters(clusters, **filters)
@@ -72,6 +79,10 @@ def handle_get_clusters(output: str, **filters: Dict):
                     "cluster_id": cluster["cluster_details"]["cluster_uid"],
                 },
             }
+        )
+    if name_or_id:
+        output_clusters = filt.filter_obj(
+            output_clusters, ["name", "uid"], name_or_id
         )
     if output != lib.OUTPUT_DEFAULT:
         output_clusters = spyctl_clusts.clusters_output(output_clusters)
@@ -92,6 +103,8 @@ def handle_get_namespaces(name, st, et, output, **filters):
     namespaces = filt.filter_namespaces(
         namespaces, clusters_data=clusters, **filters
     )
+    if name:
+        namespaces = filt.filter_obj(namespaces, ["namespaces"], name)
     if output != lib.OUTPUT_DEFAULT:
         namespaces = spyctl_names.namespaces_output(namespaces)
     cli.show(
@@ -101,10 +114,12 @@ def handle_get_namespaces(name, st, et, output, **filters):
     )
 
 
-def handle_get_machines(output: str, **filters: Dict):
+def handle_get_machines(name_or_id, output: str, **filters: Dict):
     ctx = cfg.get_current_context()
     machines = api.get_machines(*ctx.get_api_data(), cli.api_err_exit)
     machines = filt.filter_machines(machines, **filters)
+    if name_or_id:
+        machines = filt.filter_obj(machines, ["name", "uid"], name_or_id)
     if output != lib.OUTPUT_DEFAULT:
         machines = spyctl_machines.machines_output(machines)
     cli.show(
@@ -147,7 +162,6 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
     fingerprints = filt.filter_fingerprints(fingerprints, **filters)
     fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
     if name_or_id:
-        name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
         cont_fprint_grps, svc_fprint_grps = fprint_groups
         cont_fprint_grps = filt.filter_obj(
             cont_fprint_grps,
