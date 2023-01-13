@@ -12,11 +12,9 @@ from tabulate import tabulate
 import spyctl.cli as cli
 import spyctl.config.configs as cfgs
 import spyctl.spyctl_lib as lib
+import spyctl.filter_resource as filt
 
-SECRET_KIND = "SpyderbatSecret"
-S_TYPE_APICFG = "spyderbat/apicfg"
-S_TYPE_OPAQUE = "Opaque"
-ALLOWED_TYPES = {S_TYPE_APICFG, S_TYPE_OPAQUE}
+SECRET_KIND = "APISecret"
 
 SECRETS: Dict[str, "Secret"] = None
 
@@ -30,7 +28,6 @@ class Secret:
         lib.API_FIELD,
         lib.KIND_FIELD,
         lib.METADATA_FIELD,
-        lib.TYPE_FIELD,
     }
     optional_keys = {lib.DATA_FIELD, lib.STRING_DATA_FIELD}
 
@@ -39,7 +36,7 @@ class Secret:
             raise InvalidSecretError("Secret data is not a dictionary.")
         for key in self.required_keys:
             if key not in secret_data:
-                raise InvalidSecretError(f"Config missing {key} field.")
+                raise InvalidSecretError(f"Secret missing {key} field.")
         if not lib.valid_api_version(secret_data.get(lib.API_FIELD)):
             raise InvalidSecretError("Invalid apiVersion.")
         if not lib.valid_kind(secret_data.get(lib.KIND_FIELD), SECRET_KIND):
@@ -50,9 +47,6 @@ class Secret:
         self.name = self.metadata.get(lib.METADATA_NAME_FIELD)
         if not self.name:
             raise InvalidSecretError("Invalid name")
-        if secret_data[lib.TYPE_FIELD] not in ALLOWED_TYPES:
-            raise InvalidSecretError("Invalid type")
-        self.type = secret_data[lib.TYPE_FIELD]
         self.data = {}
         if lib.DATA_FIELD in secret_data:
             if not isinstance(secret_data[lib.DATA_FIELD], dict):
@@ -67,15 +61,13 @@ class Secret:
                     f"{lib.STRING_DATA_FIELD} is not a dictionary"
                 )
             self.string_data = secret_data[lib.STRING_DATA_FIELD]
-        if self.type == S_TYPE_APICFG:
-            self.__validate_apicfg_type()
+        self.__validate_apisecret_data()
 
     def as_dict(self, creation_time=None) -> Dict:
         rv = {
             lib.API_FIELD: lib.API_VERSION,
             lib.KIND_FIELD: SECRET_KIND,
             lib.METADATA_FIELD: self.metadata,
-            lib.TYPE_FIELD: self.type,
         }
         if len(self.data) > 0:
             rv[lib.DATA_FIELD] = self.data
@@ -87,13 +79,10 @@ class Secret:
 
     def get_credentials(self) -> Dict:
         rv = {}
-        if self.type == S_TYPE_APICFG:
-            rv.update(self.__get_apicfg_creds())
-        elif self.type == S_TYPE_OPAQUE:
-            rv.update(self.__get_opaque_creds())
+        rv.update(self.__get_creds())
         return rv
 
-    def __get_apicfg_creds(self) -> Dict:
+    def __get_creds(self) -> Dict:
         if lib.API_KEY_FIELD in self.data:
             api_key = b64decode(self.data[lib.API_KEY_FIELD]).decode("ascii")
         else:
@@ -105,15 +94,7 @@ class Secret:
         rv = {lib.API_KEY_FIELD: api_key, lib.API_URL_FIELD: api_url}
         return rv
 
-    def __get_opaque_creds(self) -> Dict:
-        rv = {}
-        for key, value in self.string_data.items():
-            rv[key] = value
-        for key, value in self.data.items():
-            rv[key] = b64decode(value).decode("ascii")
-        return rv
-
-    def __validate_apicfg_type(self):
+    def __validate_apisecret_data(self):
         required_keys = [lib.API_KEY_FIELD, lib.API_URL_FIELD]
         for key in required_keys:
             in_data = False
@@ -160,33 +141,44 @@ def load_secrets(silent=False):
                         )
 
 
-def create_secret(
-    name: str, type: str, data: Dict = None, string_data: Dict = None
-):
+def set_secret(name: str, apiurl: str = None, apikey: str = None):
     global SECRETS
+    updated = False
     if name in SECRETS:
-        cli.try_log(
-            f"Unable to create secret. A secret with name '{name}"
-            " already exits."
-        )
-        return
-    new_secret = {
-        lib.API_FIELD: lib.API_VERSION,
-        lib.KIND_FIELD: SECRET_KIND,
-        lib.METADATA_FIELD: {lib.METADATA_NAME_FIELD: name},
-        lib.TYPE_FIELD: type,
-        lib.DATA_FIELD: {},
-        lib.STRING_DATA_FIELD: {},
-    }
-    if data is not None:
-        new_secret[lib.DATA_FIELD] = data
-    if string_data is not None:
-        new_secret[lib.STRING_DATA_FIELD] = string_data
-    try:
-        new_secret = Secret(new_secret)
-    except InvalidSecretError as e:
-        cli.err_exit(f"Invalid secret format. {' '.join(e.args)}")
-    SECRETS[name] = new_secret
+        updated = True
+        secret = SECRETS[name]
+        if apikey and (
+            not apiurl or apiurl == secret.string_data.get(lib.API_URL_FIELD)
+        ):
+            cli.try_log("Nothing to update.")
+            return
+        else:
+            if apikey:
+                secret.string_data[lib.API_KEY_FIELD] = apikey
+            if apiurl:
+                secret.string_data[lib.API_URL_FIELD] = apiurl
+    else:
+        if not apikey:
+            cli.err_exit("Missing apikey.")
+        new_secret = {
+            lib.API_FIELD: lib.API_VERSION,
+            lib.KIND_FIELD: SECRET_KIND,
+            lib.METADATA_FIELD: {lib.METADATA_NAME_FIELD: name},
+            lib.DATA_FIELD: {},
+            lib.STRING_DATA_FIELD: {},
+        }
+        url = apiurl if apiurl else lib.DEFAULT_API_URL
+        if not url:
+            cli.err_exit("Invalid apiurl")
+        new_secret[lib.STRING_DATA_FIELD] = {
+            lib.API_KEY_FIELD: apikey,
+            lib.API_URL_FIELD: url,
+        }
+        try:
+            new_secret = Secret(new_secret)
+        except InvalidSecretError as e:
+            cli.err_exit(f"Invalid apisecret format. {' '.join(e.args)}")
+        SECRETS[name] = new_secret
     output_data = []
     for s in SECRETS.values():
         output_data.append(s.as_dict(int(time.time())))
@@ -194,38 +186,16 @@ def create_secret(
         with cfgs.GLOBAL_SECRETS_PATH.open("w") as f:
             try:
                 yaml.dump(output_data, f, sort_keys=False)
-                cli.try_log(
-                    "Created new secret"
-                    f" '{name}' in {str(cfgs.GLOBAL_SECRETS_PATH)}"
-                )
-            except yaml.YAMLError:
-                cli.err_exit("Unable to write secrets to file, yaml error.")
-    except Exception:
-        cli.err_exit("Unable to write secrets to file. Check permissions.")
-
-
-def apply_secret(secret_data: Dict):
-    global SECRETS
-    try:
-        secret = Secret(secret_data)
-    except InvalidSecretError as e:
-        cli.err_exit(f"Invalid secret format. {' '.join(e.args)}")
-    if secret.name in SECRETS:
-        updated = True
-    else:
-        updated = False
-    SECRETS[secret.name] = secret
-    output_data = []
-    for s in SECRETS.values():
-        output_data.append(s.as_dict())
-    try:
-        with cfgs.GLOBAL_SECRETS_PATH.open("w") as f:
-            try:
-                yaml.dump(output_data, f, sort_keys=False)
-                cli.try_log(
-                    f"{'Updated' if updated else 'Created new'} secret"
-                    f" '{secret.name}' in {str(cfgs.GLOBAL_SECRETS_PATH)}"
-                )
+                if updated:
+                    cli.try_log(
+                        "Updated apisecret"
+                        f" '{name}' in {str(cfgs.GLOBAL_SECRETS_PATH)}"
+                    )
+                else:
+                    cli.try_log(
+                        "Created new apisecret"
+                        f" '{name}' in {str(cfgs.GLOBAL_SECRETS_PATH)}"
+                    )
             except yaml.YAMLError:
                 cli.err_exit("Unable to write secrets to file, yaml error.")
     except Exception:
@@ -262,6 +232,17 @@ def delete_secret(secret_name: Dict):
         cli.err_exit("Unable to write to secrets file. Check permissions.")
 
 
+def handle_get_secrets(name, output):
+    secrets = get_secrets()
+    if name:
+        secrets = filt.filter_obj(
+            secrets, [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}"], name
+        )
+    if output != lib.OUTPUT_DEFAULT:
+        secrets = secrets_output(secrets)
+    cli.show(secrets, output, {lib.OUTPUT_DEFAULT: secrets_summary_output})
+
+
 def get_secrets():
     rv = []
     for secret in SECRETS.values():
@@ -270,7 +251,7 @@ def get_secrets():
 
 
 def secrets_summary_output(secrets: List[Dict]):
-    header = ["NAME", "TYPE", "DATA", "AGE"]
+    header = ["NAME", "DATA", "AGE"]
     data = []
     for secret in secrets:
         data.append(secret_summary_data(secret))
@@ -283,7 +264,7 @@ def secret_summary_data(secret: Dict):
     )
     if creation_timestamp:
         creation_zulu = zulu.Zulu.fromtimestamp(creation_timestamp)
-        age = (f"{(zulu.now() - creation_zulu).days}d",)
+        age = f"{(zulu.now() - creation_zulu).days}d"
     else:
         age = "unknown"
     data_len = len(secret.get(lib.DATA_FIELD, [])) + len(
@@ -291,7 +272,6 @@ def secret_summary_data(secret: Dict):
     )
     rv = [
         secret[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
-        secret[lib.TYPE_FIELD],
         data_len,
         age,
     ]

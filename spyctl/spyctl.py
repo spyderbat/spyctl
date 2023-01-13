@@ -18,7 +18,6 @@ from spyctl.subcommands.delete import handle_delete
 MAIN_EPILOG = (
     'Use "spyctl <command> --help" for more information about a given command'
 )
-DEFAULT_API_URL = "https://api.spyderbat.com"
 DEFAULT_START_TIME = 1614811600
 
 # ----------------------------------------------------------------- #
@@ -28,14 +27,13 @@ DEFAULT_START_TIME = 1614811600
 
 @click.group(cls=lib.CustomGroup, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.version_option()
+@click.version_option(None, "-v", "--version", prog_name="Spyctl", hidden=True)
 @click.pass_context
 def main(ctx: click.Context):
     """spyctl displays and controls resources within your Spyderbat
     environment
     """
     cfgs.load_config()
-    lib.add_to_cmd_tree(lib.APP_NAME)
 
 
 # ----------------------------------------------------------------- #
@@ -67,7 +65,6 @@ def apply(filename):
 @click.pass_context
 def config(ctx: click.Context):
     """Modify spyctl config files."""
-    lib.add_to_cmd_tree(ctx.command.name)
 
 
 @config.command("delete-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -84,6 +81,14 @@ def config(ctx: click.Context):
 def delete_context(name, force_global):
     """Delete the specified context from a spyctl configuration file."""
     cfgs.delete_context(name, force_global)
+
+
+@config.command("delete-apisecret", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("name", type=s.SecretsParam())
+def delete_apisecret(name):
+    """Delete the specified context from a spyctl configuration file."""
+    s.delete_secret(name)
 
 
 @config.command("current-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -122,8 +127,21 @@ def current_context(force_global):
 )
 def get_contexts(force_global, output, name=None):
     """Describe one or many contexts"""
-    lib.add_to_cmd_tree(click.get_current_context().command.name)
     cfgs.get_contexts(name, force_global, output)
+
+
+@config.command("get-apisecrets", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("name", required=False)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def get_api_secrets(output, name=None):
+    """Describe one or many apisecrets"""
+    s.handle_get_secrets(name, output)
 
 
 @config.command("set-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -195,11 +213,39 @@ def get_contexts(force_global, output, name=None):
 @click.option("-C", "--cgroup", help="Linux service cgroup.", metavar="")
 @click.argument("name")
 def set_context(name, secret, force_global, use_ctx, **context):
-    """Set a context entry in a spyctl configuration file."""
+    """Set a context entry in a spyctl configuration file, or update an
+    existing one.
+    """
     context = {
         key: value for key, value in context.items() if value is not None
     }
     cfgs.set_context(name, secret, force_global, use_ctx, **context)
+
+
+@config.command("set-apisecret", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("name", required=False)
+@click.option(
+    "-k",
+    "--apikey",
+    "--api-key",
+    "api_key",
+    help="API key generated via the Spyderbat UI",
+    metavar="",
+)
+@click.option(
+    "-u",
+    "--apiurl",
+    "--api-url",
+    "api_url",
+    help=f"URL target for api queries. Default: {lib.DEFAULT_API_URL}",
+    metavar="",
+)
+def set_apisecrets(api_key=None, api_url=None, name=None):
+    """
+    Set a new entry in the spyctl secrets file, or update an existing one.
+    """
+    s.set_secret(name, api_url, api_key)
 
 
 @config.command("use-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -301,68 +347,6 @@ def create_baseline(filename, output):
 def create_policy(filename, output):
     """Create a Policy object from a file, outputted to stdout"""
     c.handle_create_policy(filename, output)
-
-
-@create.group("secret", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
-@click.help_option("-h", "--help", hidden=True)
-def create_secret():
-    """Create a Secret object from the command line."""
-    pass
-
-
-@create_secret.command("apicfg", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-@click.help_option("-h", "--help", hidden=True)
-@click.option(
-    "-k",
-    "--apikey",
-    "--api-key",
-    "api_key",
-    help="API key generated via the Spyderbat UI, base64 encoded."
-    " Use 'echo -n <apikey> | base64 -w 1000'",
-    metavar="",
-)
-@click.option(
-    "-u",
-    "--apiurl",
-    "--api-url",
-    "api_url",
-    help=f"URL target for api queries. Default: {DEFAULT_API_URL}",
-    default=DEFAULT_API_URL,
-    metavar="",
-)
-@click.argument("name")
-def create_apicfg_secret(name, api_key, api_url):
-    """Create an apicfg secret. spyctl requires an api secret be applied to a
-    context in order to run successful api queries.
-    """
-    s.create_secret(
-        name,
-        s.S_TYPE_APICFG,
-        data={lib.API_KEY_FIELD: api_key},
-        string_data={lib.API_URL_FIELD: api_url},
-    )
-
-
-@create_secret.command("opaque", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-@click.help_option("-h", "--help", hidden=True)
-@click.option(
-    "--data",
-    help="Key/value pairs, base64 encoded.",
-    metavar="",
-)
-@click.option(
-    "--string-data",
-    "string_data",
-    help="Key/value pairs, plain text.",
-    default=DEFAULT_API_URL,
-    metavar="",
-)
-@click.argument("name")
-def create_opaque_secret(name, data=None, string_data=None):
-    """Create an opaque secret. May contain an arbitrary amount of base64
-    encoded data and plaintext string data.
-    """
-    s.create_secret(name, s.S_TYPE_OPAQUE, data, string_data)
 
 
 # ----------------------------------------------------------------- #
@@ -509,7 +493,6 @@ def get(resource, st, et, output, name_or_id=None, latest=None, **filters):
     filters = {
         key: value for key, value in filters.items() if value is not None
     }
-    lib.add_to_cmd_tree(click.get_current_context().command.name)
     g.handle_get(resource, name_or_id, st, et, latest, output, **filters)
 
 

@@ -26,7 +26,6 @@ class Aliases:
         return __o in self.aliases
 
 
-CLICK_COMMAND = []
 APP_NAME = "spyctl"
 
 # Resource Aliases
@@ -38,7 +37,6 @@ MACHINES_RESOURCE = Aliases(
     ["machines", "mach", "machs", "machine", "node", "nodes"]
 )
 PODS_RESOURCE = Aliases(["pods", "pod"])
-SECRETS_RESOURCE = Aliases(["secrets", "secret"])
 FINGERPRINTS_RESOURCE = Aliases(
     [
         "fingerprints",
@@ -97,6 +95,7 @@ POD_FIELD = "pod"
 CLUSTER_FIELD = "cluster"
 NAMESPACE_FIELD = "namespace"
 MACHINES_FIELD = "machines"
+DEFAULT_API_URL = "https://api.spyderbat.com"
 
 # Response Actions
 ACTION_KILL_POD = "kill-pod"
@@ -191,7 +190,7 @@ OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
 OUTPUT_RAW = "raw"
 OUTPUT_WIDE = "wide"
-OUTPUT_CHOICES = (OUTPUT_YAML, OUTPUT_JSON, OUTPUT_WIDE, OUTPUT_DEFAULT)
+OUTPUT_CHOICES = (OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT)
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"
@@ -366,7 +365,7 @@ class CustomGroup(click.Group):
         formatter.write_paragraph()
         formatter.write_text("Usage:")
         formatter.indent()
-        formatter.write_text("spyctl [flags] [options]")
+        formatter.write_text("spyctl [command] [options]")
         formatter.dedent()
 
     def format_epilog(
@@ -663,12 +662,3 @@ def dictionary_mod(fn) -> Dict:
 
 def _to_timestamp(zulu_str):
     return zulu.Zulu.parse(zulu_str).timestamp()
-
-
-def add_to_cmd_tree(command_name: str):
-    global CLICK_COMMAND
-    CLICK_COMMAND.append(command_name)
-
-
-def get_click_command() -> str:
-    return " ".join(CLICK_COMMAND)

@@ -31,11 +31,6 @@ Machines
 Namespaces
 ==========
 
-.. _Secrets:
-
-Secrets
-=======
-
 .. _Pods:
 
 Pods

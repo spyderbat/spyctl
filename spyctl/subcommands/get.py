@@ -41,39 +41,19 @@ def handle_get(resource, name_or_id, st, et, latest, output, **filters):
             )
         filters = lib.selectors_to_filters(resrc_data)
     if resource == lib.CLUSTERS_RESOURCE:
-        lib.add_to_cmd_tree(lib.CLUSTERS_RESOURCE.name)
         handle_get_clusters(output, **filters)
     elif resource == lib.FINGERPRINTS_RESOURCE:
-        lib.add_to_cmd_tree(lib.FINGERPRINTS_RESOURCE.name)
         handle_get_fingerprints(name_or_id, st, et, output, **filters)
     elif resource == lib.MACHINES_RESOURCE:
-        lib.add_to_cmd_tree(lib.MACHINES_RESOURCE.name)
         handle_get_machines(output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
-        lib.add_to_cmd_tree(lib.NAMESPACES_RESOURCE.name)
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.PODS_RESOURCE:
-        lib.add_to_cmd_tree(lib.PODS_RESOURCE.name)
         handle_get_pods(name_or_id, st, et, output, **filters)
-    elif resource == lib.SECRETS_RESOURCE:
-        lib.add_to_cmd_tree(lib.SECRETS_RESOURCE.name)
-        handle_get_secrets(name_or_id, output)
     elif resource == lib.POLICIES_RESOURCE:
-        lib.add_to_cmd_tree(lib.POLICIES_RESOURCE.name)
         handle_get_policies(name_or_id, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
-
-
-def handle_get_secrets(name, output):
-    secrets = s.get_secrets()
-    if name:
-        secrets = filt.filter_obj(
-            secrets, [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}"], name
-        )
-    if output != lib.OUTPUT_DEFAULT:
-        secrets = s.secrets_output(secrets)
-    cli.show(secrets, output, {lib.OUTPUT_DEFAULT: s.secrets_summary_output})
 
 
 def handle_get_clusters(output: str, **filters: Dict):
