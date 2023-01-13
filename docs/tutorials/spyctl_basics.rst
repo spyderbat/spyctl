@@ -102,7 +102,7 @@ You should see something like this:
       secret: my_secret
       context:
         organization: John's Org
-    current-context: staging_context
+    current-context: my_context
 
 .. note::
     The global configuration file is located at *$HOME/.spyctl/config*

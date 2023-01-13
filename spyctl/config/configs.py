@@ -438,6 +438,12 @@ def set_context(
                         f"Updated current context to '{name}' in"
                         f" configuration file '{local_config.config_path}'."
                     )
+        if name != local_config.current_context:
+            cli.try_log(
+                "NOTICE: The context you just set is not your current context."
+                f" Use 'spyctl config use-context {name}' to set it as your"
+                " current context."
+            )
     except Exception as e:
         cli.err_exit(f"Unable to set context. {' '.join(e.args)}")
 
