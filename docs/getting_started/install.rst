@@ -12,14 +12,14 @@ Prerequisites
 
 * Python 3.7 or newer
 
-$ python -m pip install spyctl
+$ pip install spyctl
 ==============================
 
 To install Spyctl, simply run this command in your terminal of choice
 
 .. code-block:: console
 
-    $ python -m pip install spyctl
+    $ pip install spyctl
 
 To verify the installation:
 

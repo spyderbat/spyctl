@@ -22,6 +22,10 @@ def pods_output_summary(pods: List[Dict]) -> str:
     ]
     clusters: Dict[str, List] = {}  # cluster_uid -> list of pods
     for pod in pods:
+        cluster_name = pod.get("cluster_name")
+        if not cluster_name:
+            print(pod)
+            continue
         cluster_key = f"{pod['cluster_name']} - {pod['cluster_uid']}"
         clusters.setdefault(cluster_key, [])
         clusters[cluster_key].append(pod)
@@ -60,7 +64,6 @@ def pods_output_summary(pods: List[Dict]) -> str:
                 + "\n"
             )
         output = "\n".join(output)
-        zulu.Zulu.timestamp()
     return output + "\n"
 
 

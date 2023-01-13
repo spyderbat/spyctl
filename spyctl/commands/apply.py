@@ -12,9 +12,7 @@ import spyctl.cli as cli
 def handle_apply(filename):
     resrc_data = lib.load_resource_file(filename)
     kind = resrc_data.get(lib.KIND_FIELD)
-    if kind == secrets.SECRET_KIND:
-        secrets.apply_secret(resrc_data)
-    elif kind == lib.POL_KIND:
+    if kind == lib.POL_KIND:
         handle_apply_policy(resrc_data)
     else:
         cli.err_exit(f"The 'apply' command is not supported for {kind}")

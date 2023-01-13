@@ -25,57 +25,39 @@ Initial Configuration
 
 In this section you will learn how to configure Spyctl to enable data retrieval
 from across your entire organization. To do so, you must first
-create a |secret| and then use that |secret| to set a |context|. A Secret
-encapsulates your Spyderbat API credentials; the Context specifies which subset
-of Spyderbat resources to use (e.g., an organization, cluster, service, or image).
+create an |secret| and then use that |secret| to set a |context|. An |secret|
+encapsulates your Spyderbat API credentials; the |context| specifies where
+Spyctl should look for data when interacting with the |api|
+(e.g., organization, cluster, machine, service, or container image).
 
 .. _create_a_secret:
 
-Create a Secret
+Create an APISecret
 ---------------
 
-A Secret encapsulates your Spyderbat API credentials.  You must create at least one |secret|
+An |secret| encapsulates your Spyderbat API credentials.  You must create at least one |secret|
 in order for Spyctl to access your data via theSpyderbat API.
 
-To create a secret, follow these steps: 
-
-1. Base64 encode the api key you generated from the |console|:
+To create an |secret|, use an api key generated from the |console|:
 
 .. code-block:: console
 
-    $ echo -n <apikey> | base64 -w 1000
-
-2. Use the base64 encoded key to create a |secret|:
-
-.. code-block:: console
-
-    $ spyctl create secret apicfg -k <base64 encoded apikey> NAME
+    $ spyctl config set-apisecret -k <apikey> -u "https://api.spyderbat.com" NAME
 
 For example:
 
 .. code-block:: console
 
-    $ echo -n eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE3M\
-    DQ5OTc5MjAsImlhdCI6MTY3MzQ2MTkxOSwiaXNzIjoia2FuZ2Fyb29iYXQubmV0Iiwic3ViIjoi\
-    cHhWb0p2UExIWjBHcUIwdW13S0EifQ.djqZDB93nRpxEAtQN2CFk9NsnT9gd-7KXOO5LFAd-FI \
-    | base64 -w 1000
-
-    ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTmlJaXdpZEhsd0lqb2lTbGRVSW4wLmV5Smx
-    lSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM016UTJNVGt4T1N3aWFYTnpJam9pYTJGdV
-    oyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhXYjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZ
-    lEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2QtN0tYT081TEZBZC1GSQ==
-
-.. code-block:: console
-
-    $ spyctl create secret apicfg -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTm\
+    $ spyctl config set-apisecret -k ZXlKaGJHY2lPaUpJVXpJMU5pSXNJbXRwWkNJNkluTm\
     lJaXdpZEhsd0lqb2lTbGRVSW4wLmV5SmxlSEFpT2pFM01EUTVPVGM1TWpBc0ltbGhkQ0k2TVRZM\
     016UTJNVGt4T1N3aWFYTnpJam9pYTJGdVoyRnliMjlpWVhRdWJtVjBJaXdpYzNWaUlqb2ljSGhX\
     YjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2Q\
-    tN0tYT081TEZBZC1GSQ== my_secret
+    tN0tYT081TEZBZC1GSQ== -u "https://api.spyderbat.com" my_secret
 
-    Created new secret 'my_secret' in /home/demouser/.spyctl/.secrets/secrets
+    Set new apisecret 'my_secret' in '/home/demouser/.spyctl/.secrets/secrets'
 
-**Spyctl saves secrets in** *$HOME/.spyctl/.secrets/secrets*
+.. note:: 
+    Spyctl saves |secrets| in *$HOME/.spyctl/.secrets/secrets*
 
 .. _set_a_context:
 
@@ -84,17 +66,24 @@ Set a Context
 
 |contexts| will let Spyctl know where to look for data. The broadest possible |context|
 is organization-wide. This means that when you run Spyctl commands, the Spyderbat API
-will return results relevant to your entire organization.
+will return results relevant to your entire organization. 
+
+.. note::
+    For the ``--org`` field in the following command you may supply the name of your
+    organization which can be found in the top right of the |console|
+    or the organization UID which can be found in your web browser's url when logged into the
+    |console|: https://app.spyderbat.com/app/org/UID/dashboard.
 
 .. code-block:: console
 
-    $ spyctl config set-context --org <ORG NAME> --secret <SECRET NAME> NAME
+    $ spyctl config set-context --org <ORG NAME or UID> --secret <SECRET NAME> NAME
 
 For example:
 
 .. code-block:: console
 
-    $ spyctl config set-context --org "John's Org" --secret staging_secret staging_context
+    $ spyctl config set-context --org "John's Org" --secret my_secret my_context
+    Set new context 'my_context' in configuration file '/home/demouser/.spyctl/config'.
 
 You can view your configuration by issuing the following command:
 
@@ -109,13 +98,14 @@ You should see something like this:
     apiVersion: spyderbat/v1
     kind: Config
     contexts:
-    - name: staging_context
-      secret: staging_secret
+    - name: my_context
+      secret: my_secret
       context:
         organization: John's Org
-    current-context: staging_context
+    current-context: my_context
 
-**The global configuration file located at** *$HOME/.spyctl/config*
+.. note::
+    The global configuration file is located at *$HOME/.spyctl/config*
 
 .. note::
     It is possible to create more specific contexts, such as a group of machines
@@ -494,7 +484,8 @@ What's Next
 .. |policy| replace:: :ref:`Policy<Policies>`
 .. |resource| replace:: :ref:`Resource<Resources>`
 .. |resources| replace:: :ref:`Resources<Resources>`
-.. |secret| replace:: :ref:`Secret<Secrets>`
+.. |secret| replace:: :ref:`APISecret<Secrets>`
+.. |secrets| replace:: :ref:`APISecrets<Secrets>`
 
 .. |s_na| replace:: :ref:`Spyderbat Nano Agent<Nano_Agent>`
 .. |s_baselines| replace:: :ref:`Spyderbat Baselines<Baselines>`

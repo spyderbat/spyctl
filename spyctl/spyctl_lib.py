@@ -1,5 +1,6 @@
 import copy
 import inspect
+import io
 import json
 import os
 import sys
@@ -9,12 +10,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple, Union
 from uuid import uuid4
-import io
 
 import click
 import dateutil.parser as dateparser
 import yaml
 import zulu
+from click.shell_completion import (
+    CompletionItem,
+    BashComplete,
+    add_completion_class,
+)
 
 
 class Aliases:
@@ -26,7 +31,6 @@ class Aliases:
         return __o in self.aliases
 
 
-CLICK_COMMAND = []
 APP_NAME = "spyctl"
 
 # Resource Aliases
@@ -38,7 +42,6 @@ MACHINES_RESOURCE = Aliases(
     ["machines", "mach", "machs", "machine", "node", "nodes"]
 )
 PODS_RESOURCE = Aliases(["pods", "pod"])
-SECRETS_RESOURCE = Aliases(["secrets", "secret"])
 FINGERPRINTS_RESOURCE = Aliases(
     [
         "fingerprints",
@@ -52,17 +55,54 @@ FINGERPRINTS_RESOURCE = Aliases(
 )
 POLICIES_RESOURCE = Aliases(
     [
+        "policies",
         "spyderbat-policy",
         "spyderbat-policies",
         "spy-pol",
         "spol",
         "sp",
-        "policies",
         "policy",
         "pol",
         "p",
     ]
 )
+
+DEL_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
+GET_RESOURCES: List[str] = [
+    CLUSTERS_RESOURCE.name,
+    FINGERPRINTS_RESOURCE.name,
+    MACHINES_RESOURCE.name,
+    NAMESPACES_RESOURCE.name,
+    PODS_RESOURCE.name,
+    POLICIES_RESOURCE.name,
+]
+
+
+class DelResourcesParam(click.ParamType):
+    name = "del_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in DEL_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class GetResourcesParam(click.ParamType):
+    name = "get_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in GET_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
 
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
@@ -92,11 +132,13 @@ ALLOWED_SEVERITIES = {S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO}
 # Config
 API_KEY_FIELD = "apikey"
 API_URL_FIELD = "apiurl"
+LOCATION_FIELD = "location"
 ORG_FIELD = "organization"
 POD_FIELD = "pod"
 CLUSTER_FIELD = "cluster"
 NAMESPACE_FIELD = "namespace"
 MACHINES_FIELD = "machines"
+DEFAULT_API_URL = "https://api.spyderbat.com"
 
 # Response Actions
 ACTION_KILL_POD = "kill-pod"
@@ -191,7 +233,7 @@ OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
 OUTPUT_RAW = "raw"
 OUTPUT_WIDE = "wide"
-OUTPUT_CHOICES = (OUTPUT_YAML, OUTPUT_JSON, OUTPUT_WIDE, OUTPUT_DEFAULT)
+OUTPUT_CHOICES = [OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT]
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"
@@ -366,7 +408,7 @@ class CustomGroup(click.Group):
         formatter.write_paragraph()
         formatter.write_text("Usage:")
         formatter.indent()
-        formatter.write_text("spyctl [flags] [options]")
+        formatter.write_text("spyctl [command] [options]")
         formatter.dedent()
 
     def format_epilog(
@@ -582,14 +624,22 @@ def time_inp(time_str: str) -> int:
                 past_seconds = diff.total_seconds()
     except (ValueError, dateparser.ParserError):
         raise ValueError("invalid time input (see documentation)") from None
+    now = time.time()
+    one_day_ago = now - 86400
     if epoch_time is not None:
-        if epoch_time > time.time():
+        if epoch_time > now:
             raise ValueError("time must be in the past")
+        # TODO: Make API calls robust to times older than one day
+        if epoch_time < one_day_ago:
+            epoch_time = one_day_ago
         return epoch_time
     else:
         if past_seconds < 0:
             raise ValueError("time must be in the past")
-        return int(time.time() - past_seconds)
+        # TODO: Make API calls robust to times older than one day
+        if past_seconds > 86400:
+            past_seconds = 86400
+        return int(now - past_seconds)
 
 
 def selectors_to_filters(resource: Dict, **filters) -> Dict:
@@ -663,12 +713,3 @@ def dictionary_mod(fn) -> Dict:
 
 def _to_timestamp(zulu_str):
     return zulu.Zulu.parse(zulu_str).timestamp()
-
-
-def add_to_cmd_tree(command_name: str):
-    global CLICK_COMMAND
-    CLICK_COMMAND.append(command_name)
-
-
-def get_click_command() -> str:
-    return " ".join(CLICK_COMMAND)

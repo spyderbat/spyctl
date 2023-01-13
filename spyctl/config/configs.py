@@ -1,16 +1,17 @@
 import os
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, Iterable
-
-import yaml
-from tabulate import tabulate
 from copy import deepcopy
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Tuple, Union
+
+import click
+import yaml
+from click.shell_completion import CompletionItem
+from tabulate import tabulate
 
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
-import click
 
 APP_NAME = "spyctl"
 APP_DIR = f".{APP_NAME}"
@@ -241,7 +242,7 @@ class Config:
         return rv
 
 
-def load_config():
+def load_config(silent=False):
     """Loads spyctl configurations from disk starting with the current
     directory and ending with the global config. If no configuration
     file exists, the program exits.
@@ -271,19 +272,19 @@ def load_config():
                 configs.append(cfg)
                 LOADED_CONFIGS[str(config_path)] = deepcopy(cfg_cpy)
             except InvalidConfigDataError as e:
-                if str(config_path) not in seen:
+                if str(config_path) not in seen and not silent:
                     cli.try_log(
                         f"Config at {str(config_path)} is invalid."
                         f" {' '.join(e.args)}"
                     )
             except InvalidContextDataError as e:
-                if str(config_path) not in seen:
+                if str(config_path) not in seen and not silent:
                     cli.try_log(
                         f"Config at {str(config_path)} has an invalid context."
                         f" {' '.join(e.args)}"
                     )
             seen.add(str(config_path))
-        if len(configs) == 0:
+        if len(configs) == 0 and not silent:
             cli.try_log(
                 "No valid configurations."
                 " Clear or fix any invalid configuration files."
@@ -358,9 +359,20 @@ def init():
     else:
         perform_init = True
     if perform_init:
+        global_config = LOADED_CONFIGS.get(str(GLOBAL_CONFIG_PATH))
+        global_current_ctx = None
+        if (
+            global_config
+            and global_config.current_context
+            and global_config.current_context != CURR_CONTEXT_NONE
+        ):
+            global_current_ctx = global_config.current_context
         LOCAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with LOCAL_CONFIG_PATH.open("w") as f:
-            yaml.dump(CONFIG_TEMPLATE, f)
+            config_template = deepcopy(CONFIG_TEMPLATE)
+            if global_current_ctx:
+                config_template[CURR_CONTEXT_FIELD] = global_current_ctx
+            yaml.dump(config_template, f)
         cli.try_log(
             f"{'Reset' if reset else 'Created'} configuration file at"
             f" {str(LOCAL_CONFIG_PATH)}."
@@ -438,6 +450,12 @@ def set_context(
                         f"Updated current context to '{name}' in"
                         f" configuration file '{local_config.config_path}'."
                     )
+        if name != local_config.current_context:
+            cli.try_log(
+                "NOTICE: The context you just set is not your current context."
+                f" Use 'spyctl config use-context {name}' to set it as your"
+                " current context."
+            )
     except Exception as e:
         cli.err_exit(f"Unable to set context. {' '.join(e.args)}")
 
@@ -498,6 +516,14 @@ def delete_context(name, force_global):
         cli.err_exit(f"Unable to delete context. {' '.join(e.args)}")
 
 
+def current_config():
+    global LOADED_CONFIGS
+    config = get_loaded_config()
+    if config is None:
+        return
+    cli.try_print(config.config_path)
+
+
 def current_context(force_global):
     global LOADED_CONFIGS
     config = get_loaded_config()
@@ -520,19 +546,7 @@ def current_context(force_global):
                 " and set one."
             )
     else:
-        headers = ["Context Name", "Configuration File", "Context Location"]
-        ctx_loc = str(config.context_paths.get(config.current_context))
-        if ctx_loc == "None":
-            ctx_loc = "Missing"
-        curr_path = str(config.config_path)
-        data = [
-            [
-                config.current_context,
-                curr_path,
-                "Same as Config File" if ctx_loc == curr_path else ctx_loc,
-            ]
-        ]
-        print(tabulate(data, headers, tablefmt="plain"))
+        cli.try_print(config.current_context)
 
 
 def use_context(name, force_global):
@@ -572,7 +586,13 @@ def get_contexts(name, force_global, output):
         config = LOADED_CONFIGS[str(GLOBAL_CONFIG_PATH)].as_dict()
     else:
         config = get_loaded_config()
-    contexts = [ctx.as_dict() for ctx in config.contexts.values()]
+    # contexts = [ctx.as_dict() for ctx in config.contexts.values()]
+    contexts = []
+    for context in config.contexts.values():
+        ctx_dict = context.as_dict()
+        ctx_dict[lib.LOCATION_FIELD] = config.context_paths.get(
+            context.name, "Unknown"
+        )
     if name:
         contexts = filter(lambda x: x[lib.NAME_FIELD] == name, contexts)
     cli.show(
@@ -607,7 +627,7 @@ def context_summary_output(contexts_tup: Tuple[List[Dict], str]) -> str:
 
 def context_wide_output(contexts_tup: Tuple[List[Dict], str]) -> str:
     contexts, current = contexts_tup
-    headers = ["CURRENT", "NAME", "ORGANIZATION", "FILTERS"]
+    headers = ["CURRENT", "NAME", "ORGANIZATION", "LOCATION", "FILTERS"]
     data = []
     for context in contexts:
         name = context[lib.NAME_FIELD]
@@ -619,6 +639,7 @@ def context_wide_output(contexts_tup: Tuple[List[Dict], str]) -> str:
                 "*" if name == current else "",
                 name,
                 org,
+                context[lib.LOCATION_FIELD],
                 "\n".join(
                     [f"{key}: {value}" for key, value in filters.items()]
                 ),
@@ -654,3 +675,23 @@ def validate_org(org, api_url, api_key) -> Optional[str]:
                     cli.err_exit("invalid organization")
                 return uid
     return None
+
+
+class ContextsParam(click.ParamType):
+    name = "contexts_param"
+
+    def shell_complete(self, ctx, param, incomplete):
+        load_config(silent=True)
+        config = get_loaded_config()
+        if config:
+            context_names = [
+                context.name for context in config.contexts.values()
+            ]
+            context_names.sort()
+            return [
+                CompletionItem(context_name)
+                for context_name in context_names
+                if context_name.startswith(incomplete)
+            ]
+        else:
+            return []

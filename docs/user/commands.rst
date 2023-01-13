@@ -1,7 +1,7 @@
-.. _Subcommands:
+.. _Commands:
 
 ===========
-Subcommands
+Commands
 ===========
 
 apply

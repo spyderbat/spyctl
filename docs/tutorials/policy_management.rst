@@ -243,8 +243,7 @@ To apply a |policy| you must use the ``apply`` command:
     $ spyctl apply -f FILENAME
 
 The apply command will recognize the ``kind`` of the file, perform validation, and attempt
-to apply the resource to either your Spyctl Environment (for |secrets|) via the local
-file system or to the Spyderbat Environment for the organization in your current |context|
+to apply the resource to the Spyderbat Environment for the organization in your current |context|
 (for |policies|) via the |api|.
 
 For example, to apply the |policy| we created above:
@@ -455,8 +454,8 @@ What's Next
 .. |resource| replace:: :ref:`Resource<Resources>`
 .. |resources| replace:: :ref:`Resources<Resources>`
 .. |responses| replace:: :ref:`Response Actions<Response_Actions>`
-.. |secret| replace:: :ref:`Secret<Secrets>`
-.. |secrets| replace:: :ref:`Secret<Secrets>`
+.. |secret| replace:: :ref:`APISecret<Secrets>`
+.. |secrets| replace:: :ref:`APISecrets<Secrets>`
 
 .. |s_na| replace:: :ref:`Spyderbat Nano Agent<Nano_Agent>`
 .. |s_baselines| replace:: :ref:`Spyderbat Baselines<Baselines>`

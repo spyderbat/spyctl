@@ -2,6 +2,7 @@ import json
 import sys
 import time
 from typing import Callable, Dict, List, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 import tqdm
@@ -30,8 +31,7 @@ def get(url, key, params=None):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
     if r.status_code != 200:
-        print(r.headers.get("X-Context-Uid"))
-        raise RuntimeError(r.status_code, r.reason, r.text)
+        cli.err_exit(f"Error: {r.status_code}, {r.reason}")
     return r
 
 
@@ -180,9 +180,7 @@ def get_clusters(api_url, api_key, org_uid, err_fn):
     return clusters
 
 
-def get_k8s_data(
-    api_url, api_key, org_uid, clus_uid, err_fn, schema_key, time
-):
+def get_k8s_data(api_url, api_key, org_uid, clus_uid, schema_key, time):
     url = f"{api_url}/api/v1/org/{org_uid}/data/"
     url += f"?src={clus_uid}&st={time[0]}&et={time[1]}&dt=k8s"
     resp = get(url, api_key)
@@ -196,7 +194,7 @@ def get_clust_muids(api_url, api_key, org_uid, clus_uid, time, err_fn):
     names = []
     muids = []
     for data in get_k8s_data(
-        api_url, api_key, org_uid, clus_uid, err_fn, "node", time
+        api_url, api_key, org_uid, clus_uid, "node", time
     ):
         if "muid" not in data:
             err_fn("Data was not present in records", "try again soon?")
@@ -206,45 +204,47 @@ def get_clust_muids(api_url, api_key, org_uid, clus_uid, time, err_fn):
     return names, muids
 
 
-def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time, err_fn):
+def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
     ns = set()
     for data in get_k8s_data(
-        api_url, api_key, org_uid, clus_uid, err_fn, "cluster", time
+        api_url, api_key, org_uid, clus_uid, "cluster", time
     ):
         data_ns = data.get("namespaces", set())
         ns.update(data_ns)
-    return sorted(ns)
+    return (sorted(ns), clus_uid)
 
 
 def get_namespaces(api_url, api_key, org_uid, clusters, time, err_fn):
     namespaces = []
     pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
-    for cluster in clusters:
-        try:
+    threads = []
+    uid_to_name_map = {}
+    with ThreadPoolExecutor() as executor:
+        for cluster in clusters:
             if "/" in cluster["uid"]:
                 continue
-            ns_list = get_clust_namespaces(
-                api_url,
-                api_key,
-                org_uid,
-                cluster["uid"],
-                time,
-                err_fn,
+            uid_to_name_map[cluster["uid"]] = cluster["name"]
+            threads.append(
+                executor.submit(
+                    get_clust_namespaces,
+                    api_url,
+                    api_key,
+                    org_uid,
+                    cluster["uid"],
+                    time,
+                )
             )
+        for task in as_completed(threads):
+            pbar.update(1)
+            ns_list, uid = task.result()
+            cluster_name = uid_to_name_map[uid]
             namespaces.append(
                 {
-                    "cluster_name": cluster["name"],
-                    "cluster_uid": cluster["uid"],
+                    "cluster_name": cluster_name,
+                    "cluster_uid": uid,
                     "namespaces": ns_list,
                 }
             )
-        except RuntimeError as err:
-            pbar.close()
-            err_fn(
-                *err.args,
-                f"Unable to get namespaces for cluster '{cluster['uid']}'",
-            )
-        pbar.update(1)
     pbar.close()
     return namespaces
 
@@ -252,29 +252,35 @@ def get_namespaces(api_url, api_key, org_uid, clusters, time, err_fn):
 def get_pods(api_url, api_key, org_uid, clusters, time, err_fn) -> List[Dict]:
     pods = []
     pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
-    for cluster in clusters:
-        try:
-            pods.extend(
-                get_clust_pods(
-                    api_url, api_key, org_uid, cluster["uid"], time, err_fn
+    threads = []
+    with ThreadPoolExecutor() as executor:
+        for cluster in clusters:
+            threads.append(
+                executor.submit(
+                    get_clust_pods,
+                    api_url,
+                    api_key,
+                    org_uid,
+                    cluster["uid"],
+                    time,
                 )
             )
-        except RuntimeError as err:
-            pbar.close()
-            err_fn(
-                *err.args,
-                f"Unable to get pods from cluster '{cluster['uid']}'",
+        for task in as_completed(threads):
+            pbar.update(1)
+            pods.extend(
+                filter(
+                    lambda rec: lib.KIND_FIELD in rec
+                    and rec[lib.KIND_FIELD] == "Pod",
+                    task.result(),
+                )
             )
-        pbar.update(1)
     pbar.close()
     return pods
 
 
-def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
+def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
     pods = {}
-    for data in get_k8s_data(
-        api_url, api_key, org_uid, clus_uid, err_fn, "pod", time
-    ):
+    for data in get_k8s_data(api_url, api_key, org_uid, clus_uid, "pod", time):
         pod_id = data["id"]
         if pod_id not in pods:
             pods[pod_id] = data
@@ -286,13 +292,17 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time, err_fn):
 def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
     fingerprints = []
     pbar = tqdm.tqdm(total=len(muids), leave=False, file=sys.stderr)
-    for i, muid in enumerate(muids):
-        url = (
-            f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&"
-            f"st={time[0]}&et={time[1]}&dt=fingerprints"
-        )
-        try:
-            resp = get(url, api_key)
+    threads = []
+    with ThreadPoolExecutor() as executor:
+        for muid in muids:
+            url = (
+                f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&"
+                f"st={time[0]}&et={time[1]}&dt=fingerprints"
+            )
+            threads.append(executor.submit(get, url, api_key))
+        for task in as_completed(threads):
+            pbar.update(1)
+            resp = task.result()
             for fprint_json in resp.iter_lines():
                 fprint = json.loads(fprint_json)
                 try:
@@ -304,11 +314,6 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
                     continue
                 if "metadata" in fprint:
                     fingerprints.append(fprint)
-        except RuntimeError as err:
-            pbar.close()
-            err_fn(*err.args, f"Unable to get fingerprints from {muid}")
-            continue
-        pbar.update(1)
     pbar.close()
     return fingerprints
 

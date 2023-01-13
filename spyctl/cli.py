@@ -50,6 +50,14 @@ def unsupported_output_msg(output: str, command: str = None) -> str:
     return f"--output {output} is not supported for {command}."
 
 
+YES_OPTION = False
+
+
+def set_yes_option():
+    global YES_OPTION
+    YES_OPTION = True
+
+
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
@@ -71,6 +79,8 @@ def query_yes_no(question, default="yes"):
         raise ValueError("invalid default answer: '%s'" % default)
 
     while True:
+        if YES_OPTION:
+            return True
         sys.stdout.write(question + prompt)
         choice = input().lower()
         if default is not None and choice == "":
