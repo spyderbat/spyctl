@@ -54,7 +54,7 @@ For example:
     YjBwMlVFeElXakJIY1VJd2RXMTNTMEVpZlEuZGpxWkRCOTNuUnB4RUF0UU4yQ0ZrOU5zblQ5Z2Q\
     tN0tYT081TEZBZC1GSQ== -u "https://api.spyderbat.com" my_secret
 
-    Created new apisecret 'my_secret' in '/home/demouser/.spyctl/.secrets/secrets'
+    Set new apisecret 'my_secret' in '/home/demouser/.spyctl/.secrets/secrets'
 
 .. note:: 
     Spyctl saves |secrets| in *$HOME/.spyctl/.secrets/secrets*

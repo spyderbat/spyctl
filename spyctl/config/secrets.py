@@ -193,7 +193,7 @@ def set_secret(name: str, apiurl: str = None, apikey: str = None):
                     )
                 else:
                     cli.try_log(
-                        "Created new apisecret"
+                        "Set new apisecret"
                         f" '{name}' in {str(cfgs.GLOBAL_SECRETS_PATH)}"
                     )
             except yaml.YAMLError:
