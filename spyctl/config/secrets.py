@@ -300,7 +300,7 @@ class SecretsParam(click.ParamType):
         secret_names = [
             secret[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
             for secret in secrets
-        ]
+        ].sort()
         return [
             CompletionItem(secret_name)
             for secret_name in secret_names

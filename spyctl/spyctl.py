@@ -8,12 +8,13 @@ import click
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
-import spyctl.subcommands.get as g
-import spyctl.subcommands.create as c
-import spyctl.subcommands.merge as m
-import spyctl.subcommands.diff as d
-from spyctl.subcommands.apply import handle_apply
-from spyctl.subcommands.delete import handle_delete
+import spyctl.commands.get as g
+import spyctl.commands.create as c
+import spyctl.commands.merge as m
+import spyctl.commands.diff as d
+import spyctl.cli as cli
+from spyctl.commands.apply import handle_apply
+from spyctl.commands.delete import handle_delete
 
 MAIN_EPILOG = (
     'Use "spyctl <command> --help" for more information about a given command'
@@ -77,17 +78,35 @@ def config(ctx: click.Context):
     help="When operating within a spyctl workspace, this forces a change to"
     " the global spyctl config.",
 )
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and run non-interactively.',
+)
 @click.argument("name")
-def delete_context(name, force_global):
+def delete_context(name, force_global, yes=False):
     """Delete the specified context from a spyctl configuration file."""
+    if yes:
+        cli.set_yes_option()
     cfgs.delete_context(name, force_global)
 
 
 @config.command("delete-apisecret", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and run non-interactively.',
+)
 @click.argument("name", type=s.SecretsParam())
-def delete_apisecret(name):
+def delete_apisecret(name, yes=False):
     """Delete the specified context from a spyctl configuration file."""
+    if yes:
+        cli.set_yes_option()
     s.delete_secret(name)
 
 
@@ -108,7 +127,7 @@ def current_context(force_global):
 
 @config.command("get-contexts", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.argument("name", required=False)
+@click.argument("name", required=False, type=cfgs.ContextsParam())
 @click.option(
     "-o",
     "--output",
@@ -258,7 +277,7 @@ def set_apisecrets(api_key=None, api_url=None, name=None):
     help="When operating within a spyctl workspace, this forces a change to"
     " the global spyctl config.",
 )
-@click.argument("name")
+@click.argument("name", type=cfgs.ContextsParam())
 def use_context(name, force_global):
     """Set the current-context in a spyctl configuration file."""
     cfgs.use_context(name, force_global)
@@ -356,10 +375,19 @@ def create_policy(filename, output):
 
 @main.command("delete", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.argument("resource")
+@click.argument("resource", type=lib.DelResourcesParam())
 @click.argument("name_or_id")
-def delete(resource, name_or_id):
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and run non-interactively.',
+)
+def delete(resource, name_or_id, yes=False):
     """Delete resources by resource and names, or by resource and ids"""
+    if yes:
+        cli.set_yes_option()
     handle_delete(resource, name_or_id)
 
 
@@ -404,7 +432,7 @@ def diff(filename, with_file=None, latest=False):
 
 @main.group("get", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.argument("resource")
+@click.argument("resource", type=lib.GetResourcesParam())
 @click.argument("name_or_id", required=False)
 @click.option(
     "--image",

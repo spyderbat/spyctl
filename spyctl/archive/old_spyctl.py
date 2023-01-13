@@ -2,16 +2,16 @@
 
 from spyctl.args import get_names, parse_args
 from spyctl.cli import *
-from spyctl.subcommands.create import handle_create_policy
-from spyctl.subcommands.diff import show_fingerprint_diff
+from spyctl.commands.create import handle_create_policy
+from spyctl.commands.diff import show_fingerprint_diff
 from spyctl.resources.fingerprints import InvalidFingerprintError
-from spyctl.subcommands.get import *
-from spyctl.subcommands.merge import MergeDumper, merge_fingerprints
+from spyctl.commands.get import *
+from spyctl.commands.merge import MergeDumper, merge_fingerprints
 from spyctl.resources.policies import PolicyTypeError
 import spyctl.subcommands.manage as manage
 import spyctl.config.configs as u_conf
 import spyctl.subcommands.upload as upload
-import spyctl.subcommands.delete as d
+import spyctl.commands.delete as d
 
 
 def main():

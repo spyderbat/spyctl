@@ -49,7 +49,7 @@ Reference
    user/configuration
    user/resources
    user/spyderbat_concepts
-   user/subcommands
+   user/commands
 
 Indices and Tables
 -------------------

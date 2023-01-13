@@ -1,16 +1,17 @@
 import os
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, Iterable
-
-import yaml
-from tabulate import tabulate
 from copy import deepcopy
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Tuple, Union
+
+import click
+import yaml
+from click.shell_completion import CompletionItem
+from tabulate import tabulate
 
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
-import click
 
 APP_NAME = "spyctl"
 APP_DIR = f".{APP_NAME}"
@@ -241,7 +242,7 @@ class Config:
         return rv
 
 
-def load_config():
+def load_config(silent=False):
     """Loads spyctl configurations from disk starting with the current
     directory and ending with the global config. If no configuration
     file exists, the program exits.
@@ -271,19 +272,19 @@ def load_config():
                 configs.append(cfg)
                 LOADED_CONFIGS[str(config_path)] = deepcopy(cfg_cpy)
             except InvalidConfigDataError as e:
-                if str(config_path) not in seen:
+                if str(config_path) not in seen and not silent:
                     cli.try_log(
                         f"Config at {str(config_path)} is invalid."
                         f" {' '.join(e.args)}"
                     )
             except InvalidContextDataError as e:
-                if str(config_path) not in seen:
+                if str(config_path) not in seen and not silent:
                     cli.try_log(
                         f"Config at {str(config_path)} has an invalid context."
                         f" {' '.join(e.args)}"
                     )
             seen.add(str(config_path))
-        if len(configs) == 0:
+        if len(configs) == 0 and not silent:
             cli.try_log(
                 "No valid configurations."
                 " Clear or fix any invalid configuration files."
@@ -660,3 +661,22 @@ def validate_org(org, api_url, api_key) -> Optional[str]:
                     cli.err_exit("invalid organization")
                 return uid
     return None
+
+
+class ContextsParam(click.ParamType):
+    name = "contexts_param"
+
+    def shell_complete(self, ctx, param, incomplete):
+        load_config(silent=True)
+        config = get_loaded_config()
+        if config:
+            context_names = [
+                context.name for context in config.contexts.values()
+            ].sort()
+            return [
+                CompletionItem(context_name)
+                for context_name in context_names
+                if context_name.startswith(incomplete)
+            ]
+        else:
+            return []
