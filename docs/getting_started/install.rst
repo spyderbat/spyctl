@@ -38,7 +38,7 @@ To enable shell completion, follow these steps:
 
         .. note::
             The default version of Bash for Mac OS X users does not support programmable shell completion.
-            Guides like `this <https://kizu514.com/blog/install-upgraded-gnu-bash-on-a-macbook-pro/>` will help
+            Guides like `this <https://kizu514.com/blog/install-upgraded-gnu-bash-on-a-macbook-pro/>`_ will help
             you install a newer version of Bash.
 
         Create the Spyctl directory if you haven't already.
