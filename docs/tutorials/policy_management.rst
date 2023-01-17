@@ -426,7 +426,7 @@ For example:
 What's Next
 ===========
 
-* :ref:`Subcommands<Subcommands>`
+* :ref:`Subcommands<Commands>`
 * :ref:`Spyderbat Concepts<Spyderbat_Concepts>`
 
 .. |api| replace:: :ref:`Spyderbat API<Spyderbat_API>`

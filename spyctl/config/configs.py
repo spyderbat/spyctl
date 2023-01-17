@@ -593,6 +593,7 @@ def get_contexts(name, force_global, output):
         ctx_dict[lib.LOCATION_FIELD] = config.context_paths.get(
             context.name, "Unknown"
         )
+        contexts.append(ctx_dict)
     if name:
         contexts = filter(lambda x: x[lib.NAME_FIELD] == name, contexts)
     cli.show(

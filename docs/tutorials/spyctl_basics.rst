@@ -33,7 +33,7 @@ Spyctl should look for data when interacting with the |api|
 .. _create_a_secret:
 
 Create an APISecret
----------------
+-------------------
 
 An |secret| encapsulates your Spyderbat API credentials.  You must create at least one |secret|
 in order for Spyctl to access your data via theSpyderbat API.

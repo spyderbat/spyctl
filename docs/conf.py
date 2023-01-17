@@ -10,7 +10,7 @@ project = "Spyctl"
 copyright = "2023, SPYDERBAT, Inc., All Rights Reserved"
 author = "Spyderbat"
 release = "0.9"
-version = "0.9.2"
+version = "0.9.3"
 
 
 # -- General configuration ---------------------------------------------------
@@ -23,6 +23,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
+    "sphinx_tabs.tabs",
 ]
 
 templates_path = ["_templates"]
