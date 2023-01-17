@@ -30,32 +30,64 @@ To verify the installation:
 Enabling Shell Completion
 =========================
 
-.. note:: 
-    Spyctl currently supports shell completion for ``Bash``
-
 To enable shell completion, follow these steps:
 
-1. Create the Spyctl directory if you haven't already
+.. tabs::
 
-.. code-block:: console
+    .. group-tab:: Bash
 
-    $ mkdir -p ~/.spyctl
+        .. note::
+            The default version of Bash for Mac OS X users does not support programmable shell completion.
+            Guides like `this <https://kizu514.com/blog/install-upgraded-gnu-bash-on-a-macbook-pro/>` will help
+            you install a newer version of Bash.
 
-2. generate the shell completion script
+        Create the Spyctl directory if you haven't already.
 
-.. code-block:: console
+        .. code-block:: bash
 
-    $ _SPYCTL_COMPLETE=bash_source spyctl > ~/.spyctl/.spyctl-complete.bash
+            $ mkdir -p ~/.spyctl
 
-3. Add the following line to ~/.bashrc
+        Generate the shell completion script.
 
-.. code-block:: none
+        .. code-block:: bash
 
-    . ~/.spyctl/.spyctl-complete.bash
+            $ _SPYCTL_COMPLETE=bash_source spyctl > ~/.spyctl/.spyctl-complete.bash
 
-.. code-block:: console
+        Source the file in ``~/.bashrc``. Add the following line to the end of ``~/.bashrc``.
 
-    $ vim ~/.bashrc
+        .. code-block:: console
+
+            . ~/.spyctl/spyctl-complete.bash
+    
+    .. cgroup-tab:: Fish
+        
+        Generate and save the shell completion script.
+
+        .. code-block:: fish
+
+            $ _SPYCTL_COMPLETE=fish_source spyctl > ~/.config/fish/completions/spyctl-complete.fish
+    
+    .. group-tab:: Zsh
+
+        Create the Spyctl directory if you haven't already.
+        
+        .. code-block:: zsh
+            
+            $ mkdir -p ~/.spyctl
+
+        Generate the shell completion script.
+
+        .. code-block:: zsh
+
+            $ _SPYCTL_COMPLETE=zsh_source spyctl > ~/.spyctl/spyctl-complete.zsh
+
+        Source the file in ``~/.zshrc``. Add the following line to the end of ``~/.zshrc``.
+
+        .. code-block:: console
+
+            . ~/.spyctl/spyctl-complete.zsh
+
+After modifying the shell config, you need to start a new shell in order for the changes to be loaded.
 
 What's Next
 -----------

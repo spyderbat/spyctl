@@ -23,6 +23,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
+    "sphinx_tabs.tabs",
 ]
 
 templates_path = ["_templates"]

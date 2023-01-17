@@ -1446,7 +1446,7 @@ def dict_diffs(
     for field in fields:
         if field in original_data and field in other_data:
             if not isinstance(original_data[field], type(other_data[field])):
-                print("Field type mismatch")
+                cli.try_log("Field type mismatch")
                 continue
             indexes = find_obj_indexes(
                 yaml_lines,
