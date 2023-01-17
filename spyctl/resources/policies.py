@@ -33,6 +33,7 @@ POLICY_META_MERGE_SCHEMA = m_lib.MergeSchema(
         lib.METADATA_NAME_FIELD: m_lib.keep_base_value_merge,
         lib.METADATA_TYPE_FIELD: m_lib.all_eq_merge,
         lib.METADATA_UID_FIELD: m_lib.keep_base_value_merge,
+        lib.METADATA_CREATE_TIME: m_lib.keep_base_value_merge,
         lib.LATEST_TIMESTAMP_FIELD: m_lib.greatest_value_merge,
     },
 )
@@ -169,14 +170,14 @@ def merge_policy(
     with_obj_kind = (
         with_obj.get(lib.KIND_FIELD) if isinstance(with_obj, dict) else None
     )
-    base_merge_obj = m_lib.MergeObject(policy, POLICY_MERGE_SCHEMAS, policy)
+    pol_merge_obj = m_lib.MergeObject(policy, POLICY_MERGE_SCHEMAS, Policy)
     if with_obj_kind == GROUP_KIND:
         fingerprints = with_obj.get(lib.DATA_FIELD, {}).get(
             spyctl_fprints.FINGERPRINTS_FIELD, []
         )
         for fprint in fingerprints:
-            base_merge_obj.asymmetric_merge(fprint)
-        if not base_merge_obj.is_valid_obj():
+            pol_merge_obj.asymmetric_merge(fprint)
+        if not pol_merge_obj.is_valid_obj():
             cli.try_log("Merge was unable to create a valid policy")
     elif with_obj_kind == BASELINE_KIND:
         try:
@@ -189,8 +190,8 @@ def merge_policy(
                 "Invalid baseline object as 'with object' input."
                 f" {' '.join(e.args)}"
             )
-        base_merge_obj.asymmetric_merge(with_obj)
-        if not base_merge_obj.is_valid_obj():
+        pol_merge_obj.asymmetric_merge(with_obj)
+        if not pol_merge_obj.is_valid_obj():
             cli.try_log("Merge was unable to create a valid policy")
     elif with_obj == POLICY_KIND:
         try:
@@ -200,8 +201,8 @@ def merge_policy(
                 "Invalid policy object as 'with object' input."
                 f" {' '.join(e.args)}"
             )
-        base_merge_obj.asymmetric_merge(with_obj)
-        if not base_merge_obj.is_valid_obj():
+        pol_merge_obj.asymmetric_merge(with_obj)
+        if not pol_merge_obj.is_valid_obj():
             cli.try_log("Merge was unable to create a valid policy")
     elif latest:
         latest_timestamp = policy.get(lib.METADATA_FIELD, {}).get(
@@ -228,15 +229,15 @@ def merge_policy(
         )
         fingerprints = filt.filter_fingerprints(fingerprints, **filters)
         for fingerprint in fingerprints:
-            base_merge_obj.asymmetric_merge(fingerprint)
-        if not base_merge_obj.is_valid_obj():
+            pol_merge_obj.asymmetric_merge(fingerprint)
+        if not pol_merge_obj.is_valid_obj():
             cli.try_log("Merge was unable to create a valid policy")
     else:
         cli.try_log(
             f"Merging policy with {with_obj_kind} is not yet supported."
         )
         return
-    return base_merge_obj
+    return pol_merge_obj
 
 
 def diff_policy(policy: Dict, with_obj: Dict, latest):

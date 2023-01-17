@@ -31,7 +31,13 @@ def get(url, key, params=None):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
     if r.status_code != 200:
-        cli.err_exit(f"Error: {r.status_code}, {r.reason}")
+        if "x-context-uid" in r.headers:
+            context_uid = r.headers["x-context-uid"]
+        else:
+            context_uid = "No context uid found."
+        cli.err_exit(
+            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
+        )
     return r
 
 
