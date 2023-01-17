@@ -59,11 +59,11 @@ To enable shell completion, follow these steps:
 
             . ~/.spyctl/spyctl-complete.bash
     
-    .. cgroup-tab:: Fish
+    .. group-tab:: Fish
         
         Generate and save the shell completion script.
 
-        .. code-block:: bash
+        .. code-block:: fish
 
             $ _SPYCTL_COMPLETE=fish_source spyctl > ~/.config/fish/completions/spyctl-complete.fish
     
