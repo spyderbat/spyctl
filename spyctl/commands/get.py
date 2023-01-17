@@ -197,7 +197,6 @@ def handle_get_policies(name_or_id, output, **filters):
     policies = api.get_policies(*ctx.get_api_data(), cli.api_err_exit)
     policies = filt.filter_policies(policies, **filters)
     if name_or_id:
-        name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
         policies = filt.filter_obj(
             policies,
             [

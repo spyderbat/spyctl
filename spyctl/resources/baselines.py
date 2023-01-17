@@ -140,7 +140,7 @@ def merge_baseline(
             )
         base_merge_obj.asymmetric_merge(with_obj)
         if not base_merge_obj.is_valid_obj():
-            cli.try_log("Merge was unable to create a valid policy")
+            cli.try_log("Merge was unable to create a valid baseline")
     elif with_obj == POLICY_KIND:
         try:
             _ = spyctl_policies.Policy(with_obj)
@@ -151,7 +151,7 @@ def merge_baseline(
             )
         base_merge_obj.asymmetric_merge(with_obj)
         if not base_merge_obj.is_valid_obj():
-            cli.try_log("Merge was unable to create a valid policy")
+            cli.try_log("Merge was unable to create a valid baseline")
     elif latest:
         latest_timestamp = baseline.get(lib.METADATA_FIELD, {}).get(
             lib.LATEST_TIMESTAMP_FIELD
