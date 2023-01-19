@@ -1,0 +1,166 @@
+apiVersion: spyderbat/v1
+kind: FingerprintGroup
+metadata:
+  image: spyderbat-test
+  imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
+  firstTimestamp: 1672330210.4683619
+  latestTimestamp: 1672339696.3252509
+data:
+  fingerprints:
+  - apiVersion: spyderbat/v1
+    kind: SpyderbatFingerprint
+    metadata:
+      name: spyderbat-test
+      type: container
+      org_uid: spydertest
+      muid: mach:testest
+      containerID: d8428b7830268591745355345320717c3e5fd87655a408f8a57d9d9560ead5d4
+      containerName: /test-8665ffd6c6-ms84z_rsvp-svc-prod_f54013c2-290a-4d7d-b511-3bafaab187ce_0
+      firstTimestamp: 1672331416.5760026
+      latestTimestamp: 1672333396.3253918
+      pod-uid: pod:PMx9HGEG_ZE:Rbol2X7IXs
+      namespace: test
+      cluster-uid: clus:PMx9HGEG_ZE
+    spec:
+      containerSelector:
+        image: spyderbat-test
+        imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
+      podSelector:
+        matchLabels:
+          app: test
+          env: prod
+          name: test-web
+          pod-template-hash: 8665ffd6c6
+          tier: frontend
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: test
+      processPolicy:
+      - name: python
+        exe:
+        - /usr/local/bin/python3.7
+        id: python_0
+        euser:
+        - root
+        children:
+        - name: sh
+          exe:
+          - /bin/dash
+          id: sh_0
+          children:
+          - name: uname
+            exe:
+            - /bin/uname
+            id: uname_0
+      networkPolicy:
+        ingress:
+        - from:
+          - ipBlock:
+              cidr: 192.168.6.11/32
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 22
+        egress:
+        - to:
+          - dnsSelector:
+            - mongodb.local
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 27017
+        - to:
+          - ipBlock:
+              cidr: 192.168.5.10/32
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 443
+  - apiVersion: spyderbat/v1
+    kind: SpyderbatFingerprint
+    metadata:
+      name: spyderbat-test
+      type: container
+      org_uid: spydertest
+      muid: mach:testest
+      containerID: d8428b7830268591745355345320717c3e5fd87655a408f8a57d9d9560ead5d4
+      containerName: /test-8665ffd6c6-ms84z_rsvp-svc-prod_f54013c2-290a-4d7d-b511-3bafaab187ce_0
+      firstTimestamp: 1672331416.5760026
+      latestTimestamp: 1672333396.3253918
+      pod-uid: pod:PMx9HGEG_ZE:Rbol2X7IXs
+      namespace: test
+      cluster-uid: clus:PMx9HGEG_ZE
+    spec:
+      containerSelector:
+        image: spyderbat-test
+        imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
+      podSelector:
+        matchLabels:
+          app: test
+          env: prod
+          name: test-web
+          pod-template-hash: 8665ffd6c6
+          tier: frontend
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: test
+      processPolicy:
+      - name: sh
+        exe:
+        - /bin/dash
+        id: sh_0
+        euser:
+        - root
+        children:
+        - name: python
+          exe:
+          - /usr/local/bin/python3.7
+          id: python_0
+          euser:
+          - web-svc
+          children:
+          - name: sh
+            exe:
+            - /bin/dash
+            id: sh_1
+            children:
+            - name: uname
+              exe:
+              - /bin/uname
+              id: uname_0
+      networkPolicy:
+        ingress:
+        - from:
+          - ipBlock:
+              cidr: 192.168.6.11/32
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 22
+        egress:
+        - to:
+          - dnsSelector:
+            - mongodb.local
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 27017
+        - to:
+          - ipBlock:
+              cidr: 192.168.5.10/32
+          - ipBlock:
+              cidr: 192.168.5.11/32
+          - ipBlock:
+              cidr: 192.168.5.12/32
+          - ipBlock:
+              cidr: 192.168.5.13/32
+          processes:
+          - python_0
+          ports:
+          - protocol: TCP
+            port: 443

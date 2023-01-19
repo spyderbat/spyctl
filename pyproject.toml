@@ -19,20 +19,20 @@ maintainers = [
   {name="Brent Haub", email="dev@spyderbat.com"}
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
 ]
 dependencies = [
-    "python-dateutil >= 2.8",
-    "requests >= 2.28",
-    "pyyaml >= 6.0",
-    "zulu >= 2.0",
-    "typing_extensions >= 4.0",
-    "click >= 8.1",
-    "tabulate >= 0.9",
-    "tqdm >= 4.0",
+  "python-dateutil >= 2.8",
+  "requests >= 2.28",
+  "pyyaml >= 6.0",
+  "zulu >= 2.0",
+  "typing_extensions >= 4.0",
+  "click >= 8.1",
+  "tabulate >= 0.9",
+  "tqdm >= 4.0",
 ]
 
 [project.urls]
@@ -43,3 +43,10 @@ dependencies = [
 
 [project.scripts]
 spyctl = "spyctl.spyctl:main"
+
+[tool.pytest.ini_options]
+env = [
+  "API_KEY=eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE2OTQwMTcyMDYsImlhdCI6MTY2MjQ4MTIwNywiaXNzIjoia2FuZ2Fyb29iYXQubmV0Iiwic3ViIjoiWElZWmJSTTAyVkpWS1p3c2RUUGYifQ.f1LaBMBLoujnPng7vA82S39ibB7JBUKVdrvlgZ54bb8",
+  "API_URL=https://api.kangaroobat.net",
+  "ORG=spyderbatuid"
+]

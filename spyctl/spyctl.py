@@ -17,8 +17,11 @@ from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 
 MAIN_EPILOG = (
-    'Use "spyctl <command> --help" for more information about a given command'
+    'Use "spyctl <command> --help" for more information about a given '
+    "command\n"
+    'Use "spyctl --version" for version information'
 )
+
 DEFAULT_START_TIME = 1614811600
 
 # ----------------------------------------------------------------- #
@@ -86,7 +89,7 @@ def config(ctx: click.Context):
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
-@click.argument("name")
+@click.argument("name", type=cfgs.ContextsParam())
 def delete_context(name, force_global, yes=False):
     """Delete the specified context from a spyctl configuration file."""
     if yes:
@@ -143,12 +146,24 @@ def current_context(force_global):
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this displays only"
+    " contexts within the global spyctl configuration file.",
 )
-def get_contexts(force_global, output, name=None):
+@click.option(
+    "-w",
+    "--workspace",
+    "force_workspace",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this displays only"
+    " contexts within the workspace configuration file.",
+)
+def get_contexts(force_global, force_workspace, output, name=None):
     """Describe one or many contexts"""
-    cfgs.get_contexts(name, force_global, output)
+    if force_global and force_workspace:
+        cli.try_log(
+            "Both global and workspace flags set; defaulting to global"
+        )
+    cfgs.get_contexts(name, force_global, force_workspace, output)
 
 
 @config.command("get-apisecrets", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -165,6 +180,23 @@ def get_contexts(force_global, output, name=None):
 def get_api_secrets(output, name=None):
     """Describe one or many apisecrets"""
     s.handle_get_secrets(name, output)
+
+
+@config.command("init-workspace", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+@click.help_option("-h", "--help", hidden=True)
+def init(yes=False):
+    """Initialize a workspace"""
+    if yes:
+        cli.set_yes_option()
+    cfgs.init()
 
 
 @config.command("set-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
@@ -294,16 +326,16 @@ def use_context(name, force_global):
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this displays"
+    " the global spyctl configuration file.",
 )
 @click.option(
     "-w",
     "--workspace",
     "force_workspace",
     is_flag=True,
-    help="View merged configuration file. Supply a flag to view global"
-    " configuration file or local workspace configuration file.",
+    help="When operating within a spyctl workspace, this displays"
+    " only the workspace configuration file.",
 )
 @click.option(
     "-o",
@@ -312,7 +344,15 @@ def use_context(name, force_global):
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
 def view(force_global, force_workspace, output):
-    """View the current spyctl configuration file(s)."""
+    """View the current spyctl configuration file. If operating
+    within a workspace the default behavior displays a merged
+    configuration including contexts from the global config and any
+    other workspace configuration files from cwd to root.
+    """
+    if force_global and force_workspace:
+        cli.try_log(
+            "Both global and workspace flags set; defaulting to global"
+        )
     cfgs.view_config(force_global, force_workspace, output)
 
 
@@ -564,18 +604,6 @@ def get(
         output,
         **filters,
     )
-
-
-# ----------------------------------------------------------------- #
-#                         Init Subcommand                           #
-# ----------------------------------------------------------------- #
-
-
-@main.command("init", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-@click.help_option("-h", "--help", hidden=True)
-def init():
-    """Initialize a workspace"""
-    cfgs.init()
 
 
 # ----------------------------------------------------------------- #

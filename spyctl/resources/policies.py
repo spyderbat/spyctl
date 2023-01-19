@@ -218,14 +218,13 @@ def merge_policy(
         et = time.time()
         filters = lib.selectors_to_filters(policy)
         ctx = cfgs.get_current_context()
-        machines = api.get_machines(*ctx.get_api_data(), cli.api_err_exit)
+        machines = api.get_machines(*ctx.get_api_data())
         machines = filt.filter_machines(machines, filters)
         muids = [m["uid"] for m in machines]
         fingerprints = api.get_fingerprints(
             *ctx.get_api_data(),
             muids=muids,
             time=(st, et),
-            err_fn=cli.api_err_exit,
         )
         fingerprints = filt.filter_fingerprints(fingerprints, **filters)
         for fingerprint in fingerprints:

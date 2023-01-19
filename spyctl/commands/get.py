@@ -65,7 +65,7 @@ def handle_get(
 
 def handle_get_clusters(name_or_id, output: str, **filters: Dict):
     ctx = cfg.get_current_context()
-    clusters = api.get_clusters(*ctx.get_api_data(), cli.api_err_exit)
+    clusters = api.get_clusters(*ctx.get_api_data())
     clusters = filt.filter_clusters(clusters, **filters)
     output_clusters = []
     for cluster in clusters:
@@ -95,11 +95,9 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
 
 def handle_get_namespaces(name, st, et, output, **filters):
     ctx = cfg.get_current_context()
-    clusters = api.get_clusters(*ctx.get_api_data(), cli.api_err_exit)
+    clusters = api.get_clusters(*ctx.get_api_data())
     clusters = filt.filter_clusters(clusters, **filters)
-    namespaces = api.get_namespaces(
-        *ctx.get_api_data(), clusters, (st, et), cli.api_err_exit
-    )
+    namespaces = api.get_namespaces(*ctx.get_api_data(), clusters, (st, et))
     namespaces = filt.filter_namespaces(
         namespaces, clusters_data=clusters, **filters
     )
@@ -116,7 +114,7 @@ def handle_get_namespaces(name, st, et, output, **filters):
 
 def handle_get_machines(name_or_id, output: str, **filters: Dict):
     ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data(), cli.api_err_exit)
+    machines = api.get_machines(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     if name_or_id:
         machines = filt.filter_obj(machines, ["name", "uid"], name_or_id)
@@ -131,11 +129,9 @@ def handle_get_machines(name_or_id, output: str, **filters: Dict):
 
 def handle_get_pods(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
-    clusters = api.get_clusters(*ctx.get_api_data(), cli.api_err_exit)
+    clusters = api.get_clusters(*ctx.get_api_data())
     clusters = filt.filter_clusters(clusters, **filters)
-    pods = api.get_pods(
-        *ctx.get_api_data(), clusters, (st, et), cli.api_err_exit
-    )
+    pods = api.get_pods(*ctx.get_api_data(), clusters, (st, et))
     pods = filt.filter_pods(pods)
     if name_or_id:
         pods = filt.filter_obj(pods, ["metadata.name", "id"], name_or_id)
@@ -150,15 +146,13 @@ def handle_get_pods(name_or_id, st, et, output, **filters):
 
 def handle_get_fingerprints(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data(), cli.api_err_exit)
+    machines = api.get_machines(*ctx.get_api_data())
     clusters = None
     if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
-        clusters = api.get_clusters(*ctx.get_api_data(), cli.api_err_exit)
+        clusters = api.get_clusters(*ctx.get_api_data())
     machines = filt.filter_machines(machines, clusters, **filters)
     muids = [m["uid"] for m in machines]
-    fingerprints = api.get_fingerprints(
-        *ctx.get_api_data(), muids, (st, et), cli.api_err_exit
-    )
+    fingerprints = api.get_fingerprints(*ctx.get_api_data(), muids, (st, et))
     fingerprints = filt.filter_fingerprints(fingerprints, **filters)
     fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
     if name_or_id:
@@ -194,7 +188,7 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
 
 def handle_get_policies(name_or_id, output, **filters):
     ctx = cfg.get_current_context()
-    policies = api.get_policies(*ctx.get_api_data(), cli.api_err_exit)
+    policies = api.get_policies(*ctx.get_api_data())
     policies = filt.filter_policies(policies, **filters)
     if name_or_id:
         policies = filt.filter_obj(
