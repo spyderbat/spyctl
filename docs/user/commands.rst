@@ -4,26 +4,31 @@
 Commands
 ===========
 
-apply
-=====
 
-config
-======
+.. click:: spyctl.spyctl:main
+    :prog: spyctl
+    :nested: full
 
-create
-======
+.. apply
+.. =====
 
-delete
-======
+.. config
+.. ======
 
-diff
-====
+.. create
+.. ======
 
-get
-===
+.. delete
+.. ======
 
-init
-====
+.. diff
+.. ====
 
-merge
-=====
+.. get
+.. ===
+
+.. init
+.. ====
+
+.. merge
+.. =====
