@@ -192,7 +192,9 @@ def get_contexts(force_global, force_workspace, output, name=None):
     "-o",
     "--output",
     default=lib.OUTPUT_DEFAULT,
-    type=click.Choice(lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False),
+    type=click.Choice(
+        lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
+    ),
 )
 def get_api_secrets(output, name=None):
     """Describe one or many apisecrets."""
