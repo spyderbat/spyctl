@@ -43,10 +43,3 @@ dependencies = [
 
 [project.scripts]
 spyctl = "spyctl.spyctl:main"
-
-[tool.pytest.ini_options]
-env = [
-  "API_KEY=eyJhbGciOiJIUzI1NiIsImtpZCI6InNiIiwidHlwIjoiSldUIn0.eyJleHAiOjE2OTQwMTcyMDYsImlhdCI6MTY2MjQ4MTIwNywiaXNzIjoia2FuZ2Fyb29iYXQubmV0Iiwic3ViIjoiWElZWmJSTTAyVkpWS1p3c2RUUGYifQ.f1LaBMBLoujnPng7vA82S39ibB7JBUKVdrvlgZ54bb8",
-  "API_URL=https://api.kangaroobat.net",
-  "ORG=spyderbatuid"
-]
