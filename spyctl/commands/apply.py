@@ -23,15 +23,11 @@ def handle_apply_policy(policy: Dict):
     policy = p.Policy(policy)
     uid, api_data = p.get_data_for_api_call(policy)
     if uid:
-        resp = api.put_policy_update(
-            *ctx.get_api_data(), uid, api_data, cli.api_err_exit
-        )
+        resp = api.put_policy_update(*ctx.get_api_data(), uid, api_data)
         if resp.status_code == 200:
             cli.try_log(f"Successfully updated policy {uid}")
     else:
-        resp = api.post_new_policy(
-            *ctx.get_api_data(), api_data, cli.api_err_exit
-        )
+        resp = api.post_new_policy(*ctx.get_api_data(), api_data)
         if resp and resp.text:
             uid = json.loads(resp.text).get("uid", "")
             cli.try_log(f"Successfully applied new policy with uid: {uid}")

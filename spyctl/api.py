@@ -45,7 +45,13 @@ def post(url, data, key):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.post(url, json=data, headers=headers, timeout=TIMEOUT)
     if r.status_code != 200:
-        raise RuntimeError(r.status_code, r.reason, str(r.headers), r.text)
+        if "x-context-uid" in r.headers:
+            context_uid = r.headers["x-context-uid"]
+        else:
+            context_uid = "No context uid found."
+        cli.err_exit(
+            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
+        )
     return r
 
 
@@ -53,7 +59,13 @@ def put(url, data, key):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.put(url, json=data, headers=headers, timeout=TIMEOUT)
     if r.status_code != 200:
-        raise RuntimeError(r.status_code, r.reason)
+        if "x-context-uid" in r.headers:
+            context_uid = r.headers["x-context-uid"]
+        else:
+            context_uid = "No context uid found."
+        cli.err_exit(
+            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
+        )
     return r
 
 
@@ -61,60 +73,54 @@ def delete(url, key):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.delete(url, headers=headers, timeout=TIMEOUT)
     if r.status_code != 200:
-        raise RuntimeError(r.status_code, r.reason)
+        if "x-context-uid" in r.headers:
+            context_uid = r.headers["x-context-uid"]
+        else:
+            context_uid = "No context uid found."
+        cli.err_exit(
+            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
+        )
     return r
 
 
-def get_orgs(api_url, api_key, err_fn) -> List[Tuple]:
+def get_orgs(api_url, api_key) -> List[Tuple]:
     org_uids = []
     org_names = []
     url = f"{api_url}/api/v1/org/"
-    try:
-        orgs_json = get(url, api_key).json()
-        for org in orgs_json:
-            org_uids.append(org["uid"])
-            org_names.append(org["name"])
-        return (org_uids, org_names)
-    except RuntimeError as err:
-        err_fn(*err.args)
-        return None
+    orgs_json = get(url, api_key).json()
+    for org in orgs_json:
+        org_uids.append(org["uid"])
+        org_names.append(org["name"])
+    return (org_uids, org_names)
 
 
-def get_machines(api_url, api_key, org_uid, err_fn) -> List[Dict]:
+def get_machines(api_url, api_key, org_uid) -> List[Dict]:
     machines: Dict[str, Dict] = {}
     url = f"{api_url}/api/v1/org/{org_uid}/source/"
-    try:
-        source_json = get(url, api_key).json()
-        for source in source_json:
-            src_uid = source["uid"]
-            if not src_uid.startswith("global"):
-                machines[src_uid] = source
-    except RuntimeError as err:
-        err_fn(*err.args)
-        return None
+    source_json = get(url, api_key).json()
+    for source in source_json:
+        src_uid = source["uid"]
+        if not src_uid.startswith("global"):
+            machines[src_uid] = source
     # agents API call to find "description" (name used by the UI)
     url = f"{api_url}/api/v1/org/{org_uid}/agent/"
-    try:
-        agent_json = get(url, api_key).json()
-        for agent in agent_json:
-            src_uid = agent["runtime_details"]["src_uid"]
-            description = agent["description"]
-            if not agent["uid"].startswith("global"):
-                source = machines.get(src_uid)
-                if source is None:
-                    continue
-                source.update(agent)
-                machine = {}
-                machine["uid"] = src_uid
-                machine["name"] = description
-                del source["uid"]
-                del source["description"]
-                del source["name"]
-                machine.update(source)
-                machines[src_uid] = machine
-    except RuntimeError as err:
-        err_fn(*err.args)
-        return None
+    agent_json = get(url, api_key).json()
+    for agent in agent_json:
+        src_uid = agent["runtime_details"]["src_uid"]
+        description = agent["description"]
+        if not agent["uid"].startswith("global"):
+            source = machines.get(src_uid)
+            if source is None:
+                continue
+            source.update(agent)
+            machine = {}
+            machine["uid"] = src_uid
+            machine["name"] = description
+            del source["uid"]
+            del source["description"]
+            del source["name"]
+            machine.update(source)
+            machines[src_uid] = machine
     # Auto-hide inactive machines
     rv = []
     for machine in machines.values():
@@ -127,37 +133,29 @@ def get_machines(api_url, api_key, org_uid, err_fn) -> List[Dict]:
     return rv
 
 
-def get_muids(api_url, api_key, org_uid, err_fn) -> Tuple:
+def get_muids(api_url, api_key, org_uid) -> Tuple:
     last_datas = {}
     sources = {}
     # get all sources to get last data
     url = f"{api_url}/api/v1/org/{org_uid}/source/"
-    try:
-        source_json = get(url, api_key).json()
-        for source in source_json:
-            if not source["uid"].startswith("global"):
-                muid = source["uid"]
-                last_data = zulu.parse(source["last_data"])
-                last_datas[muid] = last_data
-    except RuntimeError as err:
-        err_fn(*err.args)
-        return None
+    source_json = get(url, api_key).json()
+    for source in source_json:
+        if not source["uid"].startswith("global"):
+            muid = source["uid"]
+            last_data = zulu.parse(source["last_data"])
+            last_datas[muid] = last_data
     # get agents to get hostnames
     url = f"{api_url}/api/v1/org/{org_uid}/agent/"
-    try:
-        source_json = get(url, api_key).json()
-        for source in source_json:
-            if not source["uid"].startswith("global"):
-                muid = source["runtime_details"]["src_uid"]
-                hostname = source["description"]
-                if muid in last_datas:
-                    sources[muid] = {
-                        "name": hostname,
-                        "last_data": last_datas[muid],
-                    }
-    except RuntimeError as err:
-        err_fn(*err.args)
-        return None
+    source_json = get(url, api_key).json()
+    for source in source_json:
+        if not source["uid"].startswith("global"):
+            muid = source["runtime_details"]["src_uid"]
+            hostname = source["description"]
+            if muid in last_datas:
+                sources[muid] = {
+                    "name": hostname,
+                    "last_data": last_datas[muid],
+                }
     check_time = zulu.Zulu.fromtimestamp(time.time()).shift(days=-1)
     machines = []
     for muid, data in list(sources.items()):
@@ -172,17 +170,13 @@ def get_muids(api_url, api_key, org_uid, err_fn) -> Tuple:
     return machines
 
 
-def get_clusters(api_url, api_key, org_uid, err_fn):
+def get_clusters(api_url, api_key, org_uid):
     clusters = []
     url = f"{api_url}/api/v1/org/{org_uid}/cluster/"
-    try:
-        json = get(url, api_key).json()
-        for cluster in json:
-            if "/" not in cluster["uid"]:
-                clusters.append(cluster)
-    except RuntimeError as err:
-        err_fn(*err.args, f"Unable to get clusters in '{org_uid}'")
-        return None
+    json = get(url, api_key).json()
+    for cluster in json:
+        if "/" not in cluster["uid"]:
+            clusters.append(cluster)
     return clusters
 
 
@@ -196,14 +190,14 @@ def get_k8s_data(api_url, api_key, org_uid, clus_uid, schema_key, time):
             yield data
 
 
-def get_clust_muids(api_url, api_key, org_uid, clus_uid, time, err_fn):
+def get_clust_muids(api_url, api_key, org_uid, clus_uid, time):
     names = []
     muids = []
     for data in get_k8s_data(
         api_url, api_key, org_uid, clus_uid, "node", time
     ):
         if "muid" not in data:
-            err_fn("Data was not present in records", "try again soon?")
+            cli.err_exit("Data was not present in records", "try again soon?")
         if data["muid"] not in muids:
             names.append(data["metadata"]["name"])
             muids.append(data["muid"])
@@ -220,7 +214,7 @@ def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
     return (sorted(ns), clus_uid)
 
 
-def get_namespaces(api_url, api_key, org_uid, clusters, time, err_fn):
+def get_namespaces(api_url, api_key, org_uid, clusters, time):
     namespaces = []
     pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
     threads = []
@@ -255,7 +249,7 @@ def get_namespaces(api_url, api_key, org_uid, clusters, time, err_fn):
     return namespaces
 
 
-def get_pods(api_url, api_key, org_uid, clusters, time, err_fn) -> List[Dict]:
+def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
     pods = []
     pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
     threads = []
@@ -295,7 +289,7 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
     return list(pods.values())
 
 
-def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
+def get_fingerprints(api_url, api_key, org_uid, muids, time):
     fingerprints = []
     pbar = tqdm.tqdm(total=len(muids), leave=False, file=sys.stderr)
     threads = []
@@ -324,7 +318,7 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time, err_fn):
     return fingerprints
 
 
-def get_policies(api_url, api_key, org_uid, err_fn: Callable, params=None):
+def get_policies(api_url, api_key, org_uid, params=None):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     params = {} if params is None else params
     if lib.METADATA_TYPE_FIELD in params:
@@ -334,69 +328,47 @@ def get_policies(api_url, api_key, org_uid, err_fn: Callable, params=None):
     policies = []
     for type in types:
         params[lib.METADATA_TYPE_FIELD] = type
-        try:
-            resp = get(url, api_key, params)
-            for pol_json in resp.iter_lines():
-                pol_list = json.loads(pol_json)
-                for pol in pol_list:
-                    uid = pol["uid"]
-                    policy = json.loads(pol["policy"])
-                    policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                    policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
-                        "valid_from"
-                    ]
-                    policies.append(policy)
-        except RuntimeError as err:
-            err_fn(*err.args, "Unable to get policies")
-            return None
+        resp = get(url, api_key, params)
+        for pol_json in resp.iter_lines():
+            pol_list = json.loads(pol_json)
+            for pol in pol_list:
+                uid = pol["uid"]
+                policy = json.loads(pol["policy"])
+                policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
+                policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
+                    "valid_from"
+                ]
+                policies.append(policy)
     return policies
 
 
-def get_policy(api_url, api_key, org_uid, pol_uid, err_fn: Callable):
+def get_policy(api_url, api_key, org_uid, pol_uid):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
-    try:
-        resp = get(url, api_key)
-        policies = []
-        for pol_json in resp.iter_lines():
-            pol = json.loads(pol_json)
-            uid = pol["uid"]
-            policy = pol["policy"]
-            policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-            policies.append(policy)
-        return policies
-    except RuntimeError as err:
-        err_fn(*err.args, "Unable to get policy")
-        return None
+    resp = get(url, api_key)
+    policies = []
+    for pol_json in resp.iter_lines():
+        pol = json.loads(pol_json)
+        uid = pol["uid"]
+        policy = pol["policy"]
+        policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
+        policies.append(policy)
+    return policies
 
 
-def post_new_policy(api_url, api_key, org_uid, data: Dict, err_fn: Callable):
+def post_new_policy(api_url, api_key, org_uid, data: Dict):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
-    try:
-        resp = post(url, data, api_key)
-        # cli.try_log(resp.text)
-        return resp
-    except RuntimeError as err:
-        err_fn(*err.args, "Unable to upload new policy")
-        return None
+    resp = post(url, data, api_key)
+    # cli.try_log(resp.text)
+    return resp
 
 
-def put_policy_update(
-    api_url, api_key, org_uid, pol_uid, data: Dict, err_fn: Callable
-):
+def put_policy_update(api_url, api_key, org_uid, pol_uid, data: Dict):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
-    try:
-        resp = put(url, data, api_key)
-        return resp
-    except RuntimeError as err:
-        err_fn(*err.args, "Unable to update policy")
-        return None
+    resp = put(url, data, api_key)
+    return resp
 
 
-def delete_policy(api_url, api_key, org_uid, pol_uid, err_fn: Callable):
+def delete_policy(api_url, api_key, org_uid, pol_uid):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
-    try:
-        resp = delete(url, api_key)
-        return resp
-    except RuntimeError as err:
-        err_fn(*err.args, "Unable to delete policy")
-        return None
+    resp = delete(url, api_key)
+    return resp

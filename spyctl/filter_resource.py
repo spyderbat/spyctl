@@ -47,7 +47,6 @@ def filter_clusters(
                 *ctx.get_api_data(),
                 clusters_data,
                 DEFAULT_FILTER_TIME,
-                cli.api_err_exit,
             )
             namespaces = filter_obj(
                 namespaces, ["namespaces"], filters[cfgs.NAMESPACE_FIELD]
@@ -60,7 +59,6 @@ def filter_clusters(
                 *ctx.get_api_data(),
                 clusters_data,
                 DEFAULT_FILTER_TIME,
-                cli.api_err_exit,
             )
             namespaces = filter_obj(
                 namespaces, ["namespaces"], ctx_filters[cfgs.NAMESPACE_FIELD]

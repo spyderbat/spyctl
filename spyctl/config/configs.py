@@ -23,13 +23,15 @@ CONFIG_FILENAME = "config"
 SECRETS_FILENAME = "secrets"
 GLOBAL_CONFIG_PATH = Path.joinpath(GLOBAL_CONFIG_DIR, CONFIG_FILENAME)
 GLOBAL_SECRETS_PATH = Path.joinpath(GLOBAL_SECRETS_DIR, SECRETS_FILENAME)
-LOCAL_CONFIG_PATH = Path.joinpath(Path.cwd(), APP_DIR, CONFIG_FILENAME)
-LOCAL_SECRETS_PATH = Path(f".{APP_DIR}/{SECRETS_DIR}/{SECRETS_FILENAME}")
+LOCAL_CONFIG_PATH = Path(f"./{APP_DIR}/{CONFIG_FILENAME}")
+LOCAL_SECRETS_PATH = Path(f"./{APP_DIR}/{SECRETS_DIR}/{SECRETS_FILENAME}")
 CURRENT_CONTEXT = None
 LOADED_CONFIG: "Config" = None
 # Pa
 LOADED_CONFIGS: Dict[str, "Config"] = {}
 CURR_CONTEXT_FIELD = "current-context"
+
+TESTING = False
 
 # Config yaml required values
 CONFIG_KIND = "Config"
@@ -257,8 +259,10 @@ def load_config(silent=False):
         # GLOBAL_SECRETS_DIR.chmod(700)
         GLOBAL_SECRETS_PATH.touch()
         # GLOBAL_SECRETS_PATH.chmod(600)
-    global LOADED_CONFIG, CURRENT_CONTEXT
-    if LOADED_CONFIG is None:
+    global LOADED_CONFIG, CURRENT_CONTEXT, LOADED_CONFIGS
+    if LOADED_CONFIG is None or TESTING:
+        LOADED_CONFIG = None
+        LOADED_CONFIGS = {}
         s.load_secrets()
         configs_data = lib.walk_up_tree(GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH)
         configs: List[Config] = []
@@ -340,18 +344,22 @@ def get_current_context() -> Context:
 def init():
     perform_init = False
     reset = False
-    if LOCAL_CONFIG_PATH.exists() and LOCAL_CONFIG_PATH == GLOBAL_CONFIG_PATH:
+    local_workspace_path = Path.joinpath(Path.cwd(), LOCAL_CONFIG_PATH)
+    if (
+        local_workspace_path.exists()
+        and local_workspace_path == GLOBAL_CONFIG_PATH
+    ):
         if cli.query_yes_no(
             "Are you sure you want to reset the global spyctl configuration"
-            f" file '{str(LOCAL_CONFIG_PATH)}'",
+            f" file '{str(local_workspace_path)}'",
             "no",
         ):
             perform_init = True
             reset = True
-    elif LOCAL_CONFIG_PATH.exists():
+    elif local_workspace_path.exists():
         if cli.query_yes_no(
             "A spyctl configuration file already exists at"
-            f" '{str(LOCAL_CONFIG_PATH)}'. Are you sure you want to reset it?",
+            f" '{str(local_workspace_path)}'. Are you sure you want to reset it?",
             "no",
         ):
             reset = True
@@ -367,15 +375,15 @@ def init():
             and global_config.current_context != CURR_CONTEXT_NONE
         ):
             global_current_ctx = global_config.current_context
-        LOCAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with LOCAL_CONFIG_PATH.open("w") as f:
+        local_workspace_path.parent.mkdir(parents=True, exist_ok=True)
+        with local_workspace_path.open("w") as f:
             config_template = deepcopy(CONFIG_TEMPLATE)
             if global_current_ctx:
                 config_template[CURR_CONTEXT_FIELD] = global_current_ctx
             yaml.dump(config_template, f)
         cli.try_log(
             f"{'Reset' if reset else 'Created'} configuration file at"
-            f" {str(LOCAL_CONFIG_PATH)}."
+            f" {str(local_workspace_path)}."
         )
 
 
@@ -464,23 +472,22 @@ def delete_context(name, force_global):
     global LOADED_CONFIGS
     config = get_loaded_config()
     if config is None:
-        return
-    if config is None:
-        cli.try_log("No valid configuration found")
-        return
+        cli.err_exit("Unable to load configuration")
     if force_global:
         # global flag was set so delete context at the global level
         context_path = GLOBAL_CONFIG_PATH
+        target_config = LOADED_CONFIGS.get(str(GLOBAL_CONFIG_PATH))
     else:
         # delete the context in the file where it resides
         context_path = config.context_paths[name]
-    target_config = LOADED_CONFIGS[str(context_path)]
+        target_config = LOADED_CONFIGS.get(str(context_path))
+    if not target_config:
+        cli.err_exit("Unable to load target configuration")
     if name not in target_config.contexts:
-        cli.try_log(
+        cli.err_exit(
             f"Unable to delete context '{name}' from {str(context_path)}."
-            " Context does not exist."
+            " Context does not exist in target config."
         )
-        return
     del target_config.contexts[name]
     updated_curr_context = False
     if target_config.current_context == name:
@@ -519,18 +526,19 @@ def delete_context(name, force_global):
 def current_config():
     global LOADED_CONFIGS
     config = get_loaded_config()
-    if config is None:
-        return
+    if not config:
+        cli.err_exit("Unable to load config.")
     cli.try_print(config.config_path)
 
 
 def current_context(force_global):
     global LOADED_CONFIGS
-    config = get_loaded_config()
-    if config is None:
-        return
     if force_global:
-        config = LOADED_CONFIGS[str(GLOBAL_CONFIG_PATH)]
+        config = LOADED_CONFIGS.get(str(GLOBAL_CONFIG_PATH))
+    else:
+        config = get_loaded_config()
+    if not config:
+        cli.err_exit("Unable to load config.")
     if (
         config.current_context == CURR_CONTEXT_NONE
         or not config.current_context
@@ -551,22 +559,23 @@ def current_context(force_global):
 
 def use_context(name, force_global):
     global LOADED_CONFIGS
-    config = get_loaded_config()
-    if config is None:
-        return
+    if force_global:
+        # global flag was set so update/set context at the global level
+        config = LOADED_CONFIGS.get(str(GLOBAL_CONFIG_PATH))
+        context_path = GLOBAL_CONFIG_PATH
+    else:
+        # update the current context in the local configuration file
+        config = get_loaded_config()
+        context_path = config.config_path
+    if not config:
+        cli.err_exit("Unable to load config.")
     found = name in config.contexts
     if not found:
         cli.try_log(
             f"Unable to set current context '{name}' for {str(context_path)}."
-            " Context does not exist."
+            " Context does not exist in target config."
         )
         return
-    if force_global:
-        # global flag was set so update/set context at the global level
-        context_path = GLOBAL_CONFIG_PATH
-    else:
-        # update the current context in the local configuration file
-        context_path = config.config_path
     target_config = LOADED_CONFIGS[str(context_path)]
     target_config.current_context = name
     try:
@@ -580,14 +589,25 @@ def use_context(name, force_global):
         cli.err_exit(f"Unable to delete context. {' '.join(e.args)}")
 
 
-def get_contexts(name, force_global, output):
+def get_contexts(name, force_global, force_workspace, output):
     if force_global:
         # global flag was set so update/set context at the global level
-        config = LOADED_CONFIGS[str(GLOBAL_CONFIG_PATH)].as_dict()
+        config = LOADED_CONFIGS.get(str(GLOBAL_CONFIG_PATH))
+    elif force_workspace:
+        # Get all loaded config paths
+        config_paths = list(LOADED_CONFIGS)
+        if len(config_paths) > 0:
+            # The most-local config will be the first one in the list
+            # of config paths
+            config = LOADED_CONFIGS[config_paths[0]]
+        else:
+            config = None
     else:
         config = get_loaded_config()
     # contexts = [ctx.as_dict() for ctx in config.contexts.values()]
     contexts = []
+    if not config:
+        cli.err_exit("Unable to load config.")
     for context in config.contexts.values():
         ctx_dict = context.as_dict()
         ctx_dict[lib.LOCATION_FIELD] = config.context_paths.get(
@@ -668,7 +688,7 @@ def view_config(force_global, force_workspace, output):
 
 
 def validate_org(org, api_url, api_key) -> Optional[str]:
-    orgs = api.get_orgs(api_url, api_key, cli.api_err_exit)
+    orgs = api.get_orgs(api_url, api_key)
     if orgs is not None:
         for uid, name in zip(*orgs):
             if org == name or org == uid:
@@ -676,6 +696,11 @@ def validate_org(org, api_url, api_key) -> Optional[str]:
                     cli.err_exit("invalid organization")
                 return uid
     return None
+
+
+def set_testing(workspace_path=None):
+    global TESTING
+    TESTING = True
 
 
 class ContextsParam(click.ParamType):

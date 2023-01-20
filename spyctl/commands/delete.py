@@ -37,6 +37,5 @@ def handle_delete_policy(uid, yes=False):
         api.delete_policy(
             *ctx.get_api_data(),
             uid,
-            cli.api_err_exit,
         )
         cli.try_log(f"Successfully deleted policy {uid}")

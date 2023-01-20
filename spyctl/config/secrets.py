@@ -132,7 +132,7 @@ class Secret:
 
 def load_secrets(silent=False):
     global SECRETS
-    if SECRETS is None:
+    if SECRETS is None or cfgs.TESTING:
         SECRETS = {}
         loaded_files = lib.walk_up_tree(
             cfgs.GLOBAL_SECRETS_PATH, cfgs.LOCAL_SECRETS_PATH

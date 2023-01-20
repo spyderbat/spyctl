@@ -322,7 +322,9 @@ def valid_kind(rec_kind, kind):
     return rec_kind == kind
 
 
-def walk_up_tree(global_path, local_path) -> List[Tuple[Path, Dict]]:
+def walk_up_tree(
+    global_path: Path, local_path: Path, cwd: Path = None
+) -> List[Tuple[Path, Dict]]:
     """Walks up the directory tree from cwd joining each directory with
     local_path. If a local_path file exists, loads the file and appends
     it to the return value. Finally, the file at global_path is loaded.
@@ -333,7 +335,8 @@ def walk_up_tree(global_path, local_path) -> List[Tuple[Path, Dict]]:
         file if one exists.
     """
     rv = []
-    cwd = Path.cwd()
+    if cwd is None:
+        cwd = Path.cwd()
     config_path = Path.joinpath(cwd, local_path)
     if Path.is_file(config_path):
         conf = load_file(config_path)

@@ -17,8 +17,14 @@ from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 
 MAIN_EPILOG = (
-    'Use "spyctl <command> --help" for more information about a given command'
+    'Use "spyctl <command> --help" for more information about a given '
+    "command.\n"
+    'Use "spyctl --version" for version information'
 )
+SUB_EPILOG = (
+    'Use "spyctl <command> --help" for more information about a given command.'
+)
+
 DEFAULT_START_TIME = 1614811600
 
 # ----------------------------------------------------------------- #
@@ -42,7 +48,7 @@ def main(ctx: click.Context):
 # ----------------------------------------------------------------- #
 
 
-@main.command("apply", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@main.command("apply", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True, is_eager=True)
 @click.option(
     "-f",
@@ -50,6 +56,7 @@ def main(ctx: click.Context):
     help="Filename containing Spyderbat resource.",
     metavar="",
     type=click.File(),
+    required=True,
 )
 def apply(filename):
     """Apply a configuration to a resource by file name."""
@@ -61,22 +68,22 @@ def apply(filename):
 # ----------------------------------------------------------------- #
 
 
-@main.group("config", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
+@main.group("config", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.pass_context
 def config(ctx: click.Context):
     """Modify spyctl config files."""
 
 
-@config.command("delete-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("delete-context", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-g",
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this deletes a context"
+    " from the global spyctl configuration file.",
 )
 @click.option(
     "-y",
@@ -86,15 +93,20 @@ def config(ctx: click.Context):
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
-@click.argument("name")
+@click.argument(
+    "name",
+    type=cfgs.ContextsParam(),
+)
 def delete_context(name, force_global, yes=False):
-    """Delete the specified context from a spyctl configuration file."""
+    """Delete the specified context from a spyctl configuration file.
+
+    NAME is the name of the context to delete."""
     if yes:
         cli.set_yes_option()
     cfgs.delete_context(name, force_global)
 
 
-@config.command("delete-apisecret", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("delete-apisecret", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-y",
@@ -106,28 +118,30 @@ def delete_context(name, force_global, yes=False):
 )
 @click.argument("name", type=s.SecretsParam())
 def delete_apisecret(name, yes=False):
-    """Delete the specified context from a spyctl configuration file."""
+    """Delete the specified apisecret from a spyctl configuration file.
+
+    NAME is the name of the apisecret to delete."""
     if yes:
         cli.set_yes_option()
     s.delete_secret(name)
 
 
-@config.command("current-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("current-context", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-g",
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this displays the"
+    " current context in the global configuration.",
 )
 def current_context(force_global):
     """Display the current-context."""
     cfgs.current_context(force_global)
 
 
-@config.command("get-contexts", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("get-contexts", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("name", required=False, type=cfgs.ContextsParam())
 @click.option(
@@ -143,15 +157,35 @@ def current_context(force_global):
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this displays only"
+    " contexts within the global spyctl configuration file.",
 )
-def get_contexts(force_global, output, name=None):
-    """Describe one or many contexts"""
-    cfgs.get_contexts(name, force_global, output)
+@click.option(
+    "-w",
+    "--workspace",
+    "force_workspace",
+    is_flag=True,
+    help="When operating within a spyctl workspace, this displays only"
+    " contexts within the workspace configuration file.",
+)
+def get_contexts(force_global, force_workspace, output, name=None):
+    """Describe one or many contexts.
+
+    NAME is the name of a specific context to view.
+
+    The default behavior is to show all of the contexts accessible to
+    the current working directory. If not using a workspace, this is
+    only the contexts in the global config. See --help for \"spyctl
+    config init\" for more details.
+    """
+    if force_global and force_workspace:
+        cli.try_log(
+            "Both global and workspace flags set; defaulting to global"
+        )
+    cfgs.get_contexts(name, force_global, force_workspace, output)
 
 
-@config.command("get-apisecrets", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("get-apisecrets", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("name", required=False, type=s.SecretsParam())
 @click.option(
@@ -163,19 +197,72 @@ def get_contexts(force_global, output, name=None):
     ),
 )
 def get_api_secrets(output, name=None):
-    """Describe one or many apisecrets"""
+    """Describe one or many apisecrets."""
     s.handle_get_secrets(name, output)
 
 
-@config.command("set-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("init-workspace", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+@click.help_option("-h", "--help", hidden=True)
+def init_workspace(yes=False):
+    """Initialize a workspace.
+
+    This command creates a '.spyctl/config' file in the current working
+    directory. Workspaces are a spyctl configuration file local to a
+    specific directory. They allow you to create contexts only
+    accessible from the directory subtree from where the config file
+    resides. They also allow you to set a current context for a
+    directory subtree.
+
+    This is helpful if you're working on a specific service or
+    container and want spyctl to return data relevant only to that
+    application.
+
+    For example:
+    If your cwd is ``$HOME/myproject/`` and you issue the command
+    ``spyctl config current-context`` you will be shown the current
+    context in the global configuration. But if create initialize
+    a workspace and create a context, you will notice that your
+    current context is the one set within the workspace configuration
+    file.
+
+    For example:
+
+      # Create a workspace in the current working directory.\n
+      spyctl config init-workspace
+
+      # Create a context specific to a Linux Service.\n
+      spyctl config set-context --cgroup systemd:/system.slice/my_app.service
+      --org my_organization --secret my_secret my_app_context
+
+      # Show the current context and see my_app_context in the output.\n
+      spyctl config current-context
+
+    Executing spyctl outside of a workspace directory or any of its
+    subdirectories will revert the tool to using the current context in
+    the global configuration file.
+    """
+    if yes:
+        cli.set_yes_option()
+    cfgs.init()
+
+
+@config.command("set-context", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-g",
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this sets a context"
+    " in the global spyctl configuration file.",
 )
 @click.option(
     "-u",
@@ -245,7 +332,7 @@ def set_context(name, secret, force_global, use_ctx, **context):
     cfgs.set_context(name, secret, force_global, use_ctx, **context)
 
 
-@config.command("set-apisecret", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("set-apisecret", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("name", required=False)
 @click.option(
@@ -271,15 +358,15 @@ def set_apisecrets(api_key=None, api_url=None, name=None):
     s.set_secret(name, api_url, api_key)
 
 
-@config.command("use-context", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("use-context", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-g",
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this changes the"
+    " current context in the global configuration file.",
 )
 @click.argument("name", type=cfgs.ContextsParam())
 def use_context(name, force_global):
@@ -287,23 +374,23 @@ def use_context(name, force_global):
     cfgs.use_context(name, force_global)
 
 
-@config.command("view", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@config.command("view", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-g",
     "--global",
     "force_global",
     is_flag=True,
-    help="When operating within a spyctl workspace, this forces a change to"
-    " the global spyctl config.",
+    help="When operating within a spyctl workspace, this displays"
+    " the global spyctl configuration file.",
 )
 @click.option(
     "-w",
     "--workspace",
     "force_workspace",
     is_flag=True,
-    help="View merged configuration file. Supply a flag to view global"
-    " configuration file or local workspace configuration file.",
+    help="When operating within a spyctl workspace, this displays"
+    " only the workspace configuration file.",
 )
 @click.option(
     "-o",
@@ -312,7 +399,15 @@ def use_context(name, force_global):
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
 def view(force_global, force_workspace, output):
-    """View the current spyctl configuration file(s)."""
+    """View the current spyctl configuration file. If operating
+    within a workspace the default behavior displays a merged
+    configuration including contexts from the global config and any
+    other workspace configuration files from cwd to root.
+    """
+    if force_global and force_workspace:
+        cli.try_log(
+            "Both global and workspace flags set; defaulting to global"
+        )
     cfgs.view_config(force_global, force_workspace, output)
 
 
@@ -321,14 +416,14 @@ def view(force_global, force_workspace, output):
 # ----------------------------------------------------------------- #
 
 
-@main.group("create", cls=lib.CustomSubGroup, epilog=MAIN_EPILOG)
+@main.group("create", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 def create():
     """Create a resource from a file."""
     pass
 
 
-@create.command("baseline", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@create.command("baseline", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-f",
@@ -336,6 +431,7 @@ def create():
     "filename",
     help="File that contains the FingerprintsGroup object, from which spyctl"
     " creates a baseline.",
+    required=True,
     metavar="",
     type=click.File(),
 )
@@ -350,7 +446,7 @@ def create_baseline(filename, output):
     c.handle_create_baseline(filename, output)
 
 
-@create.command("policy", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-f",
@@ -359,6 +455,7 @@ def create_baseline(filename, output):
     help="File that contains the FingerprintsGroup or SpyderbatBaseline"
     " object, from which spyctl creates a policy",
     metavar="",
+    required=True,
     type=click.File(),
 )
 @click.option(
@@ -377,7 +474,7 @@ def create_policy(filename, output):
 # ----------------------------------------------------------------- #
 
 
-@main.command("delete", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@main.command("delete", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.DelResourcesParam())
 @click.argument("name_or_id")
@@ -390,7 +487,7 @@ def create_policy(filename, output):
     " run non-interactively.",
 )
 def delete(resource, name_or_id, yes=False):
-    """Delete resources by resource and names, or by resource and ids"""
+    """Delete resources by resource and name, or by resource and ids"""
     if yes:
         cli.set_yes_option()
     handle_delete(resource, name_or_id)
@@ -401,13 +498,14 @@ def delete(resource, name_or_id, yes=False):
 # ----------------------------------------------------------------- #
 
 
-@main.command("diff", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@main.command("diff", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-f",
     "--filename",
     help="Target file of the diff.",
     metavar="",
+    required=True,
     type=click.File(),
 )
 @click.option(
@@ -435,7 +533,7 @@ def diff(filename, with_file=None, latest=False):
 # ----------------------------------------------------------------- #
 
 
-@main.group("get", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@main.group("get", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.GetResourcesParam())
 @click.argument("name_or_id", required=False)
@@ -520,7 +618,8 @@ def diff(filename, with_file=None, latest=False):
     "--exact",
     "--exact-match",
     is_flag=True,
-    help="Exact match for name or ID.",
+    help="Exact match for NAME_OR_ID. This command's default behavior"
+    "displays any resource that contains the NAME_OR_ID.",
 )
 @click.option(
     "-t",
@@ -567,23 +666,11 @@ def get(
 
 
 # ----------------------------------------------------------------- #
-#                         Init Subcommand                           #
-# ----------------------------------------------------------------- #
-
-
-@main.command("init", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
-@click.help_option("-h", "--help", hidden=True)
-def init():
-    """Initialize a workspace"""
-    cfgs.init()
-
-
-# ----------------------------------------------------------------- #
 #                         Merge Subcommand                          #
 # ----------------------------------------------------------------- #
 
 
-@main.command("merge", cls=lib.CustomCommand, epilog=MAIN_EPILOG)
+@main.command("merge", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-f",
