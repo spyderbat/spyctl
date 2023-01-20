@@ -566,10 +566,17 @@ class IPBlock:
         if isinstance(other, IPBlock):
             if self.except_networks is not None:
                 for net in self.except_networks:
-                    if net.supernet_of(other.network):
-                        return False
-            if self.network.supernet_of(other.network):
-                return True
+                    try:
+                        if net.supernet_of(other.network):
+                            return False
+                    except TypeError:
+                        # Occurs when comparing ipv4 with ipv6
+                        continue
+            try:
+                if self.network.supernet_of(other.network):
+                    return True
+            except TypeError:
+                return False
         return False
 
 
@@ -702,12 +709,12 @@ class NetworkNode:
                     except_networks = []
                     if except_block:
                         for except_cidr in except_block:
-                            except_net = ipaddr.IPv4Address(except_cidr)
+                            except_net = ipaddr.IPv4Network(except_cidr)
                             except_networks.append(except_net)
                 except ipaddr.AddressValueError:
                     try:
-                        ip_network = ipaddr.IPv6Address(
-                            block[lib.IP_BLOCK_FIELD]
+                        ip_network = ipaddr.IPv6Network(
+                            ip_block[lib.CIDR_FIELD]
                         )
                         except_block = ip_block.get(lib.EXCEPT_FIELD)
                         except_networks = []
