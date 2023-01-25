@@ -108,7 +108,8 @@ class MergeObject:
         try:
             self.validation_fn(self.obj_data)
             return True
-        except Exception:
+        except Exception as e:
+            cli.try_log(f"Merge created invalid object. {' '.join(e.args)}")
             return False
 
     def get_diff(self) -> Optional[str]:
@@ -263,6 +264,8 @@ class ProcessNode:
         self.node_list = node_list
         self.parent = parent
         self.children = []
+        self.listening_sockets: List["PortRange"] = []
+        self.__parse_listening_sockets()
         if lib.CHILDREN_FIELD in self.node:
             self.children = [
                 child[lib.ID_FIELD] for child in self.node[lib.CHILDREN_FIELD]
@@ -272,6 +275,7 @@ class ProcessNode:
         self.name = make_wildcard([self.name, other_node.name])
         self.__merge_exes(other_node.exes)
         self.__merge_eusers(other_node.eusers)
+        self.__merge_listening_socks(other_node.listening_sockets)
         other_node.merged_id = self.id
 
     def asymmetrical_merge(self, other_node: "ProcessNode"):
@@ -279,6 +283,7 @@ class ProcessNode:
             raise InvalidMergeError("Bug detected, name mismatch in merge.")
         self.__merge_exes(other_node.exes)
         self.__merge_eusers(other_node.eusers)
+        self.__merge_listening_socks(other_node.listening_sockets)
         other_node.merged_id = self.id
 
     def as_dict(self, parent_eusers: List[str] = None) -> Dict:
@@ -290,6 +295,11 @@ class ProcessNode:
             rv[lib.EUSER_FIELD] = sorted(self.eusers)
         elif not parent_eusers:
             rv[lib.EUSER_FIELD] = sorted(self.eusers)
+        if self.listening_sockets:
+            rv[lib.LISTENING_SOCKETS] = sorted(
+                [l_sock.as_dict() for l_sock in self.listening_sockets],
+                key=lambda d: d[lib.PORT_FIELD],
+            )
         if len(self.children) > 0:
             child_nodes = [
                 self.node_list.get_node(c_id) for c_id in self.children
@@ -313,6 +323,15 @@ class ProcessNode:
             return True
         return False
 
+    def __parse_listening_sockets(self):
+        socket_list = self.node.get(lib.LISTENING_SOCKETS)
+        if socket_list:
+            for sock in socket_list:
+                port = sock[lib.PORT_FIELD]
+                proto = sock[lib.PROTO_FIELD]
+                endport = sock.get(lib.ENDPORT_FIELD)
+                self.listening_sockets.append(PortRange(port, proto, endport))
+
     def __contains__(self, other):
         if isinstance(other, __class__):
             if not fnmatch.fnmatch(other.name, self.name):
@@ -330,31 +349,65 @@ class ProcessNode:
                 return False
             if not self.__match_eusers(other.eusers):
                 return False
+            if not self.__match_listening_socks(other.listening_sockets):
+                return False
             return True
         return False
 
-    def __match_exes(self, other_exes: List[str], strict=False) -> bool:
-        for other_exe in other_exes:
-            if other_exe in self.exes:
+    def __match_exe(self, other_exe: List[str], strict=False) -> bool:
+        if other_exe in self.exes:
+            return True
+        other_name = Path(other_exe).name
+        for exe in self.exes:
+            if fnmatch.fnmatch(other_exe, exe):
                 return True
-            other_name = Path(other_exe).name
-            for exe in self.exes:
-                if fnmatch.fnmatch(other_exe, exe):
+            if not strict:
+                exe_name = Path(exe).name
+                if fnmatch.fnmatch(other_name, exe_name):
                     return True
-                if not strict:
-                    exe_name = Path(exe).name
-                    if fnmatch.fnmatch(other_name, exe_name):
-                        return True
+
+    def __match_exes(
+        self, other_exes: str, strict=False, single_match=False
+    ) -> bool:
+        match = False
+        for other_exe in other_exes:
+            if single_match:
+                if self.__match_exe(other_exe, strict):
+                    match = True
+                    break
+            if not self.__match_exe(other_exe, strict):
+                return False
+        # For symmetrical in, we only care if two processes share at least one
+        # overlapping exe, hence the single match logic.
+        if single_match and not match:
+            return False
+        return True
+
+    def __match_euser(self, other_euser: str):
+        if other_euser in self.eusers:
+            return True
+        for euser in self.eusers:
+            if fnmatch.fnmatch(other_euser, euser):
+                return True
         return False
 
-    def __match_eusers(self, other_eusers: List[str], strict=False) -> bool:
+    def __match_eusers(self, other_eusers: List[str]) -> bool:
         for other_euser in other_eusers:
-            if other_euser in self.eusers:
+            if not self.__match_euser(other_euser):
+                return False
+        return True
+
+    def __match_listening_sock(self, other_sock: "PortRange") -> bool:
+        for sock in self.listening_sockets:
+            if other_sock in sock:
                 return True
-            for euser in self.eusers:
-                if fnmatch.fnmatch(other_euser, euser):
-                    return True
         return False
+
+    def __match_listening_socks(self, other_socks: List["PortRange"]) -> bool:
+        for o_sock in other_socks:
+            if not self.__match_listening_sock():
+                return False
+        return True
 
     def __merge_exes(self, other_exes: List[str]):
         for other_exe in other_exes:
@@ -371,6 +424,17 @@ class ProcessNode:
         for other_euser in other_eusers:
             if other_euser not in self.eusers:
                 self.eusers.append(other_euser)
+
+    def __contains_socket(self, o_sock: "PortRange"):
+        for sock in self.listening_sockets:
+            if o_sock in sock:
+                return True
+        return False
+
+    def __merge_listening_socks(self, other_socks: List["PortRange"]):
+        for o_sock in other_socks:
+            if not self.__contains_socket(o_sock):
+                self.listening_sockets.append(o_sock)
 
 
 class ProcessNodeList:
@@ -592,7 +656,7 @@ class PortRange:
             )
 
     def as_dict(self) -> Dict:
-        rv = {lib.PROTO_FIELD: self.proto, lib.PORT_FIELD: self.port}
+        rv = {lib.PORT_FIELD: self.port, lib.PROTO_FIELD: self.proto}
         if self.endport != self.port:
             rv[lib.ENDPORT_FIELD] = self.endport
         return rv

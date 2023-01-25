@@ -23,25 +23,46 @@ from click.shell_completion import (
 
 
 class Aliases:
-    def __init__(self, aliases: Iterable[str]) -> None:
-        self.name = aliases[0]
+    def __init__(self, aliases: Iterable[str], name, name_plural="") -> None:
+        self.name = name
+        self.name_plural = name_plural
         self.aliases = set(aliases)
 
     def __eq__(self, __o: object) -> bool:
-        return __o in self.aliases
+        plural_match = __o == self.name_plural if self.name_plural else False
+        return __o in self.aliases or __o == self.name or plural_match
 
 
 APP_NAME = "spyctl"
 
 # Resource Aliases
-CLUSTERS_RESOURCE = Aliases(["clusters", "cluster", "clust", "clusts", "clus"])
+CLUSTERS_RESOURCE = Aliases(
+    ["clusters", "cluster", "clust", "clusts", "clus"], "cluster", "clusters"
+)
+BASELINES_RESOURCE = Aliases(
+    [
+        "baselines",
+        "baseline",
+        "spyderbat-baselines",
+        "spyderbat-baseline",
+        "base",
+        "sb",
+        "b",
+    ],
+    "baseline",
+    "baselines",
+)
 NAMESPACES_RESOURCE = Aliases(
-    ["namespaces", "name", "names", "namesp", "namesps", "namespace"]
+    ["namespaces", "name", "names", "namesp", "namesps", "namespace"],
+    "namespace",
+    "namespaces",
 )
 MACHINES_RESOURCE = Aliases(
-    ["machines", "mach", "machs", "machine", "node", "nodes"]
+    ["machines", "mach", "machs", "machine", "node", "nodes"],
+    "machine",
+    "machines",
 )
-PODS_RESOURCE = Aliases(["pods", "pod"])
+PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 FINGERPRINTS_RESOURCE = Aliases(
     [
         "fingerprints",
@@ -51,7 +72,11 @@ FINGERPRINTS_RESOURCE = Aliases(
         "fprint",
         "f",
         "fprints",
-    ]
+        "fingerprint-group",
+        "fingerprint-groups",
+    ],
+    "fingerprint",
+    "fingerprints",
 )
 POLICIES_RESOURCE = Aliases(
     [
@@ -64,17 +89,31 @@ POLICIES_RESOURCE = Aliases(
         "policy",
         "pol",
         "p",
-    ]
+    ],
+    "policy",
+    "policies",
+)
+SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
+CONFIG_ALIAS = Aliases(
+    ["config", "configs", "conf", "cfg", "configuration", "configurations"],
+    "config",
+    "configs",
 )
 
 DEL_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 GET_RESOURCES: List[str] = [
-    CLUSTERS_RESOURCE.name,
-    FINGERPRINTS_RESOURCE.name,
-    MACHINES_RESOURCE.name,
-    NAMESPACES_RESOURCE.name,
-    PODS_RESOURCE.name,
+    CLUSTERS_RESOURCE.name_plural,
+    FINGERPRINTS_RESOURCE.name_plural,
+    MACHINES_RESOURCE.name_plural,
+    NAMESPACES_RESOURCE.name_plural,
+    PODS_RESOURCE.name_plural,
+    POLICIES_RESOURCE.name_plural,
+]
+VAL_RESOURCES: List[str] = [
+    BASELINES_RESOURCE.name,
     POLICIES_RESOURCE.name,
+    SECRETS_ALIAS.name,
+    CONFIG_ALIAS.name,
 ]
 
 
@@ -107,6 +146,8 @@ class GetResourcesParam(click.ParamType):
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
 BASELINE_KIND = "SpyderbatBaseline"
+FPRINT_KIND = "SpyderbatFingerprint"
+FPRINT_GROUP_KIND = "FingerprintGroup"
 
 
 # Top-level yaml Fields
@@ -193,7 +234,7 @@ SELECTOR_FIELDS = {
 
 # Policies/Fingerprints
 POL_TYPE_CONT = "container"
-POL_TYPE_SVC = "service"
+POL_TYPE_SVC = "linux-service"
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT]
 ENABLED_FIELD = "enabled"
 METADATA_NAME_FIELD = "name"
@@ -212,6 +253,7 @@ EXE_FIELD = "exe"
 ID_FIELD = "id"
 EUSER_FIELD = "euser"
 CHILDREN_FIELD = "children"
+LISTENING_SOCKETS = "listeningSockets"
 
 # Network
 CIDR_FIELD = "cidr"

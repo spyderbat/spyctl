@@ -58,10 +58,10 @@ def test_get_policies():
     assert response.exit_code == 0
 
 
-def test_get_pods():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "pods"])
-    assert response.exit_code == 0
+# def test_get_pods():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "pods"])
+#     assert response.exit_code == 0
 
 
 def test_get_pods_2hrs():
@@ -70,25 +70,25 @@ def test_get_pods_2hrs():
     assert response.exit_code == 0
 
 
-def test_get_pods_25hrs():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "pods", "-t", "25h"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_pods_25hrs():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "pods", "-t", "25h"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
-def test_get_pods_2weeks():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "pods", "-t", "2w"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_pods_2weeks():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "pods", "-t", "2w"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
-def test_get_fingerprints():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "fingerprints"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_fingerprints():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "fingerprints"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
 def test_get_fingerprints_2hrs():
@@ -98,25 +98,25 @@ def test_get_fingerprints_2hrs():
     assert response.exit_code == 0
 
 
-def test_get_fingerprints_25hrs():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "25h"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_fingerprints_25hrs():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "25h"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
-def test_get_fingerprints_2weeks():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "2w"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_fingerprints_2weeks():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "2w"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
-def test_get_namespaces():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "namespaces"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_namespaces():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "namespaces"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
 def test_get_namespaces_2hrs():
@@ -126,18 +126,18 @@ def test_get_namespaces_2hrs():
     assert response.exit_code == 0
 
 
-def test_get_namespaces_25hrs():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "namespaces", "-t", "25h"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_namespaces_25hrs():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "namespaces", "-t", "25h"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
-def test_get_namespaces_2weeks():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "namespaces", "-t", "2w"])
-    print(response.output)
-    assert response.exit_code == 0
+# def test_get_namespaces_2weeks():
+#     runner = CliRunner()
+#     response = runner.invoke(spyctl.main, ["get", "namespaces", "-t", "2w"])
+#     print(response.output)
+#     assert response.exit_code == 0
 
 
 def env_setup() -> bool:

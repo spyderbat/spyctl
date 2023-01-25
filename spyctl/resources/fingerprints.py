@@ -10,11 +10,11 @@ import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
 import spyctl.merge_lib as m_lib
 
-FPRINT_KIND = "SpyderbatFingerprint"
-FPRINT_TYPE_CONT = "container"
-FPRINT_TYPE_SVC = "linux-service"
+FPRINT_KIND = lib.FPRINT_KIND
+FPRINT_TYPE_CONT = lib.POL_TYPE_CONT
+FPRINT_TYPE_SVC = lib.POL_TYPE_SVC
 FPRINT_TYPES = {FPRINT_TYPE_CONT, FPRINT_TYPE_SVC}
-GROUP_KIND = "FingerprintGroup"
+GROUP_KIND = lib.FPRINT_GROUP_KIND
 FIRST_TIMESTAMP_FIELD = lib.FIRST_TIMESTAMP_FIELD
 LATEST_TIMESTAMP_FIELD = lib.LATEST_TIMESTAMP_FIELD
 FINGERPRINTS_FIELD = "fingerprints"
