@@ -656,7 +656,7 @@ class PortRange:
             )
 
     def as_dict(self) -> Dict:
-        rv = {lib.PORT_FIELD: self.port, lib.PROTO_FIELD: self.proto}
+        rv = {lib.PROTO_FIELD: self.proto, lib.PORT_FIELD: self.port}
         if self.endport != self.port:
             rv[lib.ENDPORT_FIELD] = self.endport
         return rv
