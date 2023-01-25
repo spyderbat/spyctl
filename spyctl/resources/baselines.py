@@ -76,6 +76,10 @@ class Baseline:
                     fprint_merge_base.symmetric_merge(fprint)
                 if fprint_merge_base.is_valid_obj():
                     baseline_data = fprint_merge_base.get_obj_data()
+                else:
+                    raise InvalidBaselineError(
+                        "Fingerprint Group merge failed"
+                    )
         elif obj_kind == POLICY_KIND:
             policy = spyctl_policies.Policy(obj)
             baseline_data = policy.as_dict()

@@ -184,6 +184,7 @@ class Config:
         CONTEXTS_FIELD,
         CURR_CONTEXT_FIELD,
     }
+    validation_errors = []
 
     def __init__(
         self, config_data: Dict, config_path: Path, config_dir: Path
@@ -242,6 +243,15 @@ class Config:
             CURR_CONTEXT_FIELD: self.current_context,
         }
         return rv
+
+    def is_valid(self) -> bool:
+        if len(self.validate()) > 0:
+            return False
+        else:
+            return True
+
+    def validate(self) -> List[str]:
+        pass
 
 
 def load_config(silent=False):
@@ -685,6 +695,9 @@ def view_config(force_global, force_workspace, output):
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(cfg_to_view, output)
+
+
+# def validate_config(config_data: dict):
 
 
 def validate_org(org, api_url, api_key) -> Optional[str]:
