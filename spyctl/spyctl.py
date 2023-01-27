@@ -721,12 +721,13 @@ def merge(filename, output, with_file=None, latest=False):
     "-f",
     "--filename",
     "file",
-    help="Target file of the merge.",
+    help="Target file to validate",
     metavar="",
     required=True,
     type=click.File(),
 )
 def validate(file):
+    """Validate spyderbat resource and spyctl configuration files"""
     v.handle_validate(file)
 
 
