@@ -29,7 +29,8 @@ def env_setup() -> bool:
     # Tests that the proper environment variables exist in pyproject.toml
     if not API_KEY or API_KEY == "__NONE__":
         print(
-            "No api key provided. Edit the API_KEY environment variable in pyproject.toml"
+            "No api key provided. Edit the API_KEY environment variable in"
+            " pyproject.toml"
         )
         return False
     if not API_URL or API_URL == "__NONE__":
@@ -40,7 +41,8 @@ def env_setup() -> bool:
         return False
     if not ORG or ORG == "__NONE__":
         print(
-            "No organization provided. Edit the ORG environment variable in pyproject.toml"
+            "No organization provided. Edit the ORG environment variable in"
+            " pyproject.toml"
         )
         return False
     return True
@@ -398,8 +400,8 @@ def test_workspace():
         ],
     )
     assert TEST_CONTEXT == result.output.strip("\n")
-    # Test ensure unable to set global current context to context that exists only
-    # in the local workspace config.
+    # Test ensure unable to set global current context to context that
+    # exists only in the local workspace config.
     result = runner.invoke(
         spyctl.main,
         [
@@ -433,7 +435,7 @@ def create_secret():
 
 def delete_secret():
     runner = CliRunner()
-    result = runner.invoke(
+    runner.invoke(
         spyctl.main,
         [
             "config",
@@ -446,7 +448,7 @@ def delete_secret():
 
 def create_context(name):
     runner = CliRunner()
-    result = runner.invoke(
+    runner.invoke(
         spyctl.main,
         [
             "config",
@@ -463,7 +465,7 @@ def create_context(name):
 
 def delete_context(name):
     runner = CliRunner()
-    result = runner.invoke(
+    runner.invoke(
         spyctl.main,
         ["config", "delete-context", name],
     )

@@ -1,8 +1,5 @@
-import json
-import time
 from typing import Dict, List, Tuple
 
-import yaml
 import zulu
 from tabulate import tabulate
 
@@ -53,7 +50,7 @@ class Fingerprint:
         lib.SPEC_FIELD,
     }
     spec_required_keys = {lib.PROC_POLICY_FIELD, lib.NET_POLICY_FIELD}
-    type_requred_selector = {
+    type_required_selector = {
         FPRINT_TYPE_CONT: lib.CONT_SELECTOR_FIELD,
         FPRINT_TYPE_SVC: lib.SVC_SELECTOR_FIELD,
     }
@@ -85,7 +82,7 @@ class Fingerprint:
         if not isinstance(self.spec, dict):
             raise InvalidFingerprintError("Spec must be a dictionary.")
         for key in self.spec_required_keys.union(
-            {self.type_requred_selector[self.type]}
+            {self.type_required_selector[self.type]}
         ):
             if key not in self.spec:
                 raise InvalidFingerprintError(

@@ -1,7 +1,6 @@
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
-import spyctl.config.secrets as s
 import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
 

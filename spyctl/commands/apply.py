@@ -1,12 +1,11 @@
-from typing import Dict
 import json
+from typing import Dict
 
-import spyctl.config.secrets as secrets
-import spyctl.spyctl_lib as lib
-import spyctl.resources.policies as p
 import spyctl.api as api
-import spyctl.config.configs as cfg
 import spyctl.cli as cli
+import spyctl.config.configs as cfg
+import spyctl.resources.policies as p
+import spyctl.spyctl_lib as lib
 
 
 def handle_apply(filename):

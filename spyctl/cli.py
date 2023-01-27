@@ -6,12 +6,7 @@ from typing import Callable, Dict, List
 
 import yaml
 
-import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
-import spyctl.config.configs as u_conf
-import spyctl.api as api
-
-from spyctl.resources.fingerprints import Fingerprint
 
 yaml.Dumper.ignore_aliases = lambda *args: True
 

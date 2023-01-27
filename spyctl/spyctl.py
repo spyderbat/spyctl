@@ -1,19 +1,18 @@
 #! /usr/bin/env python3
 
 import time
-from typing import Dict, List
 
 import click
 
+import spyctl.cli as cli
+import spyctl.commands.create as c
+import spyctl.commands.diff as d
+import spyctl.commands.get as g
+import spyctl.commands.merge as m
+import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
-import spyctl.commands.get as g
-import spyctl.commands.create as c
-import spyctl.commands.merge as m
-import spyctl.commands.diff as d
-import spyctl.commands.validate as v
-import spyctl.cli as cli
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 

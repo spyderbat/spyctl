@@ -1,8 +1,5 @@
-from schema import SchemaError
-
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
-import spyctl.schemas as schemas
 
 
 def handle_validate(file):

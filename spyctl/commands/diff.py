@@ -1,9 +1,7 @@
-import yaml
-
 import spyctl.cli as cli
-import spyctl.spyctl_lib as lib
 import spyctl.resources.baselines as spyctl_baselines
 import spyctl.resources.policies as spyctl_policies
+import spyctl.spyctl_lib as lib
 
 
 def handle_diff(filename, with_file, latest):
