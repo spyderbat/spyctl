@@ -1,7 +1,6 @@
-import os
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import click
 import yaml
@@ -12,6 +11,7 @@ import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
+import spyctl.schemas as schemas
 
 APP_NAME = "spyctl"
 APP_DIR = f".{APP_NAME}"
@@ -29,18 +29,18 @@ CURRENT_CONTEXT = None
 LOADED_CONFIG: "Config" = None
 # Pa
 LOADED_CONFIGS: Dict[str, "Config"] = {}
-CURR_CONTEXT_FIELD = "current-context"
 
 TESTING = False
 
 # Config yaml required values
-CONFIG_KIND = "Config"
+CONFIG_KIND = lib.CONFIG_KIND
 
 # Config yaml fields
-CONTEXTS_FIELD = "contexts"
-CONTEXT_FIELD = "context"
-CONTEXT_NAME_FIELD = "name"
-SECRET_FIELD = "secret"
+CURR_CONTEXT_FIELD = lib.CURR_CONTEXT_FIELD
+CONTEXTS_FIELD = lib.CONTEXTS_FIELD
+CONTEXT_FIELD = lib.CONTEXT_FIELD
+CONTEXT_NAME_FIELD = lib.CONTEXT_NAME_FIELD
+SECRET_FIELD = lib.SECRET_FIELD
 ORG_FIELD = lib.ORG_FIELD
 POD_FIELD = lib.POD_FIELD
 CLUSTER_FIELD = lib.CLUSTER_FIELD
@@ -117,40 +117,26 @@ class Context:
                 "Context secret is not a valid string."
             )
         self.secret = s.find_secret(self.secret_name)
-        if self.secret is None:
-            raise InvalidContextDataError(
-                f"Unable to locate secret '{self.secret_name}'"
-            )
-        self.secret_creds = self.secret.get_credentials()
-        for cred in self.required_creds:
-            if cred not in self.secret_creds:
-                raise InvalidContextDataError(
-                    f"Credential '{cred}' not found in secret."
-                )
-            if not isinstance(self.secret_creds[cred], str):
-                raise InvalidContextDataError(
-                    f"Value for credential '{cred}' is not a string."
-                )
         self.org_uid = None
         self.filters = {}
         self.__set_filters()
 
     def get_api_data(self) -> Tuple[str, str, str]:
-        if (
-            lib.API_KEY_FIELD not in self.secret_creds
-            or lib.API_URL_FIELD not in self.secret_creds
-        ):
-            raise InvalidContextDataError
-        api_url = self.secret_creds[lib.API_URL_FIELD]
-        api_key = self.secret_creds[lib.API_KEY_FIELD]
+        if self.secret is None:
+            cli.err_exit(f"Unable to locate secret '{self.secret_name}'")
+        secret_creds = self.secret.get_credentials()
+        api_url = secret_creds[lib.API_URL_FIELD]
+        api_key = secret_creds[lib.API_KEY_FIELD]
         if self.org_uid is None:
             self.org_uid = validate_org(self.org, api_url, api_key)
         if self.org_uid is None:
             cli.err_exit(
                 "Unable to validate organization name or ID."
-                " Check context settings. The api key in the 'secret' must be"
-                " allowed to access the organization you specified,"
+                " Check context settings. The api key in the"
+                f" {lib.SECRET_KIND} {self.secret_name!r} must be"
+                f" allowed to access the organization {self.org!r},"
                 " and the organization name or uid must be correct."
+                " As a last resort, check to see if the API key has expired."
             )
         return (api_url, api_key, self.org_uid)
 
@@ -211,10 +197,11 @@ class Config:
         self.current_context = config_data[CURR_CONTEXT_FIELD]
         self.contexts: Dict[str, Context] = {}
         self.context_paths: Dict[str, str] = {}
-        for context_data in config_data[CONTEXTS_FIELD]:
-            context = Context(context_data)
-            self.contexts[context.name] = context
-            self.context_paths[context.name] = self.config_path
+
+    def add_context(self, context_data: Dict):
+        context = Context(context_data)
+        self.contexts[context.name] = context
+        self.context_paths[context.name] = self.config_path
 
     def merge(self, new_config: "Config"):
         """Merges new_config into existing config overwriting data with
@@ -278,11 +265,23 @@ def load_config(silent=False):
         configs: List[Config] = []
         seen = set()
         for config_path, config_data in configs_data:
+            if not schemas.valid_object(config_data):
+                cli.err_exit(f"Config at {str(config_path)} is invalid.")
             try:
                 cfg = Config(config_data, config_path, config_path.parent)
                 cfg_cpy = Config(
                     deepcopy(config_data), config_path, config_path.parent
                 )
+                for context_data in config_data[lib.CONTEXTS_FIELD]:
+                    if not schemas.valid_context(context_data):
+                        ctx_name = context_data.get(lib.CONTEXT_NAME_FIELD)
+                        prefix = (
+                            f"Context {ctx_name!r}" if ctx_name else "Context"
+                        )
+                        cli.try_log(f"{prefix} in {config_path} is invalid")
+                        continue
+                    cfg.add_context(context_data)
+                    cfg_cpy.add_context(context_data)
                 configs.append(cfg)
                 LOADED_CONFIGS[str(config_path)] = deepcopy(cfg_cpy)
             except InvalidConfigDataError as e:
@@ -369,7 +368,8 @@ def init():
     elif local_workspace_path.exists():
         if cli.query_yes_no(
             "A spyctl configuration file already exists at"
-            f" '{str(local_workspace_path)}'. Are you sure you want to reset it?",
+            f" '{str(local_workspace_path)}'. Are you sure"
+            " you want to reset it?",
             "no",
         ):
             reset = True

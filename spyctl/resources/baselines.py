@@ -64,7 +64,7 @@ class Baseline:
                     spyctl_fprints.Fingerprint,
                 )
                 fprint_merge_base.asymmetric_merge({})
-                if fprint_merge_base.is_valid_obj():
+                if fprint_merge_base.is_valid:
                     baseline_data = fprint_merge_base.get_obj_data()
             else:
                 fprint_merge_base = m_lib.MergeObject(
@@ -74,11 +74,11 @@ class Baseline:
                 )
                 for i, fprint in enumerate(fprints[1:]):
                     fprint_merge_base.symmetric_merge(fprint)
-                if fprint_merge_base.is_valid_obj():
+                if fprint_merge_base.is_valid:
                     baseline_data = fprint_merge_base.get_obj_data()
                 else:
                     raise InvalidBaselineError(
-                        "Fingerprint Group merge failed"
+                        "Merged Fingerprint Group failed validation."
                     )
         elif obj_kind == POLICY_KIND:
             policy = spyctl_policies.Policy(obj)
@@ -129,7 +129,7 @@ def merge_baseline(
         )
         for fprint in fingerprints:
             base_merge_obj.asymmetric_merge(fprint)
-        if not base_merge_obj.is_valid_obj():
+        if not base_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid baseline")
     elif with_obj_kind == BASELINE_KIND:
         try:
@@ -143,7 +143,7 @@ def merge_baseline(
                 f" {' '.join(e.args)}"
             )
         base_merge_obj.asymmetric_merge(with_obj)
-        if not base_merge_obj.is_valid_obj():
+        if not base_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid baseline")
     elif with_obj == POLICY_KIND:
         try:
@@ -154,7 +154,7 @@ def merge_baseline(
                 f" {' '.join(e.args)}"
             )
         base_merge_obj.asymmetric_merge(with_obj)
-        if not base_merge_obj.is_valid_obj():
+        if not base_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid baseline")
     elif latest:
         latest_timestamp = baseline.get(lib.METADATA_FIELD, {}).get(
@@ -181,7 +181,7 @@ def merge_baseline(
         fingerprints = filt.filter_fingerprints(fingerprints, **filters)
         for fingerprint in fingerprints:
             base_merge_obj.asymmetric_merge(fingerprint)
-        if not base_merge_obj.is_valid_obj():
+        if not base_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid baseline")
     else:
         cli.try_log(

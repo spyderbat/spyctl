@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spyctl"
-version = "0.9.7"
+version = "0.9.8"
 
 description = "A command line tool for viewing and managing Spyderbat Resources"
 readme = "README.md"
@@ -26,13 +26,14 @@ classifiers = [
 ]
 dependencies = [
   "python-dateutil >= 2.8",
-  "requests >= 2.28",
+  "requests >= 2.0",
   "pyyaml >= 6.0",
   "zulu >= 2.0",
   "typing_extensions >= 4.0",
   "click >= 8.1",
   "tabulate >= 0.9",
   "tqdm >= 4.0",
+  "schema",
 ]
 
 [project.urls]

@@ -12,6 +12,7 @@ import spyctl.commands.get as g
 import spyctl.commands.create as c
 import spyctl.commands.merge as m
 import spyctl.commands.diff as d
+import spyctl.commands.validate as v
 import spyctl.cli as cli
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
@@ -708,6 +709,26 @@ def merge(filename, output, with_file=None, latest=False):
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     m.handle_merge(filename, with_file, latest, output)
+
+
+# ----------------------------------------------------------------- #
+#                       Validate Subcommand                         #
+# ----------------------------------------------------------------- #
+
+
+@main.command("validate", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    "file",
+    help="Target file of the merge.",
+    metavar="",
+    required=True,
+    type=click.File(),
+)
+def validate(file):
+    v.handle_validate(file)
 
 
 if __name__ == "__main__":
