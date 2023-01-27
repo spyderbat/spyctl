@@ -177,7 +177,7 @@ def merge_policy(
         )
         for fprint in fingerprints:
             pol_merge_obj.asymmetric_merge(fprint)
-        if not pol_merge_obj.is_valid_obj():
+        if not pol_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid policy")
     elif with_obj_kind == BASELINE_KIND:
         try:
@@ -191,7 +191,7 @@ def merge_policy(
                 f" {' '.join(e.args)}"
             )
         pol_merge_obj.asymmetric_merge(with_obj)
-        if not pol_merge_obj.is_valid_obj():
+        if not pol_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid policy")
     elif with_obj == POLICY_KIND:
         try:
@@ -202,7 +202,7 @@ def merge_policy(
                 f" {' '.join(e.args)}"
             )
         pol_merge_obj.asymmetric_merge(with_obj)
-        if not pol_merge_obj.is_valid_obj():
+        if not pol_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid policy")
     elif latest:
         latest_timestamp = policy.get(lib.METADATA_FIELD, {}).get(
@@ -229,7 +229,7 @@ def merge_policy(
         fingerprints = filt.filter_fingerprints(fingerprints, **filters)
         for fingerprint in fingerprints:
             pol_merge_obj.asymmetric_merge(fingerprint)
-        if not pol_merge_obj.is_valid_obj():
+        if not pol_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid policy")
     else:
         cli.try_log(

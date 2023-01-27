@@ -1,4 +1,3 @@
-import os
 import time
 from base64 import b64decode
 from typing import Dict, List, Optional
@@ -14,8 +13,9 @@ import spyctl.cli as cli
 import spyctl.config.configs as cfgs
 import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
+import spyctl.schemas as schemas
 
-SECRET_KIND = "APISecret"
+SECRET_KIND = lib.SECRET_KIND
 
 SECRETS: Dict[str, "Secret"] = None
 
@@ -101,6 +101,7 @@ class Secret:
             api_url = b64decode(self.data[lib.API_URL_FIELD]).decode("ascii")
         else:
             api_url = self.string_data[lib.API_URL_FIELD]
+        api_url = api_url.strip("/")
         rv = {lib.API_KEY_FIELD: api_key, lib.API_URL_FIELD: api_url}
         return rv
 
@@ -140,14 +141,29 @@ def load_secrets(silent=False):
         # Reversed because more local files overwrite more global files
         for secrets_path, secrets_data in reversed(loaded_files):
             for secret_data in secrets_data:
+                if not schemas.valid_object(secret_data):
+                    if not isinstance(secret_data, dict):
+                        cli.try_log(
+                            f"{secrets_path!r} has a secret that is not a"
+                            " dictionary."
+                        )
+                        continue
+                    secret_name = secret_data.get(lib.METADATA_FIELD, {}).get(
+                        lib.METADATA_NAME_FIELD
+                    )
+                    prefix = (
+                        f"Secret {secret_name!r}" if secret_name else "Secret"
+                    )
+                    cli.try_log(f"{prefix} in {secrets_path} has is invalid.")
+                    continue
                 try:
                     secret = Secret(secret_data)
                     SECRETS[secret.name] = secret
                 except InvalidSecretError as e:
                     if not silent:
                         cli.try_log(
-                            f"{secrets_path} has an invalid secret."
-                            f" {' '.join(e.args)}"
+                            "Bug detected, unable to create secret from"
+                            f" {secrets_path}. {' '.join(e.args)}"
                         )
 
 
@@ -188,10 +204,18 @@ def set_secret(name: str, apiurl: str = None, apikey: str = None):
             lib.API_KEY_FIELD: apikey,
             lib.API_URL_FIELD: url,
         }
+        if not schemas.valid_object(new_secret):
+            cli.err_exit(
+                "Something went wrong, spyctl was unable to validate"
+                " secret. This is probably a bug."
+            )
         try:
             new_secret = Secret(new_secret)
         except InvalidSecretError as e:
-            cli.err_exit(f"Invalid apisecret format. {' '.join(e.args)}")
+            cli.err_exit(
+                f"Bug detected, unable to initialize Secret object."
+                f" {' '.join(e.args)}"
+            )
         SECRETS[name] = new_secret
     output_data = []
     for s in SECRETS.values():

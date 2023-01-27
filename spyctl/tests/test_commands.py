@@ -1,8 +1,5 @@
-#! /home/brhaub/spyctl_demo/bin/python3
-
 import os
 import shutil
-import sys
 from fnmatch import fnmatch
 from pathlib import Path
 
@@ -100,14 +97,14 @@ def test_get_fingerprints_2hrs():
 
 # def test_get_fingerprints_25hrs():
 #     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "25h"])
+#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "25h"]) # noqa E501
 #     print(response.output)
 #     assert response.exit_code == 0
 
 
 # def test_get_fingerprints_2weeks():
 #     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "2w"])
+#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "2w"]) # noqa E501
 #     print(response.output)
 #     assert response.exit_code == 0
 
@@ -144,7 +141,8 @@ def env_setup() -> bool:
     # Tests that the proper environment variables exist in pyproject.toml
     if not API_KEY or API_KEY == "__NONE__":
         print(
-            "No api key provided. Edit the API_KEY environment variable in pyproject.toml"
+            "No api key provided. Edit the API_KEY environment variable in"
+            " pyproject.toml"
         )
         return False
     if not API_URL or API_URL == "__NONE__":
@@ -155,7 +153,8 @@ def env_setup() -> bool:
         return False
     if not ORG or ORG == "__NONE__":
         print(
-            "No organization provided. Edit the ORG environment variable in pyproject.toml"
+            "No organization provided. Edit the ORG environment variable in"
+            " pyproject.toml"
         )
         return False
     return True
@@ -181,7 +180,7 @@ def create_secret():
 
 def delete_secret():
     runner = CliRunner()
-    result = runner.invoke(
+    runner.invoke(
         spyctl.main,
         [
             "config",
@@ -213,7 +212,7 @@ def create_context(name):
 
 def delete_context(name):
     runner = CliRunner()
-    result = runner.invoke(
+    runner.invoke(
         spyctl.main,
         ["config", "delete-context", name],
     )

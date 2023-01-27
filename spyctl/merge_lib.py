@@ -10,6 +10,7 @@ import yaml
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
+import spyctl.schemas as schemas
 
 SPEC_FIELD = lib.SPEC_FIELD
 CONT_SELECTOR_FIELD = lib.CONT_SELECTOR_FIELD
@@ -111,6 +112,10 @@ class MergeObject:
         except Exception as e:
             cli.try_log(f"Merge created invalid object. {' '.join(e.args)}")
             return False
+
+    @property
+    def is_valid(self) -> bool:
+        return schemas.valid_object(self.obj_data)
 
     def get_diff(self) -> Optional[str]:
         original_yaml: str = yaml.dump(self.original_obj, sort_keys=False)
@@ -643,6 +648,14 @@ class IPBlock:
                 return False
         return False
 
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, IPBlock):
+            return False
+        return (
+            self.network == __o.network
+            and self.except_networks == __o.except_networks
+        )
+
 
 class PortRange:
     def __init__(self, port: int, proto: str, endport: int = None) -> None:
@@ -788,7 +801,10 @@ class NetworkNode:
                                 except_networks.append(except_net)
                     except ipaddr.AddressValueError:
                         raise InvalidNetworkNode("Invalid IP block.")
-                self.ip_blocks.append(IPBlock(ip_network, except_networks))
+                block = IPBlock(ip_network, except_networks)
+                # Prevent duplicates
+                if block not in self.ip_blocks:
+                    self.ip_blocks.append(block)
             elif lib.DNS_SELECTOR_FIELD in block:
                 for dns_name in block[lib.DNS_SELECTOR_FIELD]:
                     self.dns_names.append(dns_name)
@@ -804,6 +820,8 @@ class NetworkNode:
             )
 
     def __merge_ip_block(self, other_ip_block: IPBlock, symmetrical=False):
+        # if other_ip_block in self.ip_blocks:
+        #     return
         if symmetrical:
             match = False
             for i, ip_block in enumerate(self.ip_blocks):
@@ -1513,7 +1531,6 @@ def dict_diffs(
     diffs = []
     fields = set(original_data).union(set(other_data))
     whitespace_length = len(ancestor_fields) * 2
-    parent_added = False
     for field in fields:
         if field in original_data and field in other_data:
             if not isinstance(original_data[field], type(other_data[field])):
@@ -1590,7 +1607,7 @@ def dict_diffs(
                     {field: other_data[field]}, sort_keys=False
                 )
                 add_lines = [
-                    f" " * whitespace_length + new_line
+                    " " * whitespace_length + new_line
                     for new_line in diff_yaml.splitlines()
                 ]
                 add_lines = [make_add_line(d_line) for d_line in add_lines]

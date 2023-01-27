@@ -1,7 +1,7 @@
 import json
 import sys
 import time
-from typing import Callable, Dict, List, Tuple
+from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests

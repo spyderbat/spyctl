@@ -6,18 +6,13 @@ from typing import Callable, Dict, List
 
 import yaml
 
-import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
-import spyctl.config.configs as u_conf
-import spyctl.api as api
-
-from spyctl.resources.fingerprints import Fingerprint
 
 yaml.Dumper.ignore_aliases = lambda *args: True
 
 WARNING_MSG = "is_warning"
-WARNING_COLOR = "\033[38;5;203m"
-COLOR_END = "\033[0m"
+WARNING_COLOR = lib.WARNING_COLOR
+COLOR_END = lib.COLOR_END
 
 
 def try_log(*args, **kwargs):
@@ -159,5 +154,4 @@ def time_input(args):
         return t, t
 
 
-def err_exit(message: str):
-    sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}\n")
+err_exit = lib.err_exit

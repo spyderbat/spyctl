@@ -15,11 +15,7 @@ import click
 import dateutil.parser as dateparser
 import yaml
 import zulu
-from click.shell_completion import (
-    CompletionItem,
-    BashComplete,
-    add_completion_class,
-)
+from click.shell_completion import CompletionItem
 
 
 class Aliases:
@@ -149,6 +145,9 @@ BASELINE_KIND = "SpyderbatBaseline"
 FPRINT_KIND = "SpyderbatFingerprint"
 FPRINT_GROUP_KIND = "FingerprintGroup"
 
+# CONFIG Kinds
+CONFIG_KIND = "Config"
+SECRET_KIND = "APISecret"
 
 # Top-level yaml Fields
 API_FIELD = "apiVersion"
@@ -171,6 +170,11 @@ S_INFO = "info"
 ALLOWED_SEVERITIES = {S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO}
 
 # Config
+CURR_CONTEXT_FIELD = "current-context"
+CONTEXTS_FIELD = "contexts"
+CONTEXT_FIELD = "context"
+CONTEXT_NAME_FIELD = "name"
+SECRET_FIELD = "secret"
 API_KEY_FIELD = "apikey"
 API_URL_FIELD = "apiurl"
 LOCATION_FIELD = "location"
@@ -246,6 +250,12 @@ NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
 LATEST_TIMESTAMP_FIELD = "latestTimestamp"
+NOT_AVAILABLE = "N/A"
+# Fingerprint Groups
+FPRINT_GRP_FINGERPRINTS_FIELD = "fingerprints"
+FPRINT_GRP_CONT_NAMES_FIELD = "containerNames"
+FPRINT_GRP_CONT_IDS_FIELD = "containerIDs"
+FPRINT_GRP_MACHINES_FIELD = "machines"
 
 # Processes
 NAME_FIELD = "name"
@@ -402,7 +412,7 @@ def load_file(path: Path) -> Dict:
         with path.open("r") as f:
             try:
                 file_data = yaml.load(f, yaml.Loader)
-            except Exception as e:
+            except Exception:
                 try:
                     file_data = json.load(f)
                 except Exception:
@@ -427,6 +437,7 @@ class CustomGroup(click.Group):
         "diff": SECTION_BASIC,
         "get": SECTION_BASIC,
         "merge": SECTION_BASIC,
+        "validate": SECTION_BASIC,
     }
 
     def format_help(
@@ -716,29 +727,78 @@ def make_uuid():
     return b64url(uuid4().bytes).decode("ascii").strip("=")
 
 
+WARNING_COLOR = "\033[38;5;203m"
+COLOR_END = "\033[0m"
+
+
 def err_exit(message: str):
-    sys.stderr.write(f"Error: {message}\n")
-    exit(1)
+    sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
+
+
+def dict_raise_on_duplicates(ordered_pairs):
+    """Reject duplicate keys.
+
+    source: https://stackoverflow.com/questions/14902299/json-loads-allows-duplicate-keys-in-a-dictionary-overwriting-the-first-value # noqa E501
+    """
+    d = {}
+    for k, v in ordered_pairs:
+        if k in d:
+            raise ValueError(f"Duplicate {k!r} key found in JSON.")
+        else:
+            d[k] = v
+    return d
+
+
+class UniqueKeyLoader(yaml.SafeLoader):
+    def construct_mapping(self, node, deep=False):
+        mapping = set()
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise ValueError(
+                    f"Duplicate key {key!r} found in {self.name!r}."
+                )
+            mapping.add(key)
+        return super().construct_mapping(node, deep)
 
 
 def load_resource_file(file: Union[str, io.TextIOWrapper]):
     try:
         if isinstance(file, io.TextIOWrapper):
-            resrc_data = yaml.load(file, yaml.Loader)
+            name = file.name
+            resrc_data = yaml.load(file, UniqueKeyLoader)
         else:
+            name = file
             with open(file) as f:
-                resrc_data = yaml.load(f, yaml.Loader)
+                resrc_data = yaml.load(f, UniqueKeyLoader)
+    except ValueError as e:
+        err_exit(" ".join(e.args))
     except Exception:
         try:
             if isinstance(file, io.TextIOWrapper):
-                resrc_data = json.load(file)
+                name = file.name
+                resrc_data = json.load(
+                    file, object_pairs_hook=dict_raise_on_duplicates
+                )
             else:
+                name = file
                 with open(file) as f:
-                    resrc_data = json.load(f)
+                    resrc_data = json.load(
+                        f, object_pairs_hook=dict_raise_on_duplicates
+                    )
+        except ValueError as e:
+            err_exit(" ".join(e.args))
         except Exception:
             err_exit("Unable to load resource file.")
     if not isinstance(resrc_data, dict):
         err_exit("Resource file does not contain a dictionary.")
+    resrc_kind = resrc_data.get(KIND_FIELD)
+    if not resrc_kind:
+        err_exit(f"Missing or invalid {KIND_FIELD} field.")
+    from spyctl.schemas import valid_object
+
+    if not valid_object(resrc_data, verbose=True):
+        sys.exit(f"{resrc_kind} invalid in {name!r}. See error logs.")
     return resrc_data
 
 

@@ -1,8 +1,5 @@
-import json
-import time
 from typing import Dict, List, Tuple
 
-import yaml
 import zulu
 from tabulate import tabulate
 
@@ -17,11 +14,11 @@ FPRINT_TYPES = {FPRINT_TYPE_CONT, FPRINT_TYPE_SVC}
 GROUP_KIND = lib.FPRINT_GROUP_KIND
 FIRST_TIMESTAMP_FIELD = lib.FIRST_TIMESTAMP_FIELD
 LATEST_TIMESTAMP_FIELD = lib.LATEST_TIMESTAMP_FIELD
-FINGERPRINTS_FIELD = "fingerprints"
-CONT_NAMES_FIELD = "containerNames"
-CONT_IDS_FIELD = "containerIDs"
-MACHINES_FIELD = "machines"
-NOT_AVAILABLE = "N/A"
+FINGERPRINTS_FIELD = lib.FPRINT_GRP_FINGERPRINTS_FIELD
+CONT_NAMES_FIELD = lib.FPRINT_GRP_CONT_NAMES_FIELD
+CONT_IDS_FIELD = lib.FPRINT_GRP_CONT_IDS_FIELD
+MACHINES_FIELD = lib.FPRINT_GRP_MACHINES_FIELD
+NOT_AVAILABLE = lib.NOT_AVAILABLE
 
 FPRINT_METADATA_MERGE_SCHEMA = m_lib.MergeSchema(
     lib.METADATA_FIELD,
@@ -53,7 +50,7 @@ class Fingerprint:
         lib.SPEC_FIELD,
     }
     spec_required_keys = {lib.PROC_POLICY_FIELD, lib.NET_POLICY_FIELD}
-    type_requred_selector = {
+    type_required_selector = {
         FPRINT_TYPE_CONT: lib.CONT_SELECTOR_FIELD,
         FPRINT_TYPE_SVC: lib.SVC_SELECTOR_FIELD,
     }
@@ -85,7 +82,7 @@ class Fingerprint:
         if not isinstance(self.spec, dict):
             raise InvalidFingerprintError("Spec must be a dictionary.")
         for key in self.spec_required_keys.union(
-            {self.type_requred_selector[self.type]}
+            {self.type_required_selector[self.type]}
         ):
             if key not in self.spec:
                 raise InvalidFingerprintError(

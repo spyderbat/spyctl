@@ -3,7 +3,6 @@ import time
 from typing import Dict, List, Union, Optional, Iterable
 
 import spyctl.api as api
-import spyctl.cli as cli
 import spyctl.config.configs as cfgs
 import spyctl.spyctl_lib as lib
 
@@ -97,7 +96,6 @@ def filter_namespaces(
     containers_data=None,
     **filters,
 ):
-    ctx = cfgs.get_current_context()
     ctx_filters = cfgs.get_current_context().get_filters()
     if cfgs.CLUSTER_FIELD in filters:
         namespaces_data = filter_obj(
