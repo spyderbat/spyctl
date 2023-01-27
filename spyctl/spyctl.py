@@ -727,7 +727,12 @@ def merge(filename, output, with_file=None, latest=False):
     type=click.File(),
 )
 def validate(file):
-    """Validate spyderbat resource and spyctl configuration files"""
+    """Validate spyderbat resource and spyctl configuration files.
+
+    \b
+    example:
+      spyctl validate -f my_baseline.yaml
+    """
     v.handle_validate(file)
 
 
