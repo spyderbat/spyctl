@@ -9,6 +9,8 @@ Commands
     :prog: spyctl
     :nested: full
 
+Test paragraph
+
 .. apply
 .. =====
 
