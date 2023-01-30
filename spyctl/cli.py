@@ -16,17 +16,7 @@ COLOR_END = lib.COLOR_END
 
 
 def try_log(*args, **kwargs):
-    try:
-        if kwargs.pop(WARNING_MSG, False):
-            msg = f"{WARNING_COLOR}{' '.join(args)}{COLOR_END}"
-            print(msg, **kwargs, file=sys.stderr)
-        else:
-            print(*args, **kwargs, file=sys.stderr)
-        sys.stderr.flush()
-    except BrokenPipeError:
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, sys.stderr.fileno())
-        sys.exit(1)
+    lib.try_log(*args, **kwargs)
 
 
 def try_print(*args, **kwargs):
@@ -154,4 +144,5 @@ def time_input(args):
         return t, t
 
 
-err_exit = lib.err_exit
+def err_exit(message: str):
+    lib.err_exit(message)
