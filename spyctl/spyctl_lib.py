@@ -30,6 +30,9 @@ class Aliases:
 
 
 APP_NAME = "spyctl"
+WARNING_MSG = "is_warning"
+WARNING_COLOR = "\033[38;5;203m"
+COLOR_END = "\033[0m"
 
 # Resource Aliases
 CLUSTERS_RESOURCE = Aliases(
@@ -649,7 +652,11 @@ class CustomCommand(click.Command):
 
 def try_log(*args, **kwargs):
     try:
-        print(*args, **kwargs, file=sys.stderr)
+        if kwargs.pop(WARNING_MSG, False):
+            msg = f"{WARNING_COLOR}{' '.join(args)}{COLOR_END}"
+            print(msg, **kwargs, file=sys.stderr)
+        else:
+            print(*args, **kwargs, file=sys.stderr)
         sys.stderr.flush()
     except BrokenPipeError:
         devnull = os.open(os.devnull, os.O_WRONLY)
@@ -725,10 +732,6 @@ def selectors_to_filters(resource: Dict, **filters) -> Dict:
 
 def make_uuid():
     return b64url(uuid4().bytes).decode("ascii").strip("=")
-
-
-WARNING_COLOR = "\033[38;5;203m"
-COLOR_END = "\033[0m"
 
 
 def err_exit(message: str):
