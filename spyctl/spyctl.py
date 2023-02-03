@@ -17,6 +17,7 @@ from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 
 MAIN_EPILOG = (
+    "\b\n"
     'Use "spyctl <command> --help" for more information about a given '
     "command.\n"
     'Use "spyctl --version" for version information'
@@ -648,7 +649,48 @@ def get(
     latest=None,
     **filters,
 ):
-    """Display one or many resources."""
+    """Display one or many Spyderbat Resources.
+
+    Some resources are retrieved from from databases where a time range can
+    be specified:
+    - Fingerprints
+    - Pods
+    - Namespaces
+
+    Other resources come from databases where time ranges are not applicable:
+    - Clusters
+    - Machines
+    - Policies
+
+    \b
+    Examples:
+      # Get all observed Pods for the last hour:
+      spyctl get pods -t 1h
+
+    \b
+      # Get all observed Pods from 4 hours ago to 2 hours ago
+      spyctl get pods -t 4h -e 2h
+
+    \b
+      # Get observed pods for a specific time range (using epoch timestamps)
+      spyctl get pods -t 1675364629 -e 1675368229
+
+    \b
+      # Get a Fingerprint Group of all runs of httpd.service for the
+      # last 24 hours and output to a yaml file
+      spyctl get fingerprints httpd.service -o yaml > fprints.yaml
+
+    \b
+      # Get the latest fingerprints related to a policy yaml file
+      spyctl get fingerprints -f policy.yaml --latest
+
+    For time field options such as --start-time and --end-time you can
+    use (h) for hour (d) for days, and (w) for weeks back from now or
+    provide timestamps in epoch format.
+
+    Note: Long time ranges or "get" commands in a context consisting of
+    multiple machines can take a long time.
+    """
     filters = {
         key: value for key, value in filters.items() if value is not None
     }

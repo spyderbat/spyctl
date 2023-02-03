@@ -121,7 +121,19 @@ class IP_Block_Schema(Schema):
 
 
 class Spec_Schema(Schema):
-    process_ids = set()
+    def __init__(
+        self,
+        schema,
+        error=None,
+        ignore_extra_keys=False,
+        name=None,
+        description=None,
+        as_reference=False,
+    ):
+        self.process_ids = set()
+        super().__init__(
+            schema, error, ignore_extra_keys, name, description, as_reference
+        )
 
     def validate(self, data, **kwargs):
         val_schema = Schema(
@@ -431,7 +443,15 @@ policy_spec_schema = Spec_Schema(
         },
         lib.RESPONSE_FIELD: {
             lib.RESP_DEFAULT_FIELD: {str: str},
-            lib.RESP_ACTIONS_FIELD: [{str: str}],
+            lib.RESP_ACTIONS_FIELD: [
+                {
+                    Optional(lib.POD_SELECTOR_FIELD): pod_selector_schema,
+                    Optional(
+                        lib.NAMESPACE_SELECTOR_FIELD
+                    ): namespace_selector_schema,
+                    str: str,
+                }
+            ],
         },
     }
 )
