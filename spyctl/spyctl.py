@@ -535,7 +535,7 @@ def diff(filename, with_file=None, latest=False):
 # ----------------------------------------------------------------- #
 
 
-@main.group("get", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@main.command("get", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.GetResourcesParam())
 @click.argument("name_or_id", required=False)
