@@ -12,11 +12,13 @@ import spyctl.commands.merge as m
 import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
+import spyctl.commands.update as u
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 
 MAIN_EPILOG = (
+    "\b\n"
     'Use "spyctl <command> --help" for more information about a given '
     "command.\n"
     'Use "spyctl --version" for version information'
@@ -533,7 +535,7 @@ def diff(filename, with_file=None, latest=False):
 # ----------------------------------------------------------------- #
 
 
-@main.group("get", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@main.command("get", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.GetResourcesParam())
 @click.argument("name_or_id", required=False)
@@ -648,7 +650,40 @@ def get(
     latest=None,
     **filters,
 ):
-    """Display one or many resources."""
+    """Display one or many Spyderbat Resources.
+
+    Some resources are retrieved from from databases where a time range can
+    be specified:
+    - Fingerprints
+    - Pods
+    - Namespaces
+
+    Other resources come from databases where time ranges are not applicable:
+    - Clusters
+    - Machines
+    - Policies
+
+    \b
+    Examples:
+      # Get all observed Pods for the last hour:
+      spyctl get pods -t 1h\n
+      # Get all observed Pods from 4 hours ago to 2 hours ago
+      spyctl get pods -t 4h -e 2h\n
+      # Get observed pods for a specific time range (using epoch timestamps)
+      spyctl get pods -t 1675364629 -e 1675368229\n
+      # Get a Fingerprint Group of all runs of httpd.service for the
+      # last 24 hours and output to a yaml file
+      spyctl get fingerprints httpd.service -o yaml > fprints.yaml\n
+      # Get the latest fingerprints related to a policy yaml file
+      spyctl get fingerprints -f policy.yaml --latest
+
+    For time field options such as --start-time and --end-time you can
+    use (h) for hour (d) for days, and (w) for weeks back from now or
+    provide timestamps in epoch format.
+
+    Note: Long time ranges or "get" commands in a context consisting of
+    multiple machines can take a long time.
+    """
     filters = {
         key: value for key, value in filters.items() if value is not None
     }
@@ -738,3 +773,27 @@ def validate(file):
 
 if __name__ == "__main__":
     main()
+
+
+# ----------------------------------------------------------------- #
+#                    Hidden Update Subcommand                       #
+# ----------------------------------------------------------------- #
+
+
+@main.group("update", cls=lib.CustomSubGroup, hidden=True)
+@click.help_option("-h", "--help", hidden=True)
+def update():
+    pass
+
+
+@update.command("response-actions", cls=lib.CustomCommand)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-b",
+    "--backup-file",
+    "backup_file",
+    help="location to place policy backups",
+    type=click.Path(exists=True, writable=True, file_okay=False),
+)
+def update_response_actions(backup_file=None):
+    u.handle_update_response_actions(backup_file)
