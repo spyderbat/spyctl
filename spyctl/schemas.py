@@ -191,6 +191,34 @@ class Spec_Schema(Schema):
                     )
 
 
+class ResponseActionsSchema(Schema):
+    def validate(self, data, **kwargs):
+        val_schema = Schema(
+            self.schema,
+            self._error,
+            self._ignore_extra_keys,
+            self._name,
+            self._description,
+            self.as_reference,
+        )
+        rv = val_schema.validate(data, **kwargs)
+        e = self._error
+        for action_dict in data:
+            action = next(iter(action_dict))
+            found_selector = False
+            for values_dict in action_dict.values():
+                for k, v in values_dict.items():
+                    if k in lib.SELECTOR_FIELDS:
+                        found_selector = True
+            if not found_selector:
+                message = (
+                    f"Action {action} missing a selector. Do you want this"
+                    " to be a default action?"
+                )
+                raise SchemaError(message, e.format(data) if e else None)
+        return rv
+
+
 class SpyderbatObjSchema(Schema):
     """A base schema class for fingerprints, baselines, and policies"""
 
@@ -386,38 +414,50 @@ egress_schema = Schema(
     ]
 )
 
-svc_selector_schema = Schema(
-    {lib.CGROUP_FIELD: And(str, lambda x: len(x) > 0)}
-)
+svc_selector_schema = {lib.CGROUP_FIELD: And(str, lambda x: len(x) > 0)}
 
-container_selector_schema = Schema(
-    And(
-        {
-            Optional(lib.IMAGE_FIELD): And(str, lambda x: len(x) > 0),
-            Optional(lib.IMAGEID_FIELD): And(str, lambda x: len(x) > 0),
-            Optional(lib.CONT_NAME_FIELD): And(str, lambda x: len(x) > 0),
-            Optional(lib.CONT_ID_FIELD): And(str, lambda x: len(x) > 0),
-        },
-        lambda d: len(d) > 0,
-    )
-)
+container_selector_schema = {
+    Or(
+        lib.IMAGE_FIELD,
+        lib.IMAGEID_FIELD,
+        lib.CONT_NAME_FIELD,
+        lib.CONT_ID_FIELD,
+    ): And(str, lambda x: len(x) > 0)
+}
 
 # TODO: Update machine selector
-machine_selector_schema = Schema({}, ignore_extra_keys=True)
+machine_selector_schema = {Optional(str): str}
 
-match_labels_schema = Schema({lib.MATCH_LABELS_FIELD: {str: str}})
+match_labels_schema = {lib.MATCH_LABELS_FIELD: {str: str}}
 
 pod_selector_schema = match_labels_schema
 namespace_selector_schema = match_labels_schema
 
+all_selectors_schema = {
+    # Optional(lib.CONT_SELECTOR_FIELD): container_selector_schema,
+    # Optional(lib.SVC_SELECTOR_FIELD): svc_selector_schema,
+    # Optional(lib.MACHINE_SELECTOR_FIELD): machine_selector_schema,
+    # Optional(lib.POD_SELECTOR_FIELD): pod_selector_schema,
+    # Optional(lib.NAMESPACE_SELECTOR_FIELD): namespace_selector_schema,
+}
+
+SELECTOR_TO_SCHEMA_MAP = {
+    lib.CONT_SELECTOR_FIELD: container_selector_schema,
+    lib.SVC_SELECTOR_FIELD: svc_selector_schema,
+    lib.MACHINE_SELECTOR_FIELD: machine_selector_schema,
+    lib.NAMESPACE_SELECTOR_FIELD: pod_selector_schema,
+    lib.POD_SELECTOR_FIELD: namespace_selector_schema,
+}
+
+for selector_field in lib.SELECTOR_FIELDS:
+    all_selectors_schema[Optional(selector_field)] = SELECTOR_TO_SCHEMA_MAP[
+        selector_field
+    ]
+
 baseline_spec_schema = Spec_Schema(
     {
         Optional(lib.ENABLED_FIELD): bool,
-        Optional(lib.CONT_SELECTOR_FIELD): container_selector_schema,
-        Optional(lib.SVC_SELECTOR_FIELD): svc_selector_schema,
-        Optional(lib.MACHINE_SELECTOR_FIELD): machine_selector_schema,
-        Optional(lib.POD_SELECTOR_FIELD): pod_selector_schema,
-        Optional(lib.NAMESPACE_SELECTOR_FIELD): namespace_selector_schema,
+        **all_selectors_schema,
         lib.PROC_POLICY_FIELD: process_policy_schema,
         lib.NET_POLICY_FIELD: {
             lib.INGRESS_FIELD: ingress_schema,
@@ -426,32 +466,92 @@ baseline_spec_schema = Spec_Schema(
     }
 )
 
+make_redflag_schema = {
+    Optional(lib.ENABLED_FIELD): bool,
+    Optional(lib.FLAG_CONTENT): And(str, lambda s: len(s) < 350),
+    Optional(lib.FLAG_IMPACT): And(str, lambda s: len(s) < 100),
+    lib.FLAG_SEVERITY: Or(*lib.ALLOWED_SEVERITIES),
+}
+make_opsflag_schema = {
+    Optional(lib.ENABLED_FIELD): bool,
+    Optional(lib.FLAG_CONTENT): And(str, lambda s: len(s) < 350),
+    Optional(lib.FLAG_DESCRIPTION): And(str, lambda s: len(s) < 350),
+    lib.FLAG_SEVERITY: Or(*lib.ALLOWED_SEVERITIES),
+}
+webhook_schema = {
+    Optional(lib.ENABLED_FIELD): bool,
+    lib.URL_DESTINATION_FIELD: And(str, lambda s: len(s) < 2048),
+    lib.TEMPLATE_FIELD: Or(*lib.ALLOWED_TEMPLATES),
+}
+agent_kill_pod_schema = {
+    Optional(lib.ENABLED_FIELD): bool,
+    **all_selectors_schema,
+}
+agent_kill_proc_schema = {
+    Optional(lib.ENABLED_FIELD): bool,
+    **all_selectors_schema,
+}
+agent_kill_proc_group_schema = {
+    Optional(lib.ENABLED_FIELD): bool,
+    **all_selectors_schema,
+}
+
+default_response_actions_schema = And(
+    [
+        Optional(
+            Or(
+                {lib.ACTION_MAKE_REDFLAG: make_redflag_schema},
+                {lib.ACTION_MAKE_OPSFLAG: make_opsflag_schema},
+                {lib.ACTION_WEBHOOK: webhook_schema},
+            ),
+        )
+    ],
+    lambda d: len(d) < 4,
+)
+response_actions_schema = ResponseActionsSchema(
+    [
+        Optional(
+            Or(
+                {
+                    lib.ACTION_MAKE_REDFLAG: {
+                        **make_redflag_schema,
+                        **all_selectors_schema,
+                    }
+                },
+                {
+                    lib.ACTION_MAKE_OPSFLAG: {
+                        **make_opsflag_schema,
+                        **all_selectors_schema,
+                    }
+                },
+                {
+                    lib.ACTION_WEBHOOK: {
+                        **webhook_schema,
+                        **all_selectors_schema,
+                    }
+                },
+                {lib.ACTION_KILL_POD: agent_kill_pod_schema},
+                {lib.ACTION_KILL_PROC: agent_kill_proc_schema},
+                {lib.ACTION_KILL_PROC_GRP: agent_kill_proc_group_schema},
+            )
+        )
+    ]
+)
+
 # TODO: Update response actions format
 # TODO: Create schemas for various response actions
 policy_spec_schema = Spec_Schema(
     {
         Optional(lib.ENABLED_FIELD): bool,
-        Optional(lib.CONT_SELECTOR_FIELD): container_selector_schema,
-        Optional(lib.SVC_SELECTOR_FIELD): svc_selector_schema,
-        Optional(lib.MACHINE_SELECTOR_FIELD): machine_selector_schema,
-        Optional(lib.POD_SELECTOR_FIELD): pod_selector_schema,
-        Optional(lib.NAMESPACE_SELECTOR_FIELD): namespace_selector_schema,
         lib.PROC_POLICY_FIELD: process_policy_schema,
+        **all_selectors_schema,
         lib.NET_POLICY_FIELD: {
             lib.INGRESS_FIELD: ingress_schema,
             lib.EGRESS_FIELD: egress_schema,
         },
         lib.RESPONSE_FIELD: {
-            lib.RESP_DEFAULT_FIELD: {str: str},
-            lib.RESP_ACTIONS_FIELD: [
-                {
-                    Optional(lib.POD_SELECTOR_FIELD): pod_selector_schema,
-                    Optional(
-                        lib.NAMESPACE_SELECTOR_FIELD
-                    ): namespace_selector_schema,
-                    str: str,
-                }
-            ],
+            lib.RESP_DEFAULT_FIELD: default_response_actions_schema,
+            lib.RESP_ACTIONS_FIELD: response_actions_schema,
         },
     }
 )

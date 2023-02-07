@@ -12,6 +12,7 @@ import spyctl.commands.merge as m
 import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
+import spyctl.commands.update as u
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
@@ -780,3 +781,27 @@ def validate(file):
 
 if __name__ == "__main__":
     main()
+
+
+# ----------------------------------------------------------------- #
+#                    Hidden Update Subcommand                       #
+# ----------------------------------------------------------------- #
+
+
+@main.group("update", cls=lib.CustomSubGroup, hidden=True)
+@click.help_option("-h", "--help", hidden=True)
+def update():
+    pass
+
+
+@update.command("response-actions", cls=lib.CustomCommand)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-b",
+    "--backup-file",
+    "backup_file",
+    help="location to place policy backups",
+    type=click.Path(exists=True, writable=True, file_okay=False),
+)
+def update_response_actions(backup_file=None):
+    u.handle_update_response_actions(backup_file)
