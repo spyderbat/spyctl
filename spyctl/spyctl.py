@@ -666,22 +666,14 @@ def get(
     \b
     Examples:
       # Get all observed Pods for the last hour:
-      spyctl get pods -t 1h
-
-    \b
+      spyctl get pods -t 1h\n
       # Get all observed Pods from 4 hours ago to 2 hours ago
-      spyctl get pods -t 4h -e 2h
-
-    \b
+      spyctl get pods -t 4h -e 2h\n
       # Get observed pods for a specific time range (using epoch timestamps)
-      spyctl get pods -t 1675364629 -e 1675368229
-
-    \b
+      spyctl get pods -t 1675364629 -e 1675368229\n
       # Get a Fingerprint Group of all runs of httpd.service for the
       # last 24 hours and output to a yaml file
-      spyctl get fingerprints httpd.service -o yaml > fprints.yaml
-
-    \b
+      spyctl get fingerprints httpd.service -o yaml > fprints.yaml\n
       # Get the latest fingerprints related to a policy yaml file
       spyctl get fingerprints -f policy.yaml --latest
 
