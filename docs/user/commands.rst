@@ -9,26 +9,4 @@ Commands
     :prog: spyctl
     :nested: full
 
-.. apply
-.. =====
-
-.. config
-.. ======
-
-.. create
-.. ======
-
-.. delete
-.. ======
-
-.. diff
-.. ====
-
-.. get
-.. ===
-
-.. init
-.. ====
-
-.. merge
-.. =====
+revision 1
