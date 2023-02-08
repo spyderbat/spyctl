@@ -190,20 +190,6 @@ def get_k8s_data(api_url, api_key, org_uid, clus_uid, schema_key, time):
             yield data
 
 
-def get_clust_muids(api_url, api_key, org_uid, clus_uid, time):
-    names = []
-    muids = []
-    for data in get_k8s_data(
-        api_url, api_key, org_uid, clus_uid, "node", time
-    ):
-        if "muid" not in data:
-            cli.err_exit("Data was not present in records", "try again soon?")
-        if data["muid"] not in muids:
-            names.append(data["metadata"]["name"])
-            muids.append(data["muid"])
-    return names, muids
-
-
 def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
     ns = set()
     for data in get_k8s_data(
@@ -247,6 +233,40 @@ def get_namespaces(api_url, api_key, org_uid, clusters, time):
             )
     pbar.close()
     return namespaces
+
+
+def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
+    nodes = []
+    pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
+    threads = []
+    with ThreadPoolExecutor() as executor:
+        for cluster in clusters:
+            threads.append(
+                executor.submit(
+                    get_clust_nodes,
+                    api_url,
+                    api_key,
+                    org_uid,
+                    cluster["uid"],
+                    time,
+                )
+            )
+        for task in as_completed(threads):
+            pbar.update(1)
+            nodes.extend(task.result())
+    pbar.close()
+    return nodes
+
+
+def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
+    nodes = {}
+    for data in get_k8s_data(api_url, api_key, org_uid, clus_uid, "node", time):
+        node_id = data["id"]
+        if node_id not in nodes:
+            nodes[node_id] = data
+        elif nodes[node_id]["time"] < data["time"]:
+            nodes[node_id] = data
+    return list(nodes.values())
 
 
 def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
