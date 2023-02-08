@@ -260,7 +260,9 @@ def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
 
 def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
     nodes = {}
-    for data in get_k8s_data(api_url, api_key, org_uid, clus_uid, "node", time):
+    for data in get_k8s_data(
+        api_url, api_key, org_uid, clus_uid, "node", time
+    ):
         node_id = data["id"]
         if node_id not in nodes:
             nodes[node_id] = data

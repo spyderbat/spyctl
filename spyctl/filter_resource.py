@@ -39,10 +39,11 @@ def filter_clusters(
             namespaces = filter_obj(namespaces, ["namespaces"], filt)
             cluster_uids = [ns["cluster_uid"] for ns in namespaces]
             return filter_obj(data, ["uid"], cluster_uids)
+
     filter_set = {
-        cfgs.CLUSTER_FIELD:
-            lambda data, filt:
-                filter_obj(data, CLUSTERS_TGT_FIELDS, filt),
+        cfgs.CLUSTER_FIELD: lambda data, filt: filter_obj(
+            data, CLUSTERS_TGT_FIELDS, filt
+        ),
         cfgs.NAMESPACE_FIELD: namespace_filter,
     }
     clusters_data = use_filters(clusters_data, filter_set, filters)
@@ -59,9 +60,9 @@ def filter_namespaces(
     **filters,
 ):
     filter_set = {
-        cfgs.CLUSTER_FIELD:
-            lambda data, filt:
-                filter_obj(data, ["cluster_uid", "cluster_name"], filt),
+        cfgs.CLUSTER_FIELD: lambda data, filt: filter_obj(
+            data, ["cluster_uid", "cluster_name"], filt
+        ),
     }
     namespaces_data = use_filters(namespaces_data, filter_set, filters)
     return namespaces_data
@@ -77,9 +78,9 @@ def filter_machines(
     **filters,
 ):
     filter_set = {
-        cfgs.MACHINES_FIELD:
-            lambda data, filt:
-                filter_obj(data, MACHINES_TGT_FIELDS, filt),
+        cfgs.MACHINES_FIELD: lambda data, filt: filter_obj(
+            data, MACHINES_TGT_FIELDS, filt
+        ),
     }
     machines_data = use_filters(machines_data, filter_set, filters)
     return machines_data
@@ -95,9 +96,9 @@ def filter_nodes(
     **filters,
 ):
     filter_set = {
-        cfgs.MACHINES_FIELD:
-            lambda data, filt:
-                filter_obj(data, ["muid"], filt),
+        cfgs.MACHINES_FIELD: lambda data, filt: filter_obj(
+            data, ["muid"], filt
+        ),
     }
     nodes_data = use_filters(nodes_data, filter_set, filters)
     return nodes_data
@@ -116,20 +117,22 @@ def filter_fingerprints(
     def cont_id_filter(data, filt):
         filt += "*" if filt[-1] != "*" else filt
         return filter_obj(data, CONT_ID_TGT_FIELDS, filt)
+
     def image_id_filter(data, filt):
         filt += "*" if filt[-1] != "*" else filt
         return filter_obj(data, IMAGEID_TGT_FIELDS, filt)
+
     filter_set = {
-        cfgs.CGROUP_FIELD:
-            lambda data, filt:
-                filter_obj(data, CGROUP_TGT_FIELDS, filt),
-        lib.CONT_NAME_FIELD:
-            lambda data, filt:
-                filter_obj(data, CONT_NAME_TGT_FIELDS, filt),
+        cfgs.CGROUP_FIELD: lambda data, filt: filter_obj(
+            data, CGROUP_TGT_FIELDS, filt
+        ),
+        lib.CONT_NAME_FIELD: lambda data, filt: filter_obj(
+            data, CONT_NAME_TGT_FIELDS, filt
+        ),
         lib.CONT_ID_FIELD: cont_id_filter,
-        lib.IMAGE_FIELD:
-            lambda data, filt:
-                filter_obj(data, CGROUP_TGT_FIELDS, filt),
+        lib.IMAGE_FIELD: lambda data, filt: filter_obj(
+            data, CGROUP_TGT_FIELDS, filt
+        ),
         lib.IMAGEID_FIELD: image_id_filter,
     }
     fingerprint_data = use_filters(fingerprint_data, filter_set, filters)
@@ -172,9 +175,9 @@ def filter_pods(
     **filters,
 ):
     filter_set = {
-        cfgs.NAMESPACE_FIELD:
-            lambda data, filt:
-                filter_obj(data, [f"{lib.METADATA_FIELD}.namespace"], filt),
+        cfgs.NAMESPACE_FIELD: lambda data, filt: filter_obj(
+            data, [f"{lib.METADATA_FIELD}.namespace"], filt
+        ),
     }
     pods_data = use_filters(pods_data, filter_set, filters)
     return pods_data

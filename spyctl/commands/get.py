@@ -134,7 +134,11 @@ def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):
     nodes = api.get_nodes(*ctx.get_api_data(), clusters, (st, et))
     nodes = filt.filter_nodes(nodes, **filters)
     if name_or_id:
-        nodes = filt.filter_obj(nodes, [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}", "id"], name_or_id)
+        nodes = filt.filter_obj(
+            nodes,
+            [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}", "id"],
+            name_or_id,
+        )
     if output != lib.OUTPUT_DEFAULT:
         nodes = spyctl_nodes.nodes_output(nodes)
     cli.show(

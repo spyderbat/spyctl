@@ -31,7 +31,8 @@ def node_output_summary(node: Dict) -> List[str]:
         node[lib.METADATA_FIELD]["creationTimestamp"]
     )
     cluster = node.get("cluster_name")
-    if not cluster: cluster = node["cluster_uid"]
+    if not cluster:
+        cluster = node["cluster_uid"]
     rv = [
         node[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
         node["status"],
