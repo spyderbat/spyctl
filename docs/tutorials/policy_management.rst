@@ -112,6 +112,7 @@ development environment:
 
 .. code-block:: yaml
 
+    actions:
     - webhook:
         podSelector:
           matchLabels:
@@ -126,13 +127,13 @@ development environment:
     will happen when a violation occurs. The full
     |responses| documentation can be found :ref:`here<Response_Actions>`.
 
-For example, to add an action, edit your policy file:
+For example, to add a default webhook action, edit your policy file:
 
 .. code-block:: console
 
     $ vim python_srv_policy.yaml
 
-And add a webhook |action| to the ``actions`` list.
+And add a webhook |action| to the ``default`` list.
 
 .. code-block:: yaml
 
