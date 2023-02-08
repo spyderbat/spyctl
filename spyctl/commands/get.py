@@ -10,7 +10,6 @@ import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.nodes as spyctl_nodes
-import spyctl.resources.redflags as spyctl_flags
 import spyctl.resources.policies as spyctl_policies
 import spyctl.spyctl_lib as lib
 

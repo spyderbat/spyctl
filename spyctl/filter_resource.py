@@ -103,19 +103,6 @@ def filter_nodes(
     return nodes_data
 
 
-def filter_redflags(
-    flag_grp_data: List[Dict],
-    namespaces_data=None,
-    clusters_data=None,
-    machines_data=None,
-    pods_data=None,
-    cgroups_data=None,
-    containers_data=None,
-    **filters,
-):
-    return flag_grp_data
-
-
 def filter_fingerprints(
     fingerprint_data: List[Dict],
     namespaces_data=None,
