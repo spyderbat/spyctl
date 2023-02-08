@@ -9,6 +9,7 @@ import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.pods as spyctl_pods
+import spyctl.resources.nodes as spyctl_nodes
 import spyctl.resources.policies as spyctl_policies
 import spyctl.spyctl_lib as lib
 
@@ -52,6 +53,8 @@ def handle_get(
         handle_get_machines(name_or_id, output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
         handle_get_namespaces(name_or_id, st, et, output, **filters)
+    elif resource == lib.NODES_RESOURCE:
+        handle_get_nodes(name_or_id, st, et, output, **filters)
     elif resource == lib.PODS_RESOURCE:
         handle_get_pods(name_or_id, st, et, output, **filters)
     elif resource == lib.POLICIES_RESOURCE:
@@ -121,6 +124,27 @@ def handle_get_machines(name_or_id, output: str, **filters: Dict):
         machines,
         output,
         {lib.OUTPUT_DEFAULT: spyctl_machines.machines_summary_output},
+    )
+
+
+def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):
+    ctx = cfg.get_current_context()
+    clusters = api.get_clusters(*ctx.get_api_data())
+    clusters = filt.filter_clusters(clusters, **filters)
+    nodes = api.get_nodes(*ctx.get_api_data(), clusters, (st, et))
+    nodes = filt.filter_nodes(nodes, **filters)
+    if name_or_id:
+        nodes = filt.filter_obj(
+            nodes,
+            [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}", "id"],
+            name_or_id,
+        )
+    if output != lib.OUTPUT_DEFAULT:
+        nodes = spyctl_nodes.nodes_output(nodes)
+    cli.show(
+        nodes,
+        output,
+        {lib.OUTPUT_DEFAULT: spyctl_nodes.nodes_output_summary},
     )
 
 

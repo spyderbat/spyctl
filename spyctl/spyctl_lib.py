@@ -57,10 +57,11 @@ NAMESPACES_RESOURCE = Aliases(
     "namespaces",
 )
 MACHINES_RESOURCE = Aliases(
-    ["machines", "mach", "machs", "machine", "node", "nodes"],
+    ["machines", "mach", "machs", "machine"],
     "machine",
     "machines",
 )
+NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 FINGERPRINTS_RESOURCE = Aliases(
     [
@@ -105,6 +106,7 @@ GET_RESOURCES: List[str] = [
     FINGERPRINTS_RESOURCE.name_plural,
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
+    NODES_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
     POLICIES_RESOURCE.name_plural,
 ]

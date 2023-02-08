@@ -28,62 +28,25 @@ def filter_clusters(
     containers_data=None,
     **filters,
 ):
-    ctx = cfgs.get_current_context()
-    ctx_filters = ctx.get_filters()
-    if cfgs.CLUSTER_FIELD in filters:
-        clusters_data = filter_obj(
-            clusters_data, CLUSTERS_TGT_FIELDS, filters[cfgs.CLUSTER_FIELD]
-        )
-    elif cfgs.CLUSTER_FIELD in ctx_filters:
-        clusters_data = filter_obj(
-            clusters_data,
-            CLUSTERS_TGT_FIELDS,
-            [ctx_filters[cfgs.CLUSTER_FIELD]],
-        )
-    if cfgs.NAMESPACE_FIELD in filters:
+    def namespace_filter(data, filt):
         if namespaces_data is None:
+            ctx = cfgs.get_current_context()
             namespaces = api.get_namespaces(
                 *ctx.get_api_data(),
-                clusters_data,
+                data,
                 DEFAULT_FILTER_TIME,
             )
-            namespaces = filter_obj(
-                namespaces, ["namespaces"], filters[cfgs.NAMESPACE_FIELD]
-            )
+            namespaces = filter_obj(namespaces, ["namespaces"], filt)
             cluster_uids = [ns["cluster_uid"] for ns in namespaces]
-            clusters_data = filter_obj(clusters_data, ["uid"], cluster_uids)
-    elif cfgs.NAMESPACE_FIELD in ctx_filters:
-        if namespaces_data is None:
-            namespaces = api.get_namespaces(
-                *ctx.get_api_data(),
-                clusters_data,
-                DEFAULT_FILTER_TIME,
-            )
-            namespaces = filter_obj(
-                namespaces, ["namespaces"], ctx_filters[cfgs.NAMESPACE_FIELD]
-            )
-            cluster_uids = [ns["cluster_uid"] for ns in namespaces]
-            clusters_data = filter_obj(clusters_data, ["uid"], cluster_uids)
-    if cfgs.MACHINES_FIELD in filters:
-        pass
-    elif cfgs.MACHINES_FIELD in ctx_filters:
-        pass
-    if cfgs.POD_FIELD in filters:
-        pass
-    elif cfgs.POD_FIELD in ctx_filters:
-        pass
-    if cfgs.CGROUP_FIELD in filters:
-        pass
-    elif cfgs.CGROUP_FIELD in ctx_filters:
-        pass
-    if cfgs.CONTAINER_NAME_FIELD in filters:
-        pass
-    elif cfgs.CONTAINER_NAME_FIELD in ctx_filters:
-        pass
-    if cfgs.IMG_FIELD in filters:
-        pass
-    elif cfgs.IMGID_FIELD in ctx_filters:
-        pass
+            return filter_obj(data, ["uid"], cluster_uids)
+
+    filter_set = {
+        cfgs.CLUSTER_FIELD: lambda data, filt: filter_obj(
+            data, CLUSTERS_TGT_FIELDS, filt
+        ),
+        cfgs.NAMESPACE_FIELD: namespace_filter,
+    }
+    clusters_data = use_filters(clusters_data, filter_set, filters)
     return clusters_data
 
 
@@ -96,43 +59,12 @@ def filter_namespaces(
     containers_data=None,
     **filters,
 ):
-    ctx_filters = cfgs.get_current_context().get_filters()
-    if cfgs.CLUSTER_FIELD in filters:
-        namespaces_data = filter_obj(
-            namespaces_data,
-            ["cluster_uid", "cluster_name"],
-            filters[cfgs.CLUSTER_FIELD],
-        )
-    elif cfgs.CLUSTER_FIELD in ctx_filters:
-        namespaces_data = filter_obj(
-            namespaces_data,
-            ["cluster_uid", "cluster_name"],
-            ctx_filters[cfgs.CLUSTER_FIELD],
-        )
-    if cfgs.NAMESPACE_FIELD in filters:
-        pass
-    elif cfgs.NAMESPACE_FIELD in ctx_filters:
-        pass
-    if cfgs.MACHINES_FIELD in filters:
-        pass
-    elif cfgs.MACHINES_FIELD in ctx_filters:
-        pass
-    if cfgs.POD_FIELD in filters:
-        pass
-    elif cfgs.POD_FIELD in ctx_filters:
-        pass
-    if cfgs.CGROUP_FIELD in filters:
-        pass
-    elif cfgs.CGROUP_FIELD in ctx_filters:
-        pass
-    if cfgs.CONTAINER_NAME_FIELD in filters:
-        pass
-    elif cfgs.CONTAINER_NAME_FIELD in ctx_filters:
-        pass
-    if cfgs.IMG_FIELD in filters:
-        pass
-    elif cfgs.IMGID_FIELD in ctx_filters:
-        pass
+    filter_set = {
+        cfgs.CLUSTER_FIELD: lambda data, filt: filter_obj(
+            data, ["cluster_uid", "cluster_name"], filt
+        ),
+    }
+    namespaces_data = use_filters(namespaces_data, filter_set, filters)
     return namespaces_data
 
 
@@ -145,42 +77,31 @@ def filter_machines(
     containers_data=None,
     **filters,
 ):
-    ctx_filters = cfgs.get_current_context().get_filters()
-    if cfgs.CLUSTER_FIELD in filters:
-        pass
-    elif cfgs.CLUSTER_FIELD in ctx_filters:
-        pass
-    if cfgs.NAMESPACE_FIELD in filters:
-        pass
-    elif cfgs.NAMESPACE_FIELD in ctx_filters:
-        pass
-    if cfgs.MACHINES_FIELD in filters:
-        machines_data = filter_obj(
-            machines_data, MACHINES_TGT_FIELDS, filters[cfgs.MACHINES_FIELD]
-        )
-    elif cfgs.MACHINES_FIELD in ctx_filters:
-        machines_data = filter_obj(
-            machines_data,
-            MACHINES_TGT_FIELDS,
-            ctx_filters[cfgs.MACHINES_FIELD],
-        )
-    if cfgs.POD_FIELD in filters:
-        pass
-    elif cfgs.POD_FIELD in ctx_filters:
-        pass
-    if cfgs.CGROUP_FIELD in filters:
-        pass
-    elif cfgs.CGROUP_FIELD in ctx_filters:
-        pass
-    if cfgs.CONTAINER_NAME_FIELD in filters:
-        pass
-    elif cfgs.CONTAINER_NAME_FIELD in ctx_filters:
-        pass
-    if cfgs.IMG_FIELD in filters:
-        pass
-    elif cfgs.IMGID_FIELD in ctx_filters:
-        pass
+    filter_set = {
+        cfgs.MACHINES_FIELD: lambda data, filt: filter_obj(
+            data, MACHINES_TGT_FIELDS, filt
+        ),
+    }
+    machines_data = use_filters(machines_data, filter_set, filters)
     return machines_data
+
+
+def filter_nodes(
+    nodes_data: List[Dict],
+    clusters_data=None,
+    namespaces_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    filter_set = {
+        cfgs.MACHINES_FIELD: lambda data, filt: filter_obj(
+            data, ["muid"], filt
+        ),
+    }
+    nodes_data = use_filters(nodes_data, filter_set, filters)
+    return nodes_data
 
 
 def filter_fingerprints(
@@ -193,91 +114,28 @@ def filter_fingerprints(
     containers_data=None,
     **filters,
 ):
-    ctx_filters = cfgs.get_current_context().get_filters()
-    if lib.CLUSTER_FIELD in filters:
-        pass
-    elif lib.CLUSTER_FIELD in ctx_filters:
-        pass
-    if lib.NAMESPACE_FIELD in filters:
-        pass
-    elif lib.NAMESPACE_FIELD in ctx_filters:
-        pass
-    if lib.MACHINES_FIELD in filters:
-        pass
-    elif lib.MACHINES_FIELD in ctx_filters:
-        pass
-    if lib.POD_FIELD in filters:
-        pass
-    elif lib.POD_FIELD in ctx_filters:
-        pass
-    if lib.CGROUP_FIELD in filters:
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            CGROUP_TGT_FIELDS,
-            filters[lib.CGROUP_FIELD],
-        )
-    elif lib.CGROUP_FIELD in ctx_filters:
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            CGROUP_TGT_FIELDS,
-            ctx_filters[lib.CGROUP_FIELD],
-        )
-    if lib.CONT_NAME_FIELD in filters:
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            CONT_NAME_TGT_FIELDS,
-            filters[lib.CONT_NAME_FIELD],
-        )
-    elif lib.CONT_NAME_FIELD in ctx_filters:
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            CONT_NAME_TGT_FIELDS,
-            ctx_filters[lib.CONT_NAME_FIELD],
-        )
-    if lib.CONT_ID_FIELD in filters:
-        id_filt = filters[lib.CONT_ID_FIELD]
-        id_filt += "*" if id_filt[-1] != "*" else id_filt
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            CONT_ID_TGT_FIELDS,
-            id_filt,
-        )
-    elif lib.CONT_ID_FIELD in ctx_filters:
-        id_filt = ctx_filters[lib.CONT_ID_FIELD]
-        id_filt += "*" if id_filt[-1] != "*" else id_filt
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            CONT_ID_TGT_FIELDS,
-            id_filt,
-        )
-    if lib.IMAGE_FIELD in filters:
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            IMAGE_TGT_FIELDS,
-            filters[lib.IMAGE_FIELD],
-        )
-    elif lib.IMAGE_FIELD in ctx_filters:
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            IMAGE_TGT_FIELDS,
-            ctx_filters[lib.IMAGE_FIELD],
-        )
-    if lib.IMAGEID_FIELD in filters:
-        id_filt = filters[lib.IMAGEID_FIELD]
-        id_filt += "*" if id_filt[-1] != "*" else id_filt
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            IMAGEID_TGT_FIELDS,
-            id_filt,
-        )
-    elif lib.IMAGEID_FIELD in ctx_filters:
-        id_filt = ctx_filters[lib.IMAGEID_FIELD]
-        id_filt += "*" if id_filt[-1] != "*" else id_filt
-        fingerprint_data = filter_obj(
-            fingerprint_data,
-            IMAGEID_TGT_FIELDS,
-            id_filt,
-        )
+    def cont_id_filter(data, filt):
+        filt += "*" if filt[-1] != "*" else filt
+        return filter_obj(data, CONT_ID_TGT_FIELDS, filt)
+
+    def image_id_filter(data, filt):
+        filt += "*" if filt[-1] != "*" else filt
+        return filter_obj(data, IMAGEID_TGT_FIELDS, filt)
+
+    filter_set = {
+        cfgs.CGROUP_FIELD: lambda data, filt: filter_obj(
+            data, CGROUP_TGT_FIELDS, filt
+        ),
+        lib.CONT_NAME_FIELD: lambda data, filt: filter_obj(
+            data, CONT_NAME_TGT_FIELDS, filt
+        ),
+        lib.CONT_ID_FIELD: cont_id_filter,
+        lib.IMAGE_FIELD: lambda data, filt: filter_obj(
+            data, CGROUP_TGT_FIELDS, filt
+        ),
+        lib.IMAGEID_FIELD: image_id_filter,
+    }
+    fingerprint_data = use_filters(fingerprint_data, filter_set, filters)
     return fingerprint_data
 
 
@@ -291,35 +149,6 @@ def filter_fprint_groups(
     containers_data=None,
     **filters,
 ):
-    ctx_filters = cfgs.get_current_context().get_filters()
-    if cfgs.CLUSTER_FIELD in filters:
-        pass
-    elif cfgs.CLUSTER_FIELD in ctx_filters:
-        pass
-    if cfgs.NAMESPACE_FIELD in filters:
-        pass
-    elif cfgs.NAMESPACE_FIELD in ctx_filters:
-        pass
-    if cfgs.MACHINES_FIELD in filters:
-        pass
-    elif cfgs.MACHINES_FIELD in ctx_filters:
-        pass
-    if cfgs.POD_FIELD in filters:
-        pass
-    elif cfgs.POD_FIELD in ctx_filters:
-        pass
-    if cfgs.CGROUP_FIELD in filters:
-        pass
-    elif cfgs.CGROUP_FIELD in ctx_filters:
-        pass
-    if cfgs.CONTAINER_NAME_FIELD in filters:
-        pass
-    elif cfgs.CONTAINER_NAME_FIELD in ctx_filters:
-        pass
-    if cfgs.IMG_FIELD in filters:
-        pass
-    elif cfgs.IMGID_FIELD in ctx_filters:
-        pass
     return fprint_grp_data
 
 
@@ -333,35 +162,6 @@ def filter_policies(
     containers_data=None,
     **filters,
 ):
-    ctx_filters = cfgs.get_current_context().get_filters()
-    if cfgs.CLUSTER_FIELD in filters:
-        pass
-    elif cfgs.CLUSTER_FIELD in ctx_filters:
-        pass
-    if cfgs.NAMESPACE_FIELD in filters:
-        pass
-    elif cfgs.NAMESPACE_FIELD in ctx_filters:
-        pass
-    if cfgs.MACHINES_FIELD in filters:
-        pass
-    elif cfgs.MACHINES_FIELD in ctx_filters:
-        pass
-    if cfgs.POD_FIELD in filters:
-        pass
-    elif cfgs.POD_FIELD in ctx_filters:
-        pass
-    if cfgs.CGROUP_FIELD in filters:
-        pass
-    elif cfgs.CGROUP_FIELD in ctx_filters:
-        pass
-    if cfgs.CONTAINER_NAME_FIELD in filters:
-        pass
-    elif cfgs.CONTAINER_NAME_FIELD in ctx_filters:
-        pass
-    if cfgs.IMG_FIELD in filters:
-        pass
-    elif cfgs.IMGID_FIELD in ctx_filters:
-        pass
     return policy_data
 
 
@@ -374,44 +174,23 @@ def filter_pods(
     containers_data=None,
     **filters,
 ):
-    ctx_filters = cfgs.get_current_context().get_filters()
-    if cfgs.CLUSTER_FIELD in filters:
-        pass
-    elif cfgs.CLUSTER_FIELD in ctx_filters:
-        pass
-    if cfgs.NAMESPACE_FIELD in filters:
-        pods_data = filter_obj(
-            pods_data,
-            [f"{lib.METADATA_FIELD}.namespace"],
-            filters[cfgs.NAMESPACE_FIELD],
-        )
-    elif cfgs.NAMESPACE_FIELD in ctx_filters:
-        pods_data = filter_obj(
-            pods_data,
-            [f"{lib.METADATA_FIELD}.namespace"],
-            ctx_filters[cfgs.NAMESPACE_FIELD],
-        )
-    if cfgs.MACHINES_FIELD in filters:
-        pass
-    elif cfgs.MACHINES_FIELD in ctx_filters:
-        pass
-    if cfgs.POD_FIELD in filters:
-        pass
-    elif cfgs.POD_FIELD in ctx_filters:
-        pass
-    if cfgs.CGROUP_FIELD in filters:
-        pass
-    elif cfgs.CGROUP_FIELD in ctx_filters:
-        pass
-    if cfgs.CONTAINER_NAME_FIELD in filters:
-        pass
-    elif cfgs.CONTAINER_NAME_FIELD in ctx_filters:
-        pass
-    if cfgs.IMG_FIELD in filters:
-        pass
-    elif cfgs.IMGID_FIELD in ctx_filters:
-        pass
+    filter_set = {
+        cfgs.NAMESPACE_FIELD: lambda data, filt: filter_obj(
+            data, [f"{lib.METADATA_FIELD}.namespace"], filt
+        ),
+    }
+    pods_data = use_filters(pods_data, filter_set, filters)
     return pods_data
+
+
+def use_filters(data, filter_functions: Dict, filters: Dict):
+    ctx_filters = cfgs.get_current_context().get_filters()
+    for filt, func in filter_functions.items():
+        if filt in filters:
+            data = func(data, filters[filt])
+        elif filt in ctx_filters:
+            data = func(data, ctx_filters[filt])
+    return data
 
 
 def filter_obj(

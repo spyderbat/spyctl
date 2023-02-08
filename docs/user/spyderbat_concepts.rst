@@ -33,6 +33,26 @@ The severity labels that can be applied to a redflag are listed here in increasi
 * high
 * critical
 
+.. _Selectors:
+
+Selectors
+=========
+
+containerSelector
+-----------------
+
+machineSelector
+---------------
+
+namespaceSelector
+-----------------
+
+podSelector
+-----------
+
+serviceSelector
+---------------
+
 .. _Spydertrace:
 
 Spydertrace
@@ -63,6 +83,5 @@ Spyderbat Nano Agent
 ====================
 
 *a.k.a. Nano Agent*
-
 
 .. |trace| replace:: :ref:`Spydertrace<Spydertrace>`

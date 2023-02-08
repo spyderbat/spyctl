@@ -57,7 +57,8 @@ and a ``response`` field in its ``spec``:
 
     response:
       default:
-        severity: high
+      - makeRedFlag:
+          severity: high
       actions: []
 
 If necessary, update the name in the |policy|'s metadata field.
@@ -89,54 +90,61 @@ To:
 Adding Response Actions
 ------------------------------
 
-When a new |policy| is created it will have a ``default`` |action| and an empty list of ``actions``. The
-``severity`` field in the default action indicates the severity that is applied to a |redflag| when
-this |policy| is violated. A full list of redflag severities can be found :ref:`here<Redflag_Severities>`.
-The |policy| violation |redflag| will be labeled with the highest severity of any taken |actions|,
-otherwise, if no actions are taken, the |redflag| will be labeled with the ``default`` severity.
+When a new |policy| is created it will have a ``default`` |actions| list, and an empty list of ``actions``.
+The ``default`` |actions| are taken when a policy is violated and no |actions| in the ``actions`` list are taken. 
 
 .. code-block:: yaml
 
     response:
       default:
-        severity: high
+      - makeRedFlag:
+          severity: high
       actions: []
 
-An example |action| is to receive a Slack notification via webhook when a
-|policy| is violated:
+By default, ``spyctl`` includes a ``makeRedFlag`` |action| in the ``default`` section of the policy's ``response`` field.
+This tells the Spyderbat backend to generate a redflag of high ``severity`` which will show up in the |console|.
+A full list of redflag severities can be found :ref:`here<Redflag_Severities>`.
+
+The |actions| in the ``actions`` field are taken when certain criteria are met. Every |action| in the ``actions`` field
+must include a |selector|. |selectors| are a way of limiting the scope of an |action|. 
+One example of this is to take an |action| to send a Slack notification via webhook when a |policy| violation occurs in a
+development environment:
 
 .. code-block:: yaml
 
-    actionName: webhook
-    url: <url>
-    template: slack
-    severity: medium
+    actions:
+    - webhook:
+        podSelector:
+          matchLabels:
+            env: dev
+        urlDestination: <url>
+        template: slack
 
 .. note:: 
     Adding |responses| is completely optional. When a |policy| is enforcing,
-    Spyderbat will automatically except |redflags| within the |policy|, and generate
-    new |redflags| with the default severity when a |policy| is violated. The full
+    Spyderbat will automatically except |redflags| within the |policy|. If there
+    are no |actions| in both the ``default`` and ``actions`` fields, then nothing
+    will happen when a violation occurs. The full
     |responses| documentation can be found :ref:`here<Response_Actions>`.
 
-For example, to add an action, edit your policy file:
+For example, to add a default webhook action, edit your policy file:
 
 .. code-block:: console
 
     $ vim python_srv_policy.yaml
 
-And add a webhook |action| to the ``actions`` list.
+And add a webhook |action| to the ``default`` list.
 
 .. code-block:: yaml
 
     response:
       default:
-        severity: high
-      actions:
-      - actionName: webhook
-        url: https://hooks.slack.com/services/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s
-        template: slack
-        severity: medium
-
+      - makeRedFlag:
+          severity: high
+      - webhook:
+          urlDestination: https://hooks.slack.com/services/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s
+          template: slack
+      actions: []
 
 Our |policy| now looks like this:
 
@@ -184,12 +192,12 @@ Our |policy| now looks like this:
             port: 27017
       response:
         default:
-          severity: high
-        actions:
-        - actionName: webhook
-          url: https://hooks.slack.com/services/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s
-          template: slack
-          severity: medium
+        - makeRedFlag:
+            severity: high
+        - webhook:
+            urlDestination: https://hooks.slack.com/services/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s
+            template: slack
+        actions: []
 
 Managing A Policy
 =================
@@ -330,12 +338,12 @@ The |policy| will look something like this:
             port: 27017
       response:
         default:
-          severity: high
-        actions:
-        - actionName: webhook
-          url: https://hooks.slack.com/services/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s
-          template: slack
-          severity: medium
+        - makeRedFlag:
+            severity: high
+        - webhook:
+            urlDestination: https://hooks.slack.com/services/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s
+            template: slack
+        actions: []
 
 Disabling and Re-enabling a Policy
 ==================================
@@ -456,6 +464,8 @@ What's Next
 .. |responses| replace:: :ref:`Response Actions<Response_Actions>`
 .. |secret| replace:: :ref:`APISecret<Secrets>`
 .. |secrets| replace:: :ref:`APISecrets<Secrets>`
+.. |selector| replace:: :ref:`Selector<Selectors>`
+.. |selectors| replace:: :ref:`Selectors<Selectors>`
 
 .. |s_na| replace:: :ref:`Spyderbat Nano Agent<Nano_Agent>`
 .. |s_baselines| replace:: :ref:`Spyderbat Baselines<Baselines>`
