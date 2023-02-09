@@ -63,6 +63,7 @@ MACHINES_RESOURCE = Aliases(
 )
 NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
+REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
 FINGERPRINTS_RESOURCE = Aliases(
     [
         "fingerprints",
@@ -109,6 +110,7 @@ GET_RESOURCES: List[str] = [
     NODES_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
     POLICIES_RESOURCE.name_plural,
+    REDFLAGS_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -172,7 +174,7 @@ S_HIGH = "high"
 S_MED = "medium"
 S_LOW = "low"
 S_INFO = "info"
-ALLOWED_SEVERITIES = {S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO}
+ALLOWED_SEVERITIES = [S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO]
 
 # Config
 CURR_CONTEXT_FIELD = "current-context"
