@@ -5,7 +5,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from spyctl import spyctl
+from spyctl import spyctl_main
 from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
 
 API_KEY = os.environ.get("API_KEY")
@@ -54,7 +54,7 @@ def test_secrets():
     test_url = "https://test.url"
     # Test set a new secret
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-apisecret",
@@ -68,7 +68,7 @@ def test_secrets():
     assert f"Set new apisecret '{TEST_SECRET}' in" in result.output
     # Test getting all secrets
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-apisecrets",
@@ -77,7 +77,7 @@ def test_secrets():
     assert TEST_SECRET in result.output
     # Test getting single secret
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-apisecrets",
@@ -87,7 +87,7 @@ def test_secrets():
     assert TEST_SECRET in result.output
     # Test getting single secret in yaml output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-apisecrets",
@@ -101,7 +101,7 @@ def test_secrets():
     assert API_URL in result.output
     # Test updating a secret
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-apisecret",
@@ -114,7 +114,7 @@ def test_secrets():
     )
     assert f"Updated apisecret '{TEST_SECRET}' in" in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-apisecrets",
@@ -128,7 +128,7 @@ def test_secrets():
     assert test_url in result.output
     # Test deleting a secret
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "delete-apisecret",
@@ -138,7 +138,7 @@ def test_secrets():
     )
     assert f"Deleted secret '{TEST_SECRET}' from" in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-apisecrets",
@@ -152,7 +152,7 @@ def test_contexts():
     create_secret()
     # Create a new context
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-context",
@@ -169,7 +169,7 @@ def test_contexts():
         in result.output
     )
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-context",
@@ -183,7 +183,7 @@ def test_contexts():
     # Test get all contexts
     test_str = f"*{TEST_CONTEXT}*{ORG}*0*"
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-contexts",
@@ -199,47 +199,47 @@ def test_contexts():
     assert match
     # Get specific contexts
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "get-contexts", TEST_CONTEXT],
     )
     assert fnmatch(result.output, test_str)
     # Display current context
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "current-context"],
     )
     assert result.output.strip("\n") == TEST_CONTEXT
     # Test use-context (switching contexts)
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "use-context", TEST_CONTEXT2],
     )
     assert f"Set current context to '{TEST_CONTEXT2}' in" in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "current-context"],
     )
     assert result.output.strip("\n") == TEST_CONTEXT2
     # Display config file
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "view"],
     )
     assert f"- name: {TEST_CONTEXT}" in result.output
     assert f"- name: {TEST_CONTEXT2}" in result.output
     # Delete contexts
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "delete-context", TEST_CONTEXT],
     )
     assert f"Deleted context '{TEST_CONTEXT}' in" in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "delete-context", TEST_CONTEXT2],
     )
     assert f"Deleted context '{TEST_CONTEXT2}' in" in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "get-contexts"],
     )
     assert TEST_CONTEXT not in result.output
@@ -251,7 +251,7 @@ def test_workspace():
     runner = CliRunner()
     # Test initialize a workspace
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "init-workspace",
@@ -262,7 +262,7 @@ def test_workspace():
     )
     assert fnmatch(result.output, test_str)
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-context",
@@ -275,7 +275,7 @@ def test_workspace():
     )
     assert result.exit_code == 0
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-context",
@@ -292,7 +292,7 @@ def test_workspace():
     create_context(TEST_CONTEXT2)
     # Get context from merged config
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-contexts",
@@ -306,7 +306,7 @@ def test_workspace():
     assert fnmatch(result.output, test_str)
     # Delete global context by same name
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "delete-context",
@@ -316,7 +316,7 @@ def test_workspace():
         ],
     )
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-contexts",
@@ -325,7 +325,7 @@ def test_workspace():
     )
     assert TEST_CONTEXT not in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-contexts",
@@ -334,7 +334,7 @@ def test_workspace():
     assert TEST_CONTEXT in result.output
     # Delete workspace context
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-contexts",
@@ -343,7 +343,7 @@ def test_workspace():
     )
     assert TEST_CONTEXT2 in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "delete-context",
@@ -352,7 +352,7 @@ def test_workspace():
         ],
     )
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "get-contexts",
@@ -362,7 +362,7 @@ def test_workspace():
     assert TEST_CONTEXT2 not in result.output
     # Set workspace current context to context within the global config
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "use-context",
@@ -376,13 +376,13 @@ def test_workspace():
     assert test_str in result.output
     assert WORKSPACE_DIR_NAME not in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "current-context", "-g"],
     )
     assert TEST_CONTEXT2 == result.output.strip("\n")
     # Set workspace current context to context within the workspace config
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "use-context",
@@ -393,7 +393,7 @@ def test_workspace():
     assert test_str in result.output
     assert WORKSPACE_DIR_NAME in result.output
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "current-context",
@@ -403,7 +403,7 @@ def test_workspace():
     # Test ensure unable to set global current context to context that
     # exists only in the local workspace config.
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "use-context",
@@ -418,7 +418,7 @@ def test_workspace():
 def create_secret():
     runner = CliRunner()
     result = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-apisecret",
@@ -436,7 +436,7 @@ def create_secret():
 def delete_secret():
     runner = CliRunner()
     runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "delete-apisecret",
@@ -449,7 +449,7 @@ def delete_secret():
 def create_context(name):
     runner = CliRunner()
     runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "set-context",
@@ -466,7 +466,7 @@ def create_context(name):
 def delete_context(name):
     runner = CliRunner()
     runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         ["config", "delete-context", name],
     )
 
@@ -474,7 +474,7 @@ def delete_context(name):
 def current_context():
     runner = CliRunner()
     current_ctx = runner.invoke(
-        spyctl.main,
+        spyctl_main.main,
         [
             "config",
             "current-context",
@@ -486,7 +486,7 @@ def current_context():
 def use_current_context():
     if CURRENT_CONTEXT:
         runner = CliRunner()
-        runner.invoke(spyctl.main, ["config", "use-context", CURRENT_CONTEXT])
+        runner.invoke(spyctl_main.main, ["config", "use-context", CURRENT_CONTEXT])
 
 
 def setup_module():

@@ -43,4 +43,4 @@ dependencies = [
 "Spyderbat" = "https://www.spyderbat.com/"
 
 [project.scripts]
-spyctl = "spyctl.spyctl:main"
+spyctl = "spyctl.spyctl_main:main"
