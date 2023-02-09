@@ -13,13 +13,13 @@ class RedflagsGroup:
         self.redflags = {}
         self.latest_timestamp = NOT_AVAILABLE
         self.machines = set()
-    
+
     def add_redflag(self, flag: Dict):
         machine_uid = flag.get("muid")
         if machine_uid:
             self.machines.add(machine_uid)
         self.__update_latest_timestamp(flag.get("time"))
-        self.redflags[flag['id']] = flag
+        self.redflags[flag["id"]] = flag
 
     def __update_latest_timestamp(self, timestamp):
         if timestamp is None:
@@ -31,7 +31,7 @@ class RedflagsGroup:
             self.latest_timestamp = timestamp
         elif timestamp > self.latest_timestamp:
             self.latest_timestamp = timestamp
-    
+
     def summary_data(self) -> List[str]:
         flag = next(iter(self.redflags.values()))
         timestamp = NOT_AVAILABLE
@@ -39,7 +39,11 @@ class RedflagsGroup:
             self.latest_timestamp is not None
             and self.latest_timestamp != NOT_AVAILABLE
         ):
-            timestamp = str(zulu.Zulu.fromtimestamp(self.latest_timestamp).format("YYYY-MM-ddTHH:mm:ss"))
+            timestamp = str(
+                zulu.Zulu.fromtimestamp(self.latest_timestamp).format(
+                    "YYYY-MM-ddTHH:mm:ss"
+                )
+            )
         ref_obj = flag["class"][1]
         if ref_obj == "proc":
             ref_obj = "process"
@@ -74,7 +78,10 @@ def redflags_output_summary(flags: List[Dict]) -> str:
     for group in groups.values():
         data.append(group.summary_data())
     output = tabulate(
-        sorted(data, key=lambda x: [_severity_index(x[1]), x[0], _to_timestamp(x[3])]),
+        sorted(
+            data,
+            key=lambda x: [_severity_index(x[1]), x[0], _to_timestamp(x[3])],
+        ),
         headers=headers,
         tablefmt="plain",
     )
@@ -85,7 +92,7 @@ def _severity_index(severity):
     try:
         return lib.ALLOWED_SEVERITIES.index(severity)
     except ValueError:
-        return -1 
+        return -1
 
 
 def _to_timestamp(zulu_str):
