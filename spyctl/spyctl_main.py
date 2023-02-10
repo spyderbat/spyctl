@@ -555,30 +555,6 @@ class GetCommand(lib.ArgumentParametersCommand):
                 )
             ],
         },
-        {
-            "resource": [lib.PODS_RESOURCE],
-            "args": [
-                click.option(
-                    "--only-active",
-                    "active",
-                    is_flag=True,
-                    help="Only include pods active at the end of the query time."
-                    " Off by default.",
-                )
-            ],
-        },
-        {
-            "resource": [lib.MACHINES_RESOURCE],
-            "args": [
-                click.option(
-                    "--exclude-nodes",
-                    "exclude_nodes",
-                    is_flag=True,
-                    help="Excludes machines associated with kubernetes nodes."
-                    " Off by default.",
-                )
-            ],
-        }
     ]
 
 
