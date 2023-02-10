@@ -1,8 +1,6 @@
-#! /home/brhaub/spyctl_demo/bin/python3
+#! ~/spyctl_demo/bin/python3
 
-import os
 import sys
-from pathlib import Path
 
 from click.testing import CliRunner
 

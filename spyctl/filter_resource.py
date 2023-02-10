@@ -1,6 +1,7 @@
 import fnmatch
 import time
 from typing import Dict, List, Union, Optional, Iterable
+from copy import deepcopy
 
 import spyctl.api as api
 import spyctl.config.configs as cfgs
@@ -8,15 +9,23 @@ import spyctl.spyctl_lib as lib
 
 DEFAULT_FILTER_TIME = (lib.time_inp("2h"), time.time())
 
+CONT_SEL_TGT = [lib.SPEC_FIELD, lib.CONT_SELECTOR_FIELD]
+SVC_SEL_TGT = [lib.SPEC_FIELD, lib.SVC_SELECTOR_FIELD]
+NS_SEL_TGT = [
+    lib.SPEC_FIELD,
+    lib.NAMESPACE_SELECTOR_FIELD,
+    lib.MATCH_LABELS_FIELD,
+]
+POD_SEL_TGT = [lib.SPEC_FIELD, lib.POD_SELECTOR_FIELD, lib.MATCH_LABELS_FIELD]
 CLUSTERS_TGT_FIELDS = ["uid", "name"]
 MACHINES_TGT_FIELDS = ["uid", "name"]
-CONT_SEL_TGT = f"{lib.SPEC_FIELD}.{lib.CONT_SELECTOR_FIELD}"
-SVC_SEL_TGT = f"{lib.SPEC_FIELD}.{lib.SVC_SELECTOR_FIELD}"
-CGROUP_TGT_FIELDS = [f"{SVC_SEL_TGT}.{lib.CGROUP_FIELD}"]
-CONT_NAME_TGT_FIELDS = [f"{CONT_SEL_TGT}.{lib.CONT_NAME_FIELD}"]
-CONT_ID_TGT_FIELDS = [f"{CONT_SEL_TGT}.{lib.CONT_ID_FIELD}"]
-IMAGE_TGT_FIELDS = [f"{CONT_SEL_TGT}.{lib.IMAGE_FIELD}"]
-IMAGEID_TGT_FIELDS = [f"{CONT_SEL_TGT}.{lib.IMAGEID_FIELD}"]
+CGROUP_TGT_FIELDS = [[*SVC_SEL_TGT, lib.CGROUP_FIELD]]
+CONT_NAME_TGT_FIELDS = [*CONT_SEL_TGT, lib.CONT_NAME_FIELD]
+CONT_ID_TGT_FIELDS = [[*CONT_SEL_TGT, lib.CONT_ID_FIELD]]
+IMAGE_TGT_FIELDS = [[*CONT_SEL_TGT, lib.IMAGE_FIELD]]
+IMAGEID_TGT_FIELDS = [[*CONT_SEL_TGT, lib.IMAGEID_FIELD]]
+NAMESPACE_LABEL_TGT_FIELDS = [[*NS_SEL_TGT]]
+POD_LABEL_TGT_FIELDS = [[*POD_SEL_TGT]]
 
 
 def filter_clusters(
@@ -122,6 +131,28 @@ def filter_fingerprints(
         filt += "*" if filt[-1] != "*" else filt
         return filter_obj(data, IMAGEID_TGT_FIELDS, filt)
 
+    def filter_namespace_labels(data, filt: Dict):
+        for key, value in filt.items():
+            tgt_fields = deepcopy(NAMESPACE_LABEL_TGT_FIELDS)
+            tgt_fields[0].append(key)
+            data = filter_obj(
+                data,
+                tgt_fields,
+                value,
+            )
+        return data
+
+    def filter_pod_labels(data, filt: Dict):
+        for key, value in filt.items():
+            tgt_fields = deepcopy(POD_LABEL_TGT_FIELDS)
+            tgt_fields[0].append(key)
+            data = filter_obj(
+                data,
+                tgt_fields,
+                value,
+            )
+        return data
+
     filter_set = {
         cfgs.CGROUP_FIELD: lambda data, filt: filter_obj(
             data, CGROUP_TGT_FIELDS, filt
@@ -131,14 +162,16 @@ def filter_fingerprints(
         ),
         lib.CONT_ID_FIELD: cont_id_filter,
         lib.IMAGE_FIELD: lambda data, filt: filter_obj(
-            data, CGROUP_TGT_FIELDS, filt
+            data, IMAGE_TGT_FIELDS, filt
         ),
         lib.IMAGEID_FIELD: image_id_filter,
         lib.NAMESPACE_FIELD: lambda data, filt: filter_obj(
             data,
-            [f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"],
+            [[lib.METADATA_FIELD, lib.METADATA_NAMESPACE_FIELD]],
             filt,
         ),
+        lib.NAMESPACE_LABELS_FIELD: filter_namespace_labels,
+        lib.POD_LABELS_FIELD: filter_pod_labels,
     }
     fingerprint_data = use_filters(fingerprint_data, filter_set, filters)
     return fingerprint_data
@@ -181,7 +214,7 @@ def filter_pods(
 ):
     filter_set = {
         cfgs.NAMESPACE_FIELD: lambda data, filt: filter_obj(
-            data, [f"{lib.METADATA_FIELD}.namespace"], filt
+            data, [[lib.METADATA_FIELD, lib.METADATA_NAMESPACE_FIELD]], filt
         ),
     }
     pods_data = use_filters(pods_data, filter_set, filters)
@@ -190,16 +223,21 @@ def filter_pods(
 
 def use_filters(data, filter_functions: Dict, filters: Dict):
     ctx_filters = cfgs.get_current_context().get_filters()
+    data_empty_at_start = len(data) == 0
     for filt, func in filter_functions.items():
         if filt in filters:
             data = func(data, filters[filt])
         elif filt in ctx_filters:
             data = func(data, ctx_filters[filt])
+        if len(data) == 0 and not data_empty_at_start:
+            lib.try_log(f"No results after filtering on {filt}")
     return data
 
 
 def filter_obj(
-    obj: List[Dict], target_fields: List[str], filters: Union[List[str], str]
+    obj: List[Dict],
+    target_fields: List[Union[str, List[str]]],
+    filters: Union[List[str], str],
 ) -> List[Dict]:
     rv = []
     if "-all" in filters:
@@ -246,11 +284,19 @@ def match_filters(
     return False
 
 
-def get_field_value(field: str, obj: Dict) -> Optional[Union[str, Iterable]]:
-    keys = field.split(".")
+def get_field_value(
+    field: Union[str, List[str]], obj: Dict
+) -> Optional[Union[str, Iterable]]:
     value = obj
-    for key in keys:
+    if isinstance(field, str):
+        key = field
         value = value.get(key)
         if value is None:
             return None
+    else:
+        keys = field
+        for key in keys:
+            value = value.get(key)
+            if value is None:
+                return None
     return value

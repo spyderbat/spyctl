@@ -274,7 +274,7 @@ def handle_get_secrets(name, output):
     secrets = get_secrets()
     if name:
         secrets = filt.filter_obj(
-            secrets, [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}"], name
+            secrets, [[lib.METADATA_FIELD, lib.METADATA_NAME_FIELD]], name
         )
     if output not in [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE]:
         secrets = secrets_output(secrets)

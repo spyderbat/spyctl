@@ -136,7 +136,7 @@ def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):
     if name_or_id:
         nodes = filt.filter_obj(
             nodes,
-            [f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}", "id"],
+            [[lib.METADATA_FIELD, lib.METADATA_NAME_FIELD], lib.ID_FIELD],
             name_or_id,
         )
     if output != lib.OUTPUT_DEFAULT:
@@ -155,7 +155,11 @@ def handle_get_pods(name_or_id, st, et, output, **filters):
     pods = api.get_pods(*ctx.get_api_data(), clusters, (st, et))
     pods = filt.filter_pods(pods)
     if name_or_id:
-        pods = filt.filter_obj(pods, ["metadata.name", "id"], name_or_id)
+        pods = filt.filter_obj(
+            pods,
+            [[lib.METADATA_FIELD, lib.METADATA_NAME_FIELD], lib.ID_FIELD],
+            name_or_id,
+        )
     if output != lib.OUTPUT_DEFAULT:
         pods = spyctl_pods.pods_output(pods)
     cli.show(
@@ -181,15 +185,15 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
         cont_fprint_grps = filt.filter_obj(
             cont_fprint_grps,
             [
-                f"{lib.METADATA_FIELD}.{lib.IMAGE_FIELD}",
-                f"{lib.METADATA_FIELD}.{lib.IMAGEID_FIELD}",
+                [lib.METADATA_FIELD, lib.IMAGE_FIELD],
+                [lib.METADATA_FIELD, lib.IMAGEID_FIELD],
             ],
             name_or_id,
         )
         svc_fprint_grps = filt.filter_obj(
             svc_fprint_grps,
             [
-                f"{lib.METADATA_FIELD}.{lib.CGROUP_FIELD}",
+                [lib.METADATA_FIELD, lib.CGROUP_FIELD],
             ],
             name_or_id,
         )
@@ -215,8 +219,8 @@ def handle_get_policies(name_or_id, output, **filters):
         policies = filt.filter_obj(
             policies,
             [
-                f"{lib.METADATA_FIELD}.{lib.NAME_FIELD}",
-                f"{lib.METADATA_FIELD}.{lib.METADATA_UID_FIELD}",
+                [lib.METADATA_FIELD, lib.NAME_FIELD],
+                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
             ],
             name_or_id,
         )
