@@ -175,6 +175,11 @@ def filter_fingerprints(
             data, CGROUP_TGT_FIELDS, filt
         ),
         lib.IMAGEID_FIELD: image_id_filter,
+        lib.NAMESPACE_FIELD: lambda data, filt: filter_obj(
+            data,
+            [f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"],
+            filt,
+        ),
     }
     fingerprint_data = use_filters(fingerprint_data, filter_set, filters)
     return fingerprint_data
