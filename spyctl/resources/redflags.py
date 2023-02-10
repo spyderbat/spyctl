@@ -31,7 +31,7 @@ class RedflagsGroup:
         elif timestamp > self.latest_timestamp:
             self.latest_timestamp = timestamp
 
-    def summary_data(self) -> List[str] | None:
+    def summary_data(self) -> List[str]:
         timestamp = NOT_AVAILABLE
         if (
             self.latest_timestamp is not None
