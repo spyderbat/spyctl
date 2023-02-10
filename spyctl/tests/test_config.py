@@ -486,7 +486,9 @@ def current_context():
 def use_current_context():
     if CURRENT_CONTEXT:
         runner = CliRunner()
-        runner.invoke(spyctl_main.main, ["config", "use-context", CURRENT_CONTEXT])
+        runner.invoke(
+            spyctl_main.main, ["config", "use-context", CURRENT_CONTEXT]
+        )
 
 
 def setup_module():

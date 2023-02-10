@@ -90,7 +90,9 @@ def test_get_pods_2hrs():
 
 def test_get_fingerprints_2hrs():
     runner = CliRunner()
-    response = runner.invoke(spyctl_main.main, ["get", "fingerprints", "-t", "2h"])
+    response = runner.invoke(
+        spyctl_main.main, ["get", "fingerprints", "-t", "2h"]
+    )
     print(response.output)
     assert response.exit_code == 0
 
@@ -118,7 +120,9 @@ def test_get_fingerprints_2hrs():
 
 def test_get_namespaces_2hrs():
     runner = CliRunner()
-    response = runner.invoke(spyctl_main.main, ["get", "namespaces", "-t", "2h"])
+    response = runner.invoke(
+        spyctl_main.main, ["get", "namespaces", "-t", "2h"]
+    )
     print(response.output)
     assert response.exit_code == 0
 
@@ -241,7 +245,9 @@ def use_test_context(name):
 def use_current_context():
     if CURRENT_CONTEXT:
         runner = CliRunner()
-        runner.invoke(spyctl_main.main, ["config", "use-context", CURRENT_CONTEXT])
+        runner.invoke(
+            spyctl_main.main, ["config", "use-context", CURRENT_CONTEXT]
+        )
 
 
 def setup_module():

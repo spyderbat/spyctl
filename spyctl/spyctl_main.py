@@ -552,7 +552,7 @@ class GetCommand(lib.ArgumentParametersCommand):
                     "--severity",
                     lib.FLAG_SEVERITY,
                     help="Only show redflags with the given severity or higher.",
-                )
+                ),
             ],
         },
     ]
