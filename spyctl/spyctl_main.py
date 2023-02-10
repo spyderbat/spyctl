@@ -535,7 +535,54 @@ def diff(filename, with_file=None, latest=False):
 # ----------------------------------------------------------------- #
 
 
-@main.command("get", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+class GetCommand(lib.ArgumentParametersCommand):
+    argument_name = "resource"
+    argument_value_parameters = [
+        {
+            "resource": [lib.REDFLAGS_RESOURCE],
+            "args": [
+                click.option(
+                    "--include-exceptions",
+                    "exceptions",
+                    is_flag=True,
+                    help="Include redflags marked as exceptions in output."
+                    " Off by default.",
+                ),
+                click.option(
+                    "--severity",
+                    lib.FLAG_SEVERITY,
+                    help="Only show redflags with the given severity or higher.",
+                )
+            ],
+        },
+        {
+            "resource": [lib.PODS_RESOURCE],
+            "args": [
+                click.option(
+                    "--only-active",
+                    "active",
+                    is_flag=True,
+                    help="Only include pods active at the end of the query time."
+                    " Off by default.",
+                )
+            ],
+        },
+        {
+            "resource": [lib.MACHINES_RESOURCE],
+            "args": [
+                click.option(
+                    "--exclude-nodes",
+                    "exclude_nodes",
+                    is_flag=True,
+                    help="Excludes machines associated with kubernetes nodes."
+                    " Off by default.",
+                )
+            ],
+        }
+    ]
+
+
+@main.command("get", cls=GetCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.GetResourcesParam())
 @click.argument("name_or_id", required=False)

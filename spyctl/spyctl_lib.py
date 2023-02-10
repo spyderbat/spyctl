@@ -28,6 +28,9 @@ class Aliases:
         plural_match = __o == self.name_plural if self.name_plural else False
         return __o in self.aliases or __o == self.name or plural_match
 
+    def __str__(self) -> str:
+        return self.name_plural or self.name
+
 
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
@@ -661,6 +664,59 @@ class CustomCommand(click.Command):
             epilog = inspect.cleandoc(self.epilog)
             formatter.write_paragraph()
             formatter.write_text(epilog)
+
+
+class ArgumentParametersCommand(CustomCommand):
+    argument_value_parameters = []
+    argument_name = ""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.base_param_count = len(self.params)
+        self.argument_value = self.argument_name
+
+    def parse_args(self, ctx, args: List[str]) -> List[str]:
+        args_cpy = args.copy()
+        parser = self.make_parser(ctx)
+        parser.ignore_unknown_options = True
+        opts, args_cpy, param_order = parser.parse_args(args=args_cpy)
+        for param in self.get_params(ctx):
+            if param.name == self.argument_name:
+                try:
+                    param.handle_parse_result(ctx, opts, args_cpy)
+                except Exception:
+                    pass
+                break
+        argument_value = ctx.params.get(self.argument_name)
+        if argument_value:
+            for obj in self.argument_value_parameters:
+                for value_option in obj[self.argument_name]:
+                    if argument_value == value_option:
+                        self.argument_value = str(value_option)
+                        for arg_maker in obj["args"]:
+                            # single use, parse args twice will make dupes
+                            arg_maker(self)
+                        break
+        return super().parse_args(ctx, args)
+
+    def format_options(self, ctx, formatter):
+        """Writes all the options into the formatter if they exist."""
+        opts = []
+        specif_opts = []
+        for i, param in enumerate(self.get_params(ctx)):
+            rv = param.get_help_record(ctx)
+            if rv is not None:
+                if i < self.base_param_count:
+                    opts.append(rv)
+                else:
+                    specif_opts.append(rv)
+
+        if opts:
+            with formatter.section("Options"):
+                formatter.write_dl(opts)
+        if specif_opts:
+            with formatter.section(f"Options for {self.argument_value}"):
+                formatter.write_dl(specif_opts)
 
 
 def try_log(*args, **kwargs):

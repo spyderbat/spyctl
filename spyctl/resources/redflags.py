@@ -10,16 +10,15 @@ NOT_AVAILABLE = lib.NOT_AVAILABLE
 
 class RedflagsGroup:
     def __init__(self) -> None:
-        self.redflags = {}
+        self.ref_flag = None
         self.latest_timestamp = NOT_AVAILABLE
-        self.machines = set()
+        self.count = 0
 
     def add_redflag(self, flag: Dict):
-        machine_uid = flag.get("muid")
-        if machine_uid:
-            self.machines.add(machine_uid)
+        if self.ref_flag is None:
+            self.ref_flag = flag
         self.__update_latest_timestamp(flag.get("time"))
-        self.redflags[flag["id"]] = flag
+        self.count += 1
 
     def __update_latest_timestamp(self, timestamp):
         if timestamp is None:
@@ -32,8 +31,7 @@ class RedflagsGroup:
         elif timestamp > self.latest_timestamp:
             self.latest_timestamp = timestamp
 
-    def summary_data(self) -> List[str]:
-        flag = next(iter(self.redflags.values()))
+    def summary_data(self) -> List[str] | None:
         timestamp = NOT_AVAILABLE
         if (
             self.latest_timestamp is not None
@@ -44,15 +42,15 @@ class RedflagsGroup:
                     "YYYY-MM-ddTHH:mm:ss"
                 )
             )
-        ref_obj = flag["class"][1]
+        ref_obj = self.ref_flag["class"][1]
         if ref_obj == "proc":
             ref_obj = "process"
         if ref_obj == "conn":
             ref_obj = "connection"
         rv = [
-            flag["short_name"],
-            flag["severity"],
-            str(len(self.redflags)),
+            self.ref_flag["short_name"],
+            self.ref_flag["severity"],
+            str(self.count),
             timestamp,
             ref_obj,
         ]
@@ -70,10 +68,9 @@ def redflags_output_summary(flags: List[Dict]) -> str:
     groups = {}
     for flag in flags:
         flag_class = "/".join(flag["class"])
-        if flag_class in groups:
-            groups[flag_class].add_redflag(flag)
-        else:
+        if flag_class not in groups:
             groups[flag_class] = RedflagsGroup()
+        groups[flag_class].add_redflag(flag)
     data = []
     for group in groups.values():
         data.append(group.summary_data())

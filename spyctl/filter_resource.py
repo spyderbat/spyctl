@@ -114,6 +114,34 @@ def filter_redflags(
     containers_data=None,
     **filters,
 ):
+    def severity_filter(data, filt):
+        index = -1
+        try:
+            index = lib.ALLOWED_SEVERITIES.index(filt)
+        except ValueError:
+            return data
+        rv = []
+        for flag in data:
+            try:
+                if lib.ALLOWED_SEVERITIES.index(flag["severity"]) <= index:
+                    rv.append(flag)
+            except ValueError:
+                rv.append(flag)
+        return rv
+
+    def exceptions_filter(data, filt):
+        if filt:
+            return data
+        return [flag for flag in data if not flag["false_positive"]]
+
+    filter_set = {
+        cfgs.MACHINES_FIELD: lambda data, filt: filter_obj(
+            data, ["muid"], filt
+        ),
+        lib.FLAG_SEVERITY: severity_filter,
+        "exceptions": exceptions_filter,
+    }
+    flag_grp_data = use_filters(flag_grp_data, filter_set, filters)
     return flag_grp_data
 
 

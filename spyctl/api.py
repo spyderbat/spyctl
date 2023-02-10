@@ -311,23 +311,15 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
     return list(pods.values())
 
 
-def get_redflags(api_url, api_key, org_uid, muids, time):
+def get_redflags(api_url, api_key, org_uid, time):
+    url = (
+        f"{api_url}/api/v1/org/{org_uid}/data/?"
+        f"st={time[0]}&et={time[1]}&dt=redflags"
+    )
     flags = []
-    pbar = tqdm.tqdm(total=len(muids), leave=False, file=sys.stderr)
-    threads = []
-    with ThreadPoolExecutor() as executor:
-        for muid in muids:
-            url = (
-                f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&"
-                f"st={time[0]}&et={time[1]}&dt=redflags"
-            )
-            threads.append(executor.submit(get, url, api_key))
-        for task in as_completed(threads):
-            pbar.update(1)
-            resp = task.result()
-            for flag_json in resp.iter_lines():
-                flags.append(json.loads(flag_json))
-    pbar.close()
+    resp = get(url, api_key)
+    for flag_json in resp.iter_lines():
+        flags.append(json.loads(flag_json))
     return flags
 
 
