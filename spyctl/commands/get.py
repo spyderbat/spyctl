@@ -219,8 +219,8 @@ def handle_get_policies(name_or_id, output, **filters):
         policies = filt.filter_obj(
             policies,
             [
-                f"{lib.METADATA_FIELD}.{lib.NAME_FIELD}",
-                f"{lib.METADATA_FIELD}.{lib.METADATA_UID_FIELD}",
+                [lib.METADATA_FIELD, lib.NAME_FIELD],
+                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
             ],
             name_or_id,
         )
