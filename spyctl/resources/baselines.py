@@ -1,10 +1,6 @@
-import time
 from typing import Dict, Optional
 
-import spyctl.api as api
 import spyctl.cli as cli
-import spyctl.config.configs as cfgs
-import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.policies as spyctl_policies
@@ -111,7 +107,7 @@ def create_baseline(obj: Dict):
 
 
 def merge_baseline(
-    baseline: Dict, with_obj: Dict, latest
+    baseline: Dict, with_obj: Dict, fingerprints
 ) -> Optional[m_lib.MergeObject]:
     try:
         _ = Baseline(baseline)
@@ -156,29 +152,7 @@ def merge_baseline(
         base_merge_obj.asymmetric_merge(with_obj)
         if not base_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid baseline")
-    elif latest:
-        latest_timestamp = baseline.get(lib.METADATA_FIELD, {}).get(
-            lib.LATEST_TIMESTAMP_FIELD
-        )
-        if latest_timestamp is not None:
-            st = lib.time_inp(latest_timestamp)
-        else:
-            cli.err_exit(
-                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided resource"
-                f" {lib.METADATA_FIELD} field. Defaulting to all time."
-            )
-        et = time.time()
-        filters = lib.selectors_to_filters(baseline)
-        ctx = cfgs.get_current_context()
-        machines = api.get_machines(*ctx.get_api_data())
-        machines = filt.filter_machines(machines, filters)
-        muids = [m["uid"] for m in machines]
-        fingerprints = api.get_fingerprints(
-            *ctx.get_api_data(),
-            muids=muids,
-            time=(st, et),
-        )
-        fingerprints = filt.filter_fingerprints(fingerprints, **filters)
+    elif fingerprints is not None:
         for fingerprint in fingerprints:
             base_merge_obj.asymmetric_merge(fingerprint)
         if not base_merge_obj.is_valid:

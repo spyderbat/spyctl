@@ -525,9 +525,29 @@ def delete(resource, name_or_id, yes=False):
     " metadata",
     metavar="",
 )
-def diff(filename, with_file=None, latest=False):
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Start time of the query for fingerprints to diff."
+    " Only used if --latest and --with-file are not set."
+    " Default is 24 hours ago.",
+    default="24h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query for fingerprints to diff."
+    " Only used if --with-file is not set."
+    " Default is now.",
+    default=time.time(),
+    type=lib.time_inp,
+)
+def diff(filename, st, et, with_file=None, latest=False):
     """Diff FingerprintsGroups with SpyderbatBaselines and SpyderbatPolicies"""
-    d.handle_diff(filename, with_file, latest)
+    d.handle_diff(filename, with_file, st, et, latest)
 
 
 # ----------------------------------------------------------------- #
@@ -760,13 +780,33 @@ def get(
     default=lib.OUTPUT_DEFAULT,
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
-def merge(filename, output, with_file=None, latest=False):
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Start time of the query for fingerprints to merge."
+    " Only used if --latest and --with-file are not set."
+    " Default is 24 hours ago.",
+    default="24h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query for fingerprints to merge."
+    " Only used if --with-file is not set."
+    " Default is now.",
+    default=time.time(),
+    type=lib.time_inp,
+)
+def merge(filename, output, st, et, with_file=None, latest=False):
     """Merge FingerprintsGroups into SpyderbatBaselines and
     SpyderbatPolicies
     """
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
-    m.handle_merge(filename, with_file, latest, output)
+    m.handle_merge(filename, with_file, st, et, latest, output)
 
 
 # ----------------------------------------------------------------- #

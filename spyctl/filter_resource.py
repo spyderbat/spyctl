@@ -1,7 +1,7 @@
 import fnmatch
 import time
-from typing import Dict, List, Union, Optional, Iterable
 from copy import deepcopy
+from typing import Dict, Iterable, List, Optional, Union
 
 import spyctl.api as api
 import spyctl.config.configs as cfgs
@@ -84,6 +84,7 @@ def filter_machines(
     pods_data=None,
     cgroups_data=None,
     containers_data=None,
+    use_context_filters=True,
     **filters,
 ):
     filter_set = {
@@ -91,7 +92,9 @@ def filter_machines(
             data, MACHINES_TGT_FIELDS, filt
         ),
     }
-    machines_data = use_filters(machines_data, filter_set, filters)
+    machines_data = use_filters(
+        machines_data, filter_set, filters, use_context_filters
+    )
     return machines_data
 
 
@@ -162,6 +165,7 @@ def filter_fingerprints(
     pods_data=None,
     cgroups_data=None,
     containers_data=None,
+    use_context_filters=True,
     **filters,
 ):
     def cont_id_filter(data, filt):
@@ -214,7 +218,9 @@ def filter_fingerprints(
         lib.NAMESPACE_LABELS_FIELD: filter_namespace_labels,
         lib.POD_LABELS_FIELD: filter_pod_labels,
     }
-    fingerprint_data = use_filters(fingerprint_data, filter_set, filters)
+    fingerprint_data = use_filters(
+        fingerprint_data, filter_set, filters, use_context_filters
+    )
     return fingerprint_data
 
 
@@ -262,13 +268,15 @@ def filter_pods(
     return pods_data
 
 
-def use_filters(data, filter_functions: Dict, filters: Dict):
+def use_filters(
+    data, filter_functions: Dict, filters: Dict, use_context_filters=True
+):
     ctx_filters = cfgs.get_current_context().get_filters()
     data_empty_at_start = len(data) == 0
     for filt, func in filter_functions.items():
         if filt in filters:
             data = func(data, filters[filt])
-        elif filt in ctx_filters:
+        elif use_context_filters and filt in ctx_filters:
             data = func(data, ctx_filters[filt])
         if len(data) == 0 and not data_empty_at_start:
             lib.try_log(f"No results after filtering on {filt}")
