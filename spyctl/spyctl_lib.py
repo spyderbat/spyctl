@@ -162,6 +162,11 @@ class LabelParam(click.ParamType):
         return value
 
 
+# Spyderbat Schema Prefix'
+SCHEMA_FIELD = "schema"
+EVENT_REDFLAG_PREFIX = "event_redflag"
+EVENT_OPSFLAG_PREFIX = "event_opsflag"
+
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
 BASELINE_KIND = "SpyderbatBaseline"

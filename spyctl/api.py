@@ -318,8 +318,13 @@ def get_redflags(api_url, api_key, org_uid, time):
     )
     flags = []
     resp = get(url, api_key)
-    for flag_json in resp.iter_lines():
-        flags.append(json.loads(flag_json))
+    for flag_data in resp.iter_lines():
+        flag_json = json.loads(flag_data)
+        schema = flag_json.get(lib.SCHEMA_FIELD)
+        if isinstance(schema, str) and schema.startswith(
+            lib.EVENT_REDFLAG_PREFIX
+        ):
+            flags.append(flag_json)
     return flags
 
 

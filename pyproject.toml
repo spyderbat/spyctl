@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spyctl"
-version = "0.9.13"
+version = "0.9.14"
 
 description = "A command line tool for viewing and managing Spyderbat Resources"
 readme = "README.md"
@@ -43,4 +43,4 @@ dependencies = [
 "Spyderbat" = "https://www.spyderbat.com/"
 
 [project.scripts]
-spyctl = "spyctl.spyctl_main:main"
+spyctl = "spyctl.spyctl:main"
