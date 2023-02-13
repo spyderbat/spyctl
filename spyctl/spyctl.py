@@ -535,7 +535,31 @@ def diff(filename, with_file=None, latest=False):
 # ----------------------------------------------------------------- #
 
 
-@main.command("get", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+class GetCommand(lib.ArgumentParametersCommand):
+    argument_name = "resource"
+    argument_value_parameters = [
+        {
+            "resource": [lib.REDFLAGS_RESOURCE],
+            "args": [
+                click.option(
+                    "--include-exceptions",
+                    "exceptions",
+                    is_flag=True,
+                    help="Include redflags marked as exceptions in output."
+                    " Off by default.",
+                ),
+                click.option(
+                    "--severity",
+                    lib.FLAG_SEVERITY,
+                    help="Only show redflags with the given"
+                    " severity or higher.",
+                ),
+            ],
+        },
+    ]
+
+
+@main.command("get", cls=GetCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.GetResourcesParam())
 @click.argument("name_or_id", required=False)
