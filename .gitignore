@@ -2,3 +2,4 @@ __pycache__/
 *.yml
 *.code-workspace
 .vscode/
+docs/_build

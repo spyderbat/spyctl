@@ -8,7 +8,7 @@ import time
 from base64 import urlsafe_b64encode as b64url
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
 
 import click
@@ -149,6 +149,19 @@ class GetResourcesParam(click.ParamType):
         ]
 
 
+class LabelParam(click.ParamType):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        rv = label_input_to_dict()
+        if rv is None:
+            self.fail("Invalid label input", param, ctx)
+        return value
+
+
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
 BASELINE_KIND = "SpyderbatBaseline"
@@ -192,6 +205,8 @@ ORG_FIELD = "organization"
 POD_FIELD = "pod"
 CLUSTER_FIELD = "cluster"
 NAMESPACE_FIELD = "namespace"
+NAMESPACE_LABELS_FIELD = "namespace-labels"
+POD_LABELS_FIELD = "pod-labels"
 MACHINES_FIELD = "machines"
 DEFAULT_API_URL = "https://api.spyderbat.com"
 
@@ -796,7 +811,149 @@ def selectors_to_filters(resource: Dict, **filters) -> Dict:
         return filters
     rv: Dict = copy.deepcopy(spec.get(CONT_SELECTOR_FIELD, {}))
     rv.update(copy.deepcopy(spec.get(SVC_SELECTOR_FIELD, {})))
+    namespace_labels = copy.deepcopy(
+        spec.get(NAMESPACE_SELECTOR_FIELD, {}).get(MATCH_LABELS_FIELD, {})
+    )
+    if namespace_labels:
+        rv.update({NAMESPACE_LABELS_FIELD: namespace_labels})
+    pod_labels = copy.deepcopy(
+        spec.get(POD_SELECTOR_FIELD, {}).get(MATCH_LABELS_FIELD, {})
+    )
+    if pod_labels:
+        rv.update({POD_LABELS_FIELD: pod_labels})
     rv.update(filters)
+    return rv
+
+
+def label_input_to_dict(input: Union[str, List[str], Dict]) -> Optional[Dict]:
+    in_str = " in "
+    notin_str = " notin "
+
+    def parse_str_input(inp: str) -> Optional[Dict]:
+        def parse_only_key(key_inp: str) -> Optional[Dict]:
+            key_inp = key_inp.strip(" ")
+            if " " in key_inp:
+                return None
+            return {key_inp: "*"}
+
+        def parse_equality_based(eq_inp: str) -> Optional[Dict]:
+            rv = {}
+            kv_pairs = eq_inp.split(",")
+            for pair in kv_pairs:
+                try:
+                    k, v = pair.split("=")
+                    k = k.strip(" ")
+                    v = v.strip(" ")
+                    rv[k] = v
+                except Exception:
+                    only_key = parse_only_key(pair)
+                    if not only_key:
+                        try_log(
+                            f"{pair} is an invalid format. Use 'key=value' or"
+                            " only 'key'",
+                            is_warning=True,
+                        )
+                        return None
+                    rv.update(only_key)
+            if not rv:
+                return None
+            return rv
+
+        def parse_set_based(set_inp) -> Optional[Dict]:
+            rv = {}
+            import re
+
+            # split input on commas not in parenthesis
+            pat = re.compile(r",(?![^(]*\))")
+            for set_str in re.split(pat, set_inp):
+                if in_str in set_str:
+                    try:
+                        k, s = set_str.split(in_str)
+                        s = s.replace("(", "").replace(")", "").split(",")
+                        s = [
+                            value.strip(" ") for value in s if value.strip(" ")
+                        ]
+                        if not s:
+                            try_log(
+                                f"{set_str} cannot contain an empty",
+                                is_warning=True,
+                            )
+                            return None
+                        if len(s) == 1:
+                            s = s[0]
+                        rv[k] = s
+                    except Exception:
+                        try_log(
+                            f"{set_str} is an invalid format use 'key in"
+                            " (value1,value2)' or only 'key'",
+                            is_warning=True,
+                        )
+                        return None
+                else:
+                    only_key = parse_only_key(set_str)
+                    if not only_key:
+                        try_log(
+                            f"{set_str} is an invalid format use 'key in"
+                            " (value1,value2)' or only 'key'",
+                            is_warning=True,
+                        )
+                        return None
+                    rv.update(only_key)
+            if not rv:
+                return None
+            return rv
+
+        rv = None
+        if "=" in inp:
+            rv = parse_equality_based(inp)
+        elif in_str in inp:
+            if notin_str in inp:
+                try_log("notin not supported", is_warning=True)
+                return None
+            rv = parse_set_based(inp)
+        elif notin_str in inp:
+            if notin_str in inp:
+                try_log("notin not supported", is_warning=True)
+                return None
+        else:
+            rv = {}
+            only_keys = inp.split(",")
+            for key in only_keys:
+                parsed_key = parse_only_key(key)
+                if parsed_key is None:
+                    return None
+                rv.update(parsed_key)
+        if not rv:
+            return None
+        return rv
+
+    rv = {}
+    if isinstance(input, str):
+        parsed = parse_str_input(input)
+        if not parsed:
+            return None
+        rv.update(parsed)
+    elif isinstance(input, list):
+        for item in input:
+            if not isinstance(item, str):
+                try_log(
+                    f"label list contains items other than a string. {input}",
+                    is_warning=True,
+                )
+                return None
+            parsed = parse_str_input(item)
+            if not parsed:
+                return None
+            rv.update(parsed)
+    elif isinstance(input, dict):
+        if not input:
+            return None
+        rv.update(input)
+    else:
+        try_log("label input is not str, list, or dict", is_warning=True)
+        return None
+    if not rv:
+        return None
     return rv
 
 
