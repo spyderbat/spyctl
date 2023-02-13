@@ -1,14 +1,10 @@
 import json
-import time
 from typing import Dict, List, Optional, Tuple
 
 import zulu
 from tabulate import tabulate
 
-import spyctl.api as api
 import spyctl.cli as cli
-import spyctl.config.configs as cfgs
-import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
 import spyctl.resources.baselines as spyctl_baselines
 import spyctl.resources.fingerprints as spyctl_fprints
@@ -161,7 +157,7 @@ def create_policy(obj: Dict):
 
 
 def merge_policy(
-    policy: Dict, with_obj: Dict, latest
+    policy: Dict, with_obj: Dict, fingerprints: List[Dict] = None
 ) -> Optional[m_lib.MergeObject]:
     try:
         _ = Policy(policy)
@@ -204,29 +200,7 @@ def merge_policy(
         pol_merge_obj.asymmetric_merge(with_obj)
         if not pol_merge_obj.is_valid:
             cli.try_log("Merge was unable to create a valid policy")
-    elif latest:
-        latest_timestamp = policy.get(lib.METADATA_FIELD, {}).get(
-            lib.LATEST_TIMESTAMP_FIELD
-        )
-        if latest_timestamp is not None:
-            st = lib.time_inp(latest_timestamp)
-        else:
-            cli.err_exit(
-                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided resource"
-                f" {lib.METADATA_FIELD} field. Defaulting to all time."
-            )
-        et = time.time()
-        filters = lib.selectors_to_filters(policy)
-        ctx = cfgs.get_current_context()
-        machines = api.get_machines(*ctx.get_api_data())
-        machines = filt.filter_machines(machines, filters)
-        muids = [m["uid"] for m in machines]
-        fingerprints = api.get_fingerprints(
-            *ctx.get_api_data(),
-            muids=muids,
-            time=(st, et),
-        )
-        fingerprints = filt.filter_fingerprints(fingerprints, **filters)
+    elif fingerprints is not None:
         for fingerprint in fingerprints:
             pol_merge_obj.asymmetric_merge(fingerprint)
         if not pol_merge_obj.is_valid:
@@ -239,8 +213,8 @@ def merge_policy(
     return pol_merge_obj
 
 
-def diff_policy(policy: Dict, with_obj: Dict, latest):
-    pol_merge_obj = merge_policy(policy, with_obj, latest)
+def diff_policy(policy: Dict, with_obj: Dict, fingerprints=None):
+    pol_merge_obj = merge_policy(policy, with_obj, fingerprints)
     if not pol_merge_obj:
         cli.err_exit("Unable to perform Diff")
     diff = pol_merge_obj.get_diff()
