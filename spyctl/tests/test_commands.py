@@ -5,7 +5,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from spyctl import spyctl_main
+from spyctl import spyctl
 from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
 
 
@@ -27,11 +27,11 @@ class SetupException(Exception):
 
 def test_version():
     runner = CliRunner()
-    response = runner.invoke(spyctl_main.main, ["-v"])
+    response = runner.invoke(spyctl.main, ["-v"])
     test_pat = "Spyctl, version *.*.*"
     assert response.exit_code == 0
     assert fnmatch(response.output, test_pat)
-    response = runner.invoke(spyctl_main.main, ["--version"])
+    response = runner.invoke(spyctl.main, ["--version"])
     test_pat = "Spyctl, version *.*.*"
     assert response.exit_code == 0
     assert fnmatch(response.output, test_pat)
@@ -39,19 +39,19 @@ def test_version():
 
 def test_get_clusters():
     runner = CliRunner()
-    response = runner.invoke(spyctl_main.main, ["get", "clusters"])
+    response = runner.invoke(spyctl.main, ["get", "clusters"])
     assert response.exit_code == 0
 
 
 def test_get_machines():
     runner = CliRunner()
-    response = runner.invoke(spyctl_main.main, ["get", "machines"])
+    response = runner.invoke(spyctl.main, ["get", "machines"])
     assert response.exit_code == 0
 
 
 def test_get_policies():
     runner = CliRunner()
-    response = runner.invoke(spyctl_main.main, ["get", "policies"])
+    response = runner.invoke(spyctl.main, ["get", "policies"])
     assert response.exit_code == 0
 
 
@@ -63,7 +63,7 @@ def test_get_policies():
 
 def test_get_pods_2hrs():
     runner = CliRunner()
-    response = runner.invoke(spyctl_main.main, ["get", "pods", "-t", "2h"])
+    response = runner.invoke(spyctl.main, ["get", "pods", "-t", "2h"])
     assert response.exit_code == 0
 
 
@@ -91,7 +91,7 @@ def test_get_pods_2hrs():
 def test_get_fingerprints_2hrs():
     runner = CliRunner()
     response = runner.invoke(
-        spyctl_main.main, ["get", "fingerprints", "-t", "2h"]
+        spyctl.main, ["get", "fingerprints", "-t", "2h"]
     )
     print(response.output)
     assert response.exit_code == 0
@@ -121,7 +121,7 @@ def test_get_fingerprints_2hrs():
 def test_get_namespaces_2hrs():
     runner = CliRunner()
     response = runner.invoke(
-        spyctl_main.main, ["get", "namespaces", "-t", "2h"]
+        spyctl.main, ["get", "namespaces", "-t", "2h"]
     )
     print(response.output)
     assert response.exit_code == 0
@@ -167,7 +167,7 @@ def env_setup() -> bool:
 def create_secret():
     runner = CliRunner()
     result = runner.invoke(
-        spyctl_main.main,
+        spyctl.main,
         [
             "config",
             "set-apisecret",
@@ -185,7 +185,7 @@ def create_secret():
 def delete_secret():
     runner = CliRunner()
     runner.invoke(
-        spyctl_main.main,
+        spyctl.main,
         [
             "config",
             "delete-apisecret",
@@ -198,7 +198,7 @@ def delete_secret():
 def create_context(name):
     runner = CliRunner()
     result = runner.invoke(
-        spyctl_main.main,
+        spyctl.main,
         [
             "config",
             "set-context",
@@ -217,7 +217,7 @@ def create_context(name):
 def delete_context(name):
     runner = CliRunner()
     runner.invoke(
-        spyctl_main.main,
+        spyctl.main,
         ["config", "delete-context", name],
     )
 
@@ -225,7 +225,7 @@ def delete_context(name):
 def current_context():
     runner = CliRunner()
     result = runner.invoke(
-        spyctl_main.main,
+        spyctl.main,
         [
             "config",
             "current-context",
@@ -239,14 +239,14 @@ def current_context():
 
 def use_test_context(name):
     runner = CliRunner()
-    runner.invoke(spyctl_main.main, ["config", "use-context", name])
+    runner.invoke(spyctl.main, ["config", "use-context", name])
 
 
 def use_current_context():
     if CURRENT_CONTEXT:
         runner = CliRunner()
         runner.invoke(
-            spyctl_main.main, ["config", "use-context", CURRENT_CONTEXT]
+            spyctl.main, ["config", "use-context", CURRENT_CONTEXT]
         )
 
 
