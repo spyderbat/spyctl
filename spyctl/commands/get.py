@@ -10,7 +10,7 @@ import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.nodes as spyctl_nodes
-import spyctl.resources.redflags as spyctl_redflags
+import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.policies as spyctl_policies
 import spyctl.spyctl_lib as lib
 
@@ -60,6 +60,8 @@ def handle_get(
         handle_get_pods(name_or_id, st, et, output, **filters)
     elif resource == lib.REDFLAGS_RESOURCE:
         handle_get_redflags(name_or_id, st, et, output, **filters)
+    elif resource == lib.OPSFLAGS_RESOURCE:
+        handle_get_opsflags(name_or_id, st, et, output, **filters)
     elif resource == lib.POLICIES_RESOURCE:
         handle_get_policies(name_or_id, output, **filters)
     else:
@@ -179,11 +181,26 @@ def handle_get_redflags(name_or_id, st, et, output, **filters):
     if name_or_id:
         flags = filt.filter_obj(flags, ["short_name", "id"], name_or_id)
     if output != lib.OUTPUT_DEFAULT:
-        flags = spyctl_redflags.redflags_output(flags)
+        flags = spyctl_flags.flags_output(flags)
     cli.show(
         flags,
         output,
-        {lib.OUTPUT_DEFAULT: spyctl_redflags.redflags_output_summary},
+        {lib.OUTPUT_DEFAULT: spyctl_flags.flags_output_summary},
+    )
+
+
+def handle_get_opsflags(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    flags = api.get_opsflags(*ctx.get_api_data(), (st, et))
+    flags = filt.filter_opsflags(flags, **filters)
+    if name_or_id:
+        flags = filt.filter_obj(flags, ["short_name", "id"], name_or_id)
+    if output != lib.OUTPUT_DEFAULT:
+        flags = spyctl_flags.flags_output(flags)
+    cli.show(
+        flags,
+        output,
+        {lib.OUTPUT_DEFAULT: spyctl_flags.flags_output_summary},
     )
 
 

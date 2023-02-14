@@ -8,13 +8,13 @@ import zulu
 NOT_AVAILABLE = lib.NOT_AVAILABLE
 
 
-class RedflagsGroup:
+class FlagsGroup:
     def __init__(self) -> None:
         self.ref_flag = None
         self.latest_timestamp = NOT_AVAILABLE
         self.count = 0
 
-    def add_redflag(self, flag: Dict):
+    def add_flag(self, flag: Dict):
         if self.ref_flag is None:
             self.ref_flag = flag
         self.__update_latest_timestamp(flag.get("time"))
@@ -43,10 +43,8 @@ class RedflagsGroup:
                 )
             )
         ref_obj = self.ref_flag["class"][1]
-        if ref_obj == "proc":
-            ref_obj = "process"
-        if ref_obj == "conn":
-            ref_obj = "connection"
+        if ref_obj in lib.CLASS_LONG_NAMES:
+            ref_obj = lib.CLASS_LONG_NAMES[ref_obj]
         rv = [
             self.ref_flag["short_name"],
             self.ref_flag["severity"],
@@ -57,7 +55,7 @@ class RedflagsGroup:
         return rv
 
 
-def redflags_output_summary(flags: List[Dict]) -> str:
+def flags_output_summary(flags: List[Dict]) -> str:
     headers = [
         "FLAG",
         "SEVERITY",
@@ -69,8 +67,8 @@ def redflags_output_summary(flags: List[Dict]) -> str:
     for flag in flags:
         flag_class = "/".join(flag["class"])
         if flag_class not in groups:
-            groups[flag_class] = RedflagsGroup()
-        groups[flag_class].add_redflag(flag)
+            groups[flag_class] = FlagsGroup()
+        groups[flag_class].add_flag(flag)
     data = []
     for group in groups.values():
         data.append(group.summary_data())
@@ -96,7 +94,7 @@ def _to_timestamp(zulu_str):
     return zulu.Zulu.parse(zulu_str).timestamp()
 
 
-def redflags_output(flags: List[Dict]) -> Dict:
+def flags_output(flags: List[Dict]) -> Dict:
     if len(flags) == 1:
         return flags[0]
     elif len(flags) > 1:
