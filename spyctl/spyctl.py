@@ -564,7 +564,7 @@ class GetCommand(lib.ArgumentParametersCommand):
                 click.option(
                     "--severity",
                     lib.FLAG_SEVERITY,
-                    help="Only show redflags with the given"
+                    help="Only show flags with the given"
                     " severity or higher.",
                 ),
             ],
