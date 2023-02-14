@@ -201,15 +201,15 @@ ALLOWED_SEVERITIES = [S_CRIT, S_HIGH, S_MED, S_LOW, S_INFO]
 
 # Abbreviated Classes
 CLASS_LONG_NAMES = {
-    'conn': 'connection',
-    'redflag': 'redflag',
-    'opsflag': 'opsflag',
-    'mach': 'machine',
-    'proc': 'process',
-    'sess': 'session',
-    'sock': 'socket',
-    'cont': 'container',
-    'pod': 'pod',
+    "conn": "connection",
+    "redflag": "redflag",
+    "opsflag": "opsflag",
+    "mach": "machine",
+    "proc": "process",
+    "sess": "session",
+    "sock": "socket",
+    "cont": "container",
+    "pod": "pod",
 }
 
 # Config
