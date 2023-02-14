@@ -559,6 +559,17 @@ class GetCommand(lib.ArgumentParametersCommand):
     argument_name = "resource"
     argument_value_parameters = [
         {
+            "resource": [lib.REDFLAGS_RESOURCE, lib.OPSFLAGS_RESOURCE],
+            "args": [
+                click.option(
+                    "--severity",
+                    lib.FLAG_SEVERITY,
+                    help="Only show redflags with the given"
+                    " severity or higher.",
+                ),
+            ],
+        },
+        {
             "resource": [lib.REDFLAGS_RESOURCE],
             "args": [
                 click.option(
@@ -567,12 +578,6 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Include redflags marked as exceptions in output."
                     " Off by default.",
-                ),
-                click.option(
-                    "--severity",
-                    lib.FLAG_SEVERITY,
-                    help="Only show redflags with the given"
-                    " severity or higher.",
                 ),
             ],
         },

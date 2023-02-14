@@ -328,6 +328,23 @@ def get_redflags(api_url, api_key, org_uid, time):
     return flags
 
 
+def get_opsflags(api_url, api_key, org_uid, time):
+    url = (
+        f"{api_url}/api/v1/org/{org_uid}/data/?"
+        f"st={time[0]}&et={time[1]}&dt=redflags"
+    )
+    flags = []
+    resp = get(url, api_key)
+    for flag_data in resp.iter_lines():
+        flag_json = json.loads(flag_data)
+        schema = flag_json.get(lib.SCHEMA_FIELD)
+        if isinstance(schema, str) and schema.startswith(
+            lib.EVENT_OPSFLAG_PREFIX
+        ):
+            flags.append(flag_json)
+    return flags
+
+
 def get_fingerprints(api_url, api_key, org_uid, muids, time):
     fingerprints = []
     pbar = tqdm.tqdm(total=len(muids), leave=False, file=sys.stderr)
