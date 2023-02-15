@@ -424,7 +424,6 @@ def svc_grp_output_data(grp: Dict) -> List[str]:
         pass
     rv = [
         grp[lib.METADATA_FIELD][lib.CGROUP_FIELD],
-        len(grp[lib.DATA_FIELD][FINGERPRINTS_FIELD]),
         len(grp[lib.DATA_FIELD][MACHINES_FIELD]),
         latest_timestamp,
     ]
