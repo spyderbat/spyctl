@@ -29,10 +29,8 @@ def try_print(*args, **kwargs):
         sys.exit(1)
 
 
-def unsupported_output_msg(output: str, command: str = None) -> str:
-    if command is None:
-        command = lib.get_click_command()
-    return f"--output {output} is not supported for {command}."
+def unsupported_output_msg(output: str) -> str:
+    return f"'--output {output}' is not supported for this command."
 
 
 YES_OPTION = False
@@ -88,7 +86,7 @@ def show(obj, output, alternative_outputs: Dict[str, Callable] = {}):
     elif output in alternative_outputs:
         try_print(alternative_outputs[output](obj))
     else:
-        err_exit(unsupported_output_msg(output))
+        try_log(unsupported_output_msg(output), is_warning=True)
 
 
 def read_stdin():

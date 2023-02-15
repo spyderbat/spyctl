@@ -168,6 +168,7 @@ class LabelParam(click.ParamType):
 SCHEMA_FIELD = "schema"
 EVENT_REDFLAG_PREFIX = "event_redflag"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
+MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
 
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
