@@ -234,7 +234,7 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
         )
         fprint_groups = (cont_fprint_grps, svc_fprint_grps)
     fprint_groups = filt.filter_fprint_groups(fprint_groups, **filters)
-    if output != lib.OUTPUT_DEFAULT:
+    if output != lib.OUTPUT_DEFAULT and output != lib.OUTPUT_WIDE:
         tmp_grps = []
         for grps in fprint_groups:
             tmp_grps.extend(grps)
@@ -242,7 +242,10 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
     cli.show(
         fprint_groups,
         output,
-        {lib.OUTPUT_DEFAULT: spyctl_fprints.fprint_grp_output_summary},
+        {
+            lib.OUTPUT_DEFAULT: spyctl_fprints.fprint_grp_output_summary,
+            lib.OUTPUT_WIDE: spyctl_fprints.fprint_grp_output_wide,
+        },
     )
 
 
