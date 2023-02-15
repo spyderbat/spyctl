@@ -303,6 +303,32 @@ def filter_pods(
     return pods_data
 
 
+def filter_processes(
+    processes: List[Dict],
+    namespaces_data=None,
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    return processes
+
+
+def filter_connections(
+    connections: List[Dict],
+    namespaces_data=None,
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    return connections
+
+
 def use_filters(
     data, filter_functions: Dict, filters: Dict, use_context_filters=True
 ):
