@@ -581,6 +581,18 @@ class GetCommand(lib.ArgumentParametersCommand):
                 ),
             ],
         },
+        {
+            "resource": [lib.CONNECTIONS_RESOURCE],
+            "args": [
+                click.option(
+                    "--ignore-ips",
+                    "ignore_ips",
+                    is_flag=True,
+                    help="Ignores differing ips in the table output."
+                    " Off by default.",
+                ),
+            ],
+        },
     ]
 
 
