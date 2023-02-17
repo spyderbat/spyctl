@@ -656,7 +656,9 @@ class GetCommand(lib.ArgumentParametersCommand):
     "-o",
     "--output",
     default=lib.OUTPUT_DEFAULT,
-    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+    type=click.Choice(
+        lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
+    ),
 )
 @click.option(
     "-f",

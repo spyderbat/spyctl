@@ -361,15 +361,19 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
             resp = task.result()
             for fprint_json in resp.iter_lines():
                 fprint = json.loads(fprint_json)
-                try:
-                    fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
-                except Exception as e:
-                    cli.try_log(
-                        f"Error parsing fingerprint. {' '.join(e.args)}"
-                    )
-                    continue
-                if "metadata" in fprint:
-                    fingerprints.append(fprint)
+                schema = fprint.get(lib.SCHEMA_FIELD)
+                if isinstance(schema, str) and schema.startswith(
+                    lib.MODEL_FINGERPRINT_PREFIX
+                ):
+                    try:
+                        fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
+                    except Exception as e:
+                        cli.try_log(
+                            f"Error parsing fingerprint. {' '.join(e.args)}"
+                        )
+                        continue
+                    if "metadata" in fprint:
+                        fingerprints.append(fprint)
     pbar.close()
     return fingerprints
 

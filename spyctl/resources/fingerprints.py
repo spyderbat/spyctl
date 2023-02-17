@@ -1,4 +1,5 @@
 from typing import Dict, List, Tuple
+import re
 
 import zulu
 from tabulate import tabulate
@@ -270,6 +271,42 @@ def fprint_grp_output_summary(fingerprint_groups: Tuple) -> str:
     if len(cont_fprint_grps) > 0:
         container_headers = [
             "IMAGE",
+            "SHORT_IMAGEID",
+            "CONTAINERS",
+            "MACHINES",
+            "LATEST_TIMESTAMP",
+        ]
+        container_data = []
+        for fprint_grp in cont_fprint_grps:
+            container_data.append(cont_grp_output_data(fprint_grp))
+        container_data.sort(key=lambda x: [x[0]])
+        container_tbl = tabulate(
+            container_data, container_headers, tablefmt="plain"
+        )
+        output_list.append(container_tbl)
+    if len(svc_fprint_grps) > 0:
+        service_headers = [
+            "CGROUP",
+            "MACHINES",
+            "LATEST_TIMESTAMP",
+        ]
+        service_data = []
+        for fprint_grp in svc_fprint_grps:
+            service_data.append(svc_grp_output_data(fprint_grp))
+        service_data.sort(key=lambda x: x[0])
+        service_tbl = tabulate(service_data, service_headers, tablefmt="plain")
+        if len(output_list) > 0:
+            service_tbl = "\n" + service_tbl
+        output_list.append(service_tbl)
+    return "\n".join(output_list)
+
+
+def fprint_grp_output_wide(fingerprint_groups: Tuple) -> str:
+    cont_fprint_grps, svc_fprint_grps = fingerprint_groups
+    output_list = []
+    if len(cont_fprint_grps) > 0:
+        container_headers = [
+            "IMAGE",
             "IMAGEID",
             "CONTAINERS",
             "FINGERPRINTS",
@@ -279,7 +316,7 @@ def fprint_grp_output_summary(fingerprint_groups: Tuple) -> str:
         ]
         container_data = []
         for fprint_grp in cont_fprint_grps:
-            container_data.append(cont_grp_output_data(fprint_grp))
+            container_data.append(cont_grp_output_data_wide(fprint_grp))
         container_data.sort(key=lambda x: [x[0]])
         container_tbl = tabulate(
             container_data, container_headers, tablefmt="plain"
@@ -295,13 +332,31 @@ def fprint_grp_output_summary(fingerprint_groups: Tuple) -> str:
         ]
         service_data = []
         for fprint_grp in svc_fprint_grps:
-            service_data.append(svc_grp_output_data(fprint_grp))
+            service_data.append(svc_grp_output_data_wide(fprint_grp))
         service_data.sort(key=lambda x: x[0])
         service_tbl = tabulate(service_data, service_headers, tablefmt="plain")
         if len(output_list) > 0:
             service_tbl = "\n" + service_tbl
         output_list.append(service_tbl)
     return "\n".join(output_list)
+
+
+CONT_REDUNDANT_PATS = [
+    re.compile(r"^.+\.amazonaws\.com/"),
+    re.compile(r"^public\.ecr\.aws/.+/"),
+    re.compile(r"^docker\.io/"),
+    re.compile(r"^quay\.io/"),
+    re.compile(r"^k8s\.gcr\.io/"),
+    re.compile(r"^registry\.k8s\.io/"),
+    re.compile(r"@sha256:[a-zA-Z0-9]+$"),
+    re.compile(r"__[a-zA-Z0-9]+__[a-zA-Z0-9]+$"),
+]
+
+
+def prepare_image_name(image: str, patterns: List[re.Pattern]):
+    for pat in patterns:
+        image = re.sub(pat, "", image)
+    return image
 
 
 def cont_grp_output_data(grp: Dict) -> List[str]:
@@ -329,9 +384,80 @@ def cont_grp_output_data(grp: Dict) -> List[str]:
         )
     except Exception:
         pass
+    image = prepare_image_name(
+        grp[lib.METADATA_FIELD][lib.IMAGE_FIELD], CONT_REDUNDANT_PATS
+    )
+    rv = [
+        image,
+        grp[lib.METADATA_FIELD][lib.IMAGEID_FIELD].strip("sha256:")[:12],
+        len(grp[lib.DATA_FIELD][CONT_IDS_FIELD]),
+        len(grp[lib.DATA_FIELD][MACHINES_FIELD]),
+        latest_timestamp,
+    ]
+    return rv
+
+
+def svc_grp_output_data(grp: Dict) -> List[str]:
+    first_timestamp = grp[lib.METADATA_FIELD].get(
+        FIRST_TIMESTAMP_FIELD, NOT_AVAILABLE
+    )
+    try:
+        first_timestamp = (
+            zulu.Zulu.fromtimestamp(first_timestamp).format(
+                "YYYY-MM-ddTHH:mm:ss"
+            )
+            + "Z"
+        )
+    except Exception:
+        pass
+    latest_timestamp = grp[lib.METADATA_FIELD].get(
+        LATEST_TIMESTAMP_FIELD, NOT_AVAILABLE
+    )
+    try:
+        latest_timestamp = (
+            zulu.Zulu.fromtimestamp(latest_timestamp).format(
+                "YYYY-MM-ddTHH:mm:ss"
+            )
+            + "Z"
+        )
+    except Exception:
+        pass
+    rv = [
+        grp[lib.METADATA_FIELD][lib.CGROUP_FIELD],
+        len(grp[lib.DATA_FIELD][MACHINES_FIELD]),
+        latest_timestamp,
+    ]
+    return rv
+
+
+def cont_grp_output_data_wide(grp: Dict) -> List[str]:
+    first_timestamp = grp[lib.METADATA_FIELD].get(
+        FIRST_TIMESTAMP_FIELD, NOT_AVAILABLE
+    )
+    try:
+        first_timestamp = (
+            zulu.Zulu.fromtimestamp(first_timestamp).format(
+                "YYYY-MM-ddTHH:mm:ss"
+            )
+            + "Z"
+        )
+    except Exception:
+        pass
+    latest_timestamp = grp[lib.METADATA_FIELD].get(
+        LATEST_TIMESTAMP_FIELD, NOT_AVAILABLE
+    )
+    try:
+        latest_timestamp = (
+            zulu.Zulu.fromtimestamp(latest_timestamp).format(
+                "YYYY-MM-ddTHH:mm:ss"
+            )
+            + "Z"
+        )
+    except Exception:
+        pass
     rv = [
         grp[lib.METADATA_FIELD][lib.IMAGE_FIELD],
-        grp[lib.METADATA_FIELD][lib.IMAGEID_FIELD][:12],
+        grp[lib.METADATA_FIELD][lib.IMAGEID_FIELD],
         len(grp[lib.DATA_FIELD][CONT_IDS_FIELD]),
         len(grp[lib.DATA_FIELD][FINGERPRINTS_FIELD]),
         len(grp[lib.DATA_FIELD][MACHINES_FIELD]),
@@ -341,7 +467,7 @@ def cont_grp_output_data(grp: Dict) -> List[str]:
     return rv
 
 
-def svc_grp_output_data(grp: Dict) -> List[str]:
+def svc_grp_output_data_wide(grp: Dict) -> List[str]:
     first_timestamp = grp[lib.METADATA_FIELD].get(
         FIRST_TIMESTAMP_FIELD, NOT_AVAILABLE
     )
