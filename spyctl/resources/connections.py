@@ -78,7 +78,9 @@ def connections_output_summary(conns: List[Dict], ignore_ips=False) -> str:
     for group in groups.values():
         data.append(group.summary_data(ignore_ips))
     sort_key = (
-        (lambda x: [x[0], x[1]]) if ignore_ips else (lambda x: [x[1], x[0], x[2]])
+        (lambda x: [x[0], x[1]])
+        if ignore_ips
+        else (lambda x: [x[1], x[0], x[2]])
     )
     output = tabulate(
         sorted(data, key=sort_key),
@@ -102,7 +104,7 @@ def _key(connection: Dict, ignore_ips):
         if not char.isdigit():
             found += 1
             if found == 2:
-                ip_str = ip_str[:i + 1]
+                ip_str = ip_str[: i + 1]
                 break
     return (
         ip.version,
