@@ -7,6 +7,7 @@ import spyctl.filter_resource as filt
 import spyctl.resources.clusters as spyctl_clusts
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.machines as spyctl_machines
+import spyctl.resources.deployments as spyctl_deployments
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.nodes as spyctl_nodes
@@ -54,6 +55,8 @@ def handle_get(
         handle_get_fingerprints(name_or_id, st, et, output, **filters)
     elif resource == lib.MACHINES_RESOURCE:
         handle_get_machines(name_or_id, output, **filters)
+    elif resource == lib.DEPLOYMENTS_RESOURCE:
+        handle_get_deployments(name_or_id, st, et, output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.NODES_RESOURCE:
@@ -101,6 +104,25 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
         output_clusters,
         output,
         {lib.OUTPUT_DEFAULT: spyctl_clusts.clusters_summary_output},
+    )
+
+
+def handle_get_deployments(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    clusters = api.get_clusters(*ctx.get_api_data())
+    clusters = filt.filter_clusters(clusters, **filters)
+    deployments = api.get_deployments(*ctx.get_api_data(), clusters, (st, et))
+    deployments = filt.filter_deployments(deployments, **filters)
+    if name_or_id:
+        deployments = filt.filter_obj(
+            deployments, [[lib.METADATA_FIELD, "name"]], name_or_id
+        )
+    if output != lib.OUTPUT_DEFAULT:
+        deployments = spyctl_deployments.deployments_output(deployments)
+    cli.show(
+        deployments,
+        output,
+        {lib.OUTPUT_DEFAULT: spyctl_deployments.deployments_summary_output},
     )
 
 

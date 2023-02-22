@@ -201,6 +201,30 @@ def get_k8s_data(api_url, api_key, org_uid, clus_uid, schema_key, time):
             yield data
 
 
+def get_clust_deployments(api_url, api_key, org_uid, clus_uid, time):
+    deployments = []
+    for data in get_k8s_data(
+        api_url, api_key, org_uid, clus_uid, "deployment", time
+    ):
+        deployments.append(data)
+    return deployments
+
+
+def get_deployments(api_url, api_key, org_uid, clusters, time):
+    deployments = {}
+    for deploy_list in threadpool_progress_bar(
+        clusters,
+        lambda cluster: get_clust_deployments(
+            api_url, api_key, org_uid, cluster["uid"], time
+        ),
+    ):
+        for deployment in deploy_list:
+            uid = deployment["id"]
+            if uid not in deployments or deployments[uid]["time"] < deployment["time"]:
+                deployments[uid] = deployment
+    return [d for d in deployments.values() if d["status"] == "active"]
+
+
 def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
     ns = set()
     for data in get_k8s_data(
