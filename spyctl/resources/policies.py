@@ -213,12 +213,12 @@ def merge_policy(
     return pol_merge_obj
 
 
-def diff_policy(policy: Dict, with_obj: Dict, fingerprints=None):
+def diff_policy(policy: Dict, with_obj: Dict, fingerprints=None) -> str:
     pol_merge_obj = merge_policy(policy, with_obj, fingerprints)
     if not pol_merge_obj:
         cli.err_exit("Unable to perform Diff")
     diff = pol_merge_obj.get_diff()
-    cli.show(diff, lib.OUTPUT_RAW)
+    return diff
 
 
 def policies_output(policies: List[Dict]):
@@ -255,3 +255,25 @@ def policy_summary_data(policy: Dict):
         create_time,
     ]
     return rv
+
+
+def get_policy_by_uid(
+    uid: str, policies: Optional[List[Dict]] = None
+) -> Optional[Dict]:
+    from spyctl.api import get_policies
+    from spyctl.config.configs import get_current_context
+    from spyctl.filter_resource import filter_obj
+
+    ctx = get_current_context()
+    if not policies:
+        policies = get_policies(*ctx.get_api_data())
+    policies = filter_obj(
+        policies,
+        [
+            [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+        ],
+        uid,
+    )
+    if not policies:
+        return None
+    return policies[0]

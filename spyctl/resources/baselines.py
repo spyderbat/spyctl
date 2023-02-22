@@ -170,4 +170,4 @@ def diff_baseline(baseline: Dict, with_obj: Dict, latest):
     if not base_merge_obj:
         cli.err_exit("Unable to perform Diff")
     diff = base_merge_obj.get_diff()
-    cli.show(diff, lib.OUTPUT_RAW)
+    return diff

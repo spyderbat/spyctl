@@ -3,8 +3,10 @@ import os
 import sys
 import time
 from typing import Callable, Dict, List
-
 import yaml
+from pathlib import Path
+from pydoc import pipepager, pager
+import re
 
 import spyctl.spyctl_lib as lib
 
@@ -41,7 +43,7 @@ def set_yes_option():
     YES_OPTION = True
 
 
-def query_yes_no(question, default="yes"):
+def query_yes_no(question, default="yes", ignore_yes_option=False):
     """Ask a yes/no question via raw_input() and return their answer.
 
     "question" is a string that is presented to the user.
@@ -62,7 +64,7 @@ def query_yes_no(question, default="yes"):
         raise ValueError("invalid default answer: '%s'" % default)
 
     while True:
-        if YES_OPTION:
+        if YES_OPTION and not ignore_yes_option:
             return True
         sys.stdout.write(question + prompt)
         choice = input().lower()
@@ -76,17 +78,38 @@ def query_yes_no(question, default="yes"):
             )
 
 
-def show(obj, output, alternative_outputs: Dict[str, Callable] = {}):
+def show(
+    obj,
+    output,
+    alternative_outputs: Dict[str, Callable] = {},
+    pager=False,
+    output_fn=None,
+):
+    out_data = None
     if output == lib.OUTPUT_YAML:
-        try_print(yaml.dump(obj, sort_keys=False), end="")
+        out_data = yaml.dump(obj, sort_keys=False)
     elif output == lib.OUTPUT_JSON:
-        try_print(json.dumps(obj, sort_keys=False, indent=2))
+        out_data = json.dumps(obj, sort_keys=False, indent=2)
     elif output == lib.OUTPUT_RAW:
-        try_print(obj)
+        out_data = obj
     elif output in alternative_outputs:
-        try_print(alternative_outputs[output](obj))
+        out_data = alternative_outputs[output](obj)
     else:
         try_log(unsupported_output_msg(output), is_warning=True)
+    if out_data:
+        if output_fn:
+            out_file = Path(output_fn)
+            try:
+                out_file.write_text(out_data)
+            except Exception:
+                try_log(
+                    f"Unable to write output to {output_fn}", is_warning=True
+                )
+                return
+        elif pager:
+            output_to_pager(out_data)
+        else:
+            try_print(out_data)
 
 
 def read_stdin():
@@ -144,3 +167,50 @@ def time_input(args):
 
 def err_exit(message: str):
     lib.err_exit(message)
+
+
+def output_to_pager(text: str):
+    try:
+        pipepager(text, cmd="less -R")
+    except Exception:
+        text = strip_color(text)
+        pager(text)
+    #     pass
+    # pager = getpager()
+    # x = dir(pager)
+    # y = type(pager)
+    # if pager is None:
+    #     try_print(text)
+    #     query_yes_no("Done?", ignore_yes_option=True)
+    # else:
+    #     TMP_OUT.write_text(text)
+    #     args = [pager, str(TMP_OUT)]
+    #     if pager.endswith("less"):
+    #         args.append("-R")
+    #     cmd = shlex.split(" ".join(args))
+    #     with sb.Popen(cmd) as proc:
+    #         rc = proc.wait()
+    #         if rc != 0:
+    #             try_print(text)
+    #             query_yes_no("Done?", ignore_yes_option=True)
+
+
+ANSI_ESCAPE = re.compile(
+    r"""
+    \x1B  # ESC
+    (?:   # 7-bit C1 Fe (except CSI)
+        [@-Z\\-_]
+    |     # or [ for CSI, followed by a control sequence
+        \[
+        [0-?]*  # Parameter bytes
+        [ -/]*  # Intermediate bytes
+        [@-~]   # Final byte
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+def strip_color(text: str):
+    rv = ANSI_ESCAPE.sub("", text)
+    return rv

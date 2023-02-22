@@ -507,13 +507,22 @@ def delete(resource, name_or_id, yes=False):
     "--filename",
     help="Target file of the diff.",
     metavar="",
-    required=True,
-    type=click.File(),
+    type=lib.FileList(),
+)
+@click.option(
+    "-p",
+    "--policy",
+    is_flag=False,
+    flag_value="all",
+    default=None,
+    help="Target policy uid of the diff.",
+    metavar="",
+    type=lib.ListParam(),
 )
 @click.option(
     "-w",
     "--with-file",
-    help="File to diff with target file.",
+    help="File to diff with target.",
     metavar="",
     type=click.File(),
 )
@@ -521,7 +530,7 @@ def delete(resource, name_or_id, yes=False):
     "-l",
     "--latest",
     is_flag=True,
-    help="Diff file with latest records using the value of lastTimestamp in"
+    help="Diff target with latest records using the value of lastTimestamp in"
     " metadata",
     metavar="",
 )
@@ -545,9 +554,9 @@ def delete(resource, name_or_id, yes=False):
     default=time.time(),
     type=lib.time_inp,
 )
-def diff(filename, st, et, with_file=None, latest=False):
+def diff(filename, policy, st, et, with_file=None, latest=False):
     """Diff FingerprintsGroups with SpyderbatBaselines and SpyderbatPolicies"""
-    d.handle_diff(filename, with_file, st, et, latest)
+    d.handle_diff(filename, policy, with_file, st, et, latest)
 
 
 # ----------------------------------------------------------------- #
@@ -578,6 +587,28 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Include redflags marked as exceptions in output."
                     " Off by default.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.FINGERPRINTS_RESOURCE],
+            "args": [
+                click.option(
+                    "-f",
+                    "--filename",
+                    help="Input file to create filters from. Used if you want"
+                    " to get fingerprints related to another resource."
+                    " E.g. the Fingerprint Groups for a given Baseline file.",
+                    metavar="",
+                    type=click.File(),
+                ),
+                click.option(
+                    "-p",
+                    "--policy",
+                    help="Policy uid to build filters from. This will download"
+                    " a policy from the spyderbat backend, then filter"
+                    " Fingerprints based on the policy's selectors.",
+                    metavar="",
                 ),
             ],
         },
@@ -647,15 +678,6 @@ class GetCommand(lib.ArgumentParametersCommand):
     type=click.Choice(
         lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
     ),
-)
-@click.option(
-    "-f",
-    "--filename",
-    help="Input file to create filters from. Used if you want to get resources"
-    " directly related to another resource. E.g. the Fingerprint Groups for a"
-    " given Baseline file.",
-    metavar="",
-    type=click.File(),
 )
 @click.option(
     "-l",

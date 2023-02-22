@@ -206,6 +206,12 @@ def handle_get_opsflags(name_or_id, st, et, output, **filters):
 
 def handle_get_fingerprints(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
+    if lib.POLICY_UID_FIELD in filters:
+        pol_uid = filters.pop(lib.POLICY_UID_FIELD)
+        policy = spyctl_policies.get_policy_by_uid(pol_uid)
+        if not policy:
+            cli.err_exit(f"Unable to find policy with UID {pol_uid}")
+        filters = lib.selectors_to_filters(policy, **filters)
     machines = api.get_machines(*ctx.get_api_data())
     clusters = None
     if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():

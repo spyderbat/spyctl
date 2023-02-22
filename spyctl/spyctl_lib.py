@@ -8,8 +8,9 @@ import time
 from base64 import urlsafe_b64encode as b64url
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, IO
 from uuid import uuid4
+from fnmatch import fnmatch
 
 import click
 import dateutil.parser as dateparser
@@ -34,8 +35,8 @@ class Aliases:
 
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
-WARNING_COLOR = "\033[38;5;203m"
-COLOR_END = "\033[0m"
+WARNING_COLOR = "\x1b[38;5;203m"
+COLOR_END = "\x1b[0m"
 
 # Resource Aliases
 CLUSTERS_RESOURCE = Aliases(
@@ -164,6 +165,65 @@ class LabelParam(click.ParamType):
         return value
 
 
+class ListParam(click.ParamType):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        if "," in value:
+            rv = value.split(",")
+        else:
+            rv = value.split(" ")
+        for i, v in enumerate(rv):
+            rv[i] = v.strip(" ")
+        return rv
+
+
+class FileList(click.File):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        rv = []
+        if "," in value:
+            filenames = value.split(",")
+        else:
+            filenames = [value]
+        for fn in filenames:
+            fn = fn.strip(" ")
+            if "*" in fn:
+                match_fns = self.fnmatch_files(fn, param, ctx)
+                for match_fn in match_fns:
+                    rv.append(super().convert(match_fn, param, ctx))
+            else:
+                rv.append(super().convert(fn, param, ctx))
+        return rv
+
+    def fnmatch_files(self, fnmatch_str: str, param, ctx):
+        rv = []
+        path, tail = os.path.split(fnmatch_str)
+        if not path:
+            path = Path.cwd()
+        else:
+            path = Path(path).expanduser().resolve()
+        if not tail:
+            self.fail("Directory wildcards are not supported.", param, ctx)
+        else:
+            try:
+                for file in path.iterdir():
+                    if fnmatch(file.name, tail):
+                        rv.append(str(file))
+            except Exception:
+                self.fail(f"Unable to list files in {str(path)}")
+        if not rv:
+            self.fail(f"No files matching {fnmatch_str}.", param, ctx)
+        return rv
+
+
 # Spyderbat Schema Prefix'
 SCHEMA_FIELD = "schema"
 EVENT_REDFLAG_PREFIX = "event_redflag"
@@ -230,6 +290,7 @@ NAMESPACE_LABELS_FIELD = "namespace-labels"
 POD_LABELS_FIELD = "pod-labels"
 MACHINES_FIELD = "machines"
 DEFAULT_API_URL = "https://api.spyderbat.com"
+POLICY_UID_FIELD = "policy"
 
 # Response Actions
 ACTION_KILL_POD = "agentKillPod"
@@ -756,6 +817,29 @@ class ArgumentParametersCommand(CustomCommand):
                 formatter.write_dl(specif_opts)
 
 
+class MutuallyExclusiveOption(click.Option):
+    def __init__(self, *args, **kwargs):
+        self.mutually_exclusive = set(kwargs.pop("mutually_exclusive", []))
+        help = kwargs.get("help", "")
+        if self.mutually_exclusive:
+            ex_str = ", ".join(self.mutually_exclusive)
+            kwargs["help"] = help + (
+                " This argument is mutually exclusive with "
+                " arguments: [" + ex_str + "]."
+            )
+        super(MutuallyExclusiveOption, self).__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        if self.mutually_exclusive.intersection(opts) and self.name in opts:
+            raise click.UsageError(
+                f"Illegal usage: `{self.name}` is mutually exclusive with "
+                f"arguments `{', '.join(self.mutually_exclusive)}`."
+            )
+        return super(MutuallyExclusiveOption, self).handle_parse_result(
+            ctx, opts, args
+        )
+
+
 def try_log(*args, **kwargs):
     try:
         if kwargs.pop(WARNING_MSG, False):
@@ -1013,7 +1097,7 @@ class UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep)
 
 
-def load_resource_file(file: Union[str, io.TextIOWrapper]):
+def load_resource_file(file: Union[str, IO]):
     try:
         if isinstance(file, io.TextIOWrapper):
             name = file.name
