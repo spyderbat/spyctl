@@ -83,6 +83,17 @@ def delete(url, key):
     return r
 
 
+def threadpool_progress_bar(arg_per_thread, function):
+    pbar = tqdm.tqdm(total=len(arg_per_thread), leave=False)
+    threads = []
+    with ThreadPoolExecutor() as executor:
+        for arg in arg_per_thread:
+            threads.append(executor.submit(function, arg))
+        for task in as_completed(threads):
+            pbar.update(1)
+            yield task.result()
+
+
 def get_orgs(api_url, api_key) -> List[Tuple]:
     org_uids = []
     org_names = []
@@ -202,59 +213,36 @@ def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
 
 def get_namespaces(api_url, api_key, org_uid, clusters, time):
     namespaces = []
-    pbar = tqdm.tqdm(total=len(clusters), leave=False)
-    threads = []
     uid_to_name_map = {}
-    with ThreadPoolExecutor() as executor:
-        for cluster in clusters:
-            if "/" in cluster["uid"]:
-                continue
-            uid_to_name_map[cluster["uid"]] = cluster["name"]
-            threads.append(
-                executor.submit(
-                    get_clust_namespaces,
-                    api_url,
-                    api_key,
-                    org_uid,
-                    cluster["uid"],
-                    time,
-                )
-            )
-        for task in as_completed(threads):
-            pbar.update(1)
-            ns_list, uid = task.result()
-            cluster_name = uid_to_name_map[uid]
-            namespaces.append(
-                {
-                    "cluster_name": cluster_name,
-                    "cluster_uid": uid,
-                    "namespaces": ns_list,
-                }
-            )
-    pbar.close()
+    clusters = [c for c in clusters if "/" not in c["uid"]]
+    for cluster in clusters:
+        uid_to_name_map[cluster["uid"]] = cluster["name"]
+    for ns_list, uid in threadpool_progress_bar(
+        clusters,
+        lambda cluster: get_clust_namespaces(
+            api_url, api_key, org_uid, cluster["uid"], time
+        ),
+    ):
+        cluster_name = uid_to_name_map[uid]
+        namespaces.append(
+            {
+                "cluster_name": cluster_name,
+                "cluster_uid": uid,
+                "namespaces": ns_list,
+            }
+        )
     return namespaces
 
 
 def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
     nodes = []
-    pbar = tqdm.tqdm(total=len(clusters), leave=False)
-    threads = []
-    with ThreadPoolExecutor() as executor:
-        for cluster in clusters:
-            threads.append(
-                executor.submit(
-                    get_clust_nodes,
-                    api_url,
-                    api_key,
-                    org_uid,
-                    cluster["uid"],
-                    time,
-                )
-            )
-        for task in as_completed(threads):
-            pbar.update(1)
-            nodes.extend(task.result())
-    pbar.close()
+    for node_list in threadpool_progress_bar(
+        clusters,
+        lambda cluster: get_clust_nodes(
+            api_url, api_key, org_uid, cluster["uid"], time
+        ),
+    ):
+        nodes.extend(node_list)
     return nodes
 
 
@@ -273,30 +261,19 @@ def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
 
 def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
     pods = []
-    pbar = tqdm.tqdm(total=len(clusters), leave=False)
-    threads = []
-    with ThreadPoolExecutor() as executor:
-        for cluster in clusters:
-            threads.append(
-                executor.submit(
-                    get_clust_pods,
-                    api_url,
-                    api_key,
-                    org_uid,
-                    cluster["uid"],
-                    time,
-                )
+    for pod_list in threadpool_progress_bar(
+        clusters,
+        lambda cluster: get_clust_pods(
+            api_url, api_key, org_uid, cluster["uid"], time
+        ),
+    ):
+        pods.extend(
+            filter(
+                lambda rec: lib.KIND_FIELD in rec
+                and rec[lib.KIND_FIELD] == "Pod",
+                pod_list,
             )
-        for task in as_completed(threads):
-            pbar.update(1)
-            pods.extend(
-                filter(
-                    lambda rec: lib.KIND_FIELD in rec
-                    and rec[lib.KIND_FIELD] == "Pod",
-                    task.result(),
-                )
-            )
-    pbar.close()
+        )
     return pods
 
 
@@ -347,54 +324,29 @@ def get_opsflags(api_url, api_key, org_uid, time):
 
 def get_fingerprints(api_url, api_key, org_uid, muids, time):
     fingerprints = []
-    pbar = tqdm.tqdm(total=len(muids), leave=False)
-    threads = []
-    tmp_fprints = {}
-
-    def latest_fprint(new: Dict) -> bool:
-        id = new[lib.METADATA_FIELD].get("id")
-        if not id:
-            return True
-        if id not in tmp_fprints:
-            return True
-        old = tmp_fprints[id]
-        new_lt = new[lib.METADATA_FIELD].get(lib.LATEST_TIMESTAMP_FIELD)
-        old_lt = old[lib.METADATA_FIELD].get(lib.LATEST_TIMESTAMP_FIELD)
-        if old_lt > new_lt:
-            return False
-        return True
-
-    with ThreadPoolExecutor() as executor:
-        for muid in muids:
-            url = (
-                f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}&"
-                f"st={time[0]}&et={time[1]}&dt=fingerprints"
-            )
-            threads.append(executor.submit(get, url, api_key))
-        for task in as_completed(threads):
-            pbar.update(1)
-            resp = task.result()
-            for fprint_json in resp.iter_lines():
-                fprint = json.loads(fprint_json)
-                schema = fprint.get(lib.SCHEMA_FIELD)
-                if isinstance(schema, str) and schema.startswith(
-                    lib.MODEL_FINGERPRINT_PREFIX
-                ):
-                    try:
-                        fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
-                    except Exception as e:
-                        cli.try_log(
-                            f"Error parsing fingerprint. {' '.join(e.args)}"
-                        )
-                        continue
-                    if "metadata" in fprint:
-                        id = fprint[lib.METADATA_FIELD].get("id")
-                        if not id:
-                            fingerprints.append(fprint)
-                        elif latest_fprint(fprint):
-                            tmp_fprints[id] = fprint
-    fingerprints.extend(tmp_fprints.values())
-    pbar.close()
+    for resp in threadpool_progress_bar(
+        muids,
+        lambda muid: get(
+            f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}"
+            f"&st={time[0]}&et={time[1]}&dt=fingerprints",
+            api_key,
+        ),
+    ):
+        for fprint_json in resp.iter_lines():
+            fprint = json.loads(fprint_json)
+            schema = fprint.get(lib.SCHEMA_FIELD)
+            if isinstance(schema, str) and schema.startswith(
+                lib.MODEL_FINGERPRINT_PREFIX
+            ):
+                try:
+                    fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
+                except Exception as e:
+                    cli.try_log(
+                        f"Error parsing fingerprint. {' '.join(e.args)}"
+                    )
+                    continue
+                if "metadata" in fprint:
+                    fingerprints.append(fprint)
     return fingerprints
 
 
