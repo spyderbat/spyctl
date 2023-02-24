@@ -12,6 +12,8 @@ import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.nodes as spyctl_nodes
 import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.policies as spyctl_policies
+import spyctl.resources.processes as spyctl_procs
+import spyctl.resources.connections as spyctl_conns
 import spyctl.spyctl_lib as lib
 
 
@@ -64,6 +66,10 @@ def handle_get(
         handle_get_opsflags(name_or_id, st, et, output, **filters)
     elif resource == lib.POLICIES_RESOURCE:
         handle_get_policies(name_or_id, output, **filters)
+    elif resource == lib.PROCESSES_RESOURCE:
+        handle_get_processes(name_or_id, st, et, output, **filters)
+    elif resource == lib.CONNECTIONS_RESOURCE:
+        handle_get_connections(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
@@ -268,4 +274,51 @@ def handle_get_policies(name_or_id, output, **filters):
         policies,
         output,
         {lib.OUTPUT_DEFAULT: spyctl_policies.policies_summary_output},
+    )
+
+
+def handle_get_processes(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    machines = api.get_machines(*ctx.get_api_data())
+    clusters = None
+    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
+        clusters = api.get_clusters(*ctx.get_api_data())
+    machines = filt.filter_machines(machines, clusters, **filters)
+    muids = [m["uid"] for m in machines]
+    processes = api.get_processes(*ctx.get_api_data(), muids, (st, et))
+    processes = filt.filter_processes(processes, **filters)
+    if name_or_id:
+        processes = filt.filter_obj(processes, ["name", "id"], name_or_id)
+    if output != lib.OUTPUT_DEFAULT:
+        processes = spyctl_procs.processes_output(processes)
+    cli.show(
+        processes,
+        output,
+        {lib.OUTPUT_DEFAULT: spyctl_procs.processes_output_summary},
+    )
+
+
+def handle_get_connections(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    machines = api.get_machines(*ctx.get_api_data())
+    clusters = None
+    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
+        clusters = api.get_clusters(*ctx.get_api_data())
+    machines = filt.filter_machines(machines, clusters, **filters)
+    muids = [m["uid"] for m in machines]
+    connections = api.get_connections(*ctx.get_api_data(), muids, (st, et))
+    connections = filt.filter_processes(connections, **filters)
+    if name_or_id:
+        connections = filt.filter_obj(
+            connections, ["proc_name", "id"], name_or_id
+        )
+    if output != lib.OUTPUT_DEFAULT:
+        connections = spyctl_conns.connections_output(connections)
+    summary_output = lambda x: spyctl_conns.connections_output_summary(
+        x, filters.get("ignore_ips", False)
+    )
+    cli.show(
+        connections,
+        output,
+        {lib.OUTPUT_DEFAULT: summary_output},
     )
