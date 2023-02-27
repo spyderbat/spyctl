@@ -1,5 +1,6 @@
 import os
 from contextlib import redirect_stderr
+import time
 
 import spyctl.spyctl_lib as lib
 
@@ -89,3 +90,23 @@ def test_notin_inp():
         assert "notin not supported" in err
 
     os.remove(err_log)
+
+
+def test_timeinp():
+    assert lib.time_inp("1677522138") == 1677522138
+    tests = (
+        ("50s", lambda t: t - 50),
+        ("4m", lambda t: t - 4*60),
+        ("7hr", lambda t: t - 7*60*60),
+        ("1d", lambda t: t - 24*60*60),
+        ("3w", lambda t: t - 3*7*24*60*60),
+        ("Mon Feb 27 13:43:39 CST 2023", lambda _: 1677527019),
+        ("2023/02/26 23:34:32", lambda _: 1677454472),
+        ("01/26/2023", lambda _: 1674691200),
+    )
+    for inp, out in tests:
+        t = time.time()
+        assert abs(lib.time_inp(inp, cap_one_day=False) - out(t)) < 1
+    capped_inp = lib.time_inp("09/16/2020", cap_one_day=True)
+    one_day_ago = time.time() - 24*60*60
+    assert abs(capped_inp - one_day_ago) < 1

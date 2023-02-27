@@ -6,7 +6,7 @@ import os
 import sys
 import time
 from base64 import urlsafe_b64encode as b64url
-from datetime import datetime
+from datetime import timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
@@ -770,7 +770,7 @@ def try_log(*args, **kwargs):
         sys.exit(1)
 
 
-def time_inp(time_str: str) -> int:
+def time_inp(time_str: str, cap_one_day=True) -> int:
     past_seconds = 0
     epoch_time = None
     try:
@@ -778,19 +778,19 @@ def time_inp(time_str: str) -> int:
             epoch_time = int(time_str)
         except ValueError:
             if time_str.endswith(("s", "sc")):
-                past_seconds = int(time_str[:-1])
+                past_seconds = int(time_str.split("s")[0])
             elif time_str.endswith(("m", "mn")):
-                past_seconds = int(time_str[:-1]) * 60
+                past_seconds = int(time_str.split("m")[0]) * 60
             elif time_str.endswith(("h", "hr")):
-                past_seconds = int(time_str[:-1]) * 60 * 60
+                past_seconds = int(time_str.split("h")[0]) * 60 * 60
             elif time_str.endswith(("d", "dy")):
-                past_seconds = int(time_str[:-1]) * 60 * 60 * 24
+                past_seconds = int(time_str.split("d")[0]) * 60 * 60 * 24
             elif time_str.endswith(("w", "wk")):
-                past_seconds = int(time_str[:-1]) * 60 * 60 * 24 * 7
+                past_seconds = int(time_str.split("w")[0]) * 60 * 60 * 24 * 7
             else:
                 date = dateparser.parse(time_str)
-                diff = datetime.now() - date
-                past_seconds = diff.total_seconds()
+                date = date.replace(tzinfo=date.tzinfo or timezone.utc)
+                past_seconds = int(time.time()) - date.timestamp()
     except (ValueError, dateparser.ParserError):
         raise ValueError("invalid time input (see documentation)") from None
     now = time.time()
@@ -799,14 +799,14 @@ def time_inp(time_str: str) -> int:
         if epoch_time > now:
             raise ValueError("time must be in the past")
         # TODO: Make API calls robust to times older than one day
-        if epoch_time < one_day_ago:
+        if epoch_time < one_day_ago and cap_one_day:
             epoch_time = one_day_ago
         return epoch_time
     else:
         if past_seconds < 0:
             raise ValueError("time must be in the past")
         # TODO: Make API calls robust to times older than one day
-        if past_seconds > 86400:
+        if past_seconds > 86400 and cap_one_day:
             past_seconds = 86400
         return int(now - past_seconds)
 

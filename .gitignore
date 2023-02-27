@@ -3,3 +3,7 @@ __pycache__/
 *.code-workspace
 .vscode/
 docs/_build
+build/
+*.egg_info/
+.coverage
+htmlcov/
