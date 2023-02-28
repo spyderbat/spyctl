@@ -1,0 +1,55 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: amazon-k8s-cni-policy
+  type: container
+  latestTimestamp: 1676995829.7810786
+spec:
+  containerSelector:
+    image: '*amazon-k8s-cni:*'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: aws-vpc-cni
+      app.kubernetes.io/name: aws-node
+      k8s-app: aws-node
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: grpc-health-pro
+    exe:
+    - /app/grpc-health-probe
+    id: grpc-health-pro_0
+    euser:
+    - root
+  - name: bash
+    exe:
+    - /usr/bin/bash
+    id: bash_0
+    euser:
+    - root
+    children:
+    - name: aws-k8s-agent
+      exe:
+      - /app/aws-k8s-agent
+      id: aws-k8s-agent_0
+      listeningSockets:
+      - protocol: TCP
+        port: 50051
+      - protocol: TCP
+        port: 61678
+      - protocol: TCP
+        port: 61679
+    - name: tee
+      exe:
+      - /usr/bin/tee
+      id: tee_0
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: "This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed."
+    actions: []

@@ -1,0 +1,36 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: aws-for-fluent-bit-policy
+  type: container
+  latestTimestamp: 1676995870.2956321
+spec:
+  containerSelector:
+    image: '*aws-for-fluent-bit:*'
+  podSelector:
+    matchLabels:
+      k8s-app: fluent-bit
+      kubernetes.io/cluster-service: 'true'
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: amazon-cloudwatch
+      name: amazon-cloudwatch
+  processPolicy:
+  - name: fluent-bit
+    exe:
+    - /fluent-bit/bin/fluent-bit
+    id: fluent-bit_0
+    euser:
+    - root
+    listeningSockets:
+    - protocol: TCP
+      port: 2020
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: ""
+    actions: []

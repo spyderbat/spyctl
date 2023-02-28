@@ -1,0 +1,37 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: calico-kube-controllers-policy
+  type: container
+  latestTimestamp: 1676991617.1733642
+spec:
+  containerSelector:
+    image: 'docker.io/calico/kube-controllers:*'
+  podSelector:
+    matchLabels:
+      k8s-app: calico-kube-controllers
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: check-status
+    exe:
+    - /usr/bin/check-status
+    id: check-status_0
+    euser:
+    - lxd
+  - name: kube-controller
+    exe:
+    - /usr/bin/kube-controllers
+    id: kube-controller_0
+    euser:
+    - lxd
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []
