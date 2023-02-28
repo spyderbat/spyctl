@@ -3,14 +3,16 @@ import inspect
 import io
 import json
 import os
+import re
 import sys
 import time
+import unicodedata
 from base64 import urlsafe_b64encode as b64url
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, IO
-from uuid import uuid4
 from fnmatch import fnmatch
+from pathlib import Path
+from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
+from uuid import uuid4
 
 import click
 import dateutil.parser as dateparser
@@ -189,10 +191,19 @@ class FileList(click.File):
         ctx: Optional[click.Context],
     ) -> Any:
         rv = []
-        if "," in value:
-            filenames = value.split(",")
+        if isinstance(value, Iterable) and not isinstance(value, str):
+            for string in value:
+                rv.extend(self.__handle_string(string, param, ctx))
         else:
-            filenames = [value]
+            rv.extend(self.__handle_string(value, param, ctx))
+        return rv
+
+    def __handle_string(self, input: str, param, ctx) -> List[str]:
+        rv = []
+        if "," in input:
+            filenames = input.split(",")
+        else:
+            filenames = [input]
         for fn in filenames:
             fn = fn.strip(" ")
             if "*" in fn:
@@ -401,7 +412,14 @@ OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
 OUTPUT_RAW = "raw"
 OUTPUT_WIDE = "wide"
+# used internally when updating objects directly via the API
+OUTPUT_API = "api"
 OUTPUT_CHOICES = [OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT]
+OUTPUT_DEST_DEFAULT = "default"  # stdout
+OUTPUT_DEST_FILE = "file"
+OUTPUT_DEST_API = "api"
+OUTPUT_DEST_STDOUT = "stdout"
+OUTPUT_DEST_PAGER = "pager"
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"
@@ -840,6 +858,70 @@ class MutuallyExclusiveOption(click.Option):
         )
 
 
+class OptionEatAll(click.Option):
+    # https://stackoverflow.com/questions/48391777/nargs-equivalent-for-options-in-click  # noqa E501
+
+    def __init__(self, *args, **kwargs):
+        self.save_other_options = kwargs.pop("save_other_options", True)
+        nargs = kwargs.pop("nargs", -1)
+        assert nargs == -1, "nargs, if set, must be -1 not {}".format(nargs)
+        super(OptionEatAll, self).__init__(*args, **kwargs)
+        self._previous_parser_process = None
+        self._eat_all_parser = None
+
+    def add_to_parser(self, parser, ctx):
+        def parser_process(value, state):
+            # method to hook to the parser.process
+            done = False
+            value = [value]
+            if self.save_other_options:
+                # grab everything up to the next option
+                while state.rargs and not done:
+                    for prefix in self._eat_all_parser.prefixes:
+                        if state.rargs[0].startswith(prefix):
+                            done = True
+                    if not done:
+                        value.append(state.rargs.pop(0))
+            else:
+                # grab everything remaining
+                value += state.rargs
+                state.rargs[:] = []
+            value = tuple(value)
+
+            # call the actual process
+            self._previous_parser_process(value, state)
+
+        retval = super(OptionEatAll, self).add_to_parser(parser, ctx)
+        for name in self.opts:
+            our_parser = parser._long_opt.get(name) or parser._short_opt.get(
+                name
+            )
+            if our_parser:
+                self._eat_all_parser = our_parser
+                self._previous_parser_process = our_parser.process
+                our_parser.process = parser_process
+                break
+        return retval
+
+
+class MutuallyExclusiveEatAll(MutuallyExclusiveOption, OptionEatAll):
+    def __init__(self, *args, **kwargs):
+        self.mutually_exclusive = set(kwargs.pop("mutually_exclusive", []))
+        help = kwargs.get("help", "")
+        if self.mutually_exclusive:
+            ex_str = ", ".join(self.mutually_exclusive)
+            kwargs["help"] = help + (
+                " This argument is mutually exclusive with "
+                " arguments: [" + ex_str + "]."
+            )
+        self.save_other_options = kwargs.pop("save_other_options", True)
+        nargs = kwargs.pop("nargs", -1)
+        assert nargs == -1, "nargs, if set, must be -1 not {}".format(nargs)
+        self._previous_parser_process = None
+        self._eat_all_parser = None
+        super(MutuallyExclusiveEatAll, self).__init__(*args, **kwargs)
+
+
 def try_log(*args, **kwargs):
     try:
         if kwargs.pop(WARNING_MSG, False):
@@ -1134,6 +1216,8 @@ def load_resource_file(file: Union[str, IO]):
 
     if not valid_object(resrc_data, verbose=True):
         sys.exit(f"{resrc_kind} invalid in {name!r}. See error logs.")
+    if isinstance(file, io.TextIOWrapper):
+        file.seek(0, 0)
     return resrc_data
 
 
@@ -1151,5 +1235,59 @@ def dictionary_mod(fn) -> Dict:
     return wrapper
 
 
-def _to_timestamp(zulu_str):
+def to_timestamp(zulu_str):
     return zulu.Zulu.parse(zulu_str).timestamp()
+
+
+def epoch_to_zulu(epoch):
+    return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+
+
+def get_metadata_name(resource: Dict) -> Optional[str]:
+    metadata = resource.get(METADATA_FIELD, {})
+    name = metadata.get(METADATA_NAME_FIELD)
+    return name
+
+
+def slugify(value, allow_unicode=False):
+    """
+    Taken from https://github.com/django/django/blob/master/django/utils/text.py  # noqa E501
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+    dashes to single dashes. Remove characters that aren't alphanumerics,
+    underscores, or hyphens. Convert to lowercase. Also strip leading and
+    trailing whitespace, dashes, and underscores.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize("NFKC", value)
+    else:
+        value = (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+    value = re.sub(r"[^\w\s-]", "", value.lower())
+    return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+
+FILE_EXT_MAP = {
+    OUTPUT_YAML: ".yaml",
+    OUTPUT_JSON: ".json",
+    OUTPUT_DEFAULT: ".yaml",
+}
+
+
+def unique_fn(fn: str, output_format) -> Optional[str]:
+    count = 1
+    file_ext = FILE_EXT_MAP[output_format]
+    try:
+        filepath = Path(fn + file_ext)
+        new_fn = fn
+        while filepath.exists():
+            new_fn = fn + f"_{count}"
+            filepath = Path(new_fn + file_ext)
+            count += 1
+    except Exception:
+        try_log(f"Unable to build unique filename for {fn}", is_warning=True)
+        return
+    return str(new_fn)

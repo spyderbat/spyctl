@@ -505,9 +505,11 @@ def delete(resource, name_or_id, yes=False):
 @click.option(
     "-f",
     "--filename",
-    help="Target file of the diff.",
+    help="Target file(s) of the diff.",
     metavar="",
     type=lib.FileList(),
+    cls=lib.MutuallyExclusiveEatAll,
+    mutually_exclusive=["policy"],
 )
 @click.option(
     "-p",
@@ -515,23 +517,42 @@ def delete(resource, name_or_id, yes=False):
     is_flag=False,
     flag_value="all",
     default=None,
-    help="Target policy uid of the diff.",
+    help="Target policy name(s) or uid(s) of the diff. If supplied with no"
+    " argument, set to 'all'.",
     metavar="",
     type=lib.ListParam(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["filename"],
 )
 @click.option(
     "-w",
     "--with-file",
+    "with_file",
     help="File to diff with target.",
     metavar="",
     type=click.File(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_policy"],
+)
+@click.option(
+    "-P",
+    "--with-policy",
+    "with_policy",
+    help="Policy uid to diff with target. If supplied with no argument then"
+    " spyctl will attempt to find a policy matching the uid in the target's"
+    " metadata.",
+    metavar="",
+    is_flag=False,
+    flag_value="matching",
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_file"],
 )
 @click.option(
     "-l",
     "--latest",
     is_flag=True,
     help="Diff target with latest records using the value of lastTimestamp in"
-    " metadata",
+    " metadata.",
     metavar="",
 )
 @click.option(
@@ -554,9 +575,28 @@ def delete(resource, name_or_id, yes=False):
     default=time.time(),
     type=lib.time_inp,
 )
-def diff(filename, policy, st, et, with_file=None, latest=False):
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def diff(
+    filename,
+    policy,
+    st,
+    et,
+    yes=False,
+    with_file=None,
+    with_policy=None,
+    latest=False,
+):
+    if yes:
+        cli.set_yes_option()
     """Diff FingerprintsGroups with SpyderbatBaselines and SpyderbatPolicies"""
-    d.handle_diff(filename, policy, with_file, st, et, latest)
+    d.handle_diff(filename, policy, with_file, with_policy, st, et, latest)
 
 
 # ----------------------------------------------------------------- #
@@ -783,17 +823,47 @@ def get(
 @click.option(
     "-f",
     "--filename",
-    help="Target file of the merge.",
+    help="Target file(s) of the merge.",
     metavar="",
-    required=True,
-    type=click.File(),
+    type=lib.FileList(),
+    cls=lib.MutuallyExclusiveEatAll,
+    mutually_exclusive=["policy"],
+)
+@click.option(
+    "-p",
+    "--policy",
+    is_flag=False,
+    flag_value=m.ALL,
+    default=None,
+    help="Target policy name(s) or uid(s) of the merge. If supplied with no"
+    " argument, set to 'all'.",
+    metavar="",
+    type=lib.ListParam(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["filename"],
 )
 @click.option(
     "-w",
     "--with-file",
-    help="File to merge into target file.",
+    "with_file",
+    help="File to merge into target.",
     metavar="",
     type=click.File(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_policy"],
+)
+@click.option(
+    "-P",
+    "--with-policy",
+    "with_policy",
+    help="Policy uid to merge with target. If supplied with no argument then"
+    " spyctl will attempt to find a policy matching the uid in the"
+    " target's metadata.",
+    metavar="",
+    is_flag=False,
+    flag_value=m.MATCHING,
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_file"],
 )
 @click.option(
     "-l",
@@ -829,13 +899,51 @@ def get(
     default=time.time(),
     type=lib.time_inp,
 )
-def merge(filename, output, st, et, with_file=None, latest=False):
+@click.option(
+    "-O",
+    "--output-to-file",
+    help="Should output merge to a file. Unique filename created from the name"
+    " in the object's metadata.",
+    is_flag=True,
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def merge(
+    filename,
+    policy,
+    output,
+    st,
+    et,
+    yes=False,
+    with_file=None,
+    with_policy=None,
+    latest=False,
+    output_to_file=False,
+):
     """Merge FingerprintsGroups into SpyderbatBaselines and
     SpyderbatPolicies
     """
+    if yes:
+        cli.set_yes_option()
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
-    m.handle_merge(filename, with_file, st, et, latest, output)
+    m.handle_merge(
+        filename,
+        policy,
+        with_file,
+        with_policy,
+        st,
+        et,
+        latest,
+        output,
+        output_to_file,
+    )
 
 
 # ----------------------------------------------------------------- #

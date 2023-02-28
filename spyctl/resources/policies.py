@@ -235,7 +235,7 @@ def policies_summary_output(policies: List[Dict]):
     data = []
     for policy in policies:
         data.append(policy_summary_data(policy))
-    data.sort(key=lambda x: [x[3], x[1], lib._to_timestamp(x[4])])
+    data.sort(key=lambda x: [x[3], x[1], lib.to_timestamp(x[4])])
     return tabulate(data, headers, tablefmt="plain")
 
 

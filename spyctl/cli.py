@@ -82,14 +82,31 @@ def show(
     obj,
     output,
     alternative_outputs: Dict[str, Callable] = {},
-    pager=False,
+    dest=lib.OUTPUT_DEST_STDOUT,
     output_fn=None,
 ):
+    """Display or save python object
+
+    Args:
+        obj (any): python object to be displayed or saved
+        output (str): the format of the output
+        alternative_outputs (Dict[str, Callable], optional): A
+            dictionary of formats to callables for custom outputs.
+            Defaults to {}. Callable must return a string.
+        dest (str, optional): Destination of the output. Defaults to
+            lib.OUTPUT_DEST_STDOUT.
+        output_fn (str, optional): Filename if outputting to a file.
+            Defaults to None.
+    """
     out_data = None
     if output == lib.OUTPUT_YAML:
         out_data = yaml.dump(obj, sort_keys=False)
+        if output_fn:
+            output_fn += ".yaml"
     elif output == lib.OUTPUT_JSON:
         out_data = json.dumps(obj, sort_keys=False, indent=2)
+        if output_fn:
+            output_fn += ".json"
     elif output == lib.OUTPUT_RAW:
         out_data = obj
     elif output in alternative_outputs:
@@ -97,16 +114,17 @@ def show(
     else:
         try_log(unsupported_output_msg(output), is_warning=True)
     if out_data:
-        if output_fn:
-            out_file = Path(output_fn)
+        if dest == lib.OUTPUT_DEST_FILE:
             try:
+                out_file = Path(output_fn)
                 out_file.write_text(out_data)
+                try_log(f"Saved output to {output_fn}")
             except Exception:
                 try_log(
                     f"Unable to write output to {output_fn}", is_warning=True
                 )
                 return
-        elif pager:
+        elif dest == lib.OUTPUT_DEST_PAGER:
             output_to_pager(out_data)
         else:
             try_print(out_data)
@@ -175,24 +193,6 @@ def output_to_pager(text: str):
     except Exception:
         text = strip_color(text)
         pager(text)
-    #     pass
-    # pager = getpager()
-    # x = dir(pager)
-    # y = type(pager)
-    # if pager is None:
-    #     try_print(text)
-    #     query_yes_no("Done?", ignore_yes_option=True)
-    # else:
-    #     TMP_OUT.write_text(text)
-    #     args = [pager, str(TMP_OUT)]
-    #     if pager.endswith("less"):
-    #         args.append("-R")
-    #     cmd = shlex.split(" ".join(args))
-    #     with sb.Popen(cmd) as proc:
-    #         rc = proc.wait()
-    #         if rc != 0:
-    #             try_print(text)
-    #             query_yes_no("Done?", ignore_yes_option=True)
 
 
 ANSI_ESCAPE = re.compile(

@@ -349,6 +349,21 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
     fingerprints = []
     pbar = tqdm.tqdm(total=len(muids), leave=False, file=sys.stderr)
     threads = []
+    tmp_fprints = {}
+
+    def latest_fprint(new: Dict) -> bool:
+        id = new[lib.METADATA_FIELD].get("id")
+        if not id:
+            return True
+        if id not in tmp_fprints:
+            return True
+        old = tmp_fprints[id]
+        new_lt = new[lib.METADATA_FIELD].get(lib.LATEST_TIMESTAMP_FIELD)
+        old_lt = old[lib.METADATA_FIELD].get(lib.LATEST_TIMESTAMP_FIELD)
+        if old_lt > new_lt:
+            return False
+        return True
+
     with ThreadPoolExecutor() as executor:
         for muid in muids:
             url = (
@@ -373,7 +388,12 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
                         )
                         continue
                     if "metadata" in fprint:
-                        fingerprints.append(fprint)
+                        id = fprint[lib.METADATA_FIELD].get("id")
+                        if not id:
+                            fingerprints.append(fprint)
+                        elif latest_fprint(fprint):
+                            tmp_fprints[id] = fprint
+    fingerprints.extend(tmp_fprints.values())
     pbar.close()
     return fingerprints
 

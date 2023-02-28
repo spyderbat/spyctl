@@ -1182,6 +1182,7 @@ SPEC_MERGE_SCHEMA = MergeSchema(
         NET_POLICY_FIELD: NET_POLICY_MERGE_SCHEMA,
     },
     merge_functions={
+        lib.ENABLED_FIELD: keep_base_value_merge,
         PROC_POLICY_FIELD: merge_proc_policies,
         RESPONSE_FIELD: keep_base_value_merge,
     },
@@ -1534,7 +1535,11 @@ def dict_diffs(
     for field in fields:
         if field in original_data and field in other_data:
             if not isinstance(original_data[field], type(other_data[field])):
-                cli.try_log("Field type mismatch")
+                cli.try_log(
+                    f"Field type mismatch {field} | orig: "
+                    f"'{type(original_data[field])}' "
+                    f"new: '{type(other_data[field])}'"
+                )
                 continue
             indexes = find_obj_indexes(
                 yaml_lines,
