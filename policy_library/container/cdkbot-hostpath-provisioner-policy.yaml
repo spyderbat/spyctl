@@ -1,0 +1,31 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: cdkbot-hostpath-provisioner-policy
+  type: container
+  latestTimestamp: 1677247249.5528321
+spec:
+  containerSelector:
+    image: 'docker.io/cdkbot/hostpath-provisioner:*'
+  podSelector:
+    matchLabels:
+      k8s-app: hostpath-provisioner
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: hostpath-provis
+    exe:
+    - /hostpath-provisioner
+    id: hostpath-provis_0
+    euser:
+    - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []
