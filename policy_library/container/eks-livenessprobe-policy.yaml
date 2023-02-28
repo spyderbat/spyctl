@@ -1,0 +1,34 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: eks-livenessprobe-policy
+  type: container
+  latestTimestamp: 1677258014.281081
+spec:
+  containerSelector:
+    image: '*eks/livenessprobe:*'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: csi-driver
+      app.kubernetes.io/managed-by: EKS
+      app.kubernetes.io/name: aws-ebs-csi-driver
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: livenessprobe
+    exe:
+    - /livenessprobe
+    id: livenessprobe_0
+    euser:
+    - ec2-user
+    - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

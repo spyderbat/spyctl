@@ -1,0 +1,34 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: eks-csi-provisioner-policy
+  type: container
+  latestTimestamp: 1677250809.5456316
+spec:
+  containerSelector:
+    image: '*eks/csi-provisioner:*'
+  podSelector:
+    matchLabels:
+      app: ebs-csi-controller
+      app.kubernetes.io/component: csi-driver
+      app.kubernetes.io/managed-by: EKS
+      app.kubernetes.io/name: aws-ebs-csi-driver
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: csi-provisioner
+    exe:
+    - /csi-provisioner
+    id: csi-provisioner_0
+    euser:
+    - ec2-user
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

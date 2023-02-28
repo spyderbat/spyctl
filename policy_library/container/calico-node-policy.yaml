@@ -1,0 +1,121 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: calico/node:v3.23.5-policy
+  type: container
+  latestTimestamp: 1676997917.1737697
+spec:
+  containerSelector:
+    image: docker.io/calico/node:*
+  podSelector:
+    matchLabels:
+      k8s-app: calico-node
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: runsvdir
+    exe:
+    - /usr/local/bin/runsvdir
+    id: runsvdir_0
+    euser:
+    - root
+    children:
+    - name: env
+      exe:
+      - /usr/bin/coreutils
+      id: env_0
+    - name: runsv
+      exe:
+      - /usr/local/bin/runsv
+      id: runsv_0
+      children:
+      - name: calico-node
+        exe:
+        - /usr/bin/calico-node
+        id: calico-node_1
+        listeningSockets:
+        - port: 9099
+          protocol: TCP
+        children:
+        - name: bpftool
+          exe:
+          - /usr/bin/bpftool
+          id: bpftool_0
+        - name: conntrack
+          exe:
+          - /usr/sbin/conntrack
+          id: conntrack_0
+        - name: ip6tables-legac
+          exe:
+          - /usr/sbin/xtables-legacy-multi
+          id: ip6tables-legac_0
+        - name: ip
+          exe:
+          - /usr/sbin/ip
+          id: ip_1
+        - name: ipset
+          exe:
+          - /usr/sbin/ipset
+          id: ipset_0
+        - name: iptables-legacy
+          exe:
+          - /usr/sbin/xtables-legacy-multi
+          id: iptables-legacy_0
+        - name: iptables
+          exe:
+          - /usr/sbin/xtables-legacy-multi
+          id: iptables_0
+        - name: modprobe
+          exe:
+          - /usr/bin/kmod
+          id: modprobe_0
+        - name: sh
+          exe:
+          - /usr/bin/bash
+          id: sh_0
+          children:
+          - name: ip
+            exe:
+            - /usr/sbin/ip
+            id: ip_0
+        - name: tc
+          exe:
+          - /usr/sbin/tc
+          id: tc_0
+    - name: start_runit
+      exe:
+      - /usr/bin/bash
+      id: start_runit_0
+      children:
+      - name: calico-node
+        exe:
+        - /usr/bin/calico-node
+        id: calico-node_0
+      - name: cp
+        exe:
+        - /usr/bin/coreutils
+        id: cp_0
+      - name: mkdir
+        exe:
+        - /usr/bin/coreutils
+        id: mkdir_0
+      - name: rm
+        exe:
+        - /usr/bin/coreutils
+        id: rm_0
+  - name: calico-node
+    exe:
+    - /usr/bin/calico-node
+    id: calico-node_2
+    euser:
+    - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: "This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed."
+    actions: []
