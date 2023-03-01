@@ -7,8 +7,6 @@ metadata:
 spec:
   containerSelector:
     image: 'k8s.gcr.io/pause:*'
-  machineSelector:
-    hostname: ip-172-31-5-182
   processPolicy:
   - name: pause
     exe:
