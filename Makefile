@@ -28,7 +28,7 @@ rebuild:
 	$(MAKE) build
 
 test_coverage:
-	coverage run -m pytest
+	coverage run --omit="test_*.py" -m pytest
 
 view_coverage_wsl:
 	coverage html
