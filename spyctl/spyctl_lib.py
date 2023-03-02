@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
 
 import click
-import dateutil.parser as dateparser
+import dateparser
 import yaml
 import zulu
 from click.shell_completion import CompletionItem
@@ -789,8 +789,8 @@ def time_inp(time_str: str, cap_one_day=True) -> int:
                 past_seconds = int(time_str.split("w")[0]) * 60 * 60 * 24 * 7
             else:
                 date = dateparser.parse(time_str)
-                date = date.replace(tzinfo=date.tzinfo or timezone.utc)
-                past_seconds = int(time.time()) - date.timestamp()
+                # date = date.replace(tzinfo=date.tzinfo or timezone.utc) # would use utc when unspecified
+                epoch_time = date.timestamp()
     except (ValueError, dateparser.ParserError):
         raise ValueError("invalid time input (see documentation)") from None
     now = time.time()
