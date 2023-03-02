@@ -791,7 +791,7 @@ def time_inp(time_str: str, cap_one_day=True) -> int:
                 date = dateparser.parse(time_str)
                 # date = date.replace(tzinfo=date.tzinfo or timezone.utc) # would use utc when unspecified
                 epoch_time = date.timestamp()
-    except (ValueError, dateparser.ParserError):
+    except (ValueError, AttributeError):
         raise ValueError("invalid time input (see documentation)") from None
     now = time.time()
     one_day_ago = now - 86400
