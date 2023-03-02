@@ -26,19 +26,28 @@ spec:
     euser:
     - root
     children:
+    - name: python3.7
+      exe:
+      - /usr/local/bin/python3.7
+      id: python3.7_0
+      children:
+      - name: sh
+        exe:
+        - /bin/dash
+        id: sh_1
+        children:
+        - name: uname
+          exe:
+          - /bin/uname
+          id: uname_1
     - name: sh
       exe:
       - /bin/dash
-      id: sh_0
-      children:
-      - name: uname
-        exe:
-        - /bin/uname
-        id: uname_0
+      id: sh_2
   - name: sh
     exe:
     - /bin/dash
-    id: sh_1
+    id: sh_3
     euser:
     - root
     children:
@@ -52,12 +61,12 @@ spec:
       - name: sh
         exe:
         - /bin/dash
-        id: sh_2
+        id: sh_4
         children:
         - name: uname
           exe:
           - /bin/uname
-          id: uname_1
+          id: uname_2
   networkPolicy:
     ingress:
     - from:
