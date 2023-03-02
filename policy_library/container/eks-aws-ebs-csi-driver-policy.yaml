@@ -1,0 +1,76 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: aws-ebs-csi-driver-policy
+  type: container
+  latestTimestamp: 1677247210.2956302
+spec:
+  containerSelector:
+    image: '*eks/aws-ebs-csi-driver:*'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: csi-driver
+      app.kubernetes.io/managed-by: EKS
+      app.kubernetes.io/name: aws-ebs-csi-driver
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: aws-ebs-csi-dri
+    exe:
+    - /usr/bin/aws-ebs-csi-driver
+    id: aws-ebs-csi-dri_0
+    euser:
+    - ec2-user
+    - root
+    children:
+    - name: blkid
+      exe:
+      - /usr/sbin/blkid
+      id: blkid_0
+      euser:
+      - root
+    - name: blockdev
+      exe:
+      - /usr/sbin/blockdev
+      id: blockdev_0
+      euser:
+      - root
+    - name: dumpe2fs
+      exe:
+      - /usr/sbin/dumpe2fs
+      id: dumpe2fs_0
+      euser:
+      - root
+    - name: fsck
+      exe:
+      - /usr/sbin/fsck
+      id: fsck_0
+      euser:
+      - root
+      children:
+      - name: fsck.ext4
+        exe:
+        - /usr/sbin/fsck.ext4
+        id: fsck.ext4_0
+    - name: mount
+      exe:
+      - /usr/bin/mount
+      id: mount_0
+      euser:
+      - root
+    - name: umount
+      exe:
+      - /usr/bin/umount
+      id: umount_0
+      euser:
+      - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

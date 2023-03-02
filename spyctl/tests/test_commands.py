@@ -152,14 +152,14 @@ def test_create():
     )
     assert response.exit_code == 0
     with open(resources_dir / "test_policy.yaml", "r") as f:
-        assert response.output == f.read()
+        assert response.output.strip("\n") == f.read().strip("\n")
     response = runner.invoke(
         spyctl.main,
         ["create", "baseline", "-f", resources_dir / "test_fprint_group.yaml"],
     )
     assert response.exit_code == 0
     with open(resources_dir / "test_baseline.yaml", "r") as f:
-        assert response.output == f.read()
+        assert response.output.strip("\n") == f.read().strip("\n")
 
 
 def test_apply_delete():
@@ -190,9 +190,10 @@ def test_diff():
         [
             "diff",
             "-f",
-            resources_dir / "test_baseline.yaml",
+            str(resources_dir) + "/test_baseline.yaml",
             "-w",
-            resources_dir / "test_baseline_extra.yaml",
+            str(resources_dir) + "/test_baseline_extra.yaml",
+            "-y",
         ],
     )
     assert response.exit_code == 0
@@ -206,9 +207,10 @@ def test_merge():
         [
             "merge",
             "-f",
-            resources_dir / "test_baseline.yaml",
+            str(resources_dir) + "/test_baseline.yaml",
             "-w",
-            resources_dir / "test_baseline_extra.yaml",
+            str(resources_dir) + "/test_baseline_extra.yaml",
+            "-y",
         ],
     )
     assert response.exit_code == 0

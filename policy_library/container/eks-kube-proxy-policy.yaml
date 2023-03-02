@@ -1,0 +1,81 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: eks-kube-proxy-policy
+  type: container
+  latestTimestamp: 1677258030.67958
+spec:
+  containerSelector:
+    image: '*eks/kube-proxy:*'
+  podSelector:
+    matchLabels:
+      k8s-app: kube-proxy
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kube-system
+  processPolicy:
+  - name: kube-proxy
+    exe:
+    - /usr/local/bin/kube-proxy
+    id: kube-proxy_0
+    euser:
+    - root
+    listeningSockets:
+    - protocol: TCP
+      port: 10249
+    - protocol: TCP
+      port: 10256
+    - protocol: TCP
+      port: 30001
+    - protocol: TCP
+      port: 30357
+    - protocol: TCP
+      port: 30530
+    - protocol: TCP
+      port: 30588
+    - protocol: TCP
+      port: 30633
+    - protocol: TCP
+      port: 31198
+    - protocol: TCP
+      port: 31388
+    - protocol: TCP
+      port: 31439
+    - protocol: TCP
+      port: 32291
+    - protocol: TCP
+      port: 32591
+    children:
+    - name: '*tables*'
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: ip6tables-resto_0
+    - name: ip6tables
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: ip6tables_0
+    - name: ip6tables-save
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: ip6tables-save_0
+    - name: iptables
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: iptables_0
+    - name: iptables-restor
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: iptables-restor_0
+    - name: iptables-save
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: iptables-save_0
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

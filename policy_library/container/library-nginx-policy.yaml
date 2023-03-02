@@ -1,0 +1,35 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: docker.io-library-nginx-policy
+  type: container
+  latestTimestamp: 1677682804.7826784
+spec:
+  containerSelector:
+    image: 'docker.io/library/nginx:*'
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: default
+  processPolicy:
+  - name: nginx
+    exe:
+    - /usr/sbin/nginx
+    id: nginx_0
+    euser:
+    - root
+    children:
+    - name: nginx
+      exe:
+      - /usr/sbin/nginx
+      id: nginx_1
+      euser:
+      - systemd-resolve
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

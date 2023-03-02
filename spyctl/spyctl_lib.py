@@ -3,12 +3,15 @@ import inspect
 import io
 import json
 import os
+import re
 import sys
 import time
+import unicodedata
 from base64 import urlsafe_b64encode as b64url
 from datetime import timezone
+from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
 
 import click
@@ -34,8 +37,8 @@ class Aliases:
 
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
-WARNING_COLOR = "\033[38;5;203m"
-COLOR_END = "\033[0m"
+WARNING_COLOR = "\x1b[38;5;203m"
+COLOR_END = "\x1b[0m"
 
 # Resource Aliases
 CLUSTERS_RESOURCE = Aliases(
@@ -98,6 +101,34 @@ POLICIES_RESOURCE = Aliases(
     "policy",
     "policies",
 )
+PROCESSES_RESOURCE = Aliases(
+    [
+        "processes",
+        "process",
+        "proc",
+        "procs",
+        "pro",
+        "pros",
+        "pces",
+        "pcess",
+    ],
+    "process",
+    "processes",
+)
+CONNECTIONS_RESOURCE = Aliases(
+    [
+        "connections",
+        "connection",
+        "connect",
+        "connects",
+        "conn",
+        "conns",
+        "con",
+        "cons",
+    ],
+    "connection",
+    "connections",
+)
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
     ["config", "configs", "conf", "cfg", "configuration", "configurations"],
@@ -116,6 +147,8 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
     OPSFLAGS_RESOURCE.name_plural,
+    PROCESSES_RESOURCE.name_plural,
+    CONNECTIONS_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -162,6 +195,74 @@ class LabelParam(click.ParamType):
         if rv is None:
             self.fail("Invalid label input", param, ctx)
         return value
+
+
+class ListParam(click.ParamType):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        if "," in value:
+            rv = value.split(",")
+        else:
+            rv = value.split(" ")
+        for i, v in enumerate(rv):
+            rv[i] = v.strip(" ")
+        return rv
+
+
+class FileList(click.File):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        rv = []
+        if isinstance(value, Iterable) and not isinstance(value, str):
+            for string in value:
+                rv.extend(self.__handle_string(string, param, ctx))
+        else:
+            rv.extend(self.__handle_string(value, param, ctx))
+        return rv
+
+    def __handle_string(self, input: str, param, ctx) -> List[str]:
+        rv = []
+        if "," in input:
+            filenames = input.split(",")
+        else:
+            filenames = [input]
+        for fn in filenames:
+            fn = fn.strip(" ")
+            if "*" in fn:
+                match_fns = self.fnmatch_files(fn, param, ctx)
+                for match_fn in match_fns:
+                    rv.append(super().convert(match_fn, param, ctx))
+            else:
+                rv.append(super().convert(fn, param, ctx))
+        return rv
+
+    def fnmatch_files(self, fnmatch_str: str, param, ctx):
+        rv = []
+        path, tail = os.path.split(fnmatch_str)
+        if not path:
+            path = Path.cwd()
+        else:
+            path = Path(path).expanduser().resolve()
+        if not tail:
+            self.fail("Directory wildcards are not supported.", param, ctx)
+        else:
+            try:
+                for file in path.iterdir():
+                    if fnmatch(file.name, tail):
+                        rv.append(str(file))
+            except Exception:
+                self.fail(f"Unable to list files in {str(path)}")
+        if not rv:
+            self.fail(f"No files matching {fnmatch_str}.", param, ctx)
+        return rv
 
 
 # Spyderbat Schema Prefix'
@@ -230,6 +331,7 @@ NAMESPACE_LABELS_FIELD = "namespace-labels"
 POD_LABELS_FIELD = "pod-labels"
 MACHINES_FIELD = "machines"
 DEFAULT_API_URL = "https://api.spyderbat.com"
+POLICY_UID_FIELD = "policy"
 
 # Response Actions
 ACTION_KILL_POD = "agentKillPod"
@@ -340,7 +442,14 @@ OUTPUT_JSON = "json"
 OUTPUT_DEFAULT = "default"
 OUTPUT_RAW = "raw"
 OUTPUT_WIDE = "wide"
+# used internally when updating objects directly via the API
+OUTPUT_API = "api"
 OUTPUT_CHOICES = [OUTPUT_YAML, OUTPUT_JSON, OUTPUT_DEFAULT]
+OUTPUT_DEST_DEFAULT = "default"  # stdout
+OUTPUT_DEST_FILE = "file"
+OUTPUT_DEST_API = "api"
+OUTPUT_DEST_STDOUT = "stdout"
+OUTPUT_DEST_PAGER = "pager"
 
 # spyctl Options
 CLUSTER_OPTION = "cluster"
@@ -756,6 +865,93 @@ class ArgumentParametersCommand(CustomCommand):
                 formatter.write_dl(specif_opts)
 
 
+class MutuallyExclusiveOption(click.Option):
+    def __init__(self, *args, **kwargs):
+        self.mutually_exclusive = set(kwargs.pop("mutually_exclusive", []))
+        help = kwargs.get("help", "")
+        if self.mutually_exclusive:
+            ex_str = ", ".join(self.mutually_exclusive)
+            kwargs["help"] = help + (
+                " This argument is mutually exclusive with "
+                " arguments: [" + ex_str + "]."
+            )
+        super(MutuallyExclusiveOption, self).__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        if self.mutually_exclusive.intersection(opts) and self.name in opts:
+            raise click.UsageError(
+                f"Illegal usage: `{self.name}` is mutually exclusive with "
+                f"arguments `{', '.join(self.mutually_exclusive)}`."
+            )
+        return super(MutuallyExclusiveOption, self).handle_parse_result(
+            ctx, opts, args
+        )
+
+
+class OptionEatAll(click.Option):
+    # https://stackoverflow.com/questions/48391777/nargs-equivalent-for-options-in-click  # noqa E501
+
+    def __init__(self, *args, **kwargs):
+        self.save_other_options = kwargs.pop("save_other_options", True)
+        nargs = kwargs.pop("nargs", -1)
+        assert nargs == -1, "nargs, if set, must be -1 not {}".format(nargs)
+        super(OptionEatAll, self).__init__(*args, **kwargs)
+        self._previous_parser_process = None
+        self._eat_all_parser = None
+
+    def add_to_parser(self, parser, ctx):
+        def parser_process(value, state):
+            # method to hook to the parser.process
+            done = False
+            value = [value]
+            if self.save_other_options:
+                # grab everything up to the next option
+                while state.rargs and not done:
+                    for prefix in self._eat_all_parser.prefixes:
+                        if state.rargs[0].startswith(prefix):
+                            done = True
+                    if not done:
+                        value.append(state.rargs.pop(0))
+            else:
+                # grab everything remaining
+                value += state.rargs
+                state.rargs[:] = []
+            value = tuple(value)
+
+            # call the actual process
+            self._previous_parser_process(value, state)
+
+        retval = super(OptionEatAll, self).add_to_parser(parser, ctx)
+        for name in self.opts:
+            our_parser = parser._long_opt.get(name) or parser._short_opt.get(
+                name
+            )
+            if our_parser:
+                self._eat_all_parser = our_parser
+                self._previous_parser_process = our_parser.process
+                our_parser.process = parser_process
+                break
+        return retval
+
+
+class MutuallyExclusiveEatAll(MutuallyExclusiveOption, OptionEatAll):
+    def __init__(self, *args, **kwargs):
+        self.mutually_exclusive = set(kwargs.pop("mutually_exclusive", []))
+        help = kwargs.get("help", "")
+        if self.mutually_exclusive:
+            ex_str = ", ".join(self.mutually_exclusive)
+            kwargs["help"] = help + (
+                " This argument is mutually exclusive with "
+                " arguments: [" + ex_str + "]."
+            )
+        self.save_other_options = kwargs.pop("save_other_options", True)
+        nargs = kwargs.pop("nargs", -1)
+        assert nargs == -1, "nargs, if set, must be -1 not {}".format(nargs)
+        self._previous_parser_process = None
+        self._eat_all_parser = None
+        super(MutuallyExclusiveEatAll, self).__init__(*args, **kwargs)
+
+
 def try_log(*args, **kwargs):
     try:
         if kwargs.pop(WARNING_MSG, False):
@@ -1013,7 +1209,7 @@ class UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep)
 
 
-def load_resource_file(file: Union[str, io.TextIOWrapper]):
+def load_resource_file(file: Union[str, IO]):
     try:
         if isinstance(file, io.TextIOWrapper):
             name = file.name
@@ -1050,6 +1246,8 @@ def load_resource_file(file: Union[str, io.TextIOWrapper]):
 
     if not valid_object(resrc_data, verbose=True):
         sys.exit(f"{resrc_kind} invalid in {name!r}. See error logs.")
+    if isinstance(file, io.TextIOWrapper):
+        file.seek(0, 0)
     return resrc_data
 
 
@@ -1067,5 +1265,59 @@ def dictionary_mod(fn) -> Dict:
     return wrapper
 
 
-def _to_timestamp(zulu_str):
+def to_timestamp(zulu_str):
     return zulu.Zulu.parse(zulu_str).timestamp()
+
+
+def epoch_to_zulu(epoch):
+    return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+
+
+def get_metadata_name(resource: Dict) -> Optional[str]:
+    metadata = resource.get(METADATA_FIELD, {})
+    name = metadata.get(METADATA_NAME_FIELD)
+    return name
+
+
+def slugify(value, allow_unicode=False):
+    """
+    Taken from https://github.com/django/django/blob/master/django/utils/text.py  # noqa E501
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+    dashes to single dashes. Remove characters that aren't alphanumerics,
+    underscores, or hyphens. Convert to lowercase. Also strip leading and
+    trailing whitespace, dashes, and underscores.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize("NFKC", value)
+    else:
+        value = (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+    value = re.sub(r"[^\w\s-]", "", value.lower())
+    return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+
+FILE_EXT_MAP = {
+    OUTPUT_YAML: ".yaml",
+    OUTPUT_JSON: ".json",
+    OUTPUT_DEFAULT: ".yaml",
+}
+
+
+def unique_fn(fn: str, output_format) -> Optional[str]:
+    count = 1
+    file_ext = FILE_EXT_MAP[output_format]
+    try:
+        filepath = Path(fn + file_ext)
+        new_fn = fn
+        while filepath.exists():
+            new_fn = fn + f"_{count}"
+            filepath = Path(new_fn + file_ext)
+            count += 1
+    except Exception:
+        try_log(f"Unable to build unique filename for {fn}", is_warning=True)
+        return
+    return str(new_fn)

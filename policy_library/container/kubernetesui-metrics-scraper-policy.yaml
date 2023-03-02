@@ -1,0 +1,31 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: kubernetesui-metrics-scraper-policy
+  type: container
+  latestTimestamp: 1677682530.938602
+spec:
+  containerSelector:
+    image: 'kubernetesui/metrics-scraper:*'
+  podSelector:
+    matchLabels:
+      k8s-app: dashboard-metrics-scraper
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: kubernetes-dashboard
+  processPolicy:
+  - name: metrics-sidecar
+    exe:
+    - /metrics-sidecar
+    id: metrics-sidecar_0
+    euser:
+    - docker
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'    
+    actions: []

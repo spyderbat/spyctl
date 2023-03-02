@@ -1,0 +1,362 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: nano-agent-policy
+  type: container
+  latestTimestamp: 1677604740.3899906
+spec:
+  containerSelector:
+    image: '*nano-agent:*'
+  podSelector:
+    matchLabels:
+      name: spyderbat-nanoagent
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: spyderbat
+  processPolicy:
+  - name: boot_strap.sh
+    exe:
+    - /usr/bin/bash
+    id: boot_strap.sh_0
+    euser:
+    - root
+    children:
+    - name: Nano Agent
+      exe:
+      - /hostopt/spyderbat/bin/nano_agent*
+      id: nano_agent_0
+      children:
+      - name: Auth
+        exe:
+        - /hostopt/spyderbat/tmp/bat*
+        id: auth_0
+      - name: Bashbat
+        exe:
+        - /hostopt/spyderbat/tmp/bat*
+        id: bashbat_0
+      - name: Grimreaper
+        exe:
+        - /hostopt/spyderbat/tmp/bat*
+        id: grimreaper_0
+      - name: Procmon
+        exe:
+        - /hostopt/spyderbat/tmp/bat*
+        id: procmon_0
+        children:
+        - name: lsof
+          exe:
+          - /usr/bin/lsof
+          id: lsof_0
+      - name: Scentless
+        exe:
+        - /hostopt/spyderbat/tmp/bat*
+        id: scentless_0
+      - name: Snapshot
+        exe:
+        - /hostopt/spyderbat/tmp/bat*
+        id: snapshot_0
+        children:
+        - name: dpkg-query
+          exe:
+          - /usr/bin/dpkg-query
+          id: dpkg-query_0
+        - name: ip
+          exe:
+          - /usr/bin/ip
+          id: ip_0
+        - name: lsof
+          exe:
+          - /usr/bin/lsof
+          id: lsof_1
+        - name: uname
+          exe:
+          - /usr/bin/uname
+          id: uname_0
+      - name: bat*
+        exe:
+        - /hostopt/spyderbat/tmp/bat*
+        id: bat1325929077_0
+        children:
+        - name: dpkg-query
+          exe:
+          - /usr/bin/dpkg-query
+          id: dpkg-query_1
+        - name: ip
+          exe:
+          - /usr/bin/ip
+          id: ip_1
+        - name: lsof
+          exe:
+          - /usr/bin/lsof
+          id: lsof_2
+        - name: uname
+          exe:
+          - /usr/bin/uname
+          id: uname_1
+  - name: lsof
+    exe:
+    - /usr/bin/lsof
+    id: lsof_3
+    euser:
+    - root
+  networkPolicy:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 58.245.122.74/32
+      - ipBlock:
+          cidr: 68.183.170.149/32
+      - ipBlock:
+          cidr: 68.183.225.151/32
+      - ipBlock:
+          cidr: 84.54.74.130/32
+      - ipBlock:
+          cidr: 95.85.39.74/32
+      - ipBlock:
+          cidr: 95.85.124.113/32
+      - ipBlock:
+          cidr: 104.131.160.191/32
+      - ipBlock:
+          cidr: 122.176.52.13/32
+      - ipBlock:
+          cidr: 140.238.177.83/32
+      - ipBlock:
+          cidr: 163.172.91.22/32
+      - ipBlock:
+          cidr: 164.90.165.200/32
+      - ipBlock:
+          cidr: 165.232.176.114/32
+      - ipBlock:
+          cidr: 174.160.254.47/32
+      - ipBlock:
+          cidr: 183.238.0.146/32
+      - ipBlock:
+          cidr: 202.50.53.230/32
+      - ipBlock:
+          cidr: 203.76.241.10/32
+      - ipBlock:
+          cidr: 211.136.168.2/32
+      - ipBlock:
+          cidr: 217.10.40.45/32
+      processes:
+      - lsof_0
+      ports:
+      - protocol: TCP
+        port: 22
+    - from:
+      - ipBlock:
+          cidr: 157.148.7.52/32
+      processes:
+      - ip_0
+      ports:
+      - protocol: TCP
+        port: 22
+    egress:
+    - to:
+      - dnsSelector:
+        - ec2.us-west-2.amazonaws.com
+      - dnsSelector:
+        - orc.kangaroobat.net
+      - ipBlock:
+          cidr: 44.196.88.154/32
+      - ipBlock:
+          cidr: 52.46.140.46/32
+      - ipBlock:
+          cidr: 52.46.142.40/32
+      - ipBlock:
+          cidr: 52.46.142.78/32
+      - ipBlock:
+          cidr: 52.46.142.79/32
+      - ipBlock:
+          cidr: 52.46.143.246/32
+      - ipBlock:
+          cidr: 52.46.146.93/32
+      - ipBlock:
+          cidr: 52.46.146.198/32
+      - ipBlock:
+          cidr: 52.46.147.69/32
+      - ipBlock:
+          cidr: 52.46.150.54/32
+      - ipBlock:
+          cidr: 52.46.150.99/32
+      - ipBlock:
+          cidr: 52.46.155.190/32
+      - ipBlock:
+          cidr: 52.46.159.174/32
+      - ipBlock:
+          cidr: 52.94.176.188/32
+      - ipBlock:
+          cidr: 52.94.176.190/32
+      - ipBlock:
+          cidr: 52.94.184.136/32
+      - ipBlock:
+          cidr: 52.94.184.137/32
+      - ipBlock:
+          cidr: 52.94.184.151/32
+      - ipBlock:
+          cidr: 52.94.184.153/32
+      - ipBlock:
+          cidr: 52.94.214.27/32
+      - ipBlock:
+          cidr: 52.119.171.236/32
+      - ipBlock:
+          cidr: 52.119.175.10/32
+      - ipBlock:
+          cidr: 54.158.173.160/32
+      - ipBlock:
+          cidr: 54.239.23.99/32
+      - ipBlock:
+          cidr: 54.239.29.8/32
+      - ipBlock:
+          cidr: 54.239.31.174/32
+      - ipBlock:
+          cidr: 209.54.177.244/32
+      - ipBlock:
+          cidr: 209.54.177.247/32
+      - ipBlock:
+          cidr: 209.54.180.155/32
+      - ipBlock:
+          cidr: 209.54.180.217/32
+      - ipBlock:
+          cidr: 209.54.181.135/32
+      - ipBlock:
+          cidr: 209.54.181.169/32
+      - ipBlock:
+          cidr: 209.54.181.192/32
+      - ipBlock:
+          cidr: 209.54.181.193/32
+      - ipBlock:
+          cidr: 209.54.181.194/32
+      - ipBlock:
+          cidr: 209.54.181.208/32
+      - ipBlock:
+          cidr: 209.54.181.211/32
+      - ipBlock:
+          cidr: 209.54.181.212/32
+      - ipBlock:
+          cidr: 209.54.182.34/32
+      - ipBlock:
+          cidr: 209.54.182.49/32
+      - ipBlock:
+          cidr: 209.54.182.67/32
+      - ipBlock:
+          cidr: 209.54.182.73/32
+      - ipBlock:
+          cidr: 209.54.182.97/32
+      processes:
+      - nano_agent_0
+      - snapshot_0
+      ports:
+      - protocol: TCP
+        port: 443
+    - to:
+      - ipBlock:
+          cidr: 169.254.169.254/32
+      processes:
+      - bat1325929077_0
+      - snapshot_0
+      - nano_agent_0
+      ports:
+      - protocol: TCP
+        port: 80
+    - to:
+      - dnsSelector:
+        - ec2.us-west-2.amazonaws.com
+      processes:
+      - bat1325929077_0
+      - snapshot_0
+      - nano_agent_0
+      ports:
+      - protocol: TCP
+        port: 443
+    - to:
+      - ipBlock:
+          cidr: 52.94.176.190/32
+      - ipBlock:
+          cidr: 52.94.181.146/32
+      - ipBlock:
+          cidr: 52.94.184.136/32
+      - ipBlock:
+          cidr: 52.94.184.146/32
+      - ipBlock:
+          cidr: 52.94.184.151/32
+      - ipBlock:
+          cidr: 52.94.184.153/32
+      - ipBlock:
+          cidr: 52.94.214.27/32
+      - ipBlock:
+          cidr: 52.119.171.236/32
+      - ipBlock:
+          cidr: 52.119.175.10/32
+      - ipBlock:
+          cidr: 54.175.17.54/32
+      - ipBlock:
+          cidr: 54.240.249.157/32
+      processes:
+      - snapshot_0
+      - lsof_0
+      ports:
+      - protocol: TCP
+        port: 443
+    - to:
+      - ipBlock:
+          cidr: 52.94.176.188/32
+      - ipBlock:
+          cidr: 52.94.176.190/32
+      - ipBlock:
+          cidr: 52.94.181.25/32
+      - ipBlock:
+          cidr: 52.94.181.41/32
+      - ipBlock:
+          cidr: 52.94.181.146/32
+      - ipBlock:
+          cidr: 52.94.184.136/32
+      - ipBlock:
+          cidr: 52.94.184.137/32
+      - ipBlock:
+          cidr: 52.94.184.146/32
+      - ipBlock:
+          cidr: 52.94.184.151/32
+      - ipBlock:
+          cidr: 52.94.184.153/32
+      - ipBlock:
+          cidr: 52.94.214.26/32
+      - ipBlock:
+          cidr: 52.94.214.27/32
+      - ipBlock:
+          cidr: 52.94.214.88/32
+      - ipBlock:
+          cidr: 52.94.215.53/32
+      - ipBlock:
+          cidr: 52.119.171.236/32
+      - ipBlock:
+          cidr: 52.119.174.12/32
+      - ipBlock:
+          cidr: 52.119.175.10/32
+      - ipBlock:
+          cidr: 54.175.17.54/32
+      - ipBlock:
+          cidr: 54.240.254.163/32
+      processes:
+      - nano_agent_0
+      - snapshot_0
+      - lsof_0
+      ports:
+      - protocol: TCP
+        port: 443
+    - to:
+      - ipBlock:
+          cidr: 169.254.169.254/32
+      processes:
+      - nano_agent_0
+      - snapshot_0
+      - lsof_0
+      ports:
+      - protocol: TCP
+        port: 80
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

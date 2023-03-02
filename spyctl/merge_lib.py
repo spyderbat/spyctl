@@ -41,9 +41,9 @@ MERGING_NODE_LIST = None
 
 ADD_START = "+ "
 SUB_START = "- "
-ADD_COLOR = "\033[38;5;35m"
-SUB_COLOR = "\033[38;5;203m"
-COLOR_END = "\033[0m"
+ADD_COLOR = "\x1b[38;5;35m"
+SUB_COLOR = "\x1b[38;5;203m"
+COLOR_END = "\x1b[0m"
 LIST_MARKER = "- "
 DEFAULT_WHITESPACE = "  "
 NET_POL_FIELDS = {lib.INGRESS_FIELD, lib.EGRESS_FIELD}
@@ -66,7 +66,7 @@ class MergeObject:
         validation_fn: Callable,
     ) -> None:
         self.original_obj = deepcopy(obj_data)
-        self.obj_data = obj_data
+        self.obj_data = deepcopy(obj_data)
         self.schemas = merge_schemas
         self.validation_fn = validation_fn
         self.starting_yaml = yaml.dump(obj_data)
@@ -1182,6 +1182,7 @@ SPEC_MERGE_SCHEMA = MergeSchema(
         NET_POLICY_FIELD: NET_POLICY_MERGE_SCHEMA,
     },
     merge_functions={
+        lib.ENABLED_FIELD: keep_base_value_merge,
         PROC_POLICY_FIELD: merge_proc_policies,
         RESPONSE_FIELD: keep_base_value_merge,
     },
@@ -1534,7 +1535,11 @@ def dict_diffs(
     for field in fields:
         if field in original_data and field in other_data:
             if not isinstance(original_data[field], type(other_data[field])):
-                cli.try_log("Field type mismatch")
+                cli.try_log(
+                    f"Field type mismatch {field} | orig: "
+                    f"'{type(original_data[field])}' "
+                    f"new: '{type(other_data[field])}'"
+                )
                 continue
             indexes = find_obj_indexes(
                 yaml_lines,

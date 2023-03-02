@@ -202,7 +202,7 @@ def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
 
 def get_namespaces(api_url, api_key, org_uid, clusters, time):
     namespaces = []
-    pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
+    pbar = tqdm.tqdm(total=len(clusters), leave=False)
     threads = []
     uid_to_name_map = {}
     with ThreadPoolExecutor() as executor:
@@ -237,7 +237,7 @@ def get_namespaces(api_url, api_key, org_uid, clusters, time):
 
 def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
     nodes = []
-    pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
+    pbar = tqdm.tqdm(total=len(clusters), leave=False)
     threads = []
     with ThreadPoolExecutor() as executor:
         for cluster in clusters:
@@ -273,7 +273,7 @@ def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
 
 def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
     pods = []
-    pbar = tqdm.tqdm(total=len(clusters), leave=False, file=sys.stderr)
+    pbar = tqdm.tqdm(total=len(clusters), leave=False)
     threads = []
     with ThreadPoolExecutor() as executor:
         for cluster in clusters:
@@ -347,8 +347,23 @@ def get_opsflags(api_url, api_key, org_uid, time):
 
 def get_fingerprints(api_url, api_key, org_uid, muids, time):
     fingerprints = []
-    pbar = tqdm.tqdm(total=len(muids), leave=False, file=sys.stderr)
+    pbar = tqdm.tqdm(total=len(muids), leave=False)
     threads = []
+    tmp_fprints = {}
+
+    def latest_fprint(new: Dict) -> bool:
+        id = new[lib.METADATA_FIELD].get("id")
+        if not id:
+            return True
+        if id not in tmp_fprints:
+            return True
+        old = tmp_fprints[id]
+        new_lt = new[lib.METADATA_FIELD].get(lib.LATEST_TIMESTAMP_FIELD)
+        old_lt = old[lib.METADATA_FIELD].get(lib.LATEST_TIMESTAMP_FIELD)
+        if old_lt > new_lt:
+            return False
+        return True
+
     with ThreadPoolExecutor() as executor:
         for muid in muids:
             url = (
@@ -373,7 +388,12 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
                         )
                         continue
                     if "metadata" in fprint:
-                        fingerprints.append(fprint)
+                        id = fprint[lib.METADATA_FIELD].get("id")
+                        if not id:
+                            fingerprints.append(fprint)
+                        elif latest_fprint(fprint):
+                            tmp_fprints[id] = fprint
+    fingerprints.extend(tmp_fprints.values())
     pbar.close()
     return fingerprints
 
@@ -432,3 +452,47 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
     resp = delete(url, api_key)
     return resp
+
+
+def get_source_data(api_url, api_key, org_uid, muids, time):
+    pbar = tqdm.tqdm(total=len(muids), leave=False)
+    threads = []
+    ids = set()
+    with ThreadPoolExecutor() as executor:
+        for muid in muids:
+            url = (
+                f"{api_url}/api/v1/org/{org_uid}/data/?"
+                f"src={muid}&st={time[0]}&et={time[1]}&dt=spydergraph"
+            )
+            threads.append(
+                executor.submit(
+                    get,
+                    url,
+                    api_key,
+                )
+            )
+        for task in as_completed(threads):
+            resp = task.result()
+            for flag_data in resp.iter_lines():
+                obj = json.loads(flag_data)
+                if obj["id"] not in ids:
+                    ids.add(obj["id"])
+                    yield obj
+            pbar.update(1)
+    pbar.close()
+
+
+def get_processes(api_url, api_key, org_uid, muids, time):
+    processes = []
+    for obj in get_source_data(api_url, api_key, org_uid, muids, time):
+        if obj["schema"].startswith("model_process"):
+            processes.append(obj)
+    return processes
+
+
+def get_connections(api_url, api_key, org_uid, muids, time):
+    connections = []
+    for obj in get_source_data(api_url, api_key, org_uid, muids, time):
+        if obj["schema"].startswith("model_connection"):
+            connections.append(obj)
+    return connections
