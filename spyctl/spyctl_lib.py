@@ -101,6 +101,34 @@ POLICIES_RESOURCE = Aliases(
     "policy",
     "policies",
 )
+PROCESSES_RESOURCE = Aliases(
+    [
+        "processes",
+        "process",
+        "proc",
+        "procs",
+        "pro",
+        "pros",
+        "pces",
+        "pcess",
+    ],
+    "process",
+    "processes",
+)
+CONNECTIONS_RESOURCE = Aliases(
+    [
+        "connections",
+        "connection",
+        "connect",
+        "connects",
+        "conn",
+        "conns",
+        "con",
+        "cons",
+    ],
+    "connection",
+    "connections",
+)
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
     ["config", "configs", "conf", "cfg", "configuration", "configurations"],
@@ -119,6 +147,8 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
     OPSFLAGS_RESOURCE.name_plural,
+    PROCESSES_RESOURCE.name_plural,
+    CONNECTIONS_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,

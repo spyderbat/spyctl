@@ -1,0 +1,233 @@
+apiVersion: spyderbat/v1
+kind: FingerprintGroup
+metadata:
+  image: public.ecr.aws/a6j2k0g1/nano-agent:latest
+  imageID: sha256:0782d3595a832f6b21c329ff8dd1152a8b86cd7ad13c5d2b509a23eca8d0fe17
+  firstTimestamp: 1677530414.2810776
+  latestTimestamp: 1677603360.03108
+data:
+  fingerprints:
+  - apiVersion: spyderbat/v1
+    kind: SpyderbatFingerprint
+    metadata:
+      name: public.ecr.aws/a6j2k0g1/nano-agent:latest
+      id: fprint:k8s-container:FomNj5G1TJ:Y_0VLg:ac2c6c6847b1
+      type: container
+      checksum: 2cef186e4969fd4c06e917e939ee7674
+      org_uid: spyderbatuid
+      muid: mach:FomNj5G1TJc
+      root: proc:FomNj5G1TJc:Y-PjqA:2274
+      containerID: ac2c6c6847b166611e8113737853ac3a6700e9e2f6705b8fab22a43598c9781a
+      containerName: spyderbat-nanoagent
+      firstTimestamp: 1677530414.2810776
+      latestTimestamp: 1677603360.03108
+      pod-uid: pod:cqP418TptGU:RmNoIo2DEE
+      namespace: spyderbat
+      cluster-uid: clus:cqP418TptGU
+    spec:
+      containerSelector:
+        image: public.ecr.aws/a6j2k0g1/nano-agent:latest
+        imageID: sha256:0782d3595a832f6b21c329ff8dd1152a8b86cd7ad13c5d2b509a23eca8d0fe17
+      podSelector:
+        matchLabels:
+          controller-revision-hash: 6f49f95bbc
+          k8s-app: spyderbat-nanoagent
+          name: spyderbat-nanoagent
+          pod-template-generation: '1'
+          version: v1
+      namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/managed-by: Helm
+          kubernetes.io/metadata.name: spyderbat
+      processPolicy:
+      - name: boot_strap.sh
+        exe:
+        - /usr/bin/bash
+        id: boot_strap.sh_0
+        euser:
+        - root
+        children:
+        - name: Nano Agent
+          exe:
+          - /hostopt/spyderbat/bin/nano_agent-v1.1.40
+          id: nano_agent_0
+          children:
+          - name: Auth
+            exe:
+            - /hostopt/spyderbat/tmp/bat190120746
+            id: auth_0
+          - name: Auth
+            exe:
+            - /hostopt/spyderbat/tmp/bat2433320013
+            id: auth_1
+          - name: Bashbat
+            exe:
+            - /hostopt/spyderbat/tmp/bat3833777428
+            id: bashbat_0
+          - name: Bashbat
+            exe:
+            - /hostopt/spyderbat/tmp/bat3112382924
+            id: bashbat_1
+          - name: bat1325929077
+            exe:
+            - /hostopt/spyderbat/tmp/bat1325929077
+            id: bat1325929077_0
+          - name: bat146992862
+            exe:
+            - /hostopt/spyderbat/tmp/bat146992862
+            id: bat146992862_0
+          - name: bat205707919
+            exe:
+            - /hostopt/spyderbat/tmp/bat205707919
+            id: bat205707919_0
+          - name: bat2093292879
+            exe:
+            - /hostopt/spyderbat/tmp/bat2093292879
+            id: bat2093292879_0
+          - name: bat2433320013
+            exe:
+            - /hostopt/spyderbat/tmp/bat2433320013
+            id: bat2433320013_0
+          - name: bat2551351060
+            exe:
+            - /hostopt/spyderbat/tmp/bat2551351060
+            id: bat2551351060_0
+          - name: bat2845966300
+            exe:
+            - /hostopt/spyderbat/tmp/bat2845966300
+            id: bat2845966300_0
+          - name: bat2851017373
+            exe:
+            - /hostopt/spyderbat/tmp/bat2851017373
+            id: bat2851017373_0
+          - name: bat3112382924
+            exe:
+            - /hostopt/spyderbat/tmp/bat3112382924
+            id: bat3112382924_0
+          - name: bat3610260920
+            exe:
+            - /hostopt/spyderbat/tmp/bat3610260920
+            id: bat3610260920_0
+          - name: bat3961676397
+            exe:
+            - /hostopt/spyderbat/tmp/bat3961676397
+            id: bat3961676397_0
+          - name: Grimreaper
+            exe:
+            - /hostopt/spyderbat/tmp/bat3796364397
+            id: grimreaper_0
+          - name: Grimreaper
+            exe:
+            - /hostopt/spyderbat/tmp/bat2393901704
+            id: grimreaper_1
+          - name: Procmon
+            exe:
+            - /hostopt/spyderbat/tmp/bat3465639044
+            id: procmon_0
+            children:
+            - name: lsof
+              exe:
+              - /usr/bin/lsof
+              id: lsof_0
+          - name: Procmon
+            exe:
+            - /hostopt/spyderbat/tmp/bat2551351060
+            id: procmon_1
+          - name: Scentless
+            exe:
+            - /hostopt/spyderbat/tmp/bat205707919
+            id: scentless_0
+          - name: Scentless
+            exe:
+            - /hostopt/spyderbat/tmp/bat2093292879
+            id: scentless_1
+          - name: Scentless
+            exe:
+            - /hostopt/spyderbat/tmp/bat2851017373
+            id: scentless_2
+          - name: Scentless
+            exe:
+            - /hostopt/spyderbat/tmp/bat3961676397
+            id: scentless_3
+          - name: Snapshot
+            exe:
+            - /hostopt/spyderbat/tmp/bat957013769
+            id: snapshot_0
+            children:
+            - name: dpkg-query
+              exe:
+              - /usr/bin/dpkg-query
+              id: dpkg-query_0
+            - name: ip
+              exe:
+              - /usr/bin/ip
+              id: ip_0
+            - name: lsof
+              exe:
+              - /usr/bin/lsof
+              id: lsof_1
+            - name: uname
+              exe:
+              - /usr/bin/uname
+              id: uname_0
+          - name: Snapshot
+            exe:
+            - /hostopt/spyderbat/tmp/bat3610260920
+            id: snapshot_1
+      networkPolicy:
+        ingress: []
+        egress:
+        - to:
+          - ipBlock:
+              cidr: 209.54.177.247/32
+          - ipBlock:
+              cidr: 209.54.180.155/32
+          - ipBlock:
+              cidr: 209.54.180.217/32
+          - ipBlock:
+              cidr: 209.54.181.169/32
+          - ipBlock:
+              cidr: 209.54.181.192/32
+          - ipBlock:
+              cidr: 209.54.181.194/32
+          - ipBlock:
+              cidr: 209.54.181.211/32
+          - ipBlock:
+              cidr: 209.54.181.212/32
+          - ipBlock:
+              cidr: 209.54.182.34/32
+          - ipBlock:
+              cidr: 209.54.182.49/32
+          - ipBlock:
+              cidr: 209.54.182.97/32
+          - ipBlock:
+              cidr: 44.196.88.154/32
+          - ipBlock:
+              cidr: 52.46.140.46/32
+          - ipBlock:
+              cidr: 52.46.142.40/32
+          - ipBlock:
+              cidr: 52.46.142.78/32
+          - ipBlock:
+              cidr: 52.46.146.93/32
+          - ipBlock:
+              cidr: 52.46.147.69/32
+          - ipBlock:
+              cidr: 52.46.155.190/32
+          - ipBlock:
+              cidr: 54.158.173.160/32
+          - ipBlock:
+              cidr: 54.239.31.174/32
+          processes:
+          - nano_agent_0
+          - snapshot_0
+          - snapshot_1
+          ports:
+          - protocol: TCP
+            port: 443
+  machines:
+  - mach:FomNj5G1TJc
+  containerNames:
+  - spyderbat-nanoagent
+  containerIDs:
+  - ac2c6c6847b166611e8113737853ac3a6700e9e2f6705b8fab22a43598c9781a

@@ -9,10 +9,10 @@ import spyctl.commands.create as c
 import spyctl.commands.diff as d
 import spyctl.commands.get as g
 import spyctl.commands.merge as m
+import spyctl.commands.update as u
 import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
-import spyctl.commands.update as u
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
@@ -713,6 +713,18 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " a policy from the spyderbat backend, then filter"
                     " Fingerprints based on the policy's selectors.",
                     metavar="",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.CONNECTIONS_RESOURCE],
+            "args": [
+                click.option(
+                    "--ignore-ips",
+                    "ignore_ips",
+                    is_flag=True,
+                    help="Ignores differing ips in the table output."
+                    " Off by default.",
                 ),
             ],
         },
