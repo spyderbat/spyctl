@@ -10,7 +10,7 @@ def machines_summary_output(machines: List[Dict]):
     data = []
     for machine in machines:
         data.append(machine_summary_data(machine))
-    data.sort(key=lambda x: [x[0], lib._to_timestamp(x[3])])
+    data.sort(key=lambda x: [x[0], lib.to_timestamp(x[3])])
     return tabulate(data, headers, tablefmt="plain")
 
 

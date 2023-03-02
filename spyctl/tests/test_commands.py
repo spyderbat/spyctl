@@ -2,10 +2,14 @@ import os
 import shutil
 from fnmatch import fnmatch
 from pathlib import Path
+from itertools import groupby
+import pytest
+from pathlib import Path
 
 from click.testing import CliRunner
 
 from spyctl import spyctl
+from spyctl.spyctl_lib import time_inp
 from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
 
 
@@ -37,104 +41,181 @@ def test_version():
     assert fnmatch(response.output, test_pat)
 
 
-def test_get_clusters():
+def test_help():
     runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "clusters"])
+    response = runner.invoke(spyctl.main, ["-h"])
+    assert response.exit_code == 0
+    response = runner.invoke(spyctl.main, ["--help"])
+    assert response.exit_code == 0
+    response = runner.invoke(spyctl.main, ["get", "redflags", "--help"])
+    assert response.exit_code == 0
+    assert "Options for redflags:" in response.output
+    response = runner.invoke(spyctl.main, ["config", "--help"])
     assert response.exit_code == 0
 
 
-def test_get_machines():
-    runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "machines"])
+def test_get_namespaces():
+    get_resource("namespaces", TWOHOURS)
+    get_resource("namespaces", TWOHOURS + OUTYML)
+
+
+TWOHOURS = ("-t", "2h")
+OUTYML = ("-o", "yaml")
+
+
+def remove_timestamps(str_list):
+    rv = []
+    for string in str_list:
+        try:
+            time_inp(string)
+        except ValueError:
+            rv.append(string)
+    return rv
+
+
+# asserts that the table has some population and returns
+# name_or_id values that should give the first line again
+def process_table_response(output: str):
+    name_or_id_fields = (
+        "NAME",
+        "UID",
+        "FLAG",
+        "IMAGE",
+    )
+    lines = output.strip().splitlines()
+    assert len(lines) > 1
+    header_line, first_line = lines[:2]
+    headers = []
+    for non_empty_group, chars in groupby(
+        enumerate(header_line), lambda x: not x[1].isspace()
+    ):
+        if non_empty_group:
+            pos, header = next(chars)
+            header += "".join(c for _, c in chars)
+            headers.append((pos, header))
+    rv = []
+    for i, (pos, header) in enumerate(headers):
+        if header in name_or_id_fields:
+            next_pos = headers[i + 1][0] if i < len(headers) - 1 else None
+            table_element = first_line[pos:next_pos].strip()
+            rv.append(table_element)
+    print(header_line)
+    print(headers)
+    assert len(rv) > 0
+    comparison_line = remove_timestamps(first_line.split())
+    return comparison_line, rv
+
+
+resources = (
+    "clusters",
+    "machines",
+    "policies",
+    "pods",
+    "nodes",
+    "fingerprints",
+    # "namespaces", # doesn't output a table
+    "redflags",
+    "opsflags",
+)
+
+
+@pytest.mark.parametrize("resource", resources)
+def test_get_resources(resource):
+    time_range = TWOHOURS
+    output = OUTYML
+    table = get_resource(resource, time_range)
+    comparison_line, ids = process_table_response(table)
+    for name_or_id in ids:
+        single = get_resource(resource, time_range + (name_or_id,))
+        first_output = remove_timestamps(single.splitlines()[1].split())
+        assert first_output == comparison_line
+    get_resource(resource, time_range + output)
+
+
+def get_resource(resource, args=[], print_output=False):
+    runner = CliRunner(mix_stderr=False)
+    response = runner.invoke(spyctl.main, ["get", resource, *args])
+    if print_output:
+        print(response.output)
     assert response.exit_code == 0
+    return response.stdout
 
 
-def test_get_policies():
+resources_dir = Path(__file__).parent / "test_resources"
+
+
+def test_create():
     runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "policies"])
+    response = runner.invoke(
+        spyctl.main,
+        ["create", "policy", "-f", resources_dir / "test_baseline.yaml"],
+    )
     assert response.exit_code == 0
+    with open(resources_dir / "test_policy.yaml", "r") as f:
+        assert response.output.strip("\n") == f.read().strip("\n")
+    response = runner.invoke(
+        spyctl.main,
+        ["create", "baseline", "-f", resources_dir / "test_fprint_group.yaml"],
+    )
+    assert response.exit_code == 0
+    with open(resources_dir / "test_baseline.yaml", "r") as f:
+        assert response.output.strip("\n") == f.read().strip("\n")
 
 
-# def test_get_pods():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "pods"])
-#     assert response.exit_code == 0
-
-
-def test_get_pods_2hrs():
+def test_apply_delete():
     runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "pods", "-t", "2h"])
+    response = runner.invoke(
+        spyctl.main, ["apply", "-f", resources_dir / "test_policy.yaml"]
+    )
     assert response.exit_code == 0
+    assert response.output.startswith(
+        "Successfully applied new policy with uid:"
+    )
+    response = runner.invoke(
+        spyctl.main, ["get", "policies", "spyderbat-test"]
+    )
+    assert response.exit_code == 0
+    assert "spyderbat-test" in response.output
+    response = runner.invoke(
+        spyctl.main, ["delete", "policy", "-y", "spyderbat-test"]
+    )
+    # assert response.exit_code == 0
+    # assert response.output.startswith("Successfully deleted policy")
 
 
-# def test_get_pods_25hrs():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "pods", "-t", "25h"])
-#     print(response.output)
-#     assert response.exit_code == 0
-
-
-# def test_get_pods_2weeks():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "pods", "-t", "2w"])
-#     print(response.output)
-#     assert response.exit_code == 0
-
-
-# def test_get_fingerprints():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "fingerprints"])
-#     print(response.output)
-#     assert response.exit_code == 0
-
-
-def test_get_fingerprints_2hrs():
+def test_diff():
     runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "2h"])
-    print(response.output)
+    response = runner.invoke(
+        spyctl.main,
+        [
+            "diff",
+            "-f",
+            str(resources_dir) + "/test_baseline.yaml",
+            "-w",
+            str(resources_dir) + "/test_baseline_extra.yaml",
+            "-y",
+        ],
+    )
     assert response.exit_code == 0
+    assert "+     - name: python3.7" in response.output
 
 
-# def test_get_fingerprints_25hrs():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "25h"]) # noqa E501
-#     print(response.output)
-#     assert response.exit_code == 0
-
-
-# def test_get_fingerprints_2weeks():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "fingerprints", "-t", "2w"]) # noqa E501
-#     print(response.output)
-#     assert response.exit_code == 0
-
-
-# def test_get_namespaces():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "namespaces"])
-#     print(response.output)
-#     assert response.exit_code == 0
-
-
-def test_get_namespaces_2hrs():
+def test_merge():
     runner = CliRunner()
-    response = runner.invoke(spyctl.main, ["get", "namespaces", "-t", "2h"])
-    print(response.output)
+    response = runner.invoke(
+        spyctl.main,
+        [
+            "merge",
+            "-f",
+            str(resources_dir) + "/test_baseline.yaml",
+            "-w",
+            str(resources_dir) + "/test_baseline_extra.yaml",
+            "-y",
+        ],
+    )
     assert response.exit_code == 0
-
-
-# def test_get_namespaces_25hrs():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "namespaces", "-t", "25h"])
-#     print(response.output)
-#     assert response.exit_code == 0
-
-
-# def test_get_namespaces_2weeks():
-#     runner = CliRunner()
-#     response = runner.invoke(spyctl.main, ["get", "namespaces", "-t", "2w"])
-#     print(response.output)
-#     assert response.exit_code == 0
+    assert "\n    - name: python3.7" in response.output
+    assert "\n    - name: sh" in response.output
 
 
 def env_setup() -> bool:

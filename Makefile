@@ -26,3 +26,10 @@ clean:
 rebuild:
 	$(MAKE) clean
 	$(MAKE) build
+
+test_coverage:
+	coverage run --omit="test_*.py" -m pytest
+
+view_coverage_wsl:
+	coverage html
+	explorer.exe "htmlcov\index.html" ||:

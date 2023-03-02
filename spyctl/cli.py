@@ -3,8 +3,10 @@ import os
 import sys
 import time
 from typing import Callable, Dict, List
-
 import yaml
+from pathlib import Path
+from pydoc import pipepager, pager
+import re
 
 import spyctl.spyctl_lib as lib
 
@@ -41,7 +43,7 @@ def set_yes_option():
     YES_OPTION = True
 
 
-def query_yes_no(question, default="yes"):
+def query_yes_no(question, default="yes", ignore_yes_option=False):
     """Ask a yes/no question via raw_input() and return their answer.
 
     "question" is a string that is presented to the user.
@@ -62,31 +64,70 @@ def query_yes_no(question, default="yes"):
         raise ValueError("invalid default answer: '%s'" % default)
 
     while True:
-        if YES_OPTION:
+        if YES_OPTION and not ignore_yes_option:
             return True
-        sys.stdout.write(question + prompt)
+        sys.stderr.write(question + prompt)
         choice = input().lower()
         if default is not None and choice == "":
             return valid[default]
         elif choice in valid:
             return valid[choice]
         else:
-            sys.stdout.write(
+            sys.stderr.write(
                 "Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n"
             )
 
 
-def show(obj, output, alternative_outputs: Dict[str, Callable] = {}):
+def show(
+    obj,
+    output,
+    alternative_outputs: Dict[str, Callable] = {},
+    dest=lib.OUTPUT_DEST_STDOUT,
+    output_fn=None,
+):
+    """Display or save python object
+
+    Args:
+        obj (any): python object to be displayed or saved
+        output (str): the format of the output
+        alternative_outputs (Dict[str, Callable], optional): A
+            dictionary of formats to callables for custom outputs.
+            Defaults to {}. Callable must return a string.
+        dest (str, optional): Destination of the output. Defaults to
+            lib.OUTPUT_DEST_STDOUT.
+        output_fn (str, optional): Filename if outputting to a file.
+            Defaults to None.
+    """
+    out_data = None
     if output == lib.OUTPUT_YAML:
-        try_print(yaml.dump(obj, sort_keys=False), end="")
+        out_data = yaml.dump(obj, sort_keys=False)
+        if output_fn:
+            output_fn += ".yaml"
     elif output == lib.OUTPUT_JSON:
-        try_print(json.dumps(obj, sort_keys=False, indent=2))
+        out_data = json.dumps(obj, sort_keys=False, indent=2)
+        if output_fn:
+            output_fn += ".json"
     elif output == lib.OUTPUT_RAW:
-        try_print(obj)
+        out_data = obj
     elif output in alternative_outputs:
-        try_print(alternative_outputs[output](obj))
+        out_data = alternative_outputs[output](obj)
     else:
         try_log(unsupported_output_msg(output), is_warning=True)
+    if out_data:
+        if dest == lib.OUTPUT_DEST_FILE:
+            try:
+                out_file = Path(output_fn)
+                out_file.write_text(out_data)
+                try_log(f"Saved output to {output_fn}")
+            except Exception:
+                try_log(
+                    f"Unable to write output to {output_fn}", is_warning=True
+                )
+                return
+        elif dest == lib.OUTPUT_DEST_PAGER:
+            output_to_pager(out_data)
+        else:
+            try_print(out_data)
 
 
 def read_stdin():
@@ -144,3 +185,32 @@ def time_input(args):
 
 def err_exit(message: str):
     lib.err_exit(message)
+
+
+def output_to_pager(text: str):
+    try:
+        pipepager(text, cmd="less -R")
+    except Exception:
+        text = strip_color(text)
+        pager(text)
+
+
+ANSI_ESCAPE = re.compile(
+    r"""
+    \x1B  # ESC
+    (?:   # 7-bit C1 Fe (except CSI)
+        [@-Z\\-_]
+    |     # or [ for CSI, followed by a control sequence
+        \[
+        [0-?]*  # Parameter bytes
+        [ -/]*  # Intermediate bytes
+        [@-~]   # Final byte
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+def strip_color(text: str):
+    rv = ANSI_ESCAPE.sub("", text)
+    return rv
