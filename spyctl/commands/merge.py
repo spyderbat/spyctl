@@ -37,8 +37,10 @@ def handle_merge(
         elif not POLICIES and with_policy:
             cli.err_exit("No policies to merge with.")
     if filename_target:
-        output_dest = lib.OUTPUT_DEST_FILE
-        pager = True if len(filename_target) > 1 else False
+        if len(filename_target) > 1 or output_to_file:
+            output_dest = lib.OUTPUT_DEST_FILE
+        else:
+            output_dest = lib.OUTPUT_DEFAULT
         filename_target.sort(key=lambda x: x.name)
         for file in filename_target:
             target = load_target_file(file)
@@ -57,7 +59,7 @@ def handle_merge(
             if with_obj:
                 merged_obj = merge_resource(target, with_obj)
                 if merged_obj:
-                    handle_output(output, output_dest, merged_obj, pager)
+                    handle_output(output, output_dest, merged_obj)
             elif with_obj is False:
                 continue
             else:
