@@ -561,7 +561,7 @@ def delete(resource, name_or_id, yes=False):
     "--start-time",
     "st",
     help="Start time of the query for fingerprints to diff."
-    " Only used if --latest and --with-file are not set."
+    " Only used if --latest, --with-file, --with-policy are not set."
     " Default is 24 hours ago.",
     default="24h",
     type=lib.time_inp,
@@ -571,7 +571,7 @@ def delete(resource, name_or_id, yes=False):
     "--end-time",
     "et",
     help="End time of the query for fingerprints to diff."
-    " Only used if --with-file is not set."
+    " Only used if --with-file, and --with-policy are not set."
     " Default is now.",
     default=time.time(),
     type=lib.time_inp,
@@ -960,7 +960,8 @@ def get(
     "--latest",
     is_flag=True,
     help=f"Merge file with latest records using the value of"
-    f" '{lib.LATEST_TIMESTAMP_FIELD}' in the target's '{lib.METADATA_FIELD}'",
+    f" '{lib.LATEST_TIMESTAMP_FIELD}' in the target's '{lib.METADATA_FIELD}'."
+    " This replaces --start-time.",
     metavar="",
 )
 @click.option(
@@ -974,7 +975,7 @@ def get(
     "--start-time",
     "st",
     help="Start time of the query for fingerprints to merge."
-    " Only used if --latest and --with-file are not set."
+    " Only used if --latest, --with-file, and --with-policy are not set."
     " Default is 24 hours ago.",
     default="24h",
     type=lib.time_inp,
@@ -984,7 +985,7 @@ def get(
     "--end-time",
     "et",
     help="End time of the query for fingerprints to merge."
-    " Only used if --with-file is not set."
+    " Only used if --with-file and --with-policy are not set."
     " Default is now.",
     default=time.time(),
     type=lib.time_inp,
