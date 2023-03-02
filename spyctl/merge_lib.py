@@ -66,7 +66,7 @@ class MergeObject:
         validation_fn: Callable,
     ) -> None:
         self.original_obj = deepcopy(obj_data)
-        self.obj_data = obj_data
+        self.obj_data = deepcopy(obj_data)
         self.schemas = merge_schemas
         self.validation_fn = validation_fn
         self.starting_yaml = yaml.dump(obj_data)

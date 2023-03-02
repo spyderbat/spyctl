@@ -31,16 +31,15 @@ def handle_merge(
     if not POLICIES and (with_policy or policy_target):
         ctx = cfgs.get_current_context()
         POLICIES = api.get_policies(*ctx.get_api_data())
+        POLICIES.sort(key=lambda x: x[lib.METADATA_FIELD][lib.NAME_FIELD])
         if not POLICIES and policy_target:
             cli.err_exit("No policies to merge.")
         elif not POLICIES and with_policy:
             cli.err_exit("No policies to merge with.")
     if filename_target:
-        if output_to_file:
-            output_dest = lib.OUTPUT_DEST_FILE
-        else:
-            output_dest = lib.OUTPUT_DEST_DEFAULT
+        output_dest = lib.OUTPUT_DEST_FILE
         pager = True if len(filename_target) > 1 else False
+        filename_target.sort(key=lambda x: x.name)
         for file in filename_target:
             target = load_target_file(file)
             target_name = f"local file '{file.name}'"
@@ -70,43 +69,36 @@ def handle_merge(
             output_dest = lib.OUTPUT_DEST_FILE
         else:
             output_dest = lib.OUTPUT_DEST_API
-        pager = (
-            True
-            if len(policy_target) > 1
-            or (ALL in policy_target and len(POLICIES) > 1)
-            else False
-        )
-        for pol_name_or_uid in policy_target:
-            if pol_name_or_uid == ALL:
-                for target in POLICIES:
-                    t_name = lib.get_metadata_name(target)
-                    t_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
-                    target_name = f"applied policy '{t_name} - {t_uid}'"
-                    with_obj = get_with_obj(
-                        target,
-                        target_name,
-                        with_file,
-                        with_policy,
-                        st,
-                        et,
-                        latest,
-                        output_dest,
+        policy_target = sorted(policy_target)
+        if ALL in policy_target:
+            for target in POLICIES:
+                t_name = lib.get_metadata_name(target)
+                t_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                target_name = f"applied policy '{t_name} - {t_uid}'"
+                with_obj = get_with_obj(
+                    target,
+                    target_name,
+                    with_file,
+                    with_policy,
+                    st,
+                    et,
+                    latest,
+                    output_dest,
+                )
+                # If we have something to merge, add to actions
+                if with_obj:
+                    merged_obj = merge_resource(target, with_obj)
+                    if merged_obj:
+                        handle_output(output, output_dest, merged_obj)
+                elif with_obj is False:
+                    continue
+                else:
+                    cli.try_log(
+                        f"{t_uid} has nothing to merge with..." " skipping."
                     )
-                    # If we have something to merge, add to actions
-                    if with_obj:
-                        merged_obj = merge_resource(target, with_obj)
-                        if merged_obj:
-                            handle_output(
-                                output, output_dest, merged_obj, pager
-                            )
-                    elif with_obj is False:
-                        continue
-                    else:
-                        cli.try_log(
-                            f"{t_uid} has nothing to merge with..."
-                            " skipping."
-                        )
-            else:
+        else:
+            targets = {}
+            for pol_name_or_uid in policy_target:
                 policies = filt.filter_obj(
                     POLICIES,
                     [
@@ -117,41 +109,48 @@ def handle_merge(
                 )
                 if len(policies) == 0:
                     cli.try_log(
-                        f"Unable to locate policy with UID {pol_name_or_uid}",
-                        is_waring=True,
+                        "Unable to locate policy with name or UID"
+                        f" {pol_name_or_uid}",
+                        is_warning=True,
                     )
                     continue
-                if len(policies) > 0:
-                    pager = True
-                for target in policies:
-                    t_name = lib.get_metadata_name(target)
-                    t_uid = target.get(lib.METADATA_FIELD, {}).get(
+                for policy in policies:
+                    pol_uid = policy[lib.METADATA_FIELD][
                         lib.METADATA_UID_FIELD
+                    ]
+                    targets[pol_uid] = policy
+            targets = sorted(
+                list(targets.values()),
+                key=lambda x: x[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
+            )
+            if len(targets) > 0:
+                pager = True
+            for target in targets:
+                t_name = lib.get_metadata_name(target)
+                t_uid = target.get(lib.METADATA_FIELD, {}).get(
+                    lib.METADATA_UID_FIELD
+                )
+                target_name = f"applied policy '{t_name} - {t_uid}'"
+                with_obj = get_with_obj(
+                    target,
+                    target_name,
+                    with_file,
+                    with_policy,
+                    st,
+                    et,
+                    latest,
+                    output_dest,
+                )
+                if with_obj:
+                    merged_obj = merge_resource(target, with_obj)
+                    if merged_obj:
+                        handle_output(output, output_dest, merged_obj, pager)
+                elif with_obj is False:
+                    continue
+                else:
+                    cli.try_log(
+                        f"{t_uid} has nothing to merge with..." " skipping."
                     )
-                    target_name = f"applied policy '{t_name} - {t_uid}'"
-                    with_obj = get_with_obj(
-                        target,
-                        target_name,
-                        with_file,
-                        with_policy,
-                        st,
-                        et,
-                        latest,
-                        output_dest,
-                    )
-                    if with_obj:
-                        merged_obj = merge_resource(target, with_obj)
-                        if merged_obj:
-                            handle_output(
-                                output, output_dest, merged_obj, pager
-                            )
-                    elif with_obj is False:
-                        continue
-                    else:
-                        cli.try_log(
-                            f"{t_uid} has nothing to merge with..."
-                            " skipping."
-                        )
     else:
         cli.err_exit("No target(s) to merge.")
 
@@ -178,7 +177,8 @@ def get_with_obj(
     if with_file:
         with_obj = load_with_file(with_file)
         if not cli.query_yes_no(
-            f"Merge {target_name} with local file '{with_file.name}'?{apply_disclaimer}"
+            f"Merge {target_name} with local file '{with_file.name}'?"
+            f"{apply_disclaimer}"
         ):
             return False
     elif with_policy == MATCHING:
@@ -196,8 +196,8 @@ def get_with_obj(
                 lib.METADATA_UID_FIELD
             )
             if not cli.query_yes_no(
-                f"Merge {target_name} with data from applied policy '{pol_name} - {pol_uid}'?"
-                f"{apply_disclaimer}"
+                f"Merge {target_name} with data from applied policy "
+                f"'{pol_name} - {pol_uid}'?{apply_disclaimer}"
             ):
                 return False
     elif with_policy:
@@ -208,8 +208,8 @@ def get_with_obj(
                 lib.METADATA_UID_FIELD
             )
             if not cli.query_yes_no(
-                f"Merge {target_name} with data from applied policy '{pol_name} - {pol_uid}'?"
-                f"{apply_disclaimer}"
+                f"Merge {target_name} with data from applied policy"
+                f" '{pol_name} - {pol_uid}'?{apply_disclaimer}"
             ):
                 return False
     else:
@@ -274,10 +274,12 @@ def get_with_policy(pol_uid: str, policies: List[Dict]) -> Dict:
 
 
 def merge_resource(
-    target: Dict, with_obj: Union[Dict, List[Dict]]
+    target: Dict, with_obj: Union[Dict, List[Dict]], src_cmd="merge"
 ) -> Optional[m_lib.MergeObject]:
     if target == with_obj:
-        cli.try_log("Merge target and with-object are the same.. skipping")
+        cli.try_log(
+            f"{src_cmd} target and with-object are the same.. skipping"
+        )
         return None
     resrc_kind = target.get(lib.KIND_FIELD)
     if resrc_kind == lib.BASELINE_KIND:
@@ -290,7 +292,7 @@ def merge_resource(
         )
     else:
         cli.try_log(
-            f"The 'merge' command is not supported for {resrc_kind}",
+            f"The '{src_cmd}' command is not supported for {resrc_kind}",
             is_warning=True,
         )
     if isinstance(with_obj, dict):
@@ -301,12 +303,20 @@ def merge_resource(
                 merge_obj.asymmetric_merge(w_obj)
             except m_lib.InvalidMergeError as e:
                 cli.try_log(
-                    f"Unable to merge with invalid object. {w_obj}",
+                    f"Unable to {src_cmd} with invalid object. {w_obj}",
                     *e.args,
                 )
         pass
     else:
-        raise Exception("Bug found, attempting to merge with invalid object")
+        raise Exception(
+            f"Bug found, attempting to {src_cmd} with invalid object"
+        )
+    if target[lib.SPEC_FIELD] == merge_obj.get_obj_data().get(lib.SPEC_FIELD):
+        cli.try_log(
+            f"{src_cmd} produced no updates to the '{lib.SPEC_FIELD}'"
+            " field.. skipping"
+        )
+        return None
     return merge_obj
 
 

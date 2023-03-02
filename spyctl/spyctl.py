@@ -551,8 +551,9 @@ def delete(resource, name_or_id, yes=False):
     "-l",
     "--latest",
     is_flag=True,
-    help="Diff target with latest records using the value of lastTimestamp in"
-    " metadata.",
+    help=f"Diff target with latest records using the value of"
+    f" '{lib.LATEST_TIMESTAMP_FIELD}' in '{lib.METADATA_FIELD}'."
+    " This replaces --start-time.",
     metavar="",
 )
 @click.option(
@@ -593,9 +594,72 @@ def diff(
     with_policy=None,
     latest=False,
 ):
+    """Diff target Baselines and Policies with other Resources.
+
+      Diff'ing in Spyctl requires a target Resource (e.g. a Baseline or Policy
+    document you are maintaining) and a Resource to diff with the target.
+    A target can be either a local file supplied using the -f option or a policy
+    you've applied to the Spyderbat Backend supplied with the -p option.
+    By default, target's are diff'd with relevant* Fingerprints from the last 24
+    hours to now. Targets may also be diff'd with local files with the -w option
+    or with data from an existing applied policy using the -P option.
+
+      The output of a diff shows you any lines that would be added to or removed
+    from your target Resource as a result of a Merge. diffs may also be performed
+    in bulk. Bulk diffs are outputted to a pager like 'less' or 'more'.
+
+      To maintain a target Resource effectively, the goal should be to get to
+    get to a point where the diff no longer displays added or removed lines (other
+    than timestamps).
+
+    \b
+    Examples:
+      # diff a local policy file with relevant* Fingerprints from the last
+      # 24hrs to now:
+      spyctl diff -f policy.yaml\n
+    \b
+      # diff a local policy file with relevant* Fingerprints from its
+      # latestTimestamp field to now:
+      spyctl diff -f policy.yaml --latest\n
+    \b
+      # diff an existing applied policy with relevant* Fingerprints from the
+      # last 24hrs to now:
+      spyctl diff -p <NAME_OR_UID>\n
+    \b
+      # Bulk diff all existing policies with relevant* Fingerprints from the
+      # last 24hrs to now:
+      spyctl diff -p\n
+    \b
+      # Bulk diff multiple policies with relevant* Fingerprints from the
+      # last 24hrs to now:
+      spyctl diff -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
+    \b
+      # Bulk diff all files in cwd matching a pattern with relevant*
+      # Fingerprints from the last 24hrs to now:
+      spyctl diff -f *.yaml\n
+    \b
+      # diff an existing applied policy with a local file:
+      spyctl diff -p <NAME_OR_UID> --with-file fingerprints.yaml\n
+    \b
+      # diff a local file with data from an existing applied policy
+      spyctl diff -f policy.yaml -P <NAME_OR_UID>\n
+    \b
+      # diff a local file with a valid UID in its metadata with the matching
+      # policy in the Spyderbat Backend
+      spyctl diff -f policy.yaml -P
+
+    * Each policy has one or more Selectors in its spec field,
+    relevant Fingerprints are those that match those Selectors.
+
+    For time field options such as --start-time and --end-time you can
+    use (m) for minutes, (h) for hours (d) for days, and (w) for weeks back
+    from now or provide timestamps in epoch format.
+
+    Note: Long time ranges or "get" commands in a context consisting of
+    multiple machines can take a long time.
+    """  # noqa E501
     if yes:
         cli.set_yes_option()
-    """Diff FingerprintsGroups with SpyderbatBaselines and SpyderbatPolicies"""
     d.handle_diff(filename, policy, with_file, with_policy, st, et, latest)
 
 
@@ -723,9 +787,9 @@ class GetCommand(lib.ArgumentParametersCommand):
     "-l",
     "--latest",
     help="Starting time of the query is set to the"
-    f" {lib.LATEST_TIMESTAMP_FIELD}"
-    f" field the input resource's {lib.METADATA_FIELD}."
-    " [Requires '--filename' option to be set]",
+    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
+    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
+    " --start-time. [Requires '--filename' option to be set]",
     is_flag=True,
 )
 @click.option(
@@ -765,12 +829,22 @@ def get(
 ):
     """Display one or many Spyderbat Resources.
 
+    See https://spyctl.readthedocs.io/en/latest/user/resources.html for a full
+    list of available resource.
+
+    \b
     Some resources are retrieved from from databases where a time range can
     be specified:
     - Fingerprints
     - Pods
     - Namespaces
+    - Nodes
+    - Processes
+    - Connections
+    - RedFlags
+    - OpsFlags
 
+    \b
     Other resources come from databases where time ranges are not applicable:
     - Clusters
     - Machines
@@ -780,19 +854,23 @@ def get(
     Examples:
       # Get all observed Pods for the last hour:
       spyctl get pods -t 1h\n
+    \b
       # Get all observed Pods from 4 hours ago to 2 hours ago
       spyctl get pods -t 4h -e 2h\n
+    \b
       # Get observed pods for a specific time range (using epoch timestamps)
       spyctl get pods -t 1675364629 -e 1675368229\n
-      # Get a Fingerprint Group of all runs of httpd.service for the
-      # last 24 hours and output to a yaml file
+    \b
+      # Get a Fingerprint Group of all runs of httpd.service for the last 24
+      # hours and output to a yaml file
       spyctl get fingerprints httpd.service -o yaml > fprints.yaml\n
+    \b
       # Get the latest fingerprints related to a policy yaml file
       spyctl get fingerprints -f policy.yaml --latest
 
     For time field options such as --start-time and --end-time you can
-    use (h) for hour (d) for days, and (w) for weeks back from now or
-    provide timestamps in epoch format.
+    use (m) for minutes, (h) for hours (d) for days, and (w) for weeks back
+    from now or provide timestamps in epoch format.
 
     Note: Long time ranges or "get" commands in a context consisting of
     multiple machines can take a long time.
@@ -870,7 +948,7 @@ def get(
     "--latest",
     is_flag=True,
     help=f"Merge file with latest records using the value of"
-    f" {lib.LATEST_TIMESTAMP_FIELD} in the input file's metadata",
+    f" '{lib.LATEST_TIMESTAMP_FIELD}' in the target's '{lib.METADATA_FIELD}'",
     metavar="",
 )
 @click.option(
@@ -926,9 +1004,78 @@ def merge(
     latest=False,
     output_to_file=False,
 ):
-    """Merge FingerprintsGroups into SpyderbatBaselines and
-    SpyderbatPolicies
-    """
+    """Merge target Baselines and Policies with other Resources.
+
+      Merging in Spyctl requires a target Resource (e.g. a Baseline or Policy
+    document you are maintaining) and a Resource to merge into the target.
+    A target can either be a local file supplied using the -f option or a policy
+    you've applied to the Spyderbat Backend supplied with the -p option.
+    By default, target's are merged with relevant* Fingerprints from the last 24
+    hours to now. Targets may also be merged with local files with the -w option
+    or with data from an existing applied policy using the -P option.
+
+      When merging a single local file with another resource, the output will
+    be sent to stdout. WARNING: Do not redirect output to the same file you
+    used as input. You may use the -O flag to output the merged data to a
+    unique file with a name generate by Spyctl.
+
+      When bulk merging local files, the output for each merge operation will
+    be outputted to unique files generated by Spyctl (the same as supplying the
+    -O flag mentioned above).
+
+      When merging existing applied policies in bulk or individually, the default
+    destination for the output will be to apply it directly to the Spyderbat Backend (you
+    will have a chance to review the merge before any changes are applied).
+    This removes the requirement to deal with local files when managing policies. However,
+    it is a good idea to back up policies in a source-control repository. You can also
+    use the -O operation to send the output of this merge to a local file.
+
+    \b
+    Examples:
+      # merge a local policy file with relevant* Fingerprints from the last
+      # 24hrs to now:
+      spyctl merge -f policy.yaml\n
+    \b
+      # merge a local policy file with relevant* Fingerprints from its
+      # latestTimestamp field to now:
+      spyctl merge -f policy.yaml --latest\n
+    \b
+      # merge an existing applied policy with relevant* Fingerprints from the
+      # last 24hrs to now:
+      spyctl merge -p <NAME_OR_UID>\n
+    \b
+      # Bulk merge all existing policies with relevant* Fingerprints from the
+      # last 24hrs to now:
+      spyctl merge -p\n
+    \b
+      # Bulk merge multiple policies with relevant* Fingerprints from the
+      # last 24hrs to now:
+      spyctl merge -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
+    \b
+      # Bulk merge all files in cwd matching a pattern with relevant*
+      # Fingerprints from the last 24hrs to now:
+      spyctl merge -f *.yaml\n
+    \b
+      # merge an existing applied policy with a local file:
+      spyctl merge -p <NAME_OR_UID> --with-file fingerprints.yaml\n
+    \b
+      # merge a local file with data from an existing applied policy
+      spyctl merge -f policy.yaml -P <NAME_OR_UID>\n
+    \b
+      # merge a local file with a valid UID in its metadata with the matching
+      # policy in the Spyderbat Backend
+      spyctl merge -f policy.yaml -P
+
+    * Each policy has one or more Selectors in its spec field,
+    relevant Fingerprints are those that match those Selectors.
+
+    For time field options such as --start-time and --end-time you can
+    use (m) for minutes, (h) for hours (d) for days, and (w) for weeks back
+    from now or provide timestamps in epoch format.
+
+    Note: Long time ranges or "get" commands in a context consisting of
+    multiple machines can take a long time.
+    """  # noqa E501
     if yes:
         cli.set_yes_option()
     if output == lib.OUTPUT_DEFAULT:

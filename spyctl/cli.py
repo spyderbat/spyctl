@@ -66,14 +66,14 @@ def query_yes_no(question, default="yes", ignore_yes_option=False):
     while True:
         if YES_OPTION and not ignore_yes_option:
             return True
-        sys.stdout.write(question + prompt)
+        sys.stderr.write(question + prompt)
         choice = input().lower()
         if default is not None and choice == "":
             return valid[default]
         elif choice in valid:
             return valid[choice]
         else:
-            sys.stdout.write(
+            sys.stderr.write(
                 "Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n"
             )
 

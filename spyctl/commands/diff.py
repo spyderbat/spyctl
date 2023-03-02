@@ -27,12 +27,14 @@ def handle_diff(
     if not POLICIES and (with_policy or policy_target):
         ctx = cfgs.get_current_context()
         POLICIES = api.get_policies(*ctx.get_api_data())
+        POLICIES.sort(key=lambda x: x[lib.METADATA_FIELD][lib.NAME_FIELD])
         if not POLICIES and policy_target:
             cli.err_exit("No policies to diff.")
         elif not POLICIES and with_policy:
             cli.err_exit("No policies to diff with.")
     if filename_target:
         pager = True if len(filename_target) > 1 else False
+        filename_target.sort(key=lambda x: x.name)
         for file in filename_target:
             target = load_target_file(file)
             target_name = f"local file '{file.name}'"
@@ -46,7 +48,6 @@ def handle_diff(
             with_obj = get_with_obj(
                 target, target_name, with_file, with_policy, st, et, latest
             )
-            # If we have something to diff, add to actions
             if with_obj:
                 diff_resource(target, with_obj, pager)
             elif with_obj is False:
@@ -62,35 +63,34 @@ def handle_diff(
             or (ALL in policy_target and len(POLICIES) > 1)
             else False
         )
-        for pol_name_or_uid in policy_target:
-            if pol_name_or_uid == ALL:
-                for target in POLICIES:
-                    t_name = lib.get_metadata_name(target)
-                    t_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
-                    target_name = f"applied policy '{t_name} - {t_uid}'"
-                    target_uid = target[lib.METADATA_FIELD][
-                        lib.METADATA_UID_FIELD
-                    ]
-                    with_obj = get_with_obj(
-                        target,
-                        target_name,
-                        with_file,
-                        with_policy,
-                        st,
-                        et,
-                        latest,
+        policy_target = sorted(policy_target)
+        if ALL in policy_target:
+            for target in POLICIES:
+                t_name = lib.get_metadata_name(target)
+                t_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                target_name = f"applied policy '{t_name} - {t_uid}'"
+                target_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                with_obj = get_with_obj(
+                    target,
+                    target_name,
+                    with_file,
+                    with_policy,
+                    st,
+                    et,
+                    latest,
+                )
+                if with_obj:
+                    diff_resource(target, with_obj, pager)
+                elif with_obj is False:
+                    continue
+                else:
+                    cli.try_log(
+                        f"{target_uid} has nothing to diff with..."
+                        " skipping."
                     )
-                    # If we have something to diff, add to actions
-                    if with_obj:
-                        diff_resource(target, with_obj, pager)
-                    elif with_obj is False:
-                        continue
-                    else:
-                        cli.try_log(
-                            f"{target_uid} has nothing to diff with..."
-                            " skipping."
-                        )
-            else:
+        else:
+            targets = {}
+            for pol_name_or_uid in policy_target:
                 policies = filt.filter_obj(
                     POLICIES,
                     [
@@ -103,35 +103,44 @@ def handle_diff(
                     cli.try_log(
                         "Unable to locate policy with name or UID"
                         f" {pol_name_or_uid}",
-                        is_waring=True,
+                        is_warning=True,
                     )
                     continue
-                if len(policies) > 0:
-                    pager = True
-                for target in policies:
-                    t_name = lib.get_metadata_name(target)
-                    t_uid = target.get(lib.METADATA_FIELD, {}).get(
+                for policy in policies:
+                    pol_uid = policy[lib.METADATA_FIELD][
                         lib.METADATA_UID_FIELD
+                    ]
+                    targets[pol_uid] = policy
+            targets = sorted(
+                list(targets.values()),
+                key=lambda x: x[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
+            )
+            if len(targets) > 1:
+                pager = True
+            for target in targets:
+                t_name = lib.get_metadata_name(target)
+                t_uid = target.get(lib.METADATA_FIELD, {}).get(
+                    lib.METADATA_UID_FIELD
+                )
+                target_name = f"applied policy '{t_name} - {t_uid}'"
+                with_obj = get_with_obj(
+                    target,
+                    target_name,
+                    with_file,
+                    with_policy,
+                    st,
+                    et,
+                    latest,
+                )
+                if with_obj:
+                    diff_resource(target, with_obj, pager)
+                elif with_obj is False:
+                    continue
+                else:
+                    cli.try_log(
+                        f"{target_uid} has nothing to diff with..."
+                        " skipping."
                     )
-                    target_name = f"applied policy '{t_name} - {t_uid}'"
-                    with_obj = get_with_obj(
-                        target,
-                        target_name,
-                        with_file,
-                        with_policy,
-                        st,
-                        et,
-                        latest,
-                    )
-                    if with_obj:
-                        diff_resource(target, with_obj, pager)
-                    elif with_obj is False:
-                        continue
-                    else:
-                        cli.try_log(
-                            f"{target_uid} has nothing to diff with..."
-                            " skipping."
-                        )
     else:
         cli.err_exit("No target of the diff.")
 
@@ -161,7 +170,8 @@ def get_with_obj(
                 lib.METADATA_UID_FIELD
             )
             if not cli.query_yes_no(
-                f"diff {target_name} with data from applied policy '{pol_name} - {pol_uid}'?"
+                f"diff {target_name} with data from applied policy"
+                f" '{pol_name} - {pol_uid}'?"
             ):
                 return False
     elif with_policy:
@@ -172,7 +182,8 @@ def get_with_obj(
                 lib.METADATA_UID_FIELD
             )
             if not cli.query_yes_no(
-                f"diff {target_name} with data from applied policy '{pol_name} - {pol_uid}'?"
+                f"diff {target_name} with data from applied policy"
+                f" '{pol_name} - {pol_uid}'?"
             ):
                 return False
     else:
@@ -239,7 +250,7 @@ def get_with_policy(pol_uid: str, policies: List[Dict]) -> Dict:
 def diff_resource(
     target: Dict, with_obj: Union[Dict, List[Dict]], pager=False
 ):
-    merged_obj = merge_cmd.merge_resource(target, with_obj)
+    merged_obj = merge_cmd.merge_resource(target, with_obj, "diff")
     if merged_obj:
         diff_data = merged_obj.get_diff()
         if pager:

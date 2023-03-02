@@ -315,6 +315,7 @@ def use_filters(
             data = func(data, ctx_filters[filt])
         if len(data) == 0 and not data_empty_at_start:
             lib.try_log(f"No results after filtering on {filt}")
+            return data
     return data
 
 
