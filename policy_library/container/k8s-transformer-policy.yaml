@@ -1,0 +1,42 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: k8s-transformer-policy
+  type: container
+  latestTimestamp: 1677679200.0310814
+spec:
+  containerSelector:
+    image: '*k8s-transformer:*'
+  podSelector:
+    matchLabels:
+      app: rest-api
+      statefulset.kubernetes.io/pod-name: rest-api-0
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: default
+  processPolicy:
+  - name: node
+    exe:
+    - /usr/local/bin/node
+    id: node_0
+    euser:
+    - root
+    children:
+    - name: sh
+      exe:
+      - /bin/dash
+      id: sh_0
+      children:
+      - name: which
+        exe:
+        - /bin/dash
+        id: which_0
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

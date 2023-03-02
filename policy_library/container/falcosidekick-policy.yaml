@@ -1,0 +1,32 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: falcosidekick-policy
+  type: container
+  latestTimestamp: 1677679335.5041463
+spec:
+  containerSelector:
+    image: '*falcosidekick:*'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: falco
+      app.kubernetes.io/name: falcosidekick
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: default
+  processPolicy:
+  - name: falcosidekick
+    exe:
+    - /app/falcosidekick
+    id: falcosidekick_0
+    euser:
+    - UID 1234
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'    
+    actions: []

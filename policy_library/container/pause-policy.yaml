@@ -1,0 +1,25 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: k8s.gcr.io-pause-policy
+  type: container
+  latestTimestamp: 1677686434.7877982
+spec:
+  containerSelector:
+    image: 'k8s.gcr.io/pause:*'
+  processPolicy:
+  - name: pause
+    exe:
+    - /pause
+    id: pause_0
+    euser:
+    - UID 65535
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'      
+    actions: []

@@ -1,0 +1,32 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: falcosecurity-falco-no-driver-policy
+  type: container
+  latestTimestamp: 1677686655.1227477
+spec:
+  containerSelector:
+    image: 'falcosecurity/falco-no-driver:*'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: falco
+      app.kubernetes.io/name: falco
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: default
+  processPolicy:
+  - name: falco
+    exe:
+    - /usr/bin/falco
+    id: falco_0
+    euser:
+    - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'    
+    actions: []
