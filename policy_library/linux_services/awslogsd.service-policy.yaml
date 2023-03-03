@@ -1,0 +1,40 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: awslogsd.service-policy
+  type: linux-service
+  latestTimestamp: 1677780066.558244
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/awslogsd.service
+  processPolicy:
+  - name: aws
+    exe:
+    - /usr/bin/python2.7
+    id: aws_0
+    euser:
+    - root
+    children:
+    - name: ldconfig
+      exe:
+      - /usr/sbin/ldconfig
+      id: ldconfig_0
+    - name: sh
+      exe:
+      - /usr/bin/bash
+      id: sh_0
+      children:
+      - name: uname
+        exe:
+        - /usr/bin/uname
+        id: uname_0
+  networkPolicy:
+    ingress: []
+    egress:  []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'      
+    actions: []
+

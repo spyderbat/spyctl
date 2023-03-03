@@ -1,0 +1,28 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: mariadb.service-policy
+  type: linux-service
+  latestTimestamp: 1677844842.544818
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/mariadb.service
+  processPolicy:
+  - name: mysqld
+    exe:
+    - /usr/sbin/mysqld
+    id: mysqld_0
+    euser:
+    - mysql
+    listeningSockets:
+    - port: 3306
+      protocol: TCP
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.' 
+    actions: []

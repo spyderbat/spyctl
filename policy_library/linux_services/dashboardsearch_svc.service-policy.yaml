@@ -1,0 +1,41 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: dashboardsearch_svc.service-policy
+  type: linux-service
+  latestTimestamp: 1677838759.5070913
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/dashboardsearch_svc.service
+  processPolicy:
+  - name: start.sh
+    exe:
+    - /usr/bin/bash
+    id: start.sh_0
+    euser:
+    - root
+    children:
+    - name: dashboardsearch
+      exe:
+      - /opt/spyderbat/dashboardsearch_svc/dashboardsearch_svc
+      id: dashboardsearch_0
+      euser:
+      - spyderbat
+      listeningSockets:
+      - protocol: TCP
+        port: 6060
+      - protocol: TCP
+        port: 7443
+    - name: logger
+      exe:
+      - /usr/bin/logger
+      id: logger_0
+  networkPolicy:
+    ingress: []  
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'                 
+    actions: []

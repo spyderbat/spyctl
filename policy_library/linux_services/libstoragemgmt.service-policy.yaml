@@ -1,0 +1,25 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: libstoragemgmt.service-policy
+  type: linux-service
+  latestTimestamp: 1677844873.89617
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/libstoragemgmt.service
+  processPolicy:
+  - name: lsmd
+    exe:
+    - /usr/bin/lsmd
+    id: lsmd_0
+    euser:
+    - libstoragemgmt
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.' 
+    actions: []
