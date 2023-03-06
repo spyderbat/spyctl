@@ -220,7 +220,10 @@ def get_deployments(api_url, api_key, org_uid, clusters, time):
     ):
         for deployment in deploy_list:
             uid = deployment["id"]
-            if uid not in deployments or deployments[uid]["time"] < deployment["time"]:
+            if (
+                uid not in deployments
+                or deployments[uid]["time"] < deployment["time"]
+            ):
                 deployments[uid] = deployment
     return [d for d in deployments.values() if d["status"] == "active"]
 
