@@ -338,9 +338,7 @@ ports_schema = PortsSchema(
     [
         {
             lib.PORT_FIELD: And(Use(int), lambda n: 0 <= n <= 65535),
-            lib.PROTO_FIELD: And(
-                "TCP", error="Only TCP ports are supported at this time"
-            ),
+            lib.PROTO_FIELD: Or("TCP", "UDP"),
             Optional(lib.ENDPORT_FIELD): And(
                 Use(int), lambda n: 0 <= n <= 65535
             ),
