@@ -1,0 +1,26 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: networkd-dispatcher.service-policy
+  type: linux-service
+  latestTimestamp: 1678086072.607546
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/networkd-dispatcher.service
+  processPolicy:
+  - name: networkd-dispat
+    exe:
+    - /usr/bin/python3.8
+    id: networkd-dispat_0
+    euser:
+    - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []
+
