@@ -820,6 +820,7 @@ class ArgumentParametersCommand(CustomCommand):
         super().__init__(*args, **kwargs)
         self.base_param_count = len(self.params)
         self.argument_value = self.argument_name
+        self.unspecific = True
 
     def parse_args(self, ctx, args: List[str]) -> List[str]:
         args_cpy = args.copy()
@@ -835,6 +836,7 @@ class ArgumentParametersCommand(CustomCommand):
                 break
         argument_value = ctx.params.get(self.argument_name)
         if argument_value:
+            self.unspecific = False
             for obj in self.argument_value_parameters:
                 for value_option in obj[self.argument_name]:
                     if argument_value == value_option:
@@ -849,6 +851,15 @@ class ArgumentParametersCommand(CustomCommand):
         """Writes all the options into the formatter if they exist."""
         opts = []
         specif_opts = []
+        specific_index = {}
+        if self.unspecific:
+            for obj in self.argument_value_parameters:
+                index = ", ".join(
+                    str(option) for option in obj[self.argument_name]
+                )
+                specific_index[index] = len(obj["args"])
+                for arg_maker in obj["args"]:
+                    arg_maker(self)
         for i, param in enumerate(self.get_params(ctx)):
             rv = param.get_help_record(ctx)
             if rv is not None:
@@ -861,8 +872,15 @@ class ArgumentParametersCommand(CustomCommand):
             with formatter.section("Options"):
                 formatter.write_dl(opts)
         if specif_opts:
-            with formatter.section(f"Options for {self.argument_value}"):
-                formatter.write_dl(specif_opts)
+            if self.unspecific:
+                index = 0
+                for options, num in specific_index.items():
+                    with formatter.section(f"Options for {options}"):
+                        formatter.write_dl(specif_opts[index : index + num])
+                    index = index + num
+            else:
+                with formatter.section(f"Options for {self.argument_value}"):
+                    formatter.write_dl(specif_opts)
 
 
 class MutuallyExclusiveOption(click.Option):

@@ -7,7 +7,7 @@ packages = ["spyctl"]
 
 [project]
 name = "spyctl"
-version = "0.9.20"
+version = "0.9.21"
 
 description = "A command line tool for viewing and managing Spyderbat Resources"
 readme = "README.md"
