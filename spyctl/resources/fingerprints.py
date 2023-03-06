@@ -265,9 +265,23 @@ class ServiceFingerprintGroup(FingerprintGroup):
         return rv
 
 
-def fprint_grp_output_summary(fingerprint_groups: Tuple) -> str:
+def fprint_grp_output_summary(
+    fingerprint_groups: Tuple,
+    coverage=False,
+    coverage_percentage: float = None,
+) -> str:
     cont_fprint_grps, svc_fprint_grps = fingerprint_groups
     output_list = []
+    if coverage:
+        percentage = round(coverage_percentage * 100)
+        output_list.append(
+            f"Policy coverage for queried fingerprints: {percentage}%"
+        )
+        if len(fingerprint_groups) > 0:
+            output_list.append(
+                f"{lib.WARNING_COLOR}The fingerprints below are not covered by"
+                f" a policy:{lib.COLOR_END}"
+            )
     if len(cont_fprint_grps) > 0:
         container_headers = [
             "IMAGE",
@@ -301,9 +315,23 @@ def fprint_grp_output_summary(fingerprint_groups: Tuple) -> str:
     return "\n".join(output_list)
 
 
-def fprint_grp_output_wide(fingerprint_groups: Tuple) -> str:
+def fprint_grp_output_wide(
+    fingerprint_groups: Tuple,
+    coverage=False,
+    coverage_percentage: float = None,
+) -> str:
     cont_fprint_grps, svc_fprint_grps = fingerprint_groups
     output_list = []
+    if coverage:
+        percentage = round(coverage_percentage * 100)
+        output_list.append(
+            f"Policy coverage for queried fingerprints: {percentage}%"
+        )
+        if len(fingerprint_groups) > 0:
+            output_list.append(
+                f"{lib.WARNING_COLOR}The fingerprints below are not covered by"
+                f" a policy:{lib.COLOR_END}"
+            )
     if len(cont_fprint_grps) > 0:
         container_headers = [
             "IMAGE",

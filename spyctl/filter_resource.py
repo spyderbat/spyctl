@@ -201,6 +201,8 @@ def filter_fingerprints(
     cgroups_data=None,
     containers_data=None,
     use_context_filters=True,
+    suppress_warning=False,
+    not_matching=False,
     **filters,
 ):
     def cont_id_filter(data, filt):
@@ -253,9 +255,26 @@ def filter_fingerprints(
         lib.NAMESPACE_LABELS_FIELD: filter_namespace_labels,
         lib.POD_LABELS_FIELD: filter_pod_labels,
     }
-    fingerprint_data = use_filters(
-        fingerprint_data, filter_set, filters, use_context_filters
-    )
+    if not_matching:
+        non_matches = []
+        for fingerprint in fingerprint_data:
+            if not use_filters(
+                [fingerprint],
+                filter_set,
+                filters,
+                use_context_filters,
+                suppress_warning=True,
+            ):
+                non_matches.append(fingerprint)
+        fingerprint_data = non_matches
+    else:
+        fingerprint_data = use_filters(
+            fingerprint_data,
+            filter_set,
+            filters,
+            use_context_filters,
+            suppress_warning=suppress_warning,
+        )
     return fingerprint_data
 
 
@@ -330,7 +349,11 @@ def filter_connections(
 
 
 def use_filters(
-    data, filter_functions: Dict, filters: Dict, use_context_filters=True
+    data,
+    filter_functions: Dict,
+    filters: Dict,
+    use_context_filters=True,
+    suppress_warning=False,
 ):
     ctx_filters = cfgs.get_current_context().get_filters()
     data_empty_at_start = len(data) == 0
@@ -339,7 +362,7 @@ def use_filters(
             data = func(data, filters[filt])
         elif use_context_filters and filt in ctx_filters:
             data = func(data, ctx_filters[filt])
-        if len(data) == 0 and not data_empty_at_start:
+        if len(data) == 0 and not data_empty_at_start and not suppress_warning:
             lib.try_log(f"No results after filtering on {filt}")
             return data
     return data

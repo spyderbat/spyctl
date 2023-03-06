@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List, IO, Tuple
 
 import spyctl.api as api
 import spyctl.cli as cli
@@ -16,42 +16,21 @@ import spyctl.resources.processes as spyctl_procs
 import spyctl.resources.connections as spyctl_conns
 import spyctl.spyctl_lib as lib
 
+ALL = "all"
+
 
 def handle_get(
     resource, name_or_id, st, et, file, latest, exact, output, **filters
 ):
-    if latest and not file:
-        cli.err_exit(
-            "filename must be provided to use '--latest' flag. Spyctl uses the"
-            " input file to generate proper filters and also uses its"
-            f" {lib.LATEST_TIMESTAMP_FIELD} for the starting time of the"
-            " search if applicable."
-        )
-    if file:
-        resrc_data = lib.load_resource_file(file)
-        if latest:
-            latest_timestamp = resrc_data.get(lib.METADATA_FIELD, {}).get(
-                lib.LATEST_TIMESTAMP_FIELD
-            )
-            if not latest_timestamp:
-                cli.err_exit(
-                    f"Resource has no {lib.LATEST_TIMESTAMP_FIELD} field in"
-                    f" its {lib.METADATA_FIELD}"
-                )
-            st = lib.time_inp(latest_timestamp)
-        filters = lib.selectors_to_filters(resrc_data)
-        if len(filters) == 0:
-            cli.err_exit(
-                "Unable generate filters from input document. Does it have a"
-                " spec field with selectors?"
-            )
     if name_or_id and not exact:
         name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
         name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
     if resource == lib.CLUSTERS_RESOURCE:
         handle_get_clusters(name_or_id, output, **filters)
     elif resource == lib.FINGERPRINTS_RESOURCE:
-        handle_get_fingerprints(name_or_id, st, et, output, **filters)
+        handle_get_fingerprints(
+            name_or_id, st, et, output, file, latest, **filters
+        )
     elif resource == lib.MACHINES_RESOURCE:
         handle_get_machines(name_or_id, output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
@@ -65,7 +44,7 @@ def handle_get(
     elif resource == lib.OPSFLAGS_RESOURCE:
         handle_get_opsflags(name_or_id, st, et, output, **filters)
     elif resource == lib.POLICIES_RESOURCE:
-        handle_get_policies(name_or_id, output, **filters)
+        handle_get_policies(name_or_id, output, file, st, et, **filters)
     elif resource == lib.PROCESSES_RESOURCE:
         handle_get_processes(name_or_id, st, et, output, **filters)
     elif resource == lib.CONNECTIONS_RESOURCE:
@@ -210,23 +189,68 @@ def handle_get_opsflags(name_or_id, st, et, output, **filters):
     )
 
 
-def handle_get_fingerprints(name_or_id, st, et, output, **filters):
+def handle_get_fingerprints(
+    name_or_id, st, et, output, files: List[IO], latest, **filters
+):
     ctx = cfg.get_current_context()
-    if lib.POLICY_UID_FIELD in filters:
-        pol_uid = filters.pop(lib.POLICY_UID_FIELD)
-        policy = spyctl_policies.get_policy_by_uid(pol_uid)
-        if not policy:
-            cli.err_exit(f"Unable to find policy with UID {pol_uid}")
-        filters = lib.selectors_to_filters(policy, **filters)
+    pol_names_or_uids = filters.pop(lib.POLICY_UID_FIELD, None)
+    policy_coverage = filters.pop("policy_coverage", False)
+    if pol_names_or_uids:
+        policies = __get_policies_from_option(pol_names_or_uids)
+    else:
+        policies = None
     machines = api.get_machines(*ctx.get_api_data())
     clusters = None
     if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
         clusters = api.get_clusters(*ctx.get_api_data())
     machines = filt.filter_machines(machines, clusters, **filters)
     muids = [m["uid"] for m in machines]
-    fingerprints = api.get_fingerprints(*ctx.get_api_data(), muids, (st, et))
-    fingerprints = filt.filter_fingerprints(fingerprints, **filters)
-    fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
+    if files and len(files) > 1:
+        if latest:
+            cli.try_log(
+                "Unable to use --latest option for multiple input files",
+                is_warning=True,
+            )
+        orig_fprints = api.get_fingerprints(
+            *ctx.get_api_data(), muids, (st, et)
+        )
+        orig_fprints = get_fingerprints_matching_files(orig_fprints, files)
+    elif policies and len(policies) > 1:
+        if latest:
+            cli.try_log(
+                "Unable to use --latest option for multiple policies",
+                is_warning=True,
+            )
+        orig_fprints = api.get_fingerprints(
+            *ctx.get_api_data(), muids, (st, et)
+        )
+        orig_fprints = get_fingerprints_matching_policies(
+            orig_fprints, policies
+        )
+    else:
+        if files:
+            resource_data = lib.load_resource_file(files[0])
+            if latest:
+                st = __get_latest_timestamp(resource_data)
+            filters = lib.selectors_to_filters(resource_data)
+            if len(filters) == 0:
+                cli.err_exit(
+                    f"Unable generate filters from {files[0].name}. Does it"
+                    " have a spec field with selectors?"
+                )
+        elif policies:
+            if latest:
+                st = __get_latest_timestamp(policies[0])
+            filters = lib.selectors_to_filters(policies[0])
+        orig_fprints = api.get_fingerprints(
+            *ctx.get_api_data(), muids, (st, et)
+        )
+        orig_fprints = filt.filter_fingerprints(orig_fprints, **filters)
+    if policy_coverage:
+        fprint_groups, coverage_percentage = calc_policy_coverage(orig_fprints)
+    else:
+        fingerprints = orig_fprints
+        fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
     if name_or_id:
         cont_fprint_grps, svc_fprint_grps = fprint_groups
         cont_fprint_grps = filt.filter_obj(
@@ -251,20 +275,183 @@ def handle_get_fingerprints(name_or_id, st, et, output, **filters):
         for grps in fprint_groups:
             tmp_grps.extend(grps)
         fprint_groups = spyctl_fprints.fprint_groups_output(tmp_grps)
-    cli.show(
-        fprint_groups,
-        output,
-        {
-            lib.OUTPUT_DEFAULT: spyctl_fprints.fprint_grp_output_summary,
-            lib.OUTPUT_WIDE: spyctl_fprints.fprint_grp_output_wide,
-        },
+    else:
+        if output == lib.OUTPUT_DEFAULT:
+            if policy_coverage:
+                fprint_groups = spyctl_fprints.fprint_grp_output_summary(
+                    fprint_groups, True, coverage_percentage
+                )
+            else:
+                fprint_groups = spyctl_fprints.fprint_grp_output_summary(
+                    fprint_groups
+                )
+        else:
+            if policy_coverage:
+                fprint_groups = spyctl_fprints.fprint_grp_output_wide(
+                    fprint_groups, True, coverage_percentage
+                )
+            else:
+                fprint_groups = spyctl_fprints.fprint_grp_output_wide(
+                    fprint_groups
+                )
+        output = lib.OUTPUT_RAW
+    cli.show(fprint_groups, output)
+
+
+def get_fingerprints_matching_files(
+    orig_fprints, files: List[IO], **filters
+) -> List[Dict]:
+    rv = []
+    for file in files:
+        resrc_data = lib.load_resource_file(file)
+        filters = lib.selectors_to_filters(resrc_data, **filters)
+        if len(filters) == 0:
+            cli.err_exit(
+                f"Unable generate filters for {file.name}. Does it have a"
+                " spec field with selectors?"
+            )
+        rv.extend(
+            filt.filter_fingerprints(
+                orig_fprints,
+                use_context_filters=False,
+                suppress_warning=True,
+                **filters,
+            )
+        )
+    if not rv:
+        cli.try_log("No fingerprints matched input files")
+    return rv
+
+
+def calc_policy_coverage(
+    fingerprints: List[Dict], policies: List[Dict] = None
+) -> Tuple[List[Dict], float]:
+    """Calculates policy coverage from a list of fingerprints
+
+    Args:
+        fingerprints (List[Dict]): List of fingerprints to calculate the
+            coverage of
+        policies (List[Dict], optional): List of policies to calculate
+            coverage with. Defaults to None. If None, will download applied
+            policies from the Spyderbat Backend.
+
+    Returns:
+        Tuple[List[Dict], float]: (List of uncovered fingerprints, coverage
+            percentage)
+    """
+    ctx = cfg.get_current_context()
+    if policies is None:
+        policies = api.get_policies(*ctx.get_api_data())
+    orig_fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
+    total = 0
+    for groups in orig_fprint_groups:
+        total += len(groups)
+    if total == 0:
+        cli.err_exit("No fingerprints to calculate coverage of.")
+    uncovered_fprints = fingerprints
+    for policy in policies:
+        filters = lib.selectors_to_filters(policy)
+        uncovered_fprints = filt.filter_fingerprints(
+            uncovered_fprints,
+            use_context_filters=False,
+            suppress_warning=True,
+            not_matching=True,
+            **filters,
+        )
+    uncovered_fprint_groups = spyctl_fprints.make_fingerprint_groups(
+        uncovered_fprints
     )
+    uncovered_tot = 0
+    for groups in uncovered_fprint_groups:
+        uncovered_tot += len(groups)
+    coverage = 1 - (uncovered_tot / total)
+    return uncovered_fprint_groups, coverage
 
 
-def handle_get_policies(name_or_id, output, **filters):
+def __get_latest_timestamp(obj: Dict):
+    latest_timestamp = obj.get(lib.METADATA_FIELD, {}).get(
+        lib.LATEST_TIMESTAMP_FIELD
+    )
+    if not latest_timestamp:
+        cli.err_exit(
+            f"Resource has no {lib.LATEST_TIMESTAMP_FIELD} field in"
+            f" its {lib.METADATA_FIELD}"
+        )
+    return latest_timestamp
+
+
+def __get_policies_from_option(pol_names_or_uids: List[str]) -> List[Dict]:
     ctx = cfg.get_current_context()
     policies = api.get_policies(*ctx.get_api_data())
+    if not policies:
+        cli.err_exit("No policies to use as filters.")
+    rv = []
+    if ALL in pol_names_or_uids:
+        rv = policies
+    else:
+        filtered_pols = {}
+        for pol_name_or_uid in pol_names_or_uids:
+            pols = filt.filter_obj(
+                policies,
+                [
+                    [lib.METADATA_FIELD, lib.NAME_FIELD],
+                    [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+                ],
+                pol_name_or_uid,
+            )
+            if len(pols) == 0:
+                cli.try_log(
+                    "Unable to locate policy with name or UID"
+                    f" {pol_name_or_uid}",
+                    is_warning=True,
+                )
+                continue
+            for policy in policies:
+                pol_uid = policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                filtered_pols[pol_uid] = policy
+        rv = List(filtered_pols.values())
+    if not policies:
+        cli.err_exit("No policies to use as filters.")
+    return rv
+
+
+def get_fingerprints_matching_policies(
+    orig_fprints, policies: List[Dict]
+) -> List[Dict]:
+    rv = []
+    for policy in policies:
+        filters = lib.selectors_to_filters(policy)
+        rv.extend(
+            filt.filter_fingerprints(
+                orig_fprints,
+                use_context_filters=False,
+                suppress_warning=True,
+                **filters,
+            )
+        )
+    if not rv:
+        cli.try_log("No fingerprints matched input files")
+    return rv
+
+
+def handle_get_policies(name_or_id, output, files, st, et, **filters):
+    ctx = cfg.get_current_context()
+    if files:
+        policies = []
+        for file in files:
+            resource_data = lib.load_resource_file(file)
+            kind = resource_data.get(lib.KIND_FIELD)
+            if kind != lib.POL_KIND:
+                cli.try_log(
+                    f"Input file {file.name} is not a policy.. skipping",
+                    is_warning=True,
+                )
+                continue
+            policies.append(resource_data)
+    else:
+        policies = api.get_policies(*ctx.get_api_data())
     policies = filt.filter_policies(policies, **filters)
+    has_matching = filters.pop("has_matching", False)
     if name_or_id:
         policies = filt.filter_obj(
             policies,
@@ -274,13 +461,46 @@ def handle_get_policies(name_or_id, output, **filters):
             ],
             name_or_id,
         )
+    if has_matching:
+        policies, no_match_pols = calculate_has_matching_fprints(
+            policies, st, et
+        )
+    else:
+        no_match_pols = []
     if output != lib.OUTPUT_DEFAULT:
-        policies = spyctl_policies.policies_output(policies)
+        policies = spyctl_policies.policies_output(policies + no_match_pols)
+    else:
+        policies = spyctl_policies.policies_summary_output(
+            policies, has_matching, no_match_pols
+        )
+        output = lib.OUTPUT_RAW
     cli.show(
         policies,
         output,
-        {lib.OUTPUT_DEFAULT: spyctl_policies.policies_summary_output},
     )
+
+
+def calculate_has_matching_fprints(
+    policies: List[Dict], st, et
+) -> Tuple[List[Dict], List[Dict]]:
+    has_matching = []
+    no_matching = []
+    ctx = cfg.get_current_context()
+    machines = api.get_machines(*ctx.get_api_data())
+    muids = [m["uid"] for m in machines]
+    fingerprints = api.get_fingerprints(*ctx.get_api_data(), muids, (st, et))
+    for policy in policies:
+        filters = lib.selectors_to_filters(policy)
+        if filt.filter_fingerprints(
+            fingerprints,
+            use_context_filters=False,
+            suppress_warning=True,
+            **filters,
+        ):
+            has_matching.append(policy)
+        else:
+            no_matching.append(policy)
+    return has_matching, no_matching
 
 
 def handle_get_processes(name_or_id, st, et, output, **filters):

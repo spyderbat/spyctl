@@ -230,13 +230,32 @@ def policies_output(policies: List[Dict]):
         return {}
 
 
-def policies_summary_output(policies: List[Dict]):
+def policies_summary_output(
+    policies: List[Dict], has_matching=False, no_match_pols=[]
+):
+    output_list = []
     headers = ["UID", "NAME", "STATUS", "TYPE", "CREATE_TIME"]
+    if has_matching:
+        if len(no_match_pols) > 0:
+            output_list.append(
+                "Policies WITH NO matching fingerprints in last query:"
+            )
+            no_match_data = []
+            for pol in no_match_pols:
+                no_match_data.append(policy_summary_data(pol))
+            output_list.append(
+                tabulate(no_match_data, headers, tablefmt="plain")
+            )
+        if len(policies) > 0:
+            output_list.append(
+                "\nPolicies WITH matching fingerprints in last query:"
+            )
     data = []
     for policy in policies:
         data.append(policy_summary_data(policy))
-    data.sort(key=lambda x: [x[3], x[1], lib.to_timestamp(x[4])])
-    return tabulate(data, headers, tablefmt="plain")
+    data.sort(key=lambda x: [x[3], x[1]])
+    output_list.append(tabulate(data, headers, tablefmt="plain"))
+    return "\n".join(output_list)
 
 
 def policy_summary_data(policy: Dict):
@@ -245,10 +264,15 @@ def policy_summary_data(policy: Dict):
         status = "Disabled"
     else:
         status = "Enforcing"
-    create_time = policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME]
-    create_time = zulu.parse(create_time).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+    create_time = policy[lib.METADATA_FIELD].get(lib.METADATA_CREATE_TIME)
+    if create_time:
+        create_time = (
+            zulu.parse(create_time).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+        )
+    else:
+        create_time = "N/A"
     rv = [
-        policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD),
+        policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD, "N/A"),
         policy[lib.METADATA_FIELD][lib.NAME_FIELD],
         status,
         policy[lib.METADATA_FIELD][lib.TYPE_FIELD],
