@@ -1,0 +1,57 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: ua-timer.service-policy
+  type: linux-service
+  latestTimestamp: 1678108422.57015
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/ua-timer.service
+  processPolicy:
+  - name: python3
+    exe:
+    - /usr/bin/python3.8
+    id: python3_0
+    euser:
+    - root
+    children:
+    - name: apt-esm-hook
+      exe:
+      - /usr/lib/ubuntu-advantage/apt-esm-hook
+      id: apt-esm-hook_0
+      children:
+      - name: dpkg
+        exe:
+        - /usr/bin/dpkg
+        id: dpkg_0
+    - name: cloud-id
+      exe:
+      - /usr/bin/python3.8
+      id: cloud-id_0
+      children:
+      - name: systemd-detect-
+        exe:
+        - /usr/bin/systemd-detect-virt
+        id: systemd-detect-_0
+    - name: dpkg
+      exe:
+      - /usr/bin/dpkg
+      id: dpkg_1
+    - name: ubuntu-distro-i
+      exe:
+      - /usr/bin/ubuntu-distro-info
+      id: ubuntu-distro-i_0
+    - name: uname
+      exe:
+      - /usr/bin/uname
+      id: uname_0
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []
+

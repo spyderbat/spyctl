@@ -1,0 +1,38 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: fwupd.service-policy
+  type: linux-service
+  latestTimestamp: 1677827877.4827788
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/fwupd.service
+  processPolicy:
+  - name: fwupd
+    exe:
+    - /usr/libexec/fwupd/fwupd
+    id: fwupd_0
+    euser:
+    - root
+    children:
+    - name: gpg
+      exe:
+      - /usr/bin/gpg
+      id: gpg_0
+    - name: gpgconf
+      exe:
+      - /usr/bin/gpgconf
+      id: gpgconf_0
+    - name: gpgsm
+      exe:
+      - /usr/bin/gpgsm
+      id: gpgsm_0
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.' 
+    actions: []

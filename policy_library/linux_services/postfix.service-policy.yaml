@@ -1,0 +1,67 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: postfix.service-policy
+  type: linux-service
+  latestTimestamp: 1678089671.5142767
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/postfix.service
+  processPolicy:
+  - name: master
+    exe:
+    - /usr/libexec/postfix/master
+    id: master_0
+    euser:
+    - root
+    listeningSockets:
+    - protocol: TCP
+      port: 25
+    children:
+    - name: bounce
+      exe:
+      - /usr/libexec/postfix/bounce
+      id: bounce_0
+      euser:
+      - postfix
+    - name: cleanup
+      exe:
+      - /usr/libexec/postfix/cleanup
+      id: cleanup_0
+      euser:
+      - postfix
+    - name: local
+      exe:
+      - /usr/libexec/postfix/local
+      id: local_0
+      euser:
+      - postfix
+      - root
+    - name: pickup
+      exe:
+      - /usr/libexec/postfix/pickup
+      id: pickup_0
+      euser:
+      - postfix
+    - name: qmgr
+      exe:
+      - /usr/libexec/postfix/qmgr
+      id: qmgr_0
+      euser:
+      - postfix
+    - name: trivial-rewrite
+      exe:
+      - /usr/libexec/postfix/trivial-rewrite
+      id: trivial-rewrite_0
+      euser:
+      - postfix
+  networkPolicy:
+    ingress: []
+    egress:  [] 
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []
+

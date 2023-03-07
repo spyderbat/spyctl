@@ -1,0 +1,26 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: fwupd-refresh.service-policy
+  type: linux-service
+  latestTimestamp: 1678113867.5953474
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/fwupd-refresh.service
+  processPolicy:
+  - name: fwupdmgr
+    exe:
+    - /usr/bin/fwupdmgr
+    id: fwupdmgr_0
+    euser:
+    - fwupd-refresh
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'                     
+    actions: []
+

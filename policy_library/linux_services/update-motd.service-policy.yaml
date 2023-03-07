@@ -1,0 +1,120 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: update-motd.service-policy
+  type: linux-service
+  latestTimestamp: 1678125066.9036543
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/update-motd.service
+  processPolicy:
+  - name: update-motd
+    exe:
+    - /usr/bin/bash
+    id: update-motd_0
+    euser:
+    - root
+    children:
+    - name: cat
+      exe:
+      - /usr/bin/cat
+      id: cat_1
+    - name: chmod
+      exe:
+      - /usr/bin/chmod
+      id: chmod_0
+    - name: id
+      exe:
+      - /usr/bin/id
+      id: id_0
+    - name: mktemp
+      exe:
+      - /usr/bin/mktemp
+      id: mktemp_0
+    - name: mv
+      exe:
+      - /usr/bin/mv
+      id: mv_0
+    - name: rm
+      exe:
+      - /usr/bin/rm
+      id: rm_0
+    - name: timeout
+      exe:
+      - /usr/bin/timeout
+      id: timeout_0
+      children:
+      - name: '*0-a*'
+        exe:
+        - /usr/bin/bash
+        id: 50-amazon-linux_0
+        children:
+        - name: grep
+          exe:
+          - /usr/bin/grep
+          id: grep_1
+        - name: timeout
+          exe:
+          - /usr/bin/timeout
+          id: timeout_1
+          children:
+          - name: python
+            exe:
+            - /usr/bin/python2.7
+            id: python_0
+            children:
+            - name: python
+              exe:
+              - /usr/bin/python2.7
+              id: python_1
+          - name: yum
+            exe:
+            - /usr/bin/python2.7
+            id: yum_1
+            children:
+            - name: rpm
+              exe:
+              - /usr/bin/rpm
+              id: rpm_1
+      - name: 30-banner
+        exe:
+        - /usr/bin/bash
+        id: 30-banner_0
+        children:
+        - name: cat
+          exe:
+          - /usr/bin/cat
+          id: cat_0
+      - name: 70-available-up
+        exe:
+        - /usr/bin/bash
+        id: 70-available-up_0
+        children:
+        - name: grep
+          exe:
+          - /usr/bin/grep
+          id: grep_0
+        - name: timeout
+          exe:
+          - /usr/bin/timeout
+          id: timeout_2
+          children:
+          - name: yum
+            exe:
+            - /usr/bin/python2.7
+            id: yum_0
+            children:
+            - name: rpm
+              exe:
+              - /usr/bin/rpm
+              id: rpm_0
+  networkPolicy:
+    ingress: []
+    egress:  []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []
+

@@ -1,0 +1,25 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: auditd.service-policy
+  type: linux-service
+  latestTimestamp: 1677780073.8570778
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/auditd.service
+  processPolicy:
+  - name: auditd
+    exe:
+    - /usr/sbin/auditd
+    id: auditd_0
+    euser:
+    - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'      
+    actions: []

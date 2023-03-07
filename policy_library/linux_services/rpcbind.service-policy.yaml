@@ -1,0 +1,29 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: rpcbind.service-policy
+  type: linux-service
+  latestTimestamp: 1678089671.5142767
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/rpcbind.service
+  processPolicy:
+  - name: rpcbind
+    exe:
+    - /usr/sbin/rpcbind
+    id: rpcbind_0
+    euser:
+    - rpc
+    listeningSockets:
+    - protocol: TCP
+      port: 111
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []
+
