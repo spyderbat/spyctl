@@ -584,11 +584,18 @@ def delete(resource, name_or_id, yes=False):
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
+@click.option(
+    "--include-network/--exclude-network",
+    help="Include or exclude network data in the diff."
+    " Default is to include network data in the diff.",
+    default=True,
+)
 def diff(
     filename,
     policy,
     st,
     et,
+    include_network,
     yes=False,
     with_file=None,
     with_policy=None,
@@ -660,7 +667,16 @@ def diff(
     """  # noqa E501
     if yes:
         cli.set_yes_option()
-    d.handle_diff(filename, policy, with_file, with_policy, st, et, latest)
+    d.handle_diff(
+        filename,
+        policy,
+        with_file,
+        with_policy,
+        st,
+        et,
+        latest,
+        include_network,
+    )
 
 
 # ----------------------------------------------------------------- #
@@ -704,7 +720,9 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " to get fingerprints related to another resource."
                     " E.g. the Fingerprint Groups for a given Baseline file.",
                     metavar="",
-                    type=click.File(),
+                    type=lib.FileList(),
+                    cls=lib.MutuallyExclusiveEatAll,
+                    mutually_exclusive=["policy"],
                 ),
                 click.option(
                     "-p",
@@ -713,7 +731,24 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " a policy from the spyderbat backend, then filter"
                     " Fingerprints based on the policy's selectors.",
                     metavar="",
+                    is_flag=False,
+                    flag_value=m.ALL,
+                    default=None,
+                    type=lib.ListParam(),
+                    cls=lib.MutuallyExclusiveOption,
+                    mutually_exclusive=["filename"],
                 ),
+                click.option(
+                    "-c",
+                    "--policy-coverage",
+                    is_flag=True,
+                    help="Gets the fingerprints that are not covered by"
+                    " existing applied policy. Gives a percentage of coverage"
+                    " for the total amount of Fingerprint Groups in the"
+                    " returned by the query, and lists the ones that still"
+                    " require a policy.",
+                ),
+                click.option("-T", "--type", is_flag=True, help=""),
             ],
         },
         {
@@ -725,6 +760,41 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Ignores differing ips in the table output."
                     " Off by default.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.POLICIES_RESOURCE],
+            "args": [
+                click.option(
+                    "-f",
+                    "--filename",
+                    help="Policy files for use with the --policy-coverage and"
+                    " --has-matching options. If neither of those options are"
+                    " set this returns a table of policies supplied in the"
+                    " file(s).",
+                    metavar="",
+                    type=lib.FileList(),
+                    cls=lib.OptionEatAll,
+                ),
+                click.option(
+                    "-H",
+                    "--has-matching",
+                    "--has-matching-fingerprints",
+                    is_flag=True,
+                    help="Gets applied policies or takes supplied policy files"
+                    " and checks for matching fingerprints. Outputs two tables"
+                    ", one with policies that had no matching fingerprints in"
+                    " the search window, and another with policies that had"
+                    " matching fingerprints. This can be used to determine if"
+                    " a policy is [still] relevant to your organization.",
+                ),
+                click.option(
+                    "-O",
+                    "--output-to-file",
+                    help="Should output policies to a file. Unique filename"
+                    " created from the name in each policy's metadata.",
+                    is_flag=True,
                 ),
             ],
         },
@@ -847,14 +917,15 @@ def get(
     \b
     Some resources are retrieved from from databases where a time range can
     be specified:
+    - Connections
+    - Deployments
     - Fingerprints
-    - Pods
     - Namespaces
     - Nodes
-    - Processes
-    - Connections
-    - RedFlags
     - OpsFlags
+    - Pods
+    - Processes
+    - RedFlags
 
     \b
     Other resources come from databases where time ranges are not applicable:
@@ -1017,12 +1088,19 @@ def get(
     cls=lib.MutuallyExclusiveOption,
     mutually_exclusive=["yes"],
 )
+@click.option(
+    "--include-network/--exclude-network",
+    help="Include or exclude network data in the merge."
+    " Default is to include network data in the merge.",
+    default=True,
+)
 def merge(
     filename,
     policy,
     output,
     st,
     et,
+    include_network,
     yes=False,
     yes_except=False,
     with_file=None,
@@ -1117,6 +1195,7 @@ def merge(
         output,
         output_to_file,
         yes_except,
+        include_network,
     )
 
 

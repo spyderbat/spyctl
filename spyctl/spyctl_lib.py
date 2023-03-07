@@ -57,6 +57,11 @@ BASELINES_RESOURCE = Aliases(
     "baseline",
     "baselines",
 )
+DEPLOYMENTS_RESOURCE = Aliases(
+    ["deployments", "deployment", "deploys", "deploy"],
+    "deployment",
+    "deployments",
+)
 NAMESPACES_RESOURCE = Aliases(
     ["namespaces", "name", "names", "namesp", "namesps", "namespace"],
     "namespace",
@@ -139,16 +144,17 @@ CONFIG_ALIAS = Aliases(
 DEL_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
+    CONNECTIONS_RESOURCE.name_plural,
+    DEPLOYMENTS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
     NODES_RESOURCE.name_plural,
+    OPSFLAGS_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
     POLICIES_RESOURCE.name_plural,
-    REDFLAGS_RESOURCE.name_plural,
-    OPSFLAGS_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
-    CONNECTIONS_RESOURCE.name_plural,
+    REDFLAGS_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -876,7 +882,9 @@ class ArgumentParametersCommand(CustomCommand):
                 index = 0
                 for options, num in specific_index.items():
                     with formatter.section(f"Options for {options}"):
-                        formatter.write_dl(specif_opts[index : index + num])
+                        formatter.write_dl(
+                            specif_opts[index : index + num]  # noqa E203
+                        )
                     index = index + num
             else:
                 with formatter.section(f"Options for {self.argument_value}"):
@@ -1323,6 +1331,31 @@ FILE_EXT_MAP = {
     OUTPUT_JSON: ".json",
     OUTPUT_DEFAULT: ".yaml",
 }
+
+
+def find_resource_filename(data: Dict, default: str = "spyctl_output") -> str:
+    """Checks metadata for a suitable filename, if not it
+    resorts to the kind field lowercased and spaces removed.
+    If all else fails, uses the default.
+
+    Args:
+        data (Dict): The resource that will be outputted
+        default (str): Default string to use for filename if all else fails.
+
+    Returns:
+        str: A valid filename for use in saving data to disk.
+    """
+    rv = data.get(METADATA_FIELD, {}).get(METADATA_NAME_FIELD)
+    if rv:
+        rv = slugify(rv)
+        rv.replace(" ", "_")
+    if not rv:
+        rv: str = data.get(KIND_FIELD)
+        if rv:
+            rv = rv.strip(" ").replace(" ", "_").lower()
+    if not rv:
+        rv = default
+    return rv
 
 
 def unique_fn(fn: str, output_format) -> Optional[str]:

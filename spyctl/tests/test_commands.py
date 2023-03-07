@@ -4,7 +4,6 @@ from fnmatch import fnmatch
 from pathlib import Path
 from itertools import groupby
 import pytest
-from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -112,6 +111,7 @@ resources = (
     "policies",
     "pods",
     "nodes",
+    "deployments",
     "fingerprints",
     # "namespaces", # doesn't output a table
     "redflags",
