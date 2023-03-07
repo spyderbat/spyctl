@@ -112,6 +112,7 @@ resources = (
     "policies",
     "pods",
     "nodes",
+    "deployments",
     "fingerprints",
     # "namespaces", # doesn't output a table
     "redflags",

@@ -57,6 +57,11 @@ BASELINES_RESOURCE = Aliases(
     "baseline",
     "baselines",
 )
+DEPLOYMENTS_RESOURCE = Aliases(
+    ["deployments", "deployment", "deploys", "deploy"],
+    "deployment",
+    "deployments",
+)
 NAMESPACES_RESOURCE = Aliases(
     ["namespaces", "name", "names", "namesp", "namesps", "namespace"],
     "namespace",

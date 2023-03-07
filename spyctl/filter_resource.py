@@ -59,6 +59,24 @@ def filter_clusters(
     return clusters_data
 
 
+def filter_deployments(
+    deployments_data: List[Dict],
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    filter_set = {
+        cfgs.NAMESPACE_FIELD: lambda data, filt: filter_obj(
+            data, [[lib.METADATA_FIELD, lib.NAMESPACE_FIELD]], filt
+        ),
+    }
+    deployments_data = use_filters(deployments_data, filter_set, filters)
+    return deployments_data
+
+
 def filter_namespaces(
     namespaces_data: List[Dict],
     clusters_data=None,
