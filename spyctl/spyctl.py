@@ -584,11 +584,18 @@ def delete(resource, name_or_id, yes=False):
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
+@click.option(
+    "--include-network/--exclude-network",
+    help="Include or exclude network data in the diff."
+    " Default is to include network data in the diff.",
+    default=True,
+)
 def diff(
     filename,
     policy,
     st,
     et,
+    include_network,
     yes=False,
     with_file=None,
     with_policy=None,
@@ -660,7 +667,16 @@ def diff(
     """  # noqa E501
     if yes:
         cli.set_yes_option()
-    d.handle_diff(filename, policy, with_file, with_policy, st, et, latest)
+    d.handle_diff(
+        filename,
+        policy,
+        with_file,
+        with_policy,
+        st,
+        et,
+        latest,
+        include_network,
+    )
 
 
 # ----------------------------------------------------------------- #
@@ -776,8 +792,8 @@ class GetCommand(lib.ArgumentParametersCommand):
                 click.option(
                     "-O",
                     "--output-to-file",
-                    help="Should output merge to a file. Unique filename"
-                    " created from the name in the object's metadata.",
+                    help="Should output policies to a file. Unique filename"
+                    " created from the name in each policy's metadata.",
                     is_flag=True,
                 ),
             ],
@@ -1071,12 +1087,19 @@ def get(
     cls=lib.MutuallyExclusiveOption,
     mutually_exclusive=["yes"],
 )
+@click.option(
+    "--include-network/--exclude-network",
+    help="Include or exclude network data in the merge."
+    " Default is to include network data in the merge.",
+    default=True,
+)
 def merge(
     filename,
     policy,
     output,
     st,
     et,
+    include_network,
     yes=False,
     yes_except=False,
     with_file=None,
@@ -1171,6 +1194,7 @@ def merge(
         output,
         output_to_file,
         yes_except,
+        include_network,
     )
 
 

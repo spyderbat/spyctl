@@ -1307,6 +1307,31 @@ FILE_EXT_MAP = {
 }
 
 
+def find_resource_filename(data: Dict, default: str = "spyctl_output") -> str:
+    """Checks metadata for a suitable filename, if not it
+    resorts to the kind field lowercased and spaces removed.
+    If all else fails, uses the default.
+
+    Args:
+        data (Dict): The resource that will be outputted
+        default (str): Default string to use for filename if all else fails.
+
+    Returns:
+        str: A valid filename for use in saving data to disk.
+    """
+    rv = data.get(METADATA_FIELD, {}).get(METADATA_NAME_FIELD)
+    if rv:
+        rv = slugify(rv)
+        rv.replace(" ", "_")
+    if not rv:
+        rv: str = data.get(KIND_FIELD)
+        if rv:
+            rv = rv.strip(" ").replace(" ", "_").lower()
+    if not rv:
+        rv = default
+    return rv
+
+
 def unique_fn(fn: str, output_format) -> Optional[str]:
     count = 1
     file_ext = FILE_EXT_MAP[output_format]

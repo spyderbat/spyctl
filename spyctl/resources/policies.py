@@ -259,11 +259,18 @@ def policies_summary_output(
 
 
 def policy_summary_data(policy: Dict):
-    status = policy[lib.SPEC_FIELD].get(lib.ENABLED_FIELD)
-    if status is False:
+    uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+    status = policy[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
+    if status is False and uid:
         status = "Disabled"
-    else:
+    elif status and uid:
         status = "Enforcing"
+    elif status is False:
+        status = "Not Applied & Disabled"
+    else:
+        status = "Not Applied"
+    if not uid:
+        uid = "N/A"
     create_time = policy[lib.METADATA_FIELD].get(lib.METADATA_CREATE_TIME)
     if create_time:
         create_time = (
@@ -272,7 +279,7 @@ def policy_summary_data(policy: Dict):
     else:
         create_time = "N/A"
     rv = [
-        policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD, "N/A"),
+        uid,
         policy[lib.METADATA_FIELD][lib.NAME_FIELD],
         status,
         policy[lib.METADATA_FIELD][lib.TYPE_FIELD],

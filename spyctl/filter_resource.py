@@ -363,7 +363,7 @@ def use_filters(
         elif use_context_filters and filt in ctx_filters:
             data = func(data, ctx_filters[filt])
         if len(data) == 0 and not data_empty_at_start and not suppress_warning:
-            lib.try_log(f"No results after filtering on {filt}")
+            lib.try_log(f"No results after filtering on '{filt}'")
             return data
     return data
 

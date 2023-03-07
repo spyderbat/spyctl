@@ -299,12 +299,12 @@ def handle_get_fingerprints(
 
 
 def get_fingerprints_matching_files(
-    orig_fprints, files: List[IO], **filters
+    orig_fprints, files: List[IO]
 ) -> List[Dict]:
     rv = []
     for file in files:
         resrc_data = lib.load_resource_file(file)
-        filters = lib.selectors_to_filters(resrc_data, **filters)
+        filters = lib.selectors_to_filters(resrc_data)
         if len(filters) == 0:
             cli.err_exit(
                 f"Unable generate filters for {file.name}. Does it have a"
@@ -406,10 +406,10 @@ def __get_policies_from_option(pol_names_or_uids: List[str]) -> List[Dict]:
                     is_warning=True,
                 )
                 continue
-            for policy in policies:
+            for policy in pols:
                 pol_uid = policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
                 filtered_pols[pol_uid] = policy
-        rv = List(filtered_pols.values())
+        rv = list(filtered_pols.values())
     if not policies:
         cli.err_exit("No policies to use as filters.")
     return rv
@@ -435,6 +435,8 @@ def get_fingerprints_matching_policies(
 
 
 def handle_get_policies(name_or_id, output, files, st, et, **filters):
+    has_matching = filters.pop("has_matching", False)
+    file_output = filters.pop("output_to_file", False)
     ctx = cfg.get_current_context()
     if files:
         policies = []
@@ -451,7 +453,6 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
     else:
         policies = api.get_policies(*ctx.get_api_data())
     policies = filt.filter_policies(policies, **filters)
-    has_matching = filters.pop("has_matching", False)
     if name_or_id:
         policies = filt.filter_obj(
             policies,
@@ -461,23 +462,35 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
             ],
             name_or_id,
         )
-    if has_matching:
-        policies, no_match_pols = calculate_has_matching_fprints(
-            policies, st, et
-        )
+    if file_output:
+        for policy in policies:
+            out_fn = lib.find_resource_filename(policy, "policy_output")
+            if output != lib.OUTPUT_JSON:
+                output = lib.OUTPUT_YAML
+            out_fn = lib.unique_fn(out_fn, output)
+            cli.show(
+                policy, output, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn
+            )
     else:
-        no_match_pols = []
-    if output != lib.OUTPUT_DEFAULT:
-        policies = spyctl_policies.policies_output(policies + no_match_pols)
-    else:
-        policies = spyctl_policies.policies_summary_output(
-            policies, has_matching, no_match_pols
+        if has_matching:
+            policies, no_match_pols = calculate_has_matching_fprints(
+                policies, st, et
+            )
+        else:
+            no_match_pols = []
+        if output != lib.OUTPUT_DEFAULT:
+            policies = spyctl_policies.policies_output(
+                policies + no_match_pols
+            )
+        else:
+            policies = spyctl_policies.policies_summary_output(
+                policies, has_matching, no_match_pols
+            )
+            output = lib.OUTPUT_RAW
+        cli.show(
+            policies,
+            output,
         )
-        output = lib.OUTPUT_RAW
-    cli.show(
-        policies,
-        output,
-    )
 
 
 def calculate_has_matching_fprints(
