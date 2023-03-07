@@ -144,16 +144,17 @@ CONFIG_ALIAS = Aliases(
 DEL_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
+    CONNECTIONS_RESOURCE.name_plural,
+    DEPLOYMENTS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
     NODES_RESOURCE.name_plural,
+    OPSFLAGS_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
     POLICIES_RESOURCE.name_plural,
-    REDFLAGS_RESOURCE.name_plural,
-    OPSFLAGS_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
-    CONNECTIONS_RESOURCE.name_plural,
+    REDFLAGS_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -881,7 +882,9 @@ class ArgumentParametersCommand(CustomCommand):
                 index = 0
                 for options, num in specific_index.items():
                     with formatter.section(f"Options for {options}"):
-                        formatter.write_dl(specif_opts[index : index + num])
+                        formatter.write_dl(
+                            specif_opts[index : index + num]  # noqa E203
+                        )
                     index = index + num
             else:
                 with formatter.section(f"Options for {self.argument_value}"):

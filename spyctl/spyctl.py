@@ -917,14 +917,15 @@ def get(
     \b
     Some resources are retrieved from from databases where a time range can
     be specified:
+    - Connections
+    - Deployments
     - Fingerprints
-    - Pods
     - Namespaces
     - Nodes
-    - Processes
-    - Connections
-    - RedFlags
     - OpsFlags
+    - Pods
+    - Processes
+    - RedFlags
 
     \b
     Other resources come from databases where time ranges are not applicable:
