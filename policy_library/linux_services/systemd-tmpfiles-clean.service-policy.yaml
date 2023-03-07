@@ -1,0 +1,26 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: systemd-tmpfiles-clean.service-policy
+  type: linux-service
+  latestTimestamp: 1678128122.591995
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/systemd-tmpfiles-clean.service
+  processPolicy:
+  - name: systemd-tmpfile
+    exe:
+    - /usr/bin/systemd-tmpfiles
+    id: systemd-tmpfile_0
+    euser:
+    - root
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'                     
+    actions: []
+

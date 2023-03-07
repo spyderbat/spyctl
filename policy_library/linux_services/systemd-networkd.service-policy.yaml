@@ -1,0 +1,26 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: systemd-networkd.service-policy
+  type: linux-service
+  latestTimestamp: 1678125657.5636516
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/systemd-networkd.service
+  processPolicy:
+  - name: systemd-network
+    exe:
+    - /usr/lib/systemd/systemd-networkd
+    id: systemd-network_0
+    euser:
+    - systemd-network
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'                     
+    actions: []
+

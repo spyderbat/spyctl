@@ -1,0 +1,120 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: apt-daily-upgrade.service-policy
+  type: linux-service
+  latestTimestamp: 1678082607.6005619
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/apt-daily-upgrade.service
+  processPolicy:
+  - name: apt-helper
+    exe:
+    - /usr/lib/apt/apt-helper
+    id: apt-helper_0
+    euser:
+    - root
+    children:
+    - name: systemctl
+      exe:
+      - /usr/bin/systemctl
+      id: systemctl_0
+    - name: systemd-network
+      exe:
+      - /usr/lib/systemd/systemd-networkd-wait-online
+      id: systemd-network_0
+  - name: apt.systemd.dai
+    exe:
+    - /usr/bin/dash
+    id: apt.systemd.dai_0
+    euser:
+    - root
+    children:
+    - name: apt-config
+      exe:
+      - /usr/bin/apt-config
+      id: apt-config_0
+      children:
+      - name: dpkg
+        exe:
+        - /usr/bin/dpkg
+        id: dpkg_0
+    - name: apt.systemd.dai
+      exe:
+      - /usr/bin/dash
+      id: apt.systemd.dai_1
+      children:
+      - name: apt-config
+        exe:
+        - /usr/bin/apt-config
+        id: apt-config_1
+        children:
+        - name: dpkg
+          exe:
+          - /usr/bin/dpkg
+          id: dpkg_1
+      - name: apt-get
+        exe:
+        - /usr/bin/apt-get
+        id: apt-get_0
+        children:
+        - name: dpkg
+          exe:
+          - /usr/bin/dpkg
+          id: dpkg_2
+      - name: cmp
+        exe:
+        - /usr/bin/cmp
+        id: cmp_0
+      - name: date
+        exe:
+        - /usr/bin/date
+        id: date_0
+        children:
+        - name: date
+          exe:
+          - /usr/bin/date
+          id: date_1
+      - name: find
+        exe:
+        - /usr/bin/find
+        id: find_0
+      - name: unattended-upgr
+        exe:
+        - /usr/bin/python3.8
+        id: unattended-upgr_0
+        children:
+        - name: dpkg
+          exe:
+          - /usr/bin/dpkg
+          id: dpkg_3
+        - name: lsb_release
+          exe:
+          - /usr/bin/python3.8
+          id: lsb_release_0
+        - name: uname
+          exe:
+          - /usr/bin/uname
+          id: uname_0
+      - name: which
+        exe:
+        - /usr/bin/dash
+        id: which_0
+      - name: xargs
+        exe:
+        - /usr/bin/xargs
+        id: xargs_0
+    - name: flock
+      exe:
+      - /usr/bin/flock
+      id: flock_0
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'                     
+    actions: []
+
