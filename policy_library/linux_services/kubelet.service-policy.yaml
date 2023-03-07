@@ -1,0 +1,97 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: kubelet.service-policy
+  type: linux-service
+  latestTimestamp: 1677844845.8055184
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/kubelet.service
+  processPolicy:
+  - name: kubelet
+    exe:
+    - /usr/bin/kubelet
+    id: kubelet_0
+    euser:
+    - root
+    listeningSockets:
+    - protocol: TCP
+      port: 10248
+    - protocol: TCP
+      port: 10250
+    - protocol: TCP
+      port: 33769
+    - protocol: TCP
+      port: 33953
+    - protocol: TCP
+      port: 35445
+    children:
+    - name: '*tables'
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: ip6tables_0
+    - name: aws-cni
+      exe:
+      - /opt/cni/bin/aws-cni
+      id: aws-cni_0
+    - name: aws-iam-authent
+      exe:
+      - /usr/bin/aws-iam-authenticator
+      id: aws-iam-authent_0
+    - name: egress-v4-cni
+      exe:
+      - /opt/cni/bin/egress-v4-cni
+      id: egress-v4-cni_0
+      listeningSockets:
+      - protocol: TCP
+        port: 10248
+      - protocol: TCP
+        port: 10250
+      - protocol: TCP
+        port: 33953
+      - protocol: TCP
+        port: 35445
+    - name: ip
+      exe:
+      - /usr/sbin/ip
+      id: ip_0
+    - name: iptables
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: iptables_0
+    - name: loopback
+      exe:
+      - /opt/cni/bin/loopback
+      id: loopback_0
+    - name: mount
+      exe:
+      - /usr/bin/mount
+      id: mount_0
+    - name: nsenter
+      exe:
+      - /usr/bin/nsenter
+      id: nsenter_0
+    - name: portmap
+      exe:
+      - /opt/cni/bin/portmap
+      id: portmap_0
+      listeningSockets:
+      - protocol: TCP
+        port: 10248
+      - protocol: TCP
+        port: 10250
+      - protocol: TCP
+        port: 35445
+    - name: umount
+      exe:
+      - /usr/bin/umount
+      id: umount_0
+  networkPolicy:
+    ingress: [] 
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.' 
+    actions: []

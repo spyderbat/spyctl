@@ -1,0 +1,26 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: dbus.service-policy
+  type: linux-service
+  latestTimestamp: 1677837671.6482232
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/dbus.service
+  processPolicy:
+  - name: dbus-daemon
+    exe:
+    - /usr/bin/dbus-daemon
+    id: dbus-daemon_0
+    euser:
+    - dbus
+    - messagebus
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+    actions: []

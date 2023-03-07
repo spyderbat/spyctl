@@ -1,0 +1,150 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: network.service-policy
+  type: linux-service
+  latestTimestamp: 1678096869.2073522
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/network.service
+  processPolicy:
+  - name: dhclient
+    exe:
+    - /usr/sbin/dhclient
+    id: dhclient_0
+    euser:
+    - root
+    children:
+    - name: cat
+      exe:
+      - /usr/bin/cat
+      id: cat_1
+    - name: curl
+      exe:
+      - /usr/bin/curl
+      id: curl_1
+    - name: cut
+      exe:
+      - /usr/bin/cut
+      id: cut_1
+    - name: dbus-send
+      exe:
+      - /usr/bin/dbus-send
+      id: dbus-send_1
+    - name: dhclient-script
+      exe:
+      - /usr/bin/bash
+      id: dhclient-script_0
+      children:
+      - name: cat
+        exe:
+        - /usr/bin/cat
+        id: cat_0
+      - name: chronyc
+        exe:
+        - /usr/bin/chronyc
+        id: chronyc_0
+      - name: curl
+        exe:
+        - /usr/bin/curl
+        id: curl_0
+      - name: cut
+        exe:
+        - /usr/bin/cut
+        id: cut_0
+      - name: dbus-send
+        exe:
+        - /usr/bin/dbus-send
+        id: dbus-send_0
+      - name: flock
+        exe:
+        - /usr/bin/flock
+        id: flock_0
+      - name: grep
+        exe:
+        - /usr/bin/grep
+        id: grep_0
+      - name: hostname
+        exe:
+        - /usr/bin/hostname
+        id: hostname_0
+      - name: ip
+        exe:
+        - /usr/sbin/ip
+        id: ip_0
+      - name: ipcalc
+        exe:
+        - /usr/bin/ipcalc
+        id: ipcalc_0
+      - name: logger
+        exe:
+        - /usr/bin/logger
+        id: logger_0
+      - name: mkdir
+        exe:
+        - /usr/bin/mkdir
+        id: mkdir_0
+      - name: mktemp
+        exe:
+        - /usr/bin/mktemp
+        id: mktemp_0
+      - name: mv
+        exe:
+        - /usr/bin/mv
+        id: mv_0
+      - name: restorecon
+        exe:
+        - /usr/sbin/setfiles
+        id: restorecon_0
+      - name: rm
+        exe:
+        - /usr/bin/rm
+        id: rm_0
+    - name: flock
+      exe:
+      - /usr/bin/flock
+      id: flock_1
+    - name: grep
+      exe:
+      - /usr/bin/grep
+      id: grep_1
+    - name: hostname
+      exe:
+      - /usr/bin/hostname
+      id: hostname_1
+    - name: ip
+      exe:
+      - /usr/sbin/ip
+      id: ip_1
+    - name: ipcalc
+      exe:
+      - /usr/bin/ipcalc
+      id: ipcalc_1
+    - name: logger
+      exe:
+      - /usr/bin/logger
+      id: logger_1
+    - name: mktemp
+      exe:
+      - /usr/bin/mktemp
+      id: mktemp_1
+    - name: mv
+      exe:
+      - /usr/bin/mv
+      id: mv_1
+    - name: rm
+      exe:
+      - /usr/bin/rm
+      id: rm_1
+  networkPolicy:
+    ingress: []
+    egress:  []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: This is a provisional flag indicating a would-be policy violation.
+          Use the `spyctl merge` command to tailor this policy to your environment,
+          and update the severity as needed.
+    actions: []
+

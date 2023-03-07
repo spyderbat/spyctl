@@ -1,0 +1,58 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  name: docker.service-policy
+  type: linux-service
+  latestTimestamp: 1677841262.2156956
+spec:
+  serviceSelector:
+    cgroup: systemd:/system.slice/docker.service
+  processPolicy:
+  - name: dockerd
+    exe:
+    - /usr/bin/dockerd
+    id: dockerd_0
+    euser:
+    - root
+    children:
+    - name: docker-init
+      exe:
+      - /usr/bin/docker-init
+      id: docker-init_0
+    - name: docker-proxy
+      exe:
+      - /usr/bin/docker-proxy
+      id: docker-proxy_0
+      listeningSockets:
+      - protocol: TCP
+        port: 80
+    - name: exe
+      exe:
+      - /usr/bin/dockerd
+      id: exe_0
+      children:
+      - name: iptables
+        exe:
+        - /usr/sbin/xtables-legacy-multi
+        id: iptables_1
+    - name: iptables
+      exe:
+      - /usr/sbin/xtables-legacy-multi
+      id: iptables_0
+    - name: runc
+      exe:
+      - /usr/sbin/runc
+      id: runc_0
+    - name: unpigz
+      exe:
+      - /usr/bin/unpigz
+      id: unpigz_0
+  networkPolicy:
+    ingress: []
+    egress: []
+  response:
+    default:
+    - makeRedFlag:
+        severity: info
+        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.' 
+    actions: []
