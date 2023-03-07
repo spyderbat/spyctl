@@ -383,7 +383,7 @@ def get_policies(api_url, api_key, org_uid, params=None):
     if lib.METADATA_TYPE_FIELD in params:
         types = [params[lib.METADATA_TYPE_FIELD]]
     else:
-        types = [lib.POL_TYPE_CONT]
+        types = [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC]
     policies = []
     for type in types:
         params[lib.METADATA_TYPE_FIELD] = type

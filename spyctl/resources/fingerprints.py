@@ -277,7 +277,7 @@ def fprint_grp_output_summary(
         output_list.append(
             f"Policy coverage for queried fingerprints: {percentage}%"
         )
-        if len(fingerprint_groups) > 0:
+        if len(cont_fprint_grps) + len(svc_fprint_grps) > 0:
             output_list.append(
                 f"{lib.WARNING_COLOR}The fingerprints below are not covered by"
                 f" a policy:{lib.COLOR_END}"
@@ -327,7 +327,7 @@ def fprint_grp_output_wide(
         output_list.append(
             f"Policy coverage for queried fingerprints: {percentage}%"
         )
-        if len(fingerprint_groups) > 0:
+        if len(cont_fprint_grps) + len(svc_fprint_grps) > 0:
             output_list.append(
                 f"{lib.WARNING_COLOR}The fingerprints below are not covered by"
                 f" a policy:{lib.COLOR_END}"
