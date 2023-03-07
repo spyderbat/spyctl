@@ -4,7 +4,6 @@ from fnmatch import fnmatch
 from pathlib import Path
 from itertools import groupby
 import pytest
-from pathlib import Path
 
 from click.testing import CliRunner
 
