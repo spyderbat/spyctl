@@ -1004,6 +1004,18 @@ def get(
     is_flag=True,
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["yes_except"],
+)
+@click.option(
+    "-Y",
+    "--yes-except",
+    "--assume-yes-except-review",
+    is_flag=True,
+    help='Automatic yes to merge prompts; assume "yes" as answer to all merge'
+    " prompts but still prompts review of policy updates before applying.",
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["yes"],
 )
 def merge(
     filename,
@@ -1012,6 +1024,7 @@ def merge(
     st,
     et,
     yes=False,
+    yes_except=False,
     with_file=None,
     with_policy=None,
     latest=False,
@@ -1089,7 +1102,7 @@ def merge(
     Note: Long time ranges or "get" commands in a context consisting of
     multiple machines can take a long time.
     """  # noqa E501
-    if yes:
+    if yes or yes_except:
         cli.set_yes_option()
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
@@ -1103,6 +1116,7 @@ def merge(
         latest,
         output,
         output_to_file,
+        yes_except,
     )
 
 

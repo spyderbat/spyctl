@@ -15,6 +15,8 @@ POLICIES = None
 MATCHING = "matching"
 ALL = "all"
 
+YES_EXCEPT = False
+
 
 def handle_merge(
     filename_target: List[IO],
@@ -26,8 +28,10 @@ def handle_merge(
     latest: bool,
     output: str,
     output_to_file: bool = False,
+    yes_except: bool = False,
 ):
-    global POLICIES
+    global POLICIES, YES_EXCEPT
+    YES_EXCEPT = yes_except
     if not POLICIES and (with_policy or policy_target):
         ctx = cfgs.get_current_context()
         POLICIES = api.get_policies(*ctx.get_api_data())
@@ -346,14 +350,18 @@ def apply_merge(merge_obj: m_lib.MergeObject):
     data = merge_obj.get_obj_data()
     pol_name = lib.get_metadata_name(data)
     pol_uid = data[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
-    if not cli.YES_OPTION and cli.query_yes_no(
-        f"Review merge updates to '{pol_name}-{pol_uid}'?", default="no"
+    if (YES_EXCEPT or not cli.YES_OPTION) and cli.query_yes_no(
+        f"Review merge updates to '{pol_name}-{pol_uid}'?",
+        default="no",
+        ignore_yes_option=YES_EXCEPT,
     ):
         cli.show(
             merge_obj.get_diff(), lib.OUTPUT_RAW, dest=lib.OUTPUT_DEST_PAGER
         )
     if not cli.query_yes_no(
-        f"Apply merge changes to '{pol_name}-{pol_uid}'?", default=None
+        f"Apply merge changes to '{pol_name}-{pol_uid}'?",
+        default=None,
+        ignore_yes_option=YES_EXCEPT,
     ):
         return
     apply.handle_apply_policy(data)
