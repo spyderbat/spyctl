@@ -49,7 +49,7 @@ To enable shell completion, follow these steps:
 
         Generate the shell completion script.
 
-        .. code-block:: bash
+        .. code-block:: console
 
             $ _SPYCTL_COMPLETE=bash_source spyctl > ~/.spyctl/spyctl-complete.bash
 
