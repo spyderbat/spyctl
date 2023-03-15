@@ -3,7 +3,7 @@ kind: SpyderbatPolicy
 metadata:
   name: auditd.service-policy
   type: linux-service
-  latestTimestamp: 1677780073.8570778
+  latestTimestamp: 1678281542.4430509
 spec:
   serviceSelector:
     cgroup: systemd:/system.slice/auditd.service
@@ -14,6 +14,15 @@ spec:
     id: auditd_0
     euser:
     - root
+    children:
+    - name: audispd
+      exe:
+      - /usr/sbin/audispd
+      id: audispd_0
+    - name: sedispatch
+      exe:
+      - /usr/sbin/sedispatch
+      id: sedispatch_0
   networkPolicy:
     ingress: []
     egress: []
@@ -21,5 +30,8 @@ spec:
     default:
     - makeRedFlag:
         severity: info
-        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'      
+        content: This is a provisional flag indicating a would-be policy violation.
+          Use the `spyctl merge` command to tailor this policy to your environment,
+          and update the severity as needed.
     actions: []
+
