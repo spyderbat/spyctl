@@ -416,9 +416,7 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
             try:
                 fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
             except Exception as e:
-                cli.try_log(
-                    f"Error parsing fingerprint. {' '.join(e.args)}"
-                )
+                cli.try_log(f"Error parsing fingerprint. {' '.join(e.args)}")
                 continue
             if "metadata" in fprint:
                 fingerprints.append(fprint)
@@ -499,8 +497,16 @@ def get_source_data(api_url, api_key, org_uid, muids, schema, time):
 
 
 def get_processes(api_url, api_key, org_uid, muids, time):
-    return list(get_source_data(api_url, api_key, org_uid, muids, "model_process", time))
+    return list(
+        get_source_data(
+            api_url, api_key, org_uid, muids, "model_process", time
+        )
+    )
 
 
 def get_connections(api_url, api_key, org_uid, muids, time):
-    return list(get_source_data(api_url, api_key, org_uid, muids, "model_connection", time))
+    return list(
+        get_source_data(
+            api_url, api_key, org_uid, muids, "model_connection", time
+        )
+    )
