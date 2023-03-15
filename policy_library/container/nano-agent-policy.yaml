@@ -3,7 +3,7 @@ kind: SpyderbatPolicy
 metadata:
   name: nano-agent-policy
   type: container
-  latestTimestamp: 1677604740.3899906
+  latestTimestamp: 1678286743.7830691
 spec:
   containerSelector:
     image: '*nano-agent:*'
@@ -99,6 +99,18 @@ spec:
     id: lsof_3
     euser:
     - root
+  - name: Bashbat
+    exe:
+    - /hostopt/spyderbat/tmp/bat*
+    id: bashbat_1
+    euser:
+    - root
+  - name: Auth
+    exe:
+    - /hostopt/spyderbat/tmp/bat*
+    id: auth_1
+    euser:
+    - root
   networkPolicy:
     ingress:
     - from:
@@ -154,11 +166,17 @@ spec:
     egress:
     - to:
       - dnsSelector:
+        - "*orc.prod.spyderbat.com"
+      - dnsSelector:
         - ec2.us-west-2.amazonaws.com
       - dnsSelector:
         - orc.kangaroobat.net
       - ipBlock:
+          cidr: 3.210.19.214/32
+      - ipBlock:
           cidr: 44.196.88.154/32
+      - ipBlock:
+          cidr: 52.4.167.239/32
       - ipBlock:
           cidr: 52.46.140.46/32
       - ipBlock:
@@ -183,6 +201,8 @@ spec:
           cidr: 52.46.155.190/32
       - ipBlock:
           cidr: 52.46.159.174/32
+      - ipBlock:
+          cidr: 52.73.151.79/32
       - ipBlock:
           cidr: 52.94.176.188/32
       - ipBlock:
@@ -354,9 +374,20 @@ spec:
       ports:
       - protocol: TCP
         port: 80
+    - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      processes:
+      - nano_agent_0
+      ports:
+      - protocol: TCP
+        port: 53
   response:
     default:
     - makeRedFlag:
         severity: info
-        content: 'This is a provisional flag indicating a would-be policy violation. Use the `spyctl merge` command to tailor this policy to your environment, and update the severity as needed.'
+        content: This is a provisional flag indicating a would-be policy violation.
+          Use the `spyctl merge` command to tailor this policy to your environment,
+          and update the severity as needed.
     actions: []
+
