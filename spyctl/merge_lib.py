@@ -64,12 +64,14 @@ class MergeObject:
         obj_data: Dict,
         merge_schemas: List["MergeSchema"],
         validation_fn: Callable,
+        merge_network: bool = True,
     ) -> None:
         self.original_obj = deepcopy(obj_data)
         self.obj_data = deepcopy(obj_data)
         self.schemas = merge_schemas
         self.validation_fn = validation_fn
         self.starting_yaml = yaml.dump(obj_data)
+        self.merge_network = merge_network
 
     def symmetric_merge(self, other: Union["MergeObject", Dict]):
         global BASE_NODE_LIST, MERGING_NODE_LIST
@@ -201,6 +203,8 @@ class MergeObject:
     def __handle_merge_functions(
         self, data: Any, other_data: Any, func: Callable, symmetric: bool
     ):
+        if not self.merge_network and func == merge_ingress_or_egress:
+            return data
         if symmetric:
             if data is None or other_data is None:
                 result = None

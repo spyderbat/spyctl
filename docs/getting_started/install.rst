@@ -43,15 +43,15 @@ To enable shell completion, follow these steps:
 
         Create the Spyctl directory if you haven't already.
 
-        .. code-block:: bash
+        .. code-block:: console
 
             $ mkdir -p ~/.spyctl
 
         Generate the shell completion script.
 
-        .. code-block:: bash
+        .. code-block:: console
 
-            $ _SPYCTL_COMPLETE=bash_source spyctl > ~/.spyctl/.spyctl-complete.bash
+            $ _SPYCTL_COMPLETE=bash_source spyctl > ~/.spyctl/spyctl-complete.bash
 
         Source the file in ``~/.bashrc``. Add the following line to the end of ``~/.bashrc``.
 
@@ -63,7 +63,7 @@ To enable shell completion, follow these steps:
         
         Generate and save the shell completion script.
 
-        .. code-block:: fish
+        .. code-block:: console
 
             $ _SPYCTL_COMPLETE=fish_source spyctl > ~/.config/fish/completions/spyctl-complete.fish
     
@@ -71,13 +71,13 @@ To enable shell completion, follow these steps:
 
         Create the Spyctl directory if you haven't already.
         
-        .. code-block:: zsh
+        .. code-block:: console
             
             $ mkdir -p ~/.spyctl
 
         Generate the shell completion script.
 
-        .. code-block:: zsh
+        .. code-block:: console
 
             $ _SPYCTL_COMPLETE=zsh_source spyctl > ~/.spyctl/spyctl-complete.zsh
 

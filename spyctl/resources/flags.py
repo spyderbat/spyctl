@@ -75,7 +75,12 @@ def flags_output_summary(flags: List[Dict]) -> str:
     output = tabulate(
         sorted(
             data,
-            key=lambda x: [_severity_index(x[1]), x[0], _to_timestamp(x[3])],
+            key=lambda x: [
+                _severity_index(x[1]),
+                x[0],
+                x[4],
+                _to_timestamp(x[3]),
+            ],
         ),
         headers=headers,
         tablefmt="plain",

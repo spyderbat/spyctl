@@ -12,6 +12,7 @@ import spyctl.spyctl_lib as lib
 import spyctl.schemas as schemas
 
 POLICIES = None
+FINGERPRINTS = None
 MATCHING = "matching"
 ALL = "all"
 
@@ -29,6 +30,7 @@ def handle_merge(
     output: str,
     output_to_file: bool = False,
     yes_except: bool = False,
+    merge_network: bool = True,
 ):
     global POLICIES, YES_EXCEPT
     YES_EXCEPT = yes_except
@@ -61,7 +63,9 @@ def handle_merge(
             )
             # If we have something to merge, add to actions
             if with_obj:
-                merged_obj = merge_resource(target, with_obj)
+                merged_obj = merge_resource(
+                    target, target_name, with_obj, merge_network=merge_network
+                )
                 if merged_obj:
                     handle_output(output, output_dest, merged_obj)
             elif with_obj is False:
@@ -93,7 +97,12 @@ def handle_merge(
                 )
                 # If we have something to merge, add to actions
                 if with_obj:
-                    merged_obj = merge_resource(target, with_obj)
+                    merged_obj = merge_resource(
+                        target,
+                        target_name,
+                        with_obj,
+                        merge_network=merge_network,
+                    )
                     if merged_obj:
                         handle_output(output, output_dest, merged_obj)
                 elif with_obj is False:
@@ -148,7 +157,12 @@ def handle_merge(
                     output_dest,
                 )
                 if with_obj:
-                    merged_obj = merge_resource(target, with_obj)
+                    merged_obj = merge_resource(
+                        target,
+                        target_name,
+                        with_obj,
+                        merge_network=merge_network,
+                    )
                     if merged_obj:
                         handle_output(output, output_dest, merged_obj, pager)
                 elif with_obj is False:
@@ -171,7 +185,7 @@ def get_with_obj(
     latest,
     dest: str = "",
 ) -> Optional[Union[Dict, List[Dict], bool]]:
-    # target_name = lib.get_metadata_name(target)
+    global FINGERPRINTS
     target_uid = target.get(lib.METADATA_FIELD, {}).get(lib.METADATA_UID_FIELD)
     if dest == lib.OUTPUT_DEST_API:
         apply_disclaimer = (
@@ -219,13 +233,34 @@ def get_with_obj(
             ):
                 return False
     else:
+        if latest:
+            latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
+                lib.LATEST_TIMESTAMP_FIELD
+            )
+            if latest_timestamp is not None:
+                st = lib.time_inp(latest_timestamp)
+            else:
+                cli.err_exit(
+                    f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided"
+                    f" resource {lib.METADATA_FIELD} field. Defaulting to"
+                    " 24hrs."
+                )
+            if FINGERPRINTS is not None:
+                cli.try_log("--latest flag set, re-downloading fingerprints..")
+                FINGERPRINTS = None
         if not cli.query_yes_no(
             f"Merge {target_name} with relevant Fingerprints from"
             f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
             f"{apply_disclaimer}"
         ):
             return False
-        with_obj = get_with_fingerprints(target, st, et, latest)
+        if FINGERPRINTS is None:
+            with_obj = get_with_fingerprints(target, st, et)
+            cli.try_log(f"Filtering fingerprints for {target_name}")
+            with_obj = filter_fingerprints(target, with_obj)
+        else:
+            cli.try_log(f"Filtering fingerprints for {target_name}")
+            with_obj = filter_fingerprints(target, FINGERPRINTS)
     return with_obj
 
 
@@ -244,19 +279,8 @@ def load_with_file(with_file: IO) -> Dict:
     return rv
 
 
-def get_with_fingerprints(target: Dict, st, et, latest: bool) -> List[Dict]:
-    if latest:
-        latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
-            lib.LATEST_TIMESTAMP_FIELD
-        )
-        if latest_timestamp is not None:
-            st = lib.time_inp(latest_timestamp)
-        else:
-            cli.err_exit(
-                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided"
-                f" resource {lib.METADATA_FIELD} field. Defaulting to"
-                " 24hrs."
-            )
+def get_with_fingerprints(target: Dict, st, et) -> List[Dict]:
+    global FINGERPRINTS
     filters = lib.selectors_to_filters(target)
     ctx = cfgs.get_current_context()
     machines = api.get_machines(*ctx.get_api_data())
@@ -269,10 +293,16 @@ def get_with_fingerprints(target: Dict, st, et, latest: bool) -> List[Dict]:
         muids=muids,
         time=(st, et),
     )
-    fingerprints = filt.filter_fingerprints(
+    FINGERPRINTS = fingerprints
+    return fingerprints
+
+
+def filter_fingerprints(target, fingerprints) -> List[Dict]:
+    filters = lib.selectors_to_filters(target)
+    rv = filt.filter_fingerprints(
         fingerprints, **filters, use_context_filters=False
     )
-    return fingerprints
+    return rv
 
 
 def get_with_policy(pol_uid: str, policies: List[Dict]) -> Dict:
@@ -280,7 +310,11 @@ def get_with_policy(pol_uid: str, policies: List[Dict]) -> Dict:
 
 
 def merge_resource(
-    target: Dict, with_obj: Union[Dict, List[Dict]], src_cmd="merge"
+    target: Dict,
+    target_name: str,
+    with_obj: Union[Dict, List[Dict]],
+    src_cmd="merge",
+    merge_network=True,
 ) -> Optional[m_lib.MergeObject]:
     if target == with_obj:
         cli.try_log(
@@ -290,11 +324,14 @@ def merge_resource(
     resrc_kind = target.get(lib.KIND_FIELD)
     if resrc_kind == lib.BASELINE_KIND:
         merge_obj = m_lib.MergeObject(
-            target, b.BASELINE_MERGE_SCHEMAS, schemas.valid_object
+            target,
+            b.BASELINE_MERGE_SCHEMAS,
+            schemas.valid_object,
+            merge_network,
         )
     elif resrc_kind == lib.POL_KIND:
         merge_obj = m_lib.MergeObject(
-            target, p.POLICY_MERGE_SCHEMAS, schemas.valid_object
+            target, p.POLICY_MERGE_SCHEMAS, schemas.valid_object, merge_network
         )
     else:
         cli.try_log(
@@ -319,8 +356,8 @@ def merge_resource(
         )
     if target[lib.SPEC_FIELD] == merge_obj.get_obj_data().get(lib.SPEC_FIELD):
         cli.try_log(
-            f"{src_cmd} produced no updates to the '{lib.SPEC_FIELD}'"
-            " field.. skipping"
+            f"{src_cmd} of {target_name} produced no updates to the"
+            f" '{lib.SPEC_FIELD}' field.. skipping"
         )
         return None
     return merge_obj
@@ -336,9 +373,7 @@ def handle_output(
     if output_dest == lib.OUTPUT_DEST_API:
         apply_merge(merge_obj)
     elif output_dest == lib.OUTPUT_DEST_FILE:
-        out_fn = find_filename(data)
-        out_fn = lib.unique_fn(out_fn, output_format)
-        cli.show(data, output_format, dest=output_dest, output_fn=out_fn)
+        save_merge_to_file(merge_obj, output_format)
     else:
         if pager:
             cli.show(data, output_format, dest=lib.OUTPUT_DEST_PAGER)
@@ -367,15 +402,25 @@ def apply_merge(merge_obj: m_lib.MergeObject):
     apply.handle_apply_policy(data)
 
 
-def find_filename(data: Dict) -> str:
-    rv = data.get(lib.METADATA_FIELD, {}).get(lib.METADATA_NAME_FIELD)
-    if rv:
-        rv = lib.slugify(rv)
-        rv.replace(" ", "_")
-    if not rv:
-        rv: str = data.get(lib.KIND_FIELD)
-        if rv:
-            rv = rv.strip(" ").replace(" ", "_").lower()
-    if not rv:
-        rv = "merge_output"
-    return rv
+def save_merge_to_file(merge_obj: m_lib.MergeObject, output_format):
+    data = merge_obj.get_obj_data()
+    pol_name = lib.get_metadata_name(data)
+    pol_uid = data[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+    pol_str = f"{pol_name}-{pol_uid}" if pol_uid else pol_name
+    if (YES_EXCEPT or not cli.YES_OPTION) and cli.query_yes_no(
+        f"Review merge updates to '{pol_str}'?",
+        default="no",
+        ignore_yes_option=YES_EXCEPT,
+    ):
+        cli.show(
+            merge_obj.get_diff(), lib.OUTPUT_RAW, dest=lib.OUTPUT_DEST_PAGER
+        )
+    if not cli.query_yes_no(
+        f"Apply merge changes to '{pol_name}-{pol_uid}'?",
+        default=None,
+        ignore_yes_option=YES_EXCEPT,
+    ):
+        return
+    out_fn = lib.find_resource_filename(data, "merge_output")
+    out_fn = lib.unique_fn(out_fn, output_format)
+    cli.show(data, output_format, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn)

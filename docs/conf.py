@@ -10,7 +10,7 @@ project = "Spyctl"
 copyright = "2023, SPYDERBAT, Inc., All Rights Reserved"
 author = "Spyderbat"
 release = "0.9"
-version = "0.9.21"
+version = "0.9.23"
 
 
 # -- General configuration ---------------------------------------------------

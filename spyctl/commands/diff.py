@@ -9,6 +9,7 @@ import spyctl.spyctl_lib as lib
 import spyctl.commands.merge as merge_cmd
 
 POLICIES = None
+FINGERPRINTS = None
 MATCHING = "matching"
 ALL = "all"
 LOADED_RESOURCE = None
@@ -22,6 +23,7 @@ def handle_diff(
     st,
     et,
     latest,
+    merge_network=True,
 ):
     global POLICIES
     if not POLICIES and (with_policy or policy_target):
@@ -49,7 +51,9 @@ def handle_diff(
                 target, target_name, with_file, with_policy, st, et, latest
             )
             if with_obj:
-                diff_resource(target, with_obj, pager)
+                diff_resource(
+                    target, target_name, with_obj, pager, merge_network
+                )
             elif with_obj is False:
                 continue
             else:
@@ -80,7 +84,9 @@ def handle_diff(
                     latest,
                 )
                 if with_obj:
-                    diff_resource(target, with_obj, pager)
+                    diff_resource(
+                        target, target_name, with_obj, pager, merge_network
+                    )
                 elif with_obj is False:
                     continue
                 else:
@@ -133,7 +139,9 @@ def handle_diff(
                     latest,
                 )
                 if with_obj:
-                    diff_resource(target, with_obj, pager)
+                    diff_resource(
+                        target, target_name, with_obj, pager, merge_network
+                    )
                 elif with_obj is False:
                     continue
                 else:
@@ -148,6 +156,7 @@ def handle_diff(
 def get_with_obj(
     target: Dict, target_name, with_file: IO, with_policy: str, st, et, latest
 ) -> Optional[Union[Dict, List[Dict]]]:
+    global FINGERPRINTS
     target_uid = target.get(lib.METADATA_FIELD, {}).get(lib.METADATA_UID_FIELD)
     if with_file:
         with_obj = load_with_file(with_file)
@@ -187,12 +196,33 @@ def get_with_obj(
             ):
                 return False
     else:
+        if latest:
+            latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
+                lib.LATEST_TIMESTAMP_FIELD
+            )
+            if latest_timestamp is not None:
+                st = lib.time_inp(latest_timestamp)
+            else:
+                cli.err_exit(
+                    f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided"
+                    f" resource {lib.METADATA_FIELD} field. Defaulting to"
+                    " 24hrs."
+                )
+            if FINGERPRINTS is not None:
+                cli.try_log("--latest flag set, re-downloading fingerprints..")
+                FINGERPRINTS = None
         if not cli.query_yes_no(
             f"diff {target_name} with relevant Fingerprints from"
             f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
         ):
             return False
-        with_obj = get_with_fingerprints(target, st, et, latest)
+        if FINGERPRINTS is None:
+            with_obj = get_with_fingerprints(target, st, et)
+            cli.try_log(f"Filtering fingerprints for {target_name}")
+            with_obj = filter_fingerprints(target, with_obj)
+        else:
+            cli.try_log(f"Filtering fingerprints for {target_name}")
+            with_obj = filter_fingerprints(target, FINGERPRINTS)
     return with_obj
 
 
@@ -212,21 +242,10 @@ def load_with_file(with_file: IO) -> Dict:
     return rv
 
 
-def get_with_fingerprints(target: Dict, st, et, latest: bool) -> List[Dict]:
-    if latest:
-        latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
-            lib.LATEST_TIMESTAMP_FIELD
-        )
-        if latest_timestamp is not None:
-            st = lib.time_inp(latest_timestamp)
-        else:
-            cli.err_exit(
-                f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided"
-                f" resource {lib.METADATA_FIELD} field. Defaulting to"
-                " 24hrs."
-            )
-    filters = lib.selectors_to_filters(target)
+def get_with_fingerprints(target: Dict, st, et) -> List[Dict]:
+    global FINGERPRINTS
     ctx = cfgs.get_current_context()
+    filters = lib.selectors_to_filters(target)
     machines = api.get_machines(*ctx.get_api_data())
     machines = filt.filter_machines(
         machines, filters, use_context_filters=False
@@ -237,10 +256,16 @@ def get_with_fingerprints(target: Dict, st, et, latest: bool) -> List[Dict]:
         muids=muids,
         time=(st, et),
     )
-    fingerprints = filt.filter_fingerprints(
+    FINGERPRINTS = fingerprints
+    return fingerprints
+
+
+def filter_fingerprints(target, fingerprints) -> List[Dict]:
+    filters = lib.selectors_to_filters(target)
+    rv = filt.filter_fingerprints(
         fingerprints, **filters, use_context_filters=False
     )
-    return fingerprints
+    return rv
 
 
 def get_with_policy(pol_uid: str, policies: List[Dict]) -> Dict:
@@ -248,9 +273,15 @@ def get_with_policy(pol_uid: str, policies: List[Dict]) -> Dict:
 
 
 def diff_resource(
-    target: Dict, with_obj: Union[Dict, List[Dict]], pager=False
+    target: Dict,
+    target_name,
+    with_obj: Union[Dict, List[Dict]],
+    pager=False,
+    merge_network=True,
 ):
-    merged_obj = merge_cmd.merge_resource(target, with_obj, "diff")
+    merged_obj = merge_cmd.merge_resource(
+        target, target_name, with_obj, "diff", merge_network
+    )
     if merged_obj:
         diff_data = merged_obj.get_diff()
         if pager:
