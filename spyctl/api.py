@@ -1,5 +1,4 @@
 import json
-import sys
 import time
 from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
