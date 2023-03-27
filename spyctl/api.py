@@ -1,5 +1,4 @@
 import json
-import sys
 import time
 from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,9 +26,11 @@ TIMEOUT = (6.10, 300)
 AUTO_HIDE_TIME = zulu.now().shift(days=-1)
 
 
-def get(url, key, params=None):
+def get(url, key, params=None, raise_notfound=False):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
+    if r.status_code == 404 and raise_notfound:
+        raise ValueError
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]
@@ -41,9 +42,11 @@ def get(url, key, params=None):
     return r
 
 
-def post(url, data, key):
+def post(url, data, key, raise_notfound=False):
     headers = {"Authorization": f"Bearer {key}"}
     r = requests.post(url, json=data, headers=headers, timeout=TIMEOUT)
+    if r.status_code == 404 and raise_notfound:
+        raise ValueError
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]
@@ -92,6 +95,29 @@ def threadpool_progress_bar(arg_per_thread, function):
         for task in as_completed(threads):
             pbar.update(1)
             yield task.result()
+
+
+def get_filtered_data(
+    api_url,
+    api_key,
+    org_uid,
+    source,
+    datatype,
+    schema,
+    time,
+    raise_notfound=False,
+):
+    url = f"{api_url}/api/v1/source/query/"
+    data = {
+        "start_time": time[0],
+        "end_time": time[1],
+        "org_uid": org_uid,
+        "data_type": datatype,
+        "pipeline": [{"filter": {"schema": schema}}, {"latest_model": {}}],
+    }
+    if source:
+        data["src_uid"] = source
+    return post(url, data, api_key, raise_notfound)
 
 
 def get_orgs(api_url, api_key) -> List[Tuple]:
@@ -191,20 +217,41 @@ def get_clusters(api_url, api_key, org_uid):
     return clusters
 
 
-def get_k8s_data(api_url, api_key, org_uid, clus_uid, schema_key, time):
+def get_k8s_data(
+    api_url, api_key, org_uid, clus_uid, stream, schema_key, time
+):
+    src = clus_uid + "_" + stream if stream else clus_uid
     url = f"{api_url}/api/v1/org/{org_uid}/data/"
-    url += f"?src={clus_uid}&st={time[0]}&et={time[1]}&dt=k8s"
-    resp = get(url, api_key)
+    url += f"?src={src}&st={time[0]}&et={time[1]}&dt=k8s"
+    try:
+        resp = get_filtered_data(
+            api_url,
+            api_key,
+            org_uid,
+            src,
+            "k8s",
+            schema_key,
+            time,
+            raise_notfound=bool(stream),
+        )
+    except ValueError:
+        return get_k8s_data(
+            api_url, api_key, org_uid, clus_uid, "", schema_key, time
+        )
     for k8s_json in resp.iter_lines():
-        data = json.loads(k8s_json)
-        if schema_key in data["schema"]:
-            yield data
+        yield json.loads(k8s_json)
 
 
 def get_clust_deployments(api_url, api_key, org_uid, clus_uid, time):
     deployments = []
     for data in get_k8s_data(
-        api_url, api_key, org_uid, clus_uid, "deployment", time
+        api_url,
+        api_key,
+        org_uid,
+        clus_uid,
+        "base",
+        "model_k8s_deployment",
+        time,
     ):
         deployments.append(data)
     return deployments
@@ -231,7 +278,7 @@ def get_deployments(api_url, api_key, org_uid, clusters, time):
 def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
     ns = set()
     for data in get_k8s_data(
-        api_url, api_key, org_uid, clus_uid, "cluster", time
+        api_url, api_key, org_uid, clus_uid, "base", "model_k8s_cluster", time
     ):
         data_ns = data.get("namespaces", set())
         ns.update(data_ns)
@@ -276,7 +323,7 @@ def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
 def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
     nodes = {}
     for data in get_k8s_data(
-        api_url, api_key, org_uid, clus_uid, "node", time
+        api_url, api_key, org_uid, clus_uid, "base", "model_k8s_node", time
     ):
         node_id = data["id"]
         if node_id not in nodes:
@@ -306,7 +353,9 @@ def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
 
 def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
     pods = {}
-    for data in get_k8s_data(api_url, api_key, org_uid, clus_uid, "pod", time):
+    for data in get_k8s_data(
+        api_url, api_key, org_uid, clus_uid, "poco", "model_k8s_pod", time
+    ):
         pod_id = data["id"]
         if pod_id not in pods:
             pods[pod_id] = data
@@ -316,36 +365,34 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
 
 
 def get_redflags(api_url, api_key, org_uid, time):
-    url = (
-        f"{api_url}/api/v1/org/{org_uid}/data/?"
-        f"st={time[0]}&et={time[1]}&dt=redflags"
-    )
     flags = []
-    resp = get(url, api_key)
+    resp = get_filtered_data(
+        api_url,
+        api_key,
+        org_uid,
+        "",
+        "redflags",
+        lib.EVENT_REDFLAG_PREFIX,
+        time,
+    )
     for flag_data in resp.iter_lines():
-        flag_json = json.loads(flag_data)
-        schema = flag_json.get(lib.SCHEMA_FIELD)
-        if isinstance(schema, str) and schema.startswith(
-            lib.EVENT_REDFLAG_PREFIX
-        ):
-            flags.append(flag_json)
+        flags.append(json.loads(flag_data))
     return flags
 
 
 def get_opsflags(api_url, api_key, org_uid, time):
-    url = (
-        f"{api_url}/api/v1/org/{org_uid}/data/?"
-        f"st={time[0]}&et={time[1]}&dt=redflags"
-    )
     flags = []
-    resp = get(url, api_key)
+    resp = get_filtered_data(
+        api_url,
+        api_key,
+        org_uid,
+        "",
+        "redflags",
+        lib.EVENT_OPSFLAG_PREFIX,
+        time,
+    )
     for flag_data in resp.iter_lines():
-        flag_json = json.loads(flag_data)
-        schema = flag_json.get(lib.SCHEMA_FIELD)
-        if isinstance(schema, str) and schema.startswith(
-            lib.EVENT_OPSFLAG_PREFIX
-        ):
-            flags.append(flag_json)
+        flags.append(json.loads(flag_data))
     return flags
 
 
@@ -353,27 +400,25 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
     fingerprints = []
     for resp in threadpool_progress_bar(
         muids,
-        lambda muid: get(
-            f"{api_url}/api/v1/org/{org_uid}/data/?src={muid}"
-            f"&st={time[0]}&et={time[1]}&dt=fingerprints",
+        lambda muid: get_filtered_data(
+            api_url,
             api_key,
+            org_uid,
+            muid,
+            "fingerprints",
+            lib.MODEL_FINGERPRINT_PREFIX,
+            time,
         ),
     ):
         for fprint_json in resp.iter_lines():
             fprint = json.loads(fprint_json)
-            schema = fprint.get(lib.SCHEMA_FIELD)
-            if isinstance(schema, str) and schema.startswith(
-                lib.MODEL_FINGERPRINT_PREFIX
-            ):
-                try:
-                    fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
-                except Exception as e:
-                    cli.try_log(
-                        f"Error parsing fingerprint. {' '.join(e.args)}"
-                    )
-                    continue
-                if "metadata" in fprint:
-                    fingerprints.append(fprint)
+            try:
+                fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
+            except Exception as e:
+                cli.try_log(f"Error parsing fingerprint. {' '.join(e.args)}")
+                continue
+            if "metadata" in fprint:
+                fingerprints.append(fprint)
     return fingerprints
 
 
@@ -433,45 +478,34 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     return resp
 
 
-def get_source_data(api_url, api_key, org_uid, muids, time):
-    pbar = tqdm.tqdm(total=len(muids), leave=False)
-    threads = []
-    ids = set()
-    with ThreadPoolExecutor() as executor:
-        for muid in muids:
-            url = (
-                f"{api_url}/api/v1/org/{org_uid}/data/?"
-                f"src={muid}&st={time[0]}&et={time[1]}&dt=spydergraph"
-            )
-            threads.append(
-                executor.submit(
-                    get,
-                    url,
-                    api_key,
-                )
-            )
-        for task in as_completed(threads):
-            resp = task.result()
-            for flag_data in resp.iter_lines():
-                obj = json.loads(flag_data)
-                if obj["id"] not in ids:
-                    ids.add(obj["id"])
-                    yield obj
-            pbar.update(1)
-    pbar.close()
+def get_source_data(api_url, api_key, org_uid, muids, schema, time):
+    for resp in threadpool_progress_bar(
+        muids,
+        lambda muid: get_filtered_data(
+            api_url,
+            api_key,
+            org_uid,
+            muid,
+            "spydergraph",
+            schema,
+            time,
+        ),
+    ):
+        for json_obj in resp.iter_lines():
+            yield json.loads(json_obj)
 
 
 def get_processes(api_url, api_key, org_uid, muids, time):
-    processes = []
-    for obj in get_source_data(api_url, api_key, org_uid, muids, time):
-        if obj["schema"].startswith("model_process"):
-            processes.append(obj)
-    return processes
+    return list(
+        get_source_data(
+            api_url, api_key, org_uid, muids, "model_process", time
+        )
+    )
 
 
 def get_connections(api_url, api_key, org_uid, muids, time):
-    connections = []
-    for obj in get_source_data(api_url, api_key, org_uid, muids, time):
-        if obj["schema"].startswith("model_connection"):
-            connections.append(obj)
-    return connections
+    return list(
+        get_source_data(
+            api_url, api_key, org_uid, muids, "model_connection", time
+        )
+    )
