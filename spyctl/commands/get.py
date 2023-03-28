@@ -15,6 +15,7 @@ import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
 import spyctl.resources.connections as spyctl_conns
+import spyctl.resources.containers as spyctl_cont
 import spyctl.spyctl_lib as lib
 
 ALL = "all"
@@ -52,6 +53,8 @@ def handle_get(
         handle_get_processes(name_or_id, st, et, output, **filters)
     elif resource == lib.CONNECTIONS_RESOURCE:
         handle_get_connections(name_or_id, st, et, output, **filters)
+    elif resource== lib.CONTAINER_RESOURCE:
+        handle_get_containers(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
@@ -558,6 +561,25 @@ def handle_get_processes(name_or_id, st, et, output, **filters):
         {lib.OUTPUT_DEFAULT: spyctl_procs.processes_output_summary},
     )
 
+def handle_get_containers(name_or_id, st, et, output, **filters):
+    ctx =cfg.get_current_context()
+    machines= api.get_machines(*ctx.get_api_data())
+    clusters= None
+    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
+        clusters= api.get_clusters(*ctx.get_api_data())
+    machines =filt.filter_machines(machines, clusters, **filters)
+    muids = [m["uid"] for m in machines]
+    containers = api.get_containers(*ctx.get_api_data(), muids, (st, et))
+    containers= filt.filter_containers(containers, **filters)
+    if name_or_id:
+        containers =filt.filter_obj(containers, ["name", "id"], name_or_id
+    )
+    if output!= lib.OUTPUT_DEFAULT:
+        containers = spyctl_cont.container_output(containers)
+    cli.show(
+        containers, 
+        output, {lib.OUTPUT_DEFAULT: spyctl_cont.container_output_summary},
+    )
 
 def handle_get_connections(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
