@@ -18,11 +18,24 @@ import spyctl.resources.connections as spyctl_conns
 import spyctl.spyctl_lib as lib
 
 ALL = "all"
+not_time_based = [
+    lib.MACHINES_RESOURCE,
+    lib.POLICIES_RESOURCE,
+    lib.CLUSTERS_RESOURCE,
+]
 
 
 def handle_get(
     resource, name_or_id, st, et, file, latest, exact, output, **filters
 ):
+    resrc_plural = lib.get_plural_name_from_alias(resource)
+    if resrc_plural and resrc_plural not in not_time_based:
+        cli.try_log(
+            f"Getting {resrc_plural} from {lib.epoch_to_zulu(st)} to"
+            f" {lib.epoch_to_zulu(et)}"
+        )
+    elif resrc_plural:
+        cli.try_log(f"Getting {resrc_plural}")
     if name_or_id and not exact:
         name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
         name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id

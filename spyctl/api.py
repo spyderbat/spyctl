@@ -1,7 +1,9 @@
 import json
 import time
-from typing import Dict, List, Tuple
+import sys
+from typing import Dict, List, Tuple, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
 
 import requests
 import tqdm
@@ -24,6 +26,8 @@ GET_POL_UID_EQUALS = "uid_equals"
 # connection timeout, read timeout
 TIMEOUT = (6.10, 300)
 AUTO_HIDE_TIME = zulu.now().shift(days=-1)
+MAX_TIME_RANGE_SECS = 43200  # 12 hours
+NAMESPACES_MAX_RANGE_SECS = 2000
 
 
 def get(url, key, params=None, raise_notfound=False):
@@ -86,12 +90,63 @@ def delete(url, key):
     return r
 
 
-def threadpool_progress_bar(arg_per_thread, function):
-    pbar = tqdm.tqdm(total=len(arg_per_thread), leave=False)
+def time_blocks(
+    time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS
+) -> List[Tuple]:
+    """Takes a time tuple (start, end) in epoch time and converts
+    it to smaller chunks if necessary.
+
+    Args:
+        time_tup (Tuple): start, end
+
+    Returns:
+        List[Tuple]: A list of (start, end) tuples to be used in api
+            queries
+    """
+    st, et = time_tup
+    if et - st > max_time_range:
+        rv = []
+        while et - st > max_time_range:
+            et2 = min(et, st + max_time_range)
+            rv.append((st, et2))
+            st = et2
+        rv.append((st, et))
+        return rv
+    else:
+        return [time_tup]
+
+
+def threadpool_progress_bar_time_blocks(
+    args_per_thread: List[List],
+    time,
+    function: Callable,
+    max_time_range=MAX_TIME_RANGE_SECS,
+):
+    t_blocks = time_blocks(time, max_time_range)
+    args_per_thread = [
+        [arg, t_block] for arg in args_per_thread for t_block in t_blocks
+    ]
+    pbar = tqdm.tqdm(total=len(args_per_thread), leave=False, file=sys.stderr)
     threads = []
     with ThreadPoolExecutor() as executor:
-        for arg in arg_per_thread:
-            threads.append(executor.submit(function, arg))
+        for args in args_per_thread:
+            threads.append(executor.submit(function, *args))
+        for task in as_completed(threads):
+            pbar.update(1)
+            yield task.result()
+
+
+def threadpool_progress_bar(
+    args_per_thread: List[List], function: Callable, unpack_args=False
+):
+    pbar = tqdm.tqdm(total=len(args_per_thread), leave=False, file=sys.stderr)
+    threads = []
+    with ThreadPoolExecutor() as executor:
+        for args in args_per_thread:
+            if unpack_args:
+                threads.append(executor.submit(function, *args))
+            else:
+                threads.append(executor.submit(function, args))
         for task in as_completed(threads):
             pbar.update(1)
             yield task.result()
@@ -259,19 +314,27 @@ def get_clust_deployments(api_url, api_key, org_uid, clus_uid, time):
 
 def get_deployments(api_url, api_key, org_uid, clusters, time):
     deployments = {}
-    for deploy_list in threadpool_progress_bar(
-        clusters,
-        lambda cluster: get_clust_deployments(
-            api_url, api_key, org_uid, cluster["uid"], time
-        ),
-    ):
-        for deployment in deploy_list:
-            uid = deployment["id"]
-            if (
-                uid not in deployments
-                or deployments[uid]["time"] < deployment["time"]
-            ):
-                deployments[uid] = deployment
+    try:
+        for deploy_list in threadpool_progress_bar_time_blocks(
+            clusters,
+            time,
+            lambda cluster, time_block: get_clust_deployments(
+                api_url, api_key, org_uid, cluster["uid"], time_block
+            ),
+        ):
+            for deployment in deploy_list:
+                uid = deployment["id"]
+                version = deployment["version"]
+                if (
+                    uid not in deployments
+                    or version > deployments[uid]["version"]
+                ):
+                    deployments[uid] = deployment
+    except KeyboardInterrupt:
+        if deployments:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
     return [d for d in deployments.values() if d["status"] == "active"]
 
 
@@ -282,42 +345,67 @@ def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
     ):
         data_ns = data.get("namespaces", set())
         ns.update(data_ns)
-    return (sorted(ns), clus_uid)
+    return (ns, clus_uid)
 
 
 def get_namespaces(api_url, api_key, org_uid, clusters, time):
-    namespaces = []
+    namespaces: Dict[str, set] = defaultdict(set)
     uid_to_name_map = {}
     clusters = [c for c in clusters if "/" not in c["uid"]]
     for cluster in clusters:
         uid_to_name_map[cluster["uid"]] = cluster["name"]
-    for ns_list, uid in threadpool_progress_bar(
-        clusters,
-        lambda cluster: get_clust_namespaces(
-            api_url, api_key, org_uid, cluster["uid"], time
-        ),
-    ):
-        cluster_name = uid_to_name_map[uid]
-        namespaces.append(
+    try:
+        for ns_list, uid in threadpool_progress_bar_time_blocks(
+            clusters,
+            time,
+            lambda cluster, time_block: get_clust_namespaces(
+                api_url, api_key, org_uid, cluster["uid"], time_block
+            ),
+            NAMESPACES_MAX_RANGE_SECS,
+        ):
+            namespaces[uid].update(ns_list)
+    except KeyboardInterrupt:
+        if namespaces:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    rv = []
+    for uid, ns_list in namespaces.items():
+        rv.append(
             {
-                "cluster_name": cluster_name,
+                "cluster_name": uid_to_name_map[uid],
                 "cluster_uid": uid,
                 "namespaces": ns_list,
             }
         )
-    return namespaces
+    return rv
 
 
 def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
-    nodes = []
-    for node_list in threadpool_progress_bar(
-        clusters,
-        lambda cluster: get_clust_nodes(
-            api_url, api_key, org_uid, cluster["uid"], time
-        ),
-    ):
-        nodes.extend(node_list)
-    return nodes
+    nodes = {}
+    try:
+        for node_list in threadpool_progress_bar_time_blocks(
+            clusters,
+            time,
+            lambda cluster, time_block: get_clust_nodes(
+                api_url, api_key, org_uid, cluster["uid"], time_block
+            ),
+        ):
+            for node in node_list:
+                id = node["id"]
+                version = node["version"]
+                if id not in nodes:
+                    nodes[id] = node
+                else:
+                    old_version = nodes[id]["version"]
+                    if version > old_version:
+                        nodes[id] = node
+    except KeyboardInterrupt:
+        if nodes:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(nodes.values())
 
 
 def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
@@ -334,21 +422,30 @@ def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
 
 
 def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
-    pods = []
-    for pod_list in threadpool_progress_bar(
-        clusters,
-        lambda cluster: get_clust_pods(
-            api_url, api_key, org_uid, cluster["uid"], time
-        ),
-    ):
-        pods.extend(
-            filter(
-                lambda rec: lib.KIND_FIELD in rec
-                and rec[lib.KIND_FIELD] == "Pod",
-                pod_list,
-            )
-        )
-    return pods
+    pods = {}
+    try:
+        for pod_list in threadpool_progress_bar_time_blocks(
+            clusters,
+            time,
+            lambda cluster, time_block: get_clust_pods(
+                api_url, api_key, org_uid, cluster["uid"], time_block
+            ),
+        ):
+            for pod in pod_list:
+                id = pod["id"]
+                version = pod["version"]
+                if id not in pods:
+                    pods[id] = pod
+                else:
+                    old_version = pods[id]["version"]
+                    if version > old_version:
+                        pods[id] = pod
+    except KeyboardInterrupt:
+        if pods:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(pods.values())
 
 
 def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
@@ -365,61 +462,115 @@ def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
 
 
 def get_redflags(api_url, api_key, org_uid, time):
-    flags = []
-    resp = get_filtered_data(
-        api_url,
-        api_key,
-        org_uid,
-        "",
-        "redflags",
-        lib.EVENT_REDFLAG_PREFIX,
-        time,
-    )
-    for flag_data in resp.iter_lines():
-        flags.append(json.loads(flag_data))
-    return flags
+    flags = {}
+    try:
+        t_blocks = time_blocks(time)
+        for resp in threadpool_progress_bar(
+            t_blocks,
+            lambda t_block: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                "",
+                "redflags",
+                lib.EVENT_REDFLAG_PREFIX,
+                t_block,
+            ),
+        ):
+            for flag_data in resp.iter_lines():
+                flag = json.loads(flag_data)
+                id = flag["id"]
+                version = flag["version"]
+                if id not in flags:
+                    flags[id] = flag
+                else:
+                    old_version = flags[id]["version"]
+                    if version > old_version:
+                        flags[id] = flag
+    except KeyboardInterrupt:
+        if flags:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(flags.values())
 
 
 def get_opsflags(api_url, api_key, org_uid, time):
-    flags = []
-    resp = get_filtered_data(
-        api_url,
-        api_key,
-        org_uid,
-        "",
-        "redflags",
-        lib.EVENT_OPSFLAG_PREFIX,
-        time,
-    )
-    for flag_data in resp.iter_lines():
-        flags.append(json.loads(flag_data))
-    return flags
+    flags = {}
+    try:
+        t_blocks = time_blocks(time)
+        for resp in threadpool_progress_bar(
+            t_blocks,
+            lambda t_block: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                "",
+                "redflags",
+                lib.EVENT_OPSFLAG_PREFIX,
+                time,
+            ),
+        ):
+            for flag_data in resp.iter_lines():
+                flag = json.loads(flag_data)
+                id = flag["id"]
+                version = flag["version"]
+                if id not in flags:
+                    flags[id] = flag
+                else:
+                    old_version = flags[id]["version"]
+                    if version > old_version:
+                        flags[id] = flag
+    except KeyboardInterrupt:
+        if flags:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(flags.values())
 
 
 def get_fingerprints(api_url, api_key, org_uid, muids, time):
-    fingerprints = []
-    for resp in threadpool_progress_bar(
-        muids,
-        lambda muid: get_filtered_data(
-            api_url,
-            api_key,
-            org_uid,
-            muid,
-            "fingerprints",
-            lib.MODEL_FINGERPRINT_PREFIX,
+    fingerprints = {}
+    try:
+        for resp in threadpool_progress_bar_time_blocks(
+            muids,
             time,
-        ),
-    ):
-        for fprint_json in resp.iter_lines():
-            fprint = json.loads(fprint_json)
-            try:
-                fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
-            except Exception as e:
-                cli.try_log(f"Error parsing fingerprint. {' '.join(e.args)}")
-                continue
-            if "metadata" in fprint:
-                fingerprints.append(fprint)
-    return fingerprints
+            lambda muid, time_tup: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                muid,
+                "fingerprints",
+                lib.MODEL_FINGERPRINT_PREFIX,
+                time_tup,
+            ),
+        ):
+            for fprint_json in resp.iter_lines():
+                fprint = json.loads(fprint_json)
+                try:
+                    id = fprint["id"]
+                    version = fprint["version"]
+                    fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
+                    fprint[lib.METADATA_FIELD]["version"] = version
+                except Exception as e:
+                    cli.try_log(
+                        f"Error parsing fingerprint. {' '.join(e.args)}"
+                    )
+                    continue
+                if id not in fingerprints:
+                    fingerprints[id] = fprint
+                else:
+                    old_fp_version = fingerprints[id][lib.METADATA_FIELD][
+                        "version"
+                    ]
+                    if version > old_fp_version:
+                        fingerprints[id] = fprint
+    except KeyboardInterrupt:
+        if fingerprints:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(fingerprints.values())
 
 
 def get_policies(api_url, api_key, org_uid, params=None):
@@ -462,7 +613,6 @@ def get_policy(api_url, api_key, org_uid, pol_uid):
 def post_new_policy(api_url, api_key, org_uid, data: Dict):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     resp = post(url, data, api_key)
-    # cli.try_log(resp.text)
     return resp
 
 
@@ -479,16 +629,17 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
 
 
 def get_source_data(api_url, api_key, org_uid, muids, schema, time):
-    for resp in threadpool_progress_bar(
+    for resp in threadpool_progress_bar_time_blocks(
         muids,
-        lambda muid: get_filtered_data(
+        time,
+        lambda muid, time_block: get_filtered_data(
             api_url,
             api_key,
             org_uid,
             muid,
             "spydergraph",
             schema,
-            time,
+            time_block,
         ),
     ):
         for json_obj in resp.iter_lines():
@@ -496,16 +647,53 @@ def get_source_data(api_url, api_key, org_uid, muids, schema, time):
 
 
 def get_processes(api_url, api_key, org_uid, muids, time):
-    return list(
-        get_source_data(
+    processes = {}
+    try:
+        for process in get_source_data(
             api_url, api_key, org_uid, muids, "model_process", time
-        )
-    )
+        ):
+            id = process["id"]
+            version = process["version"]
+            if id not in processes:
+                processes[id] = process
+            else:
+                old_version = processes[id]["version"]
+                if version > old_version:
+                    processes[id] = process
+    except KeyboardInterrupt:
+        if processes:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(processes.values())
 
 
 def get_connections(api_url, api_key, org_uid, muids, time):
-    return list(
-        get_source_data(
+    connections = {}
+    try:
+        for connection in get_source_data(
             api_url, api_key, org_uid, muids, "model_connection", time
-        )
-    )
+        ):
+            id = connection["id"]
+            version = connection["version"]
+            if id not in connections:
+                connections[id] = connection
+            else:
+                old_version = connections[id]["version"]
+                if version > old_version:
+                    connections[id] = connection
+    except KeyboardInterrupt:
+        if connections:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(connections.values())
+
+
+def __log_interrupt_partial():
+    cli.try_log("\nRequest aborted, partial results retrieved.")
+
+
+def __log_interrupt():
+    cli.try_log("\nRequest aborted, no partial results.. exiting.")
+    exit(0)
