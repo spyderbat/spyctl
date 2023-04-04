@@ -578,7 +578,7 @@ def handle_get_containers(name_or_id, st, et, output, **filters):
         containers = spyctl_cont.container_output(containers)
     cli.show(
         containers, 
-        output, {lib.OUTPUT_DEFAULT: spyctl_cont.container_output_summary},
+        output, {lib.OUTPUT_DEFAULT: spyctl_cont.container_summary_output},
     )
 
 def handle_get_connections(name_or_id, st, et, output, **filters):
