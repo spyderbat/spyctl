@@ -364,6 +364,18 @@ def filter_containers(
 ):
     return containers
 
+def filter_connection_bundles(
+        connection_bundles: List[Dict],
+        namespaces_data=None,
+        clusters_data=None,
+        machines_data=None,
+        pods_data=None,
+        cgroups_data=None,
+        containers_data=None,
+        **filters,
+):
+    return connection_bundles
+
 
 def filter_connections(
     connections: List[Dict],

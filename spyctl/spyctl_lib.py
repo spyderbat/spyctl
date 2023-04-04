@@ -130,6 +130,16 @@ CONTAINER_RESOURCE =Aliases(
        "container",
        "containers",
 )
+CONNECTION_BUNDLES_RESOURCE =Aliases(
+    [
+       "connection-bundles",
+       "connection-bundle",
+       "conn-b"
+       "c"
+    ],
+       "connection-bundles",
+       "connection-bundle",
+)
 CONNECTIONS_RESOURCE = Aliases(
     [
         "connections",
