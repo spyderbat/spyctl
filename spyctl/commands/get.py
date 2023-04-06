@@ -595,20 +595,14 @@ def handle_get_connection_bundles(name_or_id, st, et, output, **filters):
     connection_bundles = api.get_connection_bundles(*ctx.get_api_data(), muids, (st, et))
     connection_bundles = filt.filter_connection_bundles(connection_bundles, **filters)
     if name_or_id:
-        containers =filt.filter_obj(containers, ["name", "id"], name_or_id)
+        connection_bundles =filt.filter_obj(connection_bundles, ["name", "id"], name_or_id)
     if output!= lib.OUTPUT_DEFAULT:
-        containers = spyctl_conn_b.connection_bundles_output(connection_bundles)
+        connection_bundles = spyctl_conn_b.connection_bundles_output(connection_bundles)
     cli.show(
         connection_bundles, 
-        output, {lib.OUTPUT_DEFAULT: spyctl_conn_b.connection_bundles_output},
+        output, 
+        {lib.OUTPUT_DEFAULT: spyctl_conn_b.connection_bundles_output},
     )
-
-
-
-
-
-
-
 
 
 def handle_get_connections(name_or_id, st, et, output, **filters):

@@ -520,6 +520,6 @@ def get_containers(api_url, api_key, org_uid, muids, time):
 def get_connection_bundles(api_url, api_key, org_uid, muids, time):
     return list(
         get_source_data(
-        api_url, api_key, org_uid, muids, "model_connection_bundle", time
+        api_url, api_key, org_uid, muids, "model_bundled_connection", time
         )
     )
