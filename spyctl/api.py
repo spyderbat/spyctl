@@ -689,6 +689,12 @@ def get_connections(api_url, api_key, org_uid, muids, time):
             __log_interrupt()
     return list(connections.values())
 
+def get_spydertraces(api_url, api_key, org_uid, muids, time):
+    return list(
+        get_source_data(
+            api_url, api_key, org_uid, muids, "model_spydertrace", time
+        )
+    )
 
 def __log_interrupt_partial():
     cli.try_log("\nRequest aborted, partial results retrieved.")
@@ -697,3 +703,4 @@ def __log_interrupt_partial():
 def __log_interrupt():
     cli.try_log("\nRequest aborted, no partial results.. exiting.")
     exit(0)
+

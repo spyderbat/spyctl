@@ -134,6 +134,19 @@ CONNECTIONS_RESOURCE = Aliases(
     "connection",
     "connections",
 )
+
+SPYDERTRACE_RESOURCE =Aliases(
+    [
+    "spydertrace", 
+    "spydertraces", 
+    "spyder", 
+    "trace", 
+    "traces"
+    ],
+    "spydertrace",
+    "spydertraces", 
+)
+
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
     ["config", "configs", "conf", "cfg", "configuration", "configurations"],

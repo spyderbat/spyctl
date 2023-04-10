@@ -94,6 +94,17 @@ def filter_namespaces(
     namespaces_data = use_filters(namespaces_data, filter_set, filters)
     return namespaces_data
 
+def filter_spydertraces(
+    spydertraces_data: List[Dict],
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    return spydertraces_data
+
 
 def filter_machines(
     machines_data: List[Dict],
