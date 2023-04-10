@@ -299,6 +299,11 @@ def delete_context(name):
     )
 
 
+def delete_test_policies():
+    runner = CliRunner()
+    runner.invoke(spyctl.main, ["delete", "policy", "-y", "spyderbat-test"])
+
+
 def current_context():
     runner = CliRunner()
     result = runner.invoke(
@@ -347,6 +352,7 @@ def setup_module():
 
 
 def teardown_module():
+    delete_test_policies()
     delete_context(TEST_CONTEXT)
     delete_secret()
     use_current_context()

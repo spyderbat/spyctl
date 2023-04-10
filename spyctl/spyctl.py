@@ -918,6 +918,7 @@ def get(
     Some resources are retrieved from from databases where a time range can
     be specified:
     - Connections
+    - Containers
     - Deployments
     - Fingerprints
     - Namespaces
@@ -950,6 +951,19 @@ def get(
     \b
       # Get the latest fingerprints related to a policy yaml file
       spyctl get fingerprints -f policy.yaml --latest
+    \b
+      # Get all the containers
+      spyctl get containers
+    \b
+      # Get the containers for specific time range (using epoch timestamps)
+      spyctl get containers -t 1675364629 -e 1675368229\n
+    \b
+      # Get the containers for specific time range
+      spyctl get containers -t 2h or spyctl get containers -t 1d -e 2h
+    \b
+      # Get the specific container with that image name
+      spyctl get containers --name spyderbat/container
+
 
     For time field options such as --start-time and --end-time you can
     use (m) for minutes, (h) for hours (d) for days, and (w) for weeks back
