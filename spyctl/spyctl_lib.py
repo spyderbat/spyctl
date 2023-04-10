@@ -120,15 +120,10 @@ PROCESSES_RESOURCE = Aliases(
     "process",
     "processes",
 )
-CONTAINER_RESOURCE =Aliases(
-    [
-       "container",
-       "containers",
-       "cont"
-       "c"
-    ],
-       "container",
-       "containers",
+CONTAINER_RESOURCE = Aliases(
+    ["container", "containers", "cont" "c"],
+    "container",
+    "containers",
 )
 CONNECTIONS_RESOURCE = Aliases(
     [
@@ -453,11 +448,11 @@ EUSER_FIELD = "euser"
 CHILDREN_FIELD = "children"
 LISTENING_SOCKETS = "listeningSockets"
 
-#Conatiner
-CONTAINER_NAME_FIELD="name"
-CONTAINER_ID_FIELD="id"
-CONTAINER_AGE="age"
-CONATINER_IMAGE_NAME="image-name"
+# Conatiner
+CONTAINER_NAME_FIELD = "name"
+CONTAINER_ID_FIELD = "id"
+CONTAINER_AGE = "age"
+CONATINER_IMAGE_NAME = "image-name"
 
 # Network
 CIDR_FIELD = "cidr"
