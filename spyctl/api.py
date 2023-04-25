@@ -24,15 +24,20 @@ GET_POL_UID_EQUALS = "uid_equals"
 
 # https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
 # connection timeout, read timeout
-TIMEOUT = (6.10, 300)
+TIMEOUT = (30, 300)
+
 AUTO_HIDE_TIME = zulu.now().shift(days=-1)
 MAX_TIME_RANGE_SECS = 43200  # 12 hours
 NAMESPACES_MAX_RANGE_SECS = 2000
+TIMEOUT_MSG = "A timeout occurred during the API request. "
 
 
 def get(url, key, params=None, raise_notfound=False):
     headers = {"Authorization": f"Bearer {key}"}
-    r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
+    try:
+        r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
+    except requests.exceptions.Timeout as e:
+        cli.err_exit(TIMEOUT_MSG + str(*e.args))
     if r.status_code == 404 and raise_notfound:
         raise ValueError
     if r.status_code != 200:
@@ -48,7 +53,10 @@ def get(url, key, params=None, raise_notfound=False):
 
 def post(url, data, key, raise_notfound=False):
     headers = {"Authorization": f"Bearer {key}"}
-    r = requests.post(url, json=data, headers=headers, timeout=TIMEOUT)
+    try:
+        r = requests.post(url, json=data, headers=headers, timeout=TIMEOUT)
+    except requests.exceptions.Timeout as e:
+        cli.err_exit(TIMEOUT_MSG + str(e.args))
     if r.status_code == 404 and raise_notfound:
         raise ValueError
     if r.status_code != 200:
@@ -64,7 +72,10 @@ def post(url, data, key, raise_notfound=False):
 
 def put(url, data, key):
     headers = {"Authorization": f"Bearer {key}"}
-    r = requests.put(url, json=data, headers=headers, timeout=TIMEOUT)
+    try:
+        r = requests.put(url, json=data, headers=headers, timeout=TIMEOUT)
+    except requests.exceptions.Timeout as e:
+        cli.err_exit(TIMEOUT_MSG + str(e.args))
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]
@@ -78,7 +89,10 @@ def put(url, data, key):
 
 def delete(url, key):
     headers = {"Authorization": f"Bearer {key}"}
-    r = requests.delete(url, headers=headers, timeout=TIMEOUT)
+    try:
+        r = requests.delete(url, headers=headers, timeout=TIMEOUT)
+    except requests.exceptions.Timeout as e:
+        cli.err_exit(TIMEOUT_MSG + str(e.args))
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]
@@ -695,6 +709,28 @@ def get_spydertraces(api_url, api_key, org_uid, muids, time):
             api_url, api_key, org_uid, muids, "model_spydertrace", time
         )
     )
+
+def get_containers(api_url, api_key, org_uid, muids, time):
+    containers = {}
+    try:
+        for container in get_source_data(
+            api_url, api_key, org_uid, muids, "model_container", time
+        ):
+            id = container["id"]
+            version = container["version"]
+            if id not in containers:
+                containers[id] = container
+            else:
+                old_version = containers[id]["version"]
+                if version > old_version:
+                    containers[id] = container
+    except KeyboardInterrupt:
+        if containers:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(containers.values())
+
 
 def __log_interrupt_partial():
     cli.try_log("\nRequest aborted, partial results retrieved.")

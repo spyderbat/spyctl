@@ -120,6 +120,11 @@ PROCESSES_RESOURCE = Aliases(
     "process",
     "processes",
 )
+CONTAINER_RESOURCE = Aliases(
+    ["container", "containers", "cont" "c"],
+    "container",
+    "containers",
+)
 CONNECTIONS_RESOURCE = Aliases(
     [
         "connections",
@@ -182,6 +187,7 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
+    CONTAINER_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -454,6 +460,12 @@ ID_FIELD = "id"
 EUSER_FIELD = "euser"
 CHILDREN_FIELD = "children"
 LISTENING_SOCKETS = "listeningSockets"
+
+# Conatiner
+CONTAINER_NAME_FIELD = "name"
+CONTAINER_ID_FIELD = "id"
+CONTAINER_AGE = "age"
+CONATINER_IMAGE_NAME = "image-name"
 
 # Network
 CIDR_FIELD = "cidr"
