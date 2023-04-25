@@ -67,7 +67,7 @@ def handle_get(
     elif resource == lib.CONNECTIONS_RESOURCE:
         handle_get_connections(name_or_id, st, et, output, **filters)
     elif resource == lib.SPYDERTRACE_RESOURCE:
-        handle_get_spydertraces(name_or_id, output, file, st, et, **filters)
+        handle_get_spydertraces(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
@@ -586,12 +586,17 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
     spydertraces = filt.filter_spydertraces(spydertraces, **filters)
     if name_or_id:
         spydertraces = filt.filter_obj(spydertraces, ["name", "id"], name_or_id)
-    if output != lib.OUTPUT_DEFAULT:
+    if output != lib.OUTPUT_DEFAULT and output!= lib.OUTPUT_WIDE:
         spydertraces = spyctl_spytrace.spydertraces_output(spydertraces)
-    cli.show(
+
+    if output == lib.OUTPUT_WIDE:
+        spydertraces = spyctl_spytrace.spydertraces_output_wide(spydertraces)
+
+    else:
+        cli.show(
         spydertraces,
         output,
-        {lib.OUTPUT_DEFAULT: spyctl_spytrace.spydertraces_output},
+        {lib.OUTPUT_DEFAULT: spyctl_spytrace.spydertraces_summary_output}, 
     )
 
 
@@ -616,7 +621,7 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
         return spyctl_conns.connections_output_summary(
             x, filters.get("ignore_ips", False)
         )
-
+    
     cli.show(
         connections,
         output,
