@@ -21,11 +21,24 @@ import spyctl.spyctl_lib as lib
 
 
 ALL = "all"
+not_time_based = [
+    lib.MACHINES_RESOURCE,
+    lib.POLICIES_RESOURCE,
+    lib.CLUSTERS_RESOURCE,
+]
 
 
 def handle_get(
     resource, name_or_id, st, et, file, latest, exact, output, **filters
 ):
+    resrc_plural = lib.get_plural_name_from_alias(resource)
+    if resrc_plural and resrc_plural not in not_time_based:
+        cli.try_log(
+            f"Getting {resrc_plural} from {lib.epoch_to_zulu(st)} to"
+            f" {lib.epoch_to_zulu(et)}"
+        )
+    elif resrc_plural:
+        cli.try_log(f"Getting {resrc_plural}")
     if name_or_id and not exact:
         name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
         name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
@@ -57,7 +70,7 @@ def handle_get(
         handle_get_connections(name_or_id, st, et, output, **filters)
     elif resource == lib.CONNECTION_BUNDLES_RESOURCE:
         handle_get_connection_bundles(name_or_id, st, et, output, **filters)
-    elif resource== lib.CONTAINER_RESOURCE:
+    elif resource == lib.CONTAINER_RESOURCE:
         handle_get_containers(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
@@ -565,23 +578,25 @@ def handle_get_processes(name_or_id, st, et, output, **filters):
         {lib.OUTPUT_DEFAULT: spyctl_procs.processes_output_summary},
     )
 
+
 def handle_get_containers(name_or_id, st, et, output, **filters):
-    ctx =cfg.get_current_context()
-    machines= api.get_machines(*ctx.get_api_data())
-    clusters= None
+    ctx = cfg.get_current_context()
+    machines = api.get_machines(*ctx.get_api_data())
+    clusters = None
     if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
-        clusters= api.get_clusters(*ctx.get_api_data())
-    machines =filt.filter_machines(machines, clusters, **filters)
+        clusters = api.get_clusters(*ctx.get_api_data())
+    machines = filt.filter_machines(machines, clusters, **filters)
     muids = [m["uid"] for m in machines]
     containers = api.get_containers(*ctx.get_api_data(), muids, (st, et))
-    containers= filt.filter_containers(containers, **filters)
+    containers = filt.filter_containers(containers, **filters)
     if name_or_id:
-        containers =filt.filter_obj(containers, ["name", "id"], name_or_id)
-    if output!= lib.OUTPUT_DEFAULT:
+        containers = filt.filter_obj(containers, ["name", "id"], name_or_id)
+    if output != lib.OUTPUT_DEFAULT:
         containers = spyctl_cont.container_output(containers)
     cli.show(
-        containers, 
-        output, {lib.OUTPUT_DEFAULT: spyctl_cont.container_summary_output},
+        containers,
+        output,
+        {lib.OUTPUT_DEFAULT: spyctl_cont.container_summary_output},
     )
 
 def handle_get_connection_bundles(name_or_id, st, et, output, **filters):

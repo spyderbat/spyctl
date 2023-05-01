@@ -764,41 +764,6 @@ class GetCommand(lib.ArgumentParametersCommand):
             ],
         },
         {
-            "resource": [lib.CONTAINER_RESOURCE],
-            "args": [
-                click.option(
-                    "--name",
-                    "-n",
-                    help = "get's the specified container as per the image name"
-                ),
-                click.option(
-                    "--uid",
-                    "-u",
-                    help = "get's the specified container as per the uid"        
-                ),
-                click.option(
-                    "-t",
-                    "--start-time",
-                    "st",
-                    help="Start time of the query for fingerprints to merge."
-                    " Only used if --latest, --with-file, and --with-policy are not set."
-                    " Default is 24 hours ago.",
-                    default="24h",
-                    type=lib.time_inp,
-                ),
-                click.option(
-                    "-e",
-                    "--end-time",
-                    "et",
-                    help="End time of the query for fingerprints to merge."
-                    " Only used if --with-file and --with-policy are not set."
-                    " Default is now.",
-                    default=time.time(),
-                    type=lib.time_inp,
-                ),
-            ],
-        },    
-        {
             "resource": [lib.POLICIES_RESOURCE],
             "args": [
                 click.option(
@@ -987,14 +952,14 @@ def get(
     \b
       # Get the latest fingerprints related to a policy yaml file
       spyctl get fingerprints -f policy.yaml --latest
-    \b 
-      # Get all the containers 
+    \b
+      # Get all the containers
       spyctl get containers
     \b
       # Get the containers for specific time range (using epoch timestamps)
       spyctl get containers -t 1675364629 -e 1675368229\n
     \b
-      # Get the conatiners for specific time range
+      # Get the containers for specific time range
       spyctl get containers -t 2h or spyctl get containers -t 1d -e 2h
     \b
       # Get the specific container with that image name

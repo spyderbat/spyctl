@@ -352,15 +352,16 @@ def filter_processes(
 ):
     return processes
 
+
 def filter_containers(
-        containers: List[Dict],
-        namespaces_data=None,
-        clusters_data=None,
-        machines_data=None,
-        pods_data=None,
-        cgroups_data=None,
-        containers_data=None,
-        **filters,
+    containers: List[Dict],
+    namespaces_data=None,
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
 ):
     return containers
 

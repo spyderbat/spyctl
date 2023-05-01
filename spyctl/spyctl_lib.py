@@ -120,15 +120,10 @@ PROCESSES_RESOURCE = Aliases(
     "process",
     "processes",
 )
-CONTAINER_RESOURCE =Aliases(
-    [
-       "container",
-       "containers",
-       "cont"
-       "c"
-    ],
-       "container",
-       "containers",
+CONTAINER_RESOURCE = Aliases(
+    ["container", "containers", "cont" "c"],
+    "container",
+    "containers",
 )
 CONNECTION_BUNDLES_RESOURCE =Aliases(
     [
@@ -160,6 +155,20 @@ CONFIG_ALIAS = Aliases(
     "config",
     "configs",
 )
+
+ALL_RESOURCES: List[Aliases] = [
+    g_var
+    for g_var_name, g_var in globals().items()
+    if g_var_name.endswith("RESOURCE")
+]
+
+
+def get_plural_name_from_alias(alias: str):
+    for resource in ALL_RESOURCES:
+        if alias == resource:
+            return resource.name_plural
+    return None
+
 
 DEL_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 GET_RESOURCES: List[str] = [
@@ -449,11 +458,11 @@ EUSER_FIELD = "euser"
 CHILDREN_FIELD = "children"
 LISTENING_SOCKETS = "listeningSockets"
 
-#Conatiner
-CONTAINER_NAME_FIELD="name"
-CONTAINER_ID_FIELD="id"
-CONTAINER_AGE="age"
-CONATINER_IMAGE_NAME="image-name"
+# Conatiner
+CONTAINER_NAME_FIELD = "name"
+CONTAINER_ID_FIELD = "id"
+CONTAINER_AGE = "age"
+CONATINER_IMAGE_NAME = "image-name"
 
 # Network
 CIDR_FIELD = "cidr"
@@ -1019,7 +1028,7 @@ def try_log(*args, **kwargs):
         sys.exit(1)
 
 
-def time_inp(time_str: str, cap_one_day=True) -> int:
+def time_inp(time_str: str, cap_one_day=False) -> int:
     past_seconds = 0
     epoch_time = None
     try:
@@ -1047,14 +1056,12 @@ def time_inp(time_str: str, cap_one_day=True) -> int:
     if epoch_time is not None:
         if epoch_time > now:
             raise ValueError("time must be in the past")
-        # TODO: Make API calls robust to times older than one day
         if epoch_time < one_day_ago and cap_one_day:
             epoch_time = one_day_ago
         return epoch_time
     else:
         if past_seconds < 0:
             raise ValueError("time must be in the past")
-        # TODO: Make API calls robust to times older than one day
         if past_seconds > 86400 and cap_one_day:
             past_seconds = 86400
         return int(now - past_seconds)
