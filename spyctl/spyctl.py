@@ -954,6 +954,7 @@ def get(
     be specified:
     - Connections
     - Containers
+    - Connection Bundles
     - Deployments
     - Fingerprints
     - Namespaces
@@ -998,6 +999,28 @@ def get(
     \b
       # Get the specific container with that image name
       spyctl get containers --name spyderbat/container
+    \b 
+      # Get all the connection bundles
+      spyctl get connection-bundles
+    \b
+      # Get connection bundles for last 10 minutes
+      spyctl get connection-bundles -t 10m 
+    \b 
+      # Get connection bundles for last 1 hour
+      spyctl get connection-bundles -t 1h
+    \b 
+      # Get connection bundles for specific time range
+      spyctl get connection-bundles -t 1675364629 -e 1675368229
+    \b 
+      # Get all the spydertraces
+      spyctl get spydertraces
+    \b
+      # Get all the spydertraces with the wide output 
+      spyctl get spydertraces -o wide
+    \b 
+      # Get all the spydertraces for last 5 seconds or 
+      # for a specific time range using epoch time. 
+      spyctl get spydertraces -t 5s or spyctl get spydertraces -t 1675364629 -e 1675368229
 
 
     For time field options such as --start-time and --end-time you can

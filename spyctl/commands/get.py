@@ -601,7 +601,7 @@ def handle_get_connection_bundles(name_or_id, st, et, output, **filters):
     cli.show(
         connection_bundles, 
         output, 
-        {lib.OUTPUT_DEFAULT: spyctl_conn_b.connection_bundles_output},
+        {lib.OUTPUT_DEFAULT: spyctl_conn_b.connection_bundle_summary_output},
     )
 
 
