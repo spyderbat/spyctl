@@ -21,7 +21,7 @@ environment.
 
 Follow the [Getting Started Guide](https://spyctl.readthedocs.io/en/latest/getting_started/getting_started.html)
 
-Or if you already have Spyctl installed try the [Basics Tutorial](https://spyctl.readthedocs.io/en/latest/tutorials/spyctl_basics.html)
+Or if you already have Spyctl installed try the [Basics Tutorial](https://github.com/spyderbat/spyctl/blob/master/docs/tutorials/spyctl_basics.rst)
 
 ## Support <a name = "support"></a>
 
