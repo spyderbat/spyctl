@@ -567,9 +567,6 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
                     fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
                     fprint[lib.METADATA_FIELD]["version"] = version
                 except Exception as e:
-                    cli.try_log(
-                        f"Error parsing fingerprint. {' '.join(e.args)}"
-                    )
                     continue
                 if id not in fingerprints:
                     fingerprints[id] = fprint
