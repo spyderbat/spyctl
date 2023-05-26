@@ -800,6 +800,7 @@ class GetCommand(lib.ArgumentParametersCommand):
         },
     ]
 
+
 @main.command("get", cls=GetCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.GetResourcesParam())
@@ -864,7 +865,6 @@ class GetCommand(lib.ArgumentParametersCommand):
         lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
     ),
 )
-
 @click.option(
     "-l",
     "--latest",
