@@ -16,6 +16,7 @@ import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
+import spyctl.commands.suppress as sup
 
 MAIN_EPILOG = (
     "\b\n"
@@ -63,6 +64,16 @@ def main(ctx: click.Context):
 def apply(filename):
     """Apply a configuration to a resource by file name."""
     handle_apply(filename)
+
+
+# ----------------------------------------------------------------- #
+#                          Close Subcommand                         #
+# ----------------------------------------------------------------- #
+@main.group("close", cls=lib.CustomSubGroup)
+@click.help_option("-h", "--help", hidden=True)
+def close():
+    """Close one or many Spyderbat resources"""
+    pass
 
 
 # ----------------------------------------------------------------- #
@@ -748,7 +759,15 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " returned by the query, and lists the ones that still"
                     " require a policy.",
                 ),
-                click.option("-T", "--type", is_flag=True, help=""),
+                click.option(
+                    "-T",
+                    "--type",
+                    type=click.Choice(
+                        [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC],
+                        case_sensitive=False,
+                    ),
+                    help="The type of fingerprint to return.",
+                ),
             ],
         },
         {
@@ -1211,6 +1230,57 @@ def merge(
         yes_except,
         include_network,
     )
+
+
+# ----------------------------------------------------------------- #
+#                        Snooze Subcommand                          #
+# ----------------------------------------------------------------- #
+@main.group("snooze", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+def snooze():
+    "Snooze one or many Spyderbat Resources"
+    pass
+
+
+# ----------------------------------------------------------------- #
+#                       Suppress Subcommand                         #
+# ----------------------------------------------------------------- #
+@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "--suppress",
+    help="suppress",
+    metavar="",
+    default=True,
+)
+def suppress(suppress):
+    "Tune your environment by suppressing Spyderbat Resources"
+    pass
+
+
+@suppress.command("spydertrace", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-i",
+    "--id",
+    help="id of the spydertrace or spydertrace summary to suppress",
+    metavar="",
+)
+@click.option(
+    "-u",
+    "--include-users",
+    help="Scope the trace suppression policy to the users found in the trace",
+    metavar="",
+    is_flag=True,
+    default=False,
+)
+def suppress_spydertrace(
+    include_users,
+    id=None,
+):
+    "Suppress one or many Spyderbat Resources"
+    if id:
+        sup.handle_suppress_by_id(id, include_users)
 
 
 # ----------------------------------------------------------------- #

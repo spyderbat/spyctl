@@ -139,6 +139,22 @@ CONNECTIONS_RESOURCE = Aliases(
     "connection",
     "connections",
 )
+SPYDERTRACE_SUMMARY_RESOURCE = Aliases(
+    [
+        "spydertrace-summary",
+        "spydertrace-summaries",
+        "trace-summary",
+        "trace-summaries",
+        "t-sum",
+    ],
+    "spydertrace-summary",
+    "spydertrace-summaries",
+)
+SUPPRESSION_POLICY_RESOURCE = Aliases(
+    ["suppression_policy", "suppression_policies", "s_pol", "trace_policy"],
+    "suppression_policy",
+    "suppression_policies",
+)
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
     ["config", "configs", "conf", "cfg", "configuration", "configurations"],
@@ -160,10 +176,14 @@ def get_plural_name_from_alias(alias: str):
     return None
 
 
-DEL_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
+DEL_RESOURCES: List[str] = [
+    POLICIES_RESOURCE.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
+]
 GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
+    CONTAINER_RESOURCE.name_plural,
     DEPLOYMENTS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
     MACHINES_RESOURCE.name_plural,
@@ -174,7 +194,8 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
-    CONTAINER_RESOURCE.name_plural,
+    SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
+    SUPPRESSION_POLICY_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -296,6 +317,15 @@ SCHEMA_FIELD = "schema"
 EVENT_REDFLAG_PREFIX = "event_redflag"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
+MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
+MODEL_FINGERPRINT_SUBTYPE_MAP = {
+    "container": "container",
+    "linux-service": "linux_svc",
+}
+
+# Datatypes for searching via API
+DATATYPE_SPYDERGRAPH = "spydergraph"
+DATATYPE_FINGERPRINTS = "fingerprints"
 
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
@@ -399,6 +429,8 @@ MACHINE_SELECTOR_FIELD = "machineSelector"
 NAMESPACE_SELECTOR_FIELD = "namespaceSelector"
 POD_SELECTOR_FIELD = "podSelector"
 SVC_SELECTOR_FIELD = "serviceSelector"
+TRACE_SELECTOR_FIELD = "traceSelector"
+USER_SELECTOR_FIELD = "userSelector"
 MATCH_LABELS_FIELD = "matchLabels"
 # Machine Selector Fields
 HOSTNAME_FIELD = "hostname"
@@ -421,7 +453,8 @@ SELECTOR_FIELDS = {
 # Policies/Fingerprints
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "linux-service"
-POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT]
+POL_TYPE_TRACE = "trace"
+POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
 ENABLED_FIELD = "enabled"
 METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
@@ -433,6 +466,22 @@ NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
 LATEST_TIMESTAMP_FIELD = "latestTimestamp"
+TRIGGER_CLASS_FIELD = "triggerClass"
+TRIGGER_ANCESTORS_FIELD = "triggerAncestors"
+USERS_FIELD = "users"
+INTERACTIVE_USERS_FIELD = "interactiveUsers"
+NON_INTERACTIVE_USERS_FIELD = "nonInteractiveUsers"
+ALLOWED_FLAGS_FIELD = "allowedFlags"
+FLAG_SUMMARY_FIELD = "flagSummary"
+FLAGS_FIELD = "flags"
+# For the Spyderbat API
+API_REQ_FIELD_NAME = "name"
+API_REQ_FIELD_POLICY = "policy"
+API_REQ_FIELD_POL_SELECTORS = "selectors"
+API_REQ_FIELD_TAGS = "tags"
+API_REQ_FIELD_TYPE = "type"
+API_REQ_FIELD_UID = "uid"
+
 NOT_AVAILABLE = "N/A"
 # Fingerprint Groups
 FPRINT_GRP_FINGERPRINTS_FIELD = "fingerprints"
@@ -467,6 +516,9 @@ ENDPORT_FIELD = "endPort"
 PROCESSES_FIELD = "processes"
 PROTO_FIELD = "protocol"
 TO_FIELD = "to"
+
+# Flags
+FLAG_CLASS = "class"
 
 # Output
 OUTPUT_YAML = "yaml"
@@ -625,15 +677,19 @@ def load_file(path: Path) -> Dict:
 
 class CustomGroup(click.Group):
     SECTION_BASIC = "Basic Commands"
+    SECTION_ALERT_MGMT = "Alert Management"
     SECTION_OTHER = "Other Commands"
-    command_sections = [SECTION_BASIC, SECTION_OTHER]
+    command_sections = [SECTION_BASIC, SECTION_ALERT_MGMT, SECTION_OTHER]
     cmd_to_section_map = {
         "apply": SECTION_BASIC,
         "create": SECTION_BASIC,
+        "close": SECTION_ALERT_MGMT,
         "delete": SECTION_BASIC,
         "diff": SECTION_BASIC,
         "get": SECTION_BASIC,
         "merge": SECTION_BASIC,
+        "snooze": SECTION_ALERT_MGMT,
+        "suppress": SECTION_ALERT_MGMT,
         "validate": SECTION_BASIC,
     }
 
@@ -1321,6 +1377,11 @@ def to_timestamp(zulu_str):
 
 def epoch_to_zulu(epoch):
     return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+
+
+def truncate_hour_epoch(input_epoch: float) -> float:
+    rv = input_epoch - (input_epoch % 3600)
+    return rv
 
 
 def get_metadata_name(resource: Dict) -> Optional[str]:

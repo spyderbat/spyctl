@@ -10,14 +10,6 @@ import spyctl.resources.baselines as spyctl_baselines
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.spyctl_lib as lib
 
-# For the Spyderbat API
-API_REQ_FIELD_NAME = "name"
-API_REQ_FIELD_POLICY = "policy"
-API_REQ_FIELD_POL_SELECTORS = "selectors"
-API_REQ_FIELD_TAGS = "tags"
-API_REQ_FIELD_TYPE = "type"
-API_REQ_FIELD_UID = "uid"
-
 FPRINT_KIND = spyctl_fprints.FPRINT_KIND
 GROUP_KIND = spyctl_fprints.GROUP_KIND
 BASELINE_KIND = lib.BASELINE_KIND
@@ -121,16 +113,16 @@ def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
         if key.endswith("Selector")
     }
     data = {
-        API_REQ_FIELD_NAME: name[:32],
-        API_REQ_FIELD_POLICY: json.dumps(policy),
-        API_REQ_FIELD_POL_SELECTORS: json.dumps(policy_selectors),
-        API_REQ_FIELD_TYPE: type,
-        API_REQ_FIELD_UID: uid,
+        lib.API_REQ_FIELD_NAME: name[:32],
+        lib.API_REQ_FIELD_POLICY: json.dumps(policy),
+        lib.API_REQ_FIELD_POL_SELECTORS: json.dumps(policy_selectors),
+        lib.API_REQ_FIELD_TYPE: type,
+        lib.API_REQ_FIELD_UID: uid,
     }
     if tags:
-        data[API_REQ_FIELD_TAGS] = tags
+        data[lib.API_REQ_FIELD_TAGS] = tags
     else:
-        data[API_REQ_FIELD_TAGS] = []
+        data[lib.API_REQ_FIELD_TAGS] = []
     return uid, data
 
 
