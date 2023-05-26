@@ -140,16 +140,10 @@ CONNECTIONS_RESOURCE = Aliases(
     "connections",
 )
 
-SPYDERTRACE_RESOURCE =Aliases(
-    [
-    "spydertrace", 
-    "spydertraces", 
-    "spyder", 
-    "trace", 
-    "traces"
-    ],
+SPYDERTRACE_RESOURCE = Aliases(
+    ["spydertrace", "spydertraces", "spyder", "trace", "traces"],
     "spydertrace",
-    "spydertraces", 
+    "spydertraces",
 )
 
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
@@ -188,6 +182,7 @@ GET_RESOURCES: List[str] = [
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
+    SPYDERTRACE_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -452,6 +447,9 @@ FPRINT_GRP_FINGERPRINTS_FIELD = "fingerprints"
 FPRINT_GRP_CONT_NAMES_FIELD = "containerNames"
 FPRINT_GRP_CONT_IDS_FIELD = "containerIDs"
 FPRINT_GRP_MACHINES_FIELD = "machines"
+
+# Any Object
+VERSION_FIELD = "version"
 
 # Processes
 NAME_FIELD = "name"

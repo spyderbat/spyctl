@@ -577,6 +577,7 @@ def handle_get_processes(name_or_id, st, et, output, **filters):
         {lib.OUTPUT_DEFAULT: spyctl_procs.processes_output_summary},
     )
 
+
 def handle_get_spydertraces(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     machines = api.get_machines(*ctx.get_api_data())
@@ -588,8 +589,10 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
     spydertraces = api.get_spydertraces(*ctx.get_api_data(), muids, (st, et))
     spydertraces = filt.filter_spydertraces(spydertraces, **filters)
     if name_or_id:
-        spydertraces = filt.filter_obj(spydertraces, ["name", "id"], name_or_id)
-    if output != lib.OUTPUT_DEFAULT and output!= lib.OUTPUT_WIDE:
+        spydertraces = filt.filter_obj(
+            spydertraces, ["name", "id"], name_or_id
+        )
+    if output != lib.OUTPUT_DEFAULT and output != lib.OUTPUT_WIDE:
         spydertraces = spyctl_spytrace.spydertraces_output(spydertraces)
 
     if output == lib.OUTPUT_WIDE:
@@ -597,10 +600,10 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
 
     else:
         cli.show(
-        spydertraces,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_spytrace.spydertraces_summary_output}, 
-    )
+            spydertraces,
+            output,
+            {lib.OUTPUT_DEFAULT: spyctl_spytrace.spydertraces_summary_output},
+        )
 
 
 def handle_get_containers(name_or_id, st, et, output, **filters):
@@ -645,7 +648,7 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
         return spyctl_conns.connections_output_summary(
             x, filters.get("ignore_ips", False)
         )
-    
+
     cli.show(
         connections,
         output,
