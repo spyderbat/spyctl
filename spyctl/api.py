@@ -685,12 +685,12 @@ def get_connections(api_url, api_key, org_uid, muids, time):
         for connection in get_source_data(
             api_url, api_key, org_uid, muids, "model_connection", time
         ):
-            id = connection["id"]
-            version = connection["version"]
+            id = connection[lib.ID_FIELD]
+            version = connection[lib.VERSION_FIELD]
             if id not in connections:
                 connections[id] = connection
             else:
-                old_version = connections[id]["version"]
+                old_version = connections[id][lib.VERSION_FIELD]
                 if version > old_version:
                     connections[id] = connection
     except KeyboardInterrupt:
@@ -699,6 +699,28 @@ def get_connections(api_url, api_key, org_uid, muids, time):
         else:
             __log_interrupt()
     return list(connections.values())
+
+
+def get_spydertraces(api_url, api_key, org_uid, muids, time):
+    spydertraces = {}
+    try:
+        for spydertrace in get_source_data(
+            api_url, api_key, org_uid, muids, "model_spydertrace", time
+        ):
+            id = spydertrace[lib.ID_FIELD]
+            version = spydertrace[lib.VERSION_FIELD]
+            if id not in spydertraces:
+                spydertraces[id] = spydertrace
+            else:
+                old_version = spydertraces[id][lib.VERSION_FIELD]
+                if version > old_version:
+                    spydertraces[id] = spydertrace
+    except KeyboardInterrupt:
+        if spydertraces:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(spydertraces.values())
 
 
 def get_containers(api_url, api_key, org_uid, muids, time):

@@ -927,6 +927,7 @@ def get(
     - Pods
     - Processes
     - RedFlags
+    - Spydertraces
 
     \b
     Other resources come from databases where time ranges are not applicable:
