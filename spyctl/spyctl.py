@@ -835,6 +835,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="Only show resources tied to this container image."
     " Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--image-id",
@@ -842,6 +843,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="Only show resources tied to containers running with this"
     " image id. Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--container-name",
@@ -849,6 +851,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="Only show resources tied to containers running with this"
     " container name. Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--container-id",
@@ -856,6 +859,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="Only show resources tied to containers running with this"
     " container id. Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--cgroup",
@@ -863,6 +867,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="Only show resources tied to machines running Linux services with"
     " this cgroup. Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--pod",
@@ -870,6 +875,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="Only show resources tied to this pod uid."
     " Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     f"--{cfgs.MACHINES_FIELD}",
@@ -877,18 +883,21 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="Only show resources to these nodes."
     " Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     f"--{cfgs.NAMESPACE_FIELD}",
     help="Only show resources tied to this namespace."
     " Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     f"--{cfgs.CLUSTER_FIELD}",
     help="Only show resources tied to this cluster."
     " Overrides value current context if it exists.",
     type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "-o",
