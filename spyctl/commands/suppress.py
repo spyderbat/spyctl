@@ -5,6 +5,7 @@ import spyctl.spyctl_lib as lib
 import json
 from typing import Dict
 import spyctl.resources.suppression_policies as s_pol
+import spyctl.search as search
 
 
 def handle_suppress_traces():
@@ -52,7 +53,7 @@ def handle_suppress_by_id(orig_id: str, include_users: bool):
         obj: Dict = json.loads(lines[1])
         if schema == lib.MODEL_SPYDERTRACE_PREFIX:
             cli.try_log("Trace object found. Searching for trace summary...")
-            id = obj.get("trace_summary")
+            id = obj.get(lib.TRACE_SUMMARY_FIELD)
             if not id:
                 cli.err_exit(
                     f"Unable to find a Trace Summary for Trace {orig_id}"
@@ -75,7 +76,7 @@ def handle_suppress_by_id(orig_id: str, include_users: bool):
                     )
                 obj: Dict = json.loads(lines[1])
         cli.try_log("")
-        pol = s_pol.create_suppression_policy(obj, include_users)
+        pol = s_pol.build_trace_suppression_policy(obj, include_users)
         if not prompt_upload_policy(pol):
             cli.try_log("Operation cancelled.")
         uid, pol_data = s_pol.get_data_for_api_call(pol)
@@ -92,7 +93,7 @@ def handle_suppress_by_id(orig_id: str, include_users: bool):
                 cli.try_log(f"Successfully applied new policy with uid: {uid}")
 
 
-def prompt_upload_policy(pol: s_pol.SuppressionPolicy) -> bool:
+def prompt_upload_policy(pol: s_pol.TraceSuppressionPolicy) -> bool:
     query = "Scope:\n-------------\n"
     query += pol.policy_scope_string
     query += "\nSuppress spydertraces within this scope?"

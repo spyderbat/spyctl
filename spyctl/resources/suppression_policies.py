@@ -5,25 +5,59 @@ import json
 import yaml
 from tabulate import tabulate
 import zulu
+import spyctl.cli as cli
 
 
-def create_suppression_policy(
-    trace_summary: Dict, include_users: bool = False
-) -> "SuppressionPolicy":
-    pol = SuppressionPolicy(trace_summary, include_users)
+def undash(s: str) -> str:
+    return s.replace("-", "_")
+
+
+TRACE_POL_OPTION_TO_SELECTORS_MAP = {
+    undash(lib.SUP_POL_CMD_TRIG_ANCESTORS): lib.TRACE_SELECTOR_FIELD,
+    undash(lib.SUP_POL_CMD_TRIG_CLASS): lib.TRACE_SELECTOR_FIELD,
+    undash(lib.SUP_POL_CMD_USERS): lib.USER_SELECTOR_FIELD,
+    undash(lib.SUP_POL_CMD_INT_USERS): lib.USER_SELECTOR_FIELD,
+    undash(lib.SUP_POL_CMD_N_INT_USERS): lib.USER_SELECTOR_FIELD,
+}
+TRACE_POL_OPTION_TO_FIELD_MAP = {
+    undash(lib.SUP_POL_CMD_TRIG_ANCESTORS): lib.TRIGGER_ANCESTORS_FIELD,
+    undash(lib.SUP_POL_CMD_TRIG_CLASS): lib.TRIGGER_CLASS_FIELD,
+    undash(lib.SUP_POL_CMD_USERS): lib.USERS_FIELD,
+    undash(lib.SUP_POL_CMD_INT_USERS): lib.INTERACTIVE_USERS_FIELD,
+    undash(lib.SUP_POL_CMD_N_INT_USERS): lib.NON_INTERACTIVE_USERS_FIELD,
+}
+
+REDFLAG_POL_OPTION_TO_SELECTORS_MAP = {
+    lib.SUP_POL_CMD_USERS: lib.USER_SELECTOR_FIELD,
+}
+
+
+def build_trace_suppression_policy(
+    trace_summary: Dict = None, include_users: bool = False, **selectors
+):
+    pol = TraceSuppressionPolicy(trace_summary, include_users)
+    pol.update_selectors(**selectors)
     return pol
 
 
-class SuppressionPolicy:
-    def __init__(self, trace_summary: Dict, include_users: bool) -> None:
+class TraceSuppressionPolicy:
+    def __init__(
+        self,
+        trace_summary: Dict = None,
+        include_users: bool = False,
+        name: str = None,
+    ) -> None:
         self.trace_summary = trace_summary
         self.include_users = include_users
-        self.selectors = {}
-        self.flags = None
-        self.__build_flags()
-        self.__build_trace_selector()
-        if include_users:
-            self.__build_user_selector()
+        self.selectors: Dict[str, Dict] = {}
+        self.flags = []
+        self.name = name
+        self.__build_name()
+        if trace_summary:
+            self.__build_flags()
+            self.__build_trace_selector()
+            if include_users:
+                self.__build_user_selector()
 
     @property
     def policy_scope_string(self):
@@ -38,9 +72,8 @@ class SuppressionPolicy:
             lib.API_FIELD: lib.API_VERSION,
             lib.KIND_FIELD: lib.POL_KIND,
             lib.METADATA_FIELD: {
-                lib.NAME_FIELD: self.__build_name(),
+                lib.NAME_FIELD: self.name,
                 lib.TYPE_FIELD: lib.POL_TYPE_TRACE,
-                lib.LATEST_TIMESTAMP_FIELD: self.trace_summary["last_seen"],
             },
             lib.SPEC_FIELD: {},
         }
@@ -48,16 +81,45 @@ class SuppressionPolicy:
         rv[lib.SPEC_FIELD][lib.ALLOWED_FLAGS_FIELD] = self.flags
         return rv
 
-    def __build_name(self) -> str:
+    def update_selectors(self, **selectors) -> Dict:
+        if (
+            undash(lib.SUP_POL_CMD_INT_USERS) in selectors
+            or undash(lib.SUP_POL_CMD_N_INT_USERS) in selectors
+            or undash(lib.SUP_POL_CMD_USERS) in selectors
+        ):
+            user_selector = self.selectors.get(lib.USER_SELECTOR_FIELD)
+            if user_selector:
+                user_selector.pop(lib.USERS_FIELD, None)
+        for key, values in selectors.items():
+            if (
+                key not in TRACE_POL_OPTION_TO_SELECTORS_MAP
+                or key not in TRACE_POL_OPTION_TO_FIELD_MAP
+            ):
+                cli.err_exit("Unrecognized selector field")
+            selector_name = TRACE_POL_OPTION_TO_SELECTORS_MAP[key]
+            field_name = TRACE_POL_OPTION_TO_FIELD_MAP[key]
+            self.selectors.setdefault(selector_name, {})
+            self.selectors[selector_name].update({field_name: values})
+
+    def __build_name(self):
+        if self.name:
+            return
+        if not self.trace_summary:
+            self.name = "Custom Trace Suppression Policy"
+            return
         trace_selector: Dict = self.trace_summary[lib.SPEC_FIELD][
             lib.TRACE_SELECTOR_FIELD
         ]
         trigger_ancestors = trace_selector.get(lib.TRIGGER_ANCESTORS_FIELD)
         if not trigger_ancestors:
             trigger_ancestors = trace_selector.get("trigger_ancestors")
-        return f"Suppression Policy for {trigger_ancestors}"
+        if not trigger_ancestors:
+            self.name = "Custom Trace Suppression Policy"
+        self.name = f"Trace Suppression Policy for {trigger_ancestors}"
 
     def __build_flags(self):
+        if not self.trace_summary:
+            return
         flag_summary = self.trace_summary[lib.SPEC_FIELD][
             lib.FLAG_SUMMARY_FIELD
         ]
@@ -69,6 +131,8 @@ class SuppressionPolicy:
         self.flags = [{lib.FLAG_CLASS: f[lib.FLAG_CLASS]} for f in flags]
 
     def __build_trace_selector(self):
+        if not self.trace_summary:
+            return
         selector = {}
         trace_selector: Dict = self.trace_summary[lib.SPEC_FIELD][
             lib.TRACE_SELECTOR_FIELD
@@ -77,15 +141,17 @@ class SuppressionPolicy:
         if not trigger_class:
             trigger_class = trace_selector.get("trigger_class")
         if trigger_class:
-            selector[lib.TRIGGER_CLASS_FIELD] = trigger_class
+            selector[lib.TRIGGER_CLASS_FIELD] = [trigger_class]
         trigger_ancestors = trace_selector.get(lib.TRIGGER_ANCESTORS_FIELD)
         if not trigger_ancestors:
             trigger_ancestors = trace_selector.get("trigger_ancestors")
         if trigger_ancestors:
-            selector[lib.TRIGGER_ANCESTORS_FIELD] = trigger_ancestors
+            selector[lib.TRIGGER_ANCESTORS_FIELD] = [trigger_ancestors]
         self.selectors[lib.TRACE_SELECTOR_FIELD] = selector
 
-    def __build_user_selector(self) -> Dict:
+    def __build_user_selector(self):
+        if not self.trace_summary:
+            return
         selector = {}
         user_selector: Dict = self.trace_summary[lib.SPEC_FIELD][
             lib.USER_SELECTOR_FIELD
@@ -99,7 +165,7 @@ class SuppressionPolicy:
 
 
 def get_data_for_api_call(
-    policy: SuppressionPolicy,
+    policy: TraceSuppressionPolicy,
 ) -> Tuple[Optional[str], Dict]:
     policy = policy.as_dict()
     name = policy[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]

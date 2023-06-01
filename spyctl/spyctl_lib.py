@@ -204,6 +204,15 @@ VAL_RESOURCES: List[str] = [
     CONFIG_ALIAS.name,
 ]
 
+CMD_ORG_FIELD = "org"
+
+
+def tmp_context_options(function):
+    function = click.option(f"--{CMD_ORG_FIELD}", hidden=True)(function)
+    function = click.option(f"--{API_KEY_FIELD}", hidden=True)(function)
+    function = click.option(f"--{API_URL_FIELD}", hidden=True)(function)
+    return function
+
 
 class DelResourcesParam(click.ParamType):
     name = "del_resources"
@@ -227,6 +236,19 @@ class GetResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in GET_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class SuppressionPolTypeParam(click.ParamType):
+    name = "get_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in [POL_TYPE_TRACE]
             if resrc_name.startswith(incomplete)
         ]
 
@@ -448,6 +470,8 @@ SELECTOR_FIELDS = {
     MACHINE_SELECTOR_FIELD,
     NAMESPACE_SELECTOR_FIELD,
     POD_SELECTOR_FIELD,
+    TRACE_SELECTOR_FIELD,
+    USER_SELECTOR_FIELD,
 }
 
 # Policies/Fingerprints
@@ -481,6 +505,13 @@ API_REQ_FIELD_POL_SELECTORS = "selectors"
 API_REQ_FIELD_TAGS = "tags"
 API_REQ_FIELD_TYPE = "type"
 API_REQ_FIELD_UID = "uid"
+# Suppression Policy cmdline fields
+SUP_POL_CMD_TRIG_ANCESTORS = "trigger-ancestors"
+SUP_POL_CMD_TRIG_CLASS = "trigger-class"
+SUP_POL_CMD_USERS = "users"
+SUP_POL_CMD_INT_USERS = "interactive-users"
+SUP_POL_CMD_N_INT_USERS = "non-interactive-users"
+TRACE_SUMMARY_FIELD = "trace_summary"
 
 NOT_AVAILABLE = "N/A"
 # Fingerprint Groups
