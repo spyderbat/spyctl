@@ -39,7 +39,7 @@ def handle_get(
     elif resrc_plural:
         cli.try_log(f"Getting {resrc_plural}")
     if name_or_id and not exact:
-        name_or_id += "*" if name_or_id[-1] != "*" else name_or_id
+        name_or_id = name_or_id + "*" if name_or_id[-1] != "*" else name_or_id
         name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
     if resource == lib.CLUSTERS_RESOURCE:
         handle_get_clusters(name_or_id, output, **filters)
