@@ -7,17 +7,17 @@ import spyctl.search as search
 from typing import Optional
 
 
-def handle_create_baseline(filename, output):
+def handle_create_baseline(filename: str, output: str, name: str):
     resrc_data = lib.load_resource_file(filename)
-    baseline = b.create_baseline(resrc_data)
+    baseline = b.create_baseline(resrc_data, name)
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(baseline, output)
 
 
-def handle_create_guardian_policy(filename, output):
+def handle_create_guardian_policy(filename: str, output: str, name: str):
     resrc_data = lib.load_resource_file(filename)
-    policy = p.create_policy(resrc_data)
+    policy = p.create_policy(resrc_data, name)
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(policy, output)

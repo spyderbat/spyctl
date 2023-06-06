@@ -41,7 +41,7 @@ class Policy:
     }
     valid_obj_kinds = {POLICY_KIND, BASELINE_KIND}
 
-    def __init__(self, obj: Dict) -> None:
+    def __init__(self, obj: Dict, name: str = None) -> None:
         self.policy = {}
         obj_kind = obj.get(lib.KIND_FIELD)
         if obj_kind not in self.valid_obj_kinds:
@@ -67,6 +67,8 @@ class Policy:
                     raise InvalidPolicyError(f"Missing {key} for input object")
             policy_data = obj
         self.metadata = policy_data[lib.METADATA_FIELD]
+        if name:
+            self.metadata[lib.METADATA_NAME_FIELD] = name
         self.spec = policy_data[lib.SPEC_FIELD]
         self.response_actions = policy_data[lib.SPEC_FIELD].get(
             lib.RESPONSE_FIELD, lib.RESPONSE_ACTION_TEMPLATE
@@ -126,7 +128,7 @@ def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
     return uid, data
 
 
-def create_policy(obj: Dict):
+def create_policy(obj: Dict, name: str = None):
     obj_kind = obj.get(lib.KIND_FIELD)
     if obj_kind != POLICY_KIND:
         try:
@@ -137,12 +139,12 @@ def create_policy(obj: Dict):
         ) as e:
             cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
         try:
-            policy = Policy(baseline.as_dict())
+            policy = Policy(baseline.as_dict(), name)
         except InvalidPolicyError as e:
             cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
     else:
         try:
-            policy = Policy(obj)
+            policy = Policy(obj, name)
         except InvalidPolicyError as e:
             cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
     return policy.as_dict()

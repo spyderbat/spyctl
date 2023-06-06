@@ -647,6 +647,7 @@ policy_metadata_schema = Schema(
             int, float, lib.NOT_AVAILABLE
         ),
         Optional(lib.METADATA_UID_FIELD): str,
+        Optional(lib.METADATA_S_CHECKSUM_FIELD): str,
     },
 )
 

@@ -454,9 +454,16 @@ def create():
     default=lib.OUTPUT_DEFAULT,
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
-def create_baseline(filename, output):
+@click.option(
+    "-n",
+    "--name",
+    help="Optional name for the Baseline, if not provided, a name will be"
+    " generated automatically",
+    metavar="",
+)
+def create_baseline(filename, output, name):
     """Create a Baseline from a file, outputted to stdout"""
-    c.handle_create_baseline(filename, output)
+    c.handle_create_baseline(filename, output, name)
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
@@ -477,9 +484,19 @@ def create_baseline(filename, output):
     default=lib.OUTPUT_DEFAULT,
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
-def create_policy(filename, output):
+@click.option(
+    "-n",
+    "--name",
+    help="Optional name for the Guardian Policy, if not provided, a name will"
+    " be generated automatically",
+    metavar="",
+)
+@lib.colorization_option
+def create_policy(filename, output, name, colorize):
     """Create a Guardian Policy object from a file, outputted to stdout"""
-    c.handle_create_guardian_policy(filename, output)
+    if not colorize:
+        lib.disable_colorization()
+    c.handle_create_guardian_policy(filename, output, name)
 
 
 class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
@@ -530,7 +547,10 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
 
 
 @create.command(
-    "suppression-policy", cls=SuppressionPolicyCommand, epilog=SUB_EPILOG
+    "suppression-policy",
+    cls=SuppressionPolicyCommand,
+    epilog=SUB_EPILOG,
+    hidden=True,
 )
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("type", type=lib.SuppressionPolTypeParam())
@@ -567,8 +587,13 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     type=lib.ListParam(),
 )
 @lib.tmp_context_options
-def create_suppression_policy(type, id, include_users, output, **selectors):
+@lib.colorization_option
+def create_suppression_policy(
+    type, id, include_users, output, colorize, **selectors
+):
     """Create a Suppression Policy object from a file, outputted to stdout"""
+    if not colorize:
+        lib.disable_colorization()
     selectors = {
         key: value for key, value in selectors.items() if value is not None
     }
@@ -701,12 +726,14 @@ def delete(resource, name_or_id, yes=False):
     " Default is to include network data in the diff.",
     default=True,
 )
+@lib.colorization_option
 def diff(
     filename,
     policy,
     st,
     et,
     include_network,
+    colorize,
     yes=False,
     with_file=None,
     with_policy=None,
@@ -778,6 +805,8 @@ def diff(
     """  # noqa E501
     if yes:
         cli.set_yes_option()
+    if not colorize:
+        lib.disable_colorization()
     d.handle_diff(
         filename,
         policy,
@@ -1227,6 +1256,7 @@ def get(
     " Default is to include network data in the merge.",
     default=True,
 )
+@lib.colorization_option
 def merge(
     filename,
     policy,
@@ -1234,6 +1264,7 @@ def merge(
     st,
     et,
     include_network,
+    colorize,
     yes=False,
     yes_except=False,
     with_file=None,
@@ -1315,6 +1346,8 @@ def merge(
     """  # noqa E501
     if yes or yes_except:
         cli.set_yes_option()
+    if not colorize:
+        lib.disable_colorization()
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     m.handle_merge(
@@ -1345,7 +1378,7 @@ def snooze():
 # ----------------------------------------------------------------- #
 #                       Suppress Subcommand                         #
 # ----------------------------------------------------------------- #
-@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
+@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG, hidden=True)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "--suppress",
@@ -1358,7 +1391,7 @@ def suppress(suppress):
     pass
 
 
-@suppress.command("spydertrace", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@suppress.command("trace", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-i",
@@ -1374,13 +1407,24 @@ def suppress(suppress):
     is_flag=True,
     default=False,
 )
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
 def suppress_spydertrace(
     include_users,
+    yes,
     id=None,
 ):
     "Suppress one or many Spyderbat Resources"
+    if yes:
+        cli.set_yes_option()
     if id:
-        sup.handle_suppress_by_id(id, include_users)
+        sup.handle_suppress_trace_by_id(id, include_users)
 
 
 # ----------------------------------------------------------------- #
@@ -1399,13 +1443,16 @@ def suppress_spydertrace(
     required=True,
     type=click.File(),
 )
-def validate(file):
+@lib.colorization_option
+def validate(file, colorize):
     """Validate spyderbat resource and spyctl configuration files.
 
     \b
     example:
       spyctl validate -f my_baseline.yaml
     """
+    if not colorize:
+        lib.disable_colorization()
     v.handle_validate(file)
 
 

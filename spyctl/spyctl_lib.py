@@ -10,6 +10,7 @@ import unicodedata
 from base64 import urlsafe_b64encode as b64url
 from datetime import timezone
 from fnmatch import fnmatch
+from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
@@ -35,10 +36,23 @@ class Aliases:
         return self.name_plural or self.name
 
 
+COLORIZE_OUTPUT = True
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
 WARNING_COLOR = "\x1b[38;5;203m"
+ADD_COLOR = "\x1b[38;5;35m"
+SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
+
+
+def disable_colorization():
+    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END, ADD_COLOR, SUB_COLOR
+    COLORIZE_OUTPUT = False
+    WARNING_COLOR = ""
+    COLOR_END = ""
+    SUB_COLOR = ""
+    ADD_COLOR = ""
+
 
 # Resource Aliases
 CLUSTERS_RESOURCE = Aliases(
@@ -98,7 +112,6 @@ POLICIES_RESOURCE = Aliases(
         "spyderbat-policies",
         "spy-pol",
         "spol",
-        "sp",
         "policy",
         "pol",
         "p",
@@ -151,9 +164,15 @@ SPYDERTRACE_SUMMARY_RESOURCE = Aliases(
     "spydertrace-summaries",
 )
 SUPPRESSION_POLICY_RESOURCE = Aliases(
-    ["suppression_policy", "suppression_policies", "s_pol", "trace_policy"],
-    "suppression_policy",
-    "suppression_policies",
+    [
+        "suppression-policy",
+        "suppression-policies",
+        "sp",
+        "s-pol",
+        "trace-policy",
+    ],
+    "suppression-policy",
+    "suppression-policies",
 )
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
@@ -194,8 +213,8 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
-    SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
-    SUPPRESSION_POLICY_RESOURCE.name_plural,
+    # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
+    # SUPPRESSION_POLICY_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -211,6 +230,15 @@ def tmp_context_options(function):
     function = click.option(f"--{CMD_ORG_FIELD}", hidden=True)(function)
     function = click.option(f"--{API_KEY_FIELD}", hidden=True)(function)
     function = click.option(f"--{API_URL_FIELD}", hidden=True)(function)
+    return function
+
+
+def colorization_option(function):
+    function = click.option(
+        "--colorize/--no-colorize",
+        help="Specify coloration on or off. Default is on.",
+        default=True,
+    )(function)
     return function
 
 
@@ -478,6 +506,8 @@ SELECTOR_FIELDS = {
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "linux-service"
 POL_TYPE_TRACE = "trace"
+SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
+GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
 ENABLED_FIELD = "enabled"
 METADATA_NAME_FIELD = "name"
@@ -486,6 +516,7 @@ METADATA_TYPE_FIELD = "type"
 METADATA_UID_FIELD = "uid"
 METADATA_CREATE_TIME = "creationTimestamp"
 METADATA_NAMESPACE_FIELD = "namespace"
+METADATA_S_CHECKSUM_FIELD = "selectorHash"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
@@ -505,6 +536,7 @@ API_REQ_FIELD_POL_SELECTORS = "selectors"
 API_REQ_FIELD_TAGS = "tags"
 API_REQ_FIELD_TYPE = "type"
 API_REQ_FIELD_UID = "uid"
+API_HAS_TAGS_FIELD = "has_tags"
 # Suppression Policy cmdline fields
 SUP_POL_CMD_TRIG_ANCESTORS = "trigger-ancestors"
 SUP_POL_CMD_TRIG_CLASS = "trigger-class"
@@ -1346,7 +1378,7 @@ class UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep)
 
 
-def load_resource_file(file: Union[str, IO]):
+def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
     try:
         if isinstance(file, io.TextIOWrapper):
             name = file.name
@@ -1356,6 +1388,9 @@ def load_resource_file(file: Union[str, IO]):
             with open(file) as f:
                 resrc_data = yaml.load(f, UniqueKeyLoader)
     except ValueError as e:
+        if validate_cmd:
+            try_log(" ".join(e.args))
+            sys.exit(0)
         err_exit(" ".join(e.args))
     except Exception:
         try:
@@ -1371,17 +1406,32 @@ def load_resource_file(file: Union[str, IO]):
                         f, object_pairs_hook=dict_raise_on_duplicates
                     )
         except ValueError as e:
+            if validate_cmd:
+                try_log(" ".join(e.args))
+                sys.exit(0)
             err_exit(" ".join(e.args))
         except Exception:
+            if validate_cmd:
+                try_log("Unable to load resource file.")
+                sys.exit(0)
             err_exit("Unable to load resource file.")
     if not isinstance(resrc_data, dict):
+        if validate_cmd:
+            try_log("Resource file does not contain a dictionary.")
+            sys.exit(0)
         err_exit("Resource file does not contain a dictionary.")
     resrc_kind = resrc_data.get(KIND_FIELD)
     if not resrc_kind:
+        if validate_cmd:
+            try_log(f"Missing or invalid {KIND_FIELD} field.")
+            sys.exit(0)
         err_exit(f"Missing or invalid {KIND_FIELD} field.")
     from spyctl.schemas import valid_object
 
     if not valid_object(resrc_data, verbose=True):
+        if validate_cmd:
+            try_log(f"{resrc_kind} invalid in {name!r}. See error logs.")
+            sys.exit(0)
         sys.exit(f"{resrc_kind} invalid in {name!r}. See error logs.")
     if isinstance(file, io.TextIOWrapper):
         file.seek(0, 0)
@@ -1488,3 +1538,9 @@ def unique_fn(fn: str, output_format) -> Optional[str]:
         try_log(f"Unable to build unique filename for {fn}", is_warning=True)
         return
     return str(new_fn)
+
+
+def make_checksum(dictionary: Dict) -> str:
+    dict_str = json.dumps(dictionary, sort_keys=True)
+    hash = md5(dict_str.encode("utf-8"))
+    return hash.hexdigest()

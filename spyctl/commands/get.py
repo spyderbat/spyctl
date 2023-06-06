@@ -69,8 +69,8 @@ def handle_get(
         handle_get_connections(name_or_id, st, et, output, **filters)
     elif resource == lib.CONTAINER_RESOURCE:
         handle_get_containers(name_or_id, st, et, output, **filters)
-    elif resource == lib.SPYDERTRACE_SUMMARY_RESOURCE:
-        handle_get_trace_summaries(name_or_id, st, et, output, **filters)
+    # elif resource == lib.SPYDERTRACE_SUMMARY_RESOURCE:
+    #     handle_get_trace_summaries(name_or_id, st, et, output, **filters)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_get_suppression_policies(name_or_id, st, et, output, **filters)
     else:

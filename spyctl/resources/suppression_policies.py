@@ -6,11 +6,27 @@ import yaml
 from tabulate import tabulate
 import zulu
 import spyctl.cli as cli
+import spyctl.merge_lib as m_lib
 
 
 def undash(s: str) -> str:
     return s.replace("-", "_")
 
+
+S_POLICY_META_MERGE_SCHEMA = m_lib.MergeSchema(
+    lib.METADATA_FIELD,
+    merge_functions={
+        lib.METADATA_NAME_FIELD: m_lib.keep_base_value_merge,
+        lib.METADATA_TYPE_FIELD: m_lib.all_eq_merge,
+        lib.METADATA_UID_FIELD: m_lib.keep_base_value_merge,
+        lib.METADATA_CREATE_TIME: m_lib.keep_base_value_merge,
+        lib.LATEST_TIMESTAMP_FIELD: m_lib.greatest_value_merge,
+    },
+)
+T_S_POLICY_MERGE_SCHEMAS = [
+    S_POLICY_META_MERGE_SCHEMA,
+    m_lib.TRACE_SUPPRESSION_SPEC_MERGE_SCHEMA,
+]
 
 TRACE_POL_OPTION_TO_SELECTORS_MAP = {
     undash(lib.SUP_POL_CMD_TRIG_ANCESTORS): lib.TRACE_SELECTOR_FIELD,
@@ -35,7 +51,10 @@ REDFLAG_POL_OPTION_TO_SELECTORS_MAP = {
 def build_trace_suppression_policy(
     trace_summary: Dict = None, include_users: bool = False, **selectors
 ):
-    pol = TraceSuppressionPolicy(trace_summary, include_users)
+    pol = TraceSuppressionPolicy(trace_summary)
+    if not include_users:
+        pol.spec.pop(lib.USER_SELECTOR_FIELD, None)
+        pol.selectors.pop(lib.USER_SELECTOR_FIELD, None)
     pol.update_selectors(**selectors)
     return pol
 
@@ -43,21 +62,22 @@ def build_trace_suppression_policy(
 class TraceSuppressionPolicy:
     def __init__(
         self,
-        trace_summary: Dict = None,
-        include_users: bool = False,
+        obj: Dict = None,
         name: str = None,
     ) -> None:
-        self.trace_summary = trace_summary
-        self.include_users = include_users
+        if obj:
+            self.metadata: Dict = obj[lib.METADATA_FIELD]
+            self.spec: Dict = obj[lib.SPEC_FIELD]
+        else:
+            self.metadata = {}
+            self.spec = {}
         self.selectors: Dict[str, Dict] = {}
         self.flags = []
         self.name = name
         self.__build_name()
-        if trace_summary:
-            self.__build_flags()
-            self.__build_trace_selector()
-            if include_users:
-                self.__build_user_selector()
+        self.__build_flags()
+        self.__build_trace_selector()
+        self.__build_user_selector()
 
     @property
     def policy_scope_string(self):
@@ -72,11 +92,22 @@ class TraceSuppressionPolicy:
             lib.API_FIELD: lib.API_VERSION,
             lib.KIND_FIELD: lib.POL_KIND,
             lib.METADATA_FIELD: {
-                lib.NAME_FIELD: self.name,
-                lib.TYPE_FIELD: lib.POL_TYPE_TRACE,
+                lib.METADATA_NAME_FIELD: self.name,
+                lib.METADATA_TYPE_FIELD: lib.POL_TYPE_TRACE,
+                lib.METADATA_S_CHECKSUM_FIELD: lib.make_checksum(
+                    json.dumps(self.selectors, sort_keys=True)
+                ),
             },
             lib.SPEC_FIELD: {},
         }
+        if lib.METADATA_UID_FIELD in self.metadata:
+            rv[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = self.metadata[
+                lib.METADATA_UID_FIELD
+            ]
+        if lib.METADATA_CREATE_TIME in self.metadata:
+            rv[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = self.metadata[
+                lib.METADATA_CREATE_TIME
+            ]
         rv[lib.SPEC_FIELD].update(self.selectors)
         rv[lib.SPEC_FIELD][lib.ALLOWED_FLAGS_FIELD] = self.flags
         return rv
@@ -104,64 +135,74 @@ class TraceSuppressionPolicy:
     def __build_name(self):
         if self.name:
             return
-        if not self.trace_summary:
+        if not self.metadata:
             self.name = "Custom Trace Suppression Policy"
             return
-        trace_selector: Dict = self.trace_summary[lib.SPEC_FIELD][
-            lib.TRACE_SELECTOR_FIELD
-        ]
+        trace_selector: Dict = self.spec[lib.TRACE_SELECTOR_FIELD]
         trigger_ancestors = trace_selector.get(lib.TRIGGER_ANCESTORS_FIELD)
         if not trigger_ancestors:
             trigger_ancestors = trace_selector.get("trigger_ancestors")
         if not trigger_ancestors:
             self.name = "Custom Trace Suppression Policy"
-        self.name = f"Trace Suppression Policy for {trigger_ancestors}"
+        if isinstance(trigger_ancestors, list):
+            self.name = f"Trace Suppression Policy for {trigger_ancestors[0]}"
+        else:
+            self.name = f"Trace Suppression Policy for {trigger_ancestors}"
 
     def __build_flags(self):
-        if not self.trace_summary:
+        if not self.spec:
             return
-        flag_summary = self.trace_summary[lib.SPEC_FIELD][
-            lib.FLAG_SUMMARY_FIELD
-        ]
-        flags = flag_summary.get("flag")
-        if flags:
-            flags = flags.get(lib.FLAGS_FIELD)
+        spec_flags = self.spec.get(lib.FLAG_SUMMARY_FIELD)
+        if not spec_flags:
+            flags = self.spec.get(lib.ALLOWED_FLAGS_FIELD)
+            if flags:
+                self.flags = flags
+            else:
+                self.flags = []
         else:
-            flags = flag_summary[lib.FLAGS_FIELD]
-        self.flags = [{lib.FLAG_CLASS: f[lib.FLAG_CLASS]} for f in flags]
+            flags = spec_flags.get("flag")
+            if flags:
+                flags = flags.get(lib.FLAGS_FIELD)
+            else:
+                flags = spec_flags[lib.FLAGS_FIELD]
+            self.flags = [{lib.FLAG_CLASS: f[lib.FLAG_CLASS]} for f in flags]
 
     def __build_trace_selector(self):
-        if not self.trace_summary:
+        if not self.spec:
             return
         selector = {}
-        trace_selector: Dict = self.trace_summary[lib.SPEC_FIELD][
-            lib.TRACE_SELECTOR_FIELD
-        ]
+        trace_selector: Dict = self.spec.get(lib.TRACE_SELECTOR_FIELD, {})
         trigger_class = trace_selector.get(lib.TRIGGER_CLASS_FIELD)
         if not trigger_class:
             trigger_class = trace_selector.get("trigger_class")
         if trigger_class:
-            selector[lib.TRIGGER_CLASS_FIELD] = [trigger_class]
+            if isinstance(trigger_class, list):
+                selector[lib.TRIGGER_CLASS_FIELD] = trigger_class
+            else:
+                selector[lib.TRIGGER_CLASS_FIELD] = [trigger_class]
         trigger_ancestors = trace_selector.get(lib.TRIGGER_ANCESTORS_FIELD)
         if not trigger_ancestors:
             trigger_ancestors = trace_selector.get("trigger_ancestors")
         if trigger_ancestors:
-            selector[lib.TRIGGER_ANCESTORS_FIELD] = [trigger_ancestors]
-        self.selectors[lib.TRACE_SELECTOR_FIELD] = selector
+            if isinstance(trigger_class, list):
+                selector[lib.TRIGGER_ANCESTORS_FIELD] = trigger_ancestors
+            else:
+                selector[lib.TRIGGER_ANCESTORS_FIELD] = [trigger_ancestors]
+        if selector:
+            self.selectors[lib.TRACE_SELECTOR_FIELD] = selector
 
     def __build_user_selector(self):
-        if not self.trace_summary:
+        if not self.spec:
             return
         selector = {}
-        user_selector: Dict = self.trace_summary[lib.SPEC_FIELD][
-            lib.USER_SELECTOR_FIELD
-        ]
+        user_selector: Dict = self.spec.get(lib.USER_SELECTOR_FIELD, {})
         users = user_selector.get(lib.USERS_FIELD)
         if not users:
             users = user_selector.get("whitelist")
         if users:
             selector["users"] = users
-        self.selectors[lib.USER_SELECTOR_FIELD] = selector
+        if selector:
+            self.selectors[lib.USER_SELECTOR_FIELD] = selector
 
 
 def get_data_for_api_call(
@@ -188,6 +229,11 @@ def get_data_for_api_call(
         data[lib.API_REQ_FIELD_TAGS] = tags
     else:
         data[lib.API_REQ_FIELD_TAGS] = []
+    # Add a tag with the hash of the selectors
+    data[lib.API_REQ_FIELD_TAGS].append(
+        "SELECTOR_HASH:"
+        f"{policy[lib.METADATA_FIELD][lib.METADATA_S_CHECKSUM_FIELD]}"
+    )
     return uid, data
 
 
