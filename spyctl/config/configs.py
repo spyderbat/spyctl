@@ -102,9 +102,12 @@ class Context:
         for key in self.required_context_keys.union(
             self.optional_context_keys
         ):
-            if key in self.context and not isinstance(self.context[key], str):
+            if key in self.context and not (
+                isinstance(self.context[key], str)
+                or isinstance(self.context[key], list)
+            ):
                 raise InvalidContextDataError(
-                    f"Value for {key} must be a string"
+                    f"Value for {key} must be a string or a list"
                 )
         self.name = context_data[CONTEXT_NAME_FIELD]
         if not isinstance(self.name, str) or not self.name:

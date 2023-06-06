@@ -307,33 +307,57 @@ def init_workspace(yes=False):
     "--cluster",
     help="Name or Spyderbat ID of Kubernetes cluster.",
     metavar="",
+    type=lib.ListParam(),
 )
 @click.option(
     "-n",
     "--namespace",
     help="Name or Spyderbat ID of Kubernetes namespace.",
     metavar="",
+    type=lib.ListParam(),
 )
 @click.option(
-    "-p", "--pod", help="Name or Spyderbat ID of Kubernetes pod.", metavar=""
+    "-p",
+    "--pod",
+    help="Name or Spyderbat ID of Kubernetes pod.",
+    metavar="",
+    type=lib.ListParam(),
 )
 @click.option(
     "-m",
     "--machines",
     help="Name of machine group, or name or Spyderbat ID of a machine (node).",
     metavar="",
+    type=lib.ListParam(),
 )
 @click.option(
     "-i",
     "--image",
     help="Name of container image, wildcards allowed.",
     metavar="",
+    type=lib.ListParam(),
 )
-@click.option("-d", "--image-id", help="Container image ID.", metavar="")
 @click.option(
-    "-N", "--container-name", help="Name of specific container.", metavar=""
+    "-d",
+    "--image-id",
+    help="Container image ID.",
+    metavar="",
+    type=lib.ListParam(),
 )
-@click.option("-C", "--cgroup", help="Linux service cgroup.", metavar="")
+@click.option(
+    "-N",
+    "--container-name",
+    help="Name of specific container.",
+    metavar="",
+    type=lib.ListParam(),
+)
+@click.option(
+    "-C",
+    "--cgroup",
+    help="Linux service cgroup.",
+    metavar="",
+    type=lib.ListParam(),
+)
 @click.argument("name")
 def set_context(name, secret, force_global, use_ctx, **context):
     """Set a context entry in a spyctl configuration file, or update an
@@ -958,52 +982,70 @@ class GetCommand(lib.ArgumentParametersCommand):
     cfgs.IMG_FIELD,
     help="Only show resources tied to this container image."
     " Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--image-id",
     cfgs.IMGID_FIELD,
     help="Only show resources tied to containers running with this"
     " image id. Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--container-name",
     cfgs.CONTAINER_NAME_FIELD,
     help="Only show resources tied to containers running with this"
     " container name. Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--container-id",
     cfgs.CONT_ID_FIELD,
     help="Only show resources tied to containers running with this"
     " container id. Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--cgroup",
     cfgs.CGROUP_FIELD,
     help="Only show resources tied to machines running Linux services with"
     " this cgroup. Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "--pod",
     cfgs.POD_FIELD,
     help="Only show resources tied to this pod uid."
     " Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     f"--{cfgs.MACHINES_FIELD}",
     "--nodes",
     help="Only show resources to these nodes."
     " Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     f"--{cfgs.NAMESPACE_FIELD}",
     help="Only show resources tied to this namespace."
     " Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     f"--{cfgs.CLUSTER_FIELD}",
     help="Only show resources tied to this cluster."
     " Overrides value current context if it exists.",
+    type=lib.ListParam(),
+    metavar="",
 )
 @click.option(
     "-o",
@@ -1075,6 +1117,7 @@ def get(
     - Pods
     - Processes
     - RedFlags
+    - Spydertraces
 
     \b
     Other resources come from databases where time ranges are not applicable:
