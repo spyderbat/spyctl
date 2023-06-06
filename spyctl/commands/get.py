@@ -17,6 +17,7 @@ import spyctl.resources.processes as spyctl_procs
 import spyctl.resources.connections as spyctl_conns
 import spyctl.resources.spydertraces as spyctl_spytrace
 import spyctl.resources.containers as spyctl_cont
+import spyctl.resources.suppression_policies as s_pol
 import spyctl.spyctl_lib as lib
 
 ALL = "all"
@@ -71,6 +72,10 @@ def handle_get(
         handle_get_spydertraces(name_or_id, st, et, output, **filters)
     elif resource == lib.CONTAINER_RESOURCE:
         handle_get_containers(name_or_id, st, et, output, **filters)
+    # elif resource == lib.SPYDERTRACE_SUMMARY_RESOURCE:
+    #     handle_get_trace_summaries(name_or_id, st, et, output, **filters)
+    elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
+        handle_get_suppression_policies(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
@@ -253,7 +258,10 @@ def handle_get_fingerprints(
                 is_warning=True,
             )
         orig_fprints = api.get_fingerprints(
-            *ctx.get_api_data(), muids, (st, et)
+            *ctx.get_api_data(),
+            muids,
+            (st, et),
+            fprint_type=filters.get(lib.TYPE_FIELD),
         )
         orig_fprints = get_fingerprints_matching_files(orig_fprints, files)
     elif policies and len(policies) > 1:
@@ -263,7 +271,10 @@ def handle_get_fingerprints(
                 is_warning=True,
             )
         orig_fprints = api.get_fingerprints(
-            *ctx.get_api_data(), muids, (st, et)
+            *ctx.get_api_data(),
+            muids,
+            (st, et),
+            fprint_type=filters.get(lib.TYPE_FIELD),
         )
         orig_fprints = get_fingerprints_matching_policies(
             orig_fprints, policies
@@ -284,7 +295,10 @@ def handle_get_fingerprints(
                 st = __get_latest_timestamp(policies[0])
             filters = lib.selectors_to_filters(policies[0])
         orig_fprints = api.get_fingerprints(
-            *ctx.get_api_data(), muids, (st, et)
+            *ctx.get_api_data(),
+            muids,
+            (st, et),
+            fprint_type=filters.get(lib.TYPE_FIELD),
         )
         orig_fprints = filt.filter_fingerprints(orig_fprints, **filters)
     if policy_coverage:
@@ -337,6 +351,47 @@ def handle_get_fingerprints(
                 )
         output = lib.OUTPUT_RAW
     cli.show(fprint_groups, output)
+
+
+def handle_get_trace_summaries(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    machines = api.get_machines(*ctx.get_api_data())
+    clusters = None
+    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
+        clusters = api.get_clusters(*ctx.get_api_data())
+    machines = filt.filter_machines(machines, clusters, **filters)
+    muids = [m["uid"] for m in machines]
+    orig_fprints = api.get_trace_summaries(
+        *ctx.get_api_data(),
+        muids,
+        (st, et),
+    )
+    orig_fprints = filt.filter_fingerprints(orig_fprints, **filters)
+    cli.show(orig_fprints, lib.OUTPUT_JSON)
+
+
+def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    policies = api.get_policies(
+        *ctx.get_api_data(),
+        params={lib.METADATA_TYPE_FIELD: lib.POL_TYPE_TRACE},
+    )
+    policies = filt.filter_policies(policies, **filters)
+    if name_or_id:
+        policies = filt.filter_obj(
+            policies,
+            [
+                [lib.METADATA_FIELD, lib.NAME_FIELD],
+                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+            ],
+            name_or_id,
+        )
+    if output != lib.OUTPUT_DEFAULT:
+        policies = s_pol.s_policies_output(policies)
+    else:
+        policies = s_pol.s_policies_summary_output(policies)
+        output = lib.OUTPUT_RAW
+    cli.show(policies, output)
 
 
 def get_fingerprints_matching_files(

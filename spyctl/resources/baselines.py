@@ -29,7 +29,7 @@ class Baseline:
     valid_obj_kinds = {GROUP_KIND, FPRINT_KIND, BASELINE_KIND, POLICY_KIND}
     required_keys = {lib.API_FIELD, lib.KIND_FIELD, lib.METADATA_FIELD}
 
-    def __init__(self, obj: Dict) -> None:
+    def __init__(self, obj: Dict, name: str = None) -> None:
         for key in self.required_keys:
             if key not in obj:
                 raise InvalidBaselineError(f"Missing {key} for input object")
@@ -86,6 +86,8 @@ class Baseline:
                 )
             baseline_data = obj
         self.metadata = baseline_data[lib.METADATA_FIELD]
+        if name:
+            self.metadata[lib.METADATA_NAME_FIELD] = name
         self.spec = baseline_data[lib.SPEC_FIELD]
 
     def as_dict(self) -> Dict:
@@ -98,9 +100,9 @@ class Baseline:
         return rv
 
 
-def create_baseline(obj: Dict):
+def create_baseline(obj: Dict, name: str = None):
     try:
-        baseline = Baseline(obj)
+        baseline = Baseline(obj, name)
     except (InvalidBaselineError, spyctl_fprints.InvalidFingerprintError) as e:
         cli.err_exit(f"Unable to create baseline. {' '.join(e.args)}")
     return baseline.as_dict()

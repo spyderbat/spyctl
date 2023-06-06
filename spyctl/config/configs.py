@@ -311,8 +311,8 @@ def load_config(silent=False):
             for config in reversed(configs):
                 base_config.merge(config)
             LOADED_CONFIG = base_config
-            CURRENT_CONTEXT = base_config.contexts.get(
-                base_config.current_context
+            set_current_context(
+                base_config.contexts.get(base_config.current_context)
             )
 
 
@@ -320,7 +320,14 @@ def get_loaded_config() -> Optional[Config]:
     return LOADED_CONFIG
 
 
+def set_current_context(ctx: Optional[Context]):
+    global CURRENT_CONTEXT
+    CURRENT_CONTEXT = ctx
+
+
 def get_current_context() -> Context:
+    if CURRENT_CONTEXT:
+        return CURRENT_CONTEXT
     config = get_loaded_config()
     secrets = s.get_secrets()
     if len(secrets) == 0:
@@ -334,7 +341,7 @@ def get_current_context() -> Context:
             "No valid contexts. Try using 'spyctl config set-context' to"
             " create one."
         )
-    elif (
+    if (
         config.current_context == CURR_CONTEXT_NONE
         or not config.current_context
     ):
@@ -342,15 +349,15 @@ def get_current_context() -> Context:
             "Current context is not set. Try using"
             " 'spyctl config use-context'"
         )
-    elif config.current_context not in config.contexts:
+    if config.current_context not in config.contexts:
         cli.err_exit(
             "Unable to locate current context"
             f" '{config.current_context}'."
             " Try using 'spyctl config use-context'."
         )
-    elif CURRENT_CONTEXT is None:
+    if CURRENT_CONTEXT is None:
         cli.err_exit("No current context set")
-    return CURRENT_CONTEXT
+    cli.err_exit("Configuration not complete.")
 
 
 def init():

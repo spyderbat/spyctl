@@ -10,14 +10,6 @@ import spyctl.resources.baselines as spyctl_baselines
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.spyctl_lib as lib
 
-# For the Spyderbat API
-API_REQ_FIELD_NAME = "name"
-API_REQ_FIELD_POLICY = "policy"
-API_REQ_FIELD_POL_SELECTORS = "selectors"
-API_REQ_FIELD_TAGS = "tags"
-API_REQ_FIELD_TYPE = "type"
-API_REQ_FIELD_UID = "uid"
-
 FPRINT_KIND = spyctl_fprints.FPRINT_KIND
 GROUP_KIND = spyctl_fprints.GROUP_KIND
 BASELINE_KIND = lib.BASELINE_KIND
@@ -49,7 +41,7 @@ class Policy:
     }
     valid_obj_kinds = {POLICY_KIND, BASELINE_KIND}
 
-    def __init__(self, obj: Dict) -> None:
+    def __init__(self, obj: Dict, name: str = None) -> None:
         self.policy = {}
         obj_kind = obj.get(lib.KIND_FIELD)
         if obj_kind not in self.valid_obj_kinds:
@@ -75,6 +67,8 @@ class Policy:
                     raise InvalidPolicyError(f"Missing {key} for input object")
             policy_data = obj
         self.metadata = policy_data[lib.METADATA_FIELD]
+        if name:
+            self.metadata[lib.METADATA_NAME_FIELD] = name
         self.spec = policy_data[lib.SPEC_FIELD]
         self.response_actions = policy_data[lib.SPEC_FIELD].get(
             lib.RESPONSE_FIELD, lib.RESPONSE_ACTION_TEMPLATE
@@ -121,20 +115,20 @@ def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
         if key.endswith("Selector")
     }
     data = {
-        API_REQ_FIELD_NAME: name[:32],
-        API_REQ_FIELD_POLICY: json.dumps(policy),
-        API_REQ_FIELD_POL_SELECTORS: json.dumps(policy_selectors),
-        API_REQ_FIELD_TYPE: type,
-        API_REQ_FIELD_UID: uid,
+        lib.API_REQ_FIELD_NAME: name[:32],
+        lib.API_REQ_FIELD_POLICY: json.dumps(policy),
+        lib.API_REQ_FIELD_POL_SELECTORS: json.dumps(policy_selectors),
+        lib.API_REQ_FIELD_TYPE: type,
+        lib.API_REQ_FIELD_UID: uid,
     }
     if tags:
-        data[API_REQ_FIELD_TAGS] = tags
+        data[lib.API_REQ_FIELD_TAGS] = tags
     else:
-        data[API_REQ_FIELD_TAGS] = []
+        data[lib.API_REQ_FIELD_TAGS] = []
     return uid, data
 
 
-def create_policy(obj: Dict):
+def create_policy(obj: Dict, name: str = None):
     obj_kind = obj.get(lib.KIND_FIELD)
     if obj_kind != POLICY_KIND:
         try:
@@ -145,12 +139,12 @@ def create_policy(obj: Dict):
         ) as e:
             cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
         try:
-            policy = Policy(baseline.as_dict())
+            policy = Policy(baseline.as_dict(), name)
         except InvalidPolicyError as e:
             cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
     else:
         try:
-            policy = Policy(obj)
+            policy = Policy(obj, name)
         except InvalidPolicyError as e:
             cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
     return policy.as_dict()

@@ -14,6 +14,10 @@ def valid_object(data: Dict, verbose=True) -> bool:
             f"Unable to validate {kind!r}, no schema exists for objects of"
             " that type."
         )
+    if kind == lib.POL_KIND:
+        type = data.get(lib.METADATA_FIELD, {}).get(lib.METADATA_TYPE_FIELD)
+        if type == lib.POL_TYPE_TRACE:
+            kind = (kind, type)
     try:
         KIND_TO_SCHEMA[kind].validate(data)
     except SchemaError as e:
@@ -426,6 +430,19 @@ container_selector_schema = {
 # TODO: Update machine selector
 machine_selector_schema = {Optional(str): str}
 
+trace_selector_schema = {
+    Optional(lib.TRIGGER_CLASS_FIELD): [And(str, lambda x: len(x) > 0)],
+    Optional(lib.TRIGGER_ANCESTORS_FIELD): [And(str, lambda x: len(x) > 0)],
+}
+
+user_selector_schema = {
+    Optional(lib.USERS_FIELD): [And(str, lambda x: len(x) > 0)],
+    Optional(lib.INTERACTIVE_USERS_FIELD): [And(str, lambda x: len(x) > 0)],
+    Optional(lib.NON_INTERACTIVE_USERS_FIELD): [
+        And(str, lambda x: len(x) > 0)
+    ],
+}
+
 match_labels_schema = {lib.MATCH_LABELS_FIELD: {str: str}}
 
 pod_selector_schema = match_labels_schema
@@ -445,6 +462,8 @@ SELECTOR_TO_SCHEMA_MAP = {
     lib.MACHINE_SELECTOR_FIELD: machine_selector_schema,
     lib.NAMESPACE_SELECTOR_FIELD: pod_selector_schema,
     lib.POD_SELECTOR_FIELD: namespace_selector_schema,
+    lib.TRACE_SELECTOR_FIELD: trace_selector_schema,
+    lib.USER_SELECTOR_FIELD: user_selector_schema,
 }
 
 for selector_field in lib.SELECTOR_FIELDS:
@@ -506,6 +525,7 @@ default_response_actions_schema = And(
     ],
     lambda d: len(d) < 4,
 )
+allowed_flags_schema = And([{str: str}], lambda d: len(d) < 1000)
 response_actions_schema = ResponseActionsSchema(
     [
         Optional(
@@ -551,6 +571,14 @@ policy_spec_schema = Spec_Schema(
             lib.RESP_DEFAULT_FIELD: default_response_actions_schema,
             lib.RESP_ACTIONS_FIELD: response_actions_schema,
         },
+    }
+)
+
+suppression_policy_spec_schema = Schema(
+    {
+        Optional(lib.ENABLED_FIELD): bool,
+        **all_selectors_schema,
+        lib.ALLOWED_FLAGS_FIELD: allowed_flags_schema,
     }
 )
 
@@ -608,6 +636,7 @@ policy_metadata_schema = Schema(
         lib.METADATA_TYPE_FIELD: Or(
             lib.POL_TYPE_CONT,
             lib.POL_TYPE_SVC,
+            lib.POL_TYPE_TRACE,
             error=(
                 f"Fingerprint type must be {lib.POL_TYPE_CONT} or"
                 f" {lib.POL_TYPE_SVC}"
@@ -618,6 +647,7 @@ policy_metadata_schema = Schema(
             int, float, lib.NOT_AVAILABLE
         ),
         Optional(lib.METADATA_UID_FIELD): str,
+        Optional(lib.METADATA_S_CHECKSUM_FIELD): str,
     },
 )
 
@@ -663,11 +693,29 @@ policy_schema = SpyderbatObjSchema(
     }
 )
 
+policy_schema = SpyderbatObjSchema(
+    {
+        lib.API_FIELD: lib.API_VERSION,
+        lib.KIND_FIELD: lib.POL_KIND,
+        lib.METADATA_FIELD: policy_metadata_schema,
+        lib.SPEC_FIELD: policy_spec_schema,
+    }
+)
+suppression_policy_schema = SpyderbatObjSchema(
+    {
+        lib.API_FIELD: lib.API_VERSION,
+        lib.KIND_FIELD: lib.POL_KIND,
+        lib.METADATA_FIELD: policy_metadata_schema,
+        lib.SPEC_FIELD: suppression_policy_spec_schema,
+    }
+)
+
 KIND_TO_SCHEMA: Dict[str, Schema] = {
     lib.BASELINE_KIND: baseline_schema,
     lib.FPRINT_KIND: fprint_schema,
     lib.FPRINT_GROUP_KIND: fprint_group_schema,
     lib.POL_KIND: policy_schema,
+    (lib.POL_KIND, lib.POL_TYPE_TRACE): suppression_policy_schema,
     lib.CONFIG_KIND: config_schema,
     lib.SECRET_KIND: secret_schema,
 }

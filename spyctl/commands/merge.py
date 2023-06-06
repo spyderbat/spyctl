@@ -8,6 +8,7 @@ import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
+import spyctl.resources.suppression_policies as sp
 import spyctl.spyctl_lib as lib
 import spyctl.schemas as schemas
 
@@ -330,8 +331,13 @@ def merge_resource(
             merge_network,
         )
     elif resrc_kind == lib.POL_KIND:
+        resrc_type = target[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+        if resrc_type == lib.POL_TYPE_TRACE:
+            merge_schemas = sp.T_S_POLICY_MERGE_SCHEMAS
+        else:
+            merge_schemas = p.POLICY_MERGE_SCHEMAS
         merge_obj = m_lib.MergeObject(
-            target, p.POLICY_MERGE_SCHEMAS, schemas.valid_object, merge_network
+            target, merge_schemas, schemas.valid_object, merge_network
         )
     else:
         cli.try_log(
@@ -339,9 +345,22 @@ def merge_resource(
             is_warning=True,
         )
     if isinstance(with_obj, dict):
-        merge_obj.asymmetric_merge(with_obj)
+        with_kind = with_obj.get(lib.KIND_FIELD)
+        if with_kind == lib.FPRINT_GROUP_KIND:
+            for fprint in with_obj[lib.DATA_FIELD][
+                lib.FPRINT_GRP_FINGERPRINTS_FIELD
+            ]:
+                if is_type_mismatch(target, target_name, src_cmd, fprint):
+                    return None
+                merge_obj.asymmetric_merge(fprint)
+        else:
+            if is_type_mismatch(target, target_name, src_cmd, with_obj):
+                return None
+            merge_obj.asymmetric_merge(with_obj)
     elif isinstance(with_obj, list):
         for w_obj in with_obj:
+            if is_type_mismatch(target, target_name, src_cmd, with_obj):
+                continue
             try:
                 merge_obj.asymmetric_merge(w_obj)
             except m_lib.InvalidMergeError as e:
@@ -349,7 +368,6 @@ def merge_resource(
                     f"Unable to {src_cmd} with invalid object. {w_obj}",
                     *e.args,
                 )
-        pass
     else:
         raise Exception(
             f"Bug found, attempting to {src_cmd} with invalid object"
@@ -361,6 +379,23 @@ def merge_resource(
         )
         return None
     return merge_obj
+
+
+def is_type_mismatch(
+    target: Dict, target_name: str, src_cmd: str, with_obj: Dict
+) -> bool:
+    resrc_type = target[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+    with_type = with_obj[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+    with_kind = with_obj.get(lib.KIND_FIELD)
+    if resrc_type != with_type:
+        cli.try_log(
+            f"Error type mismatch. Trying to {src_cmd} '{target_name}' of type"
+            f" '{resrc_type}' with '{with_kind}' object of type '{with_type}'."
+            " Skipping...",
+            is_warning=True,
+        )
+        return True
+    return False
 
 
 def handle_output(

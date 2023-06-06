@@ -16,6 +16,7 @@ import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
+import spyctl.commands.suppress as sup
 
 MAIN_EPILOG = (
     "\b\n"
@@ -63,6 +64,16 @@ def main(ctx: click.Context):
 def apply(filename):
     """Apply a configuration to a resource by file name."""
     handle_apply(filename)
+
+
+# ----------------------------------------------------------------- #
+#                          Close Subcommand                         #
+# ----------------------------------------------------------------- #
+@main.group("close", cls=lib.CustomSubGroup)
+@click.help_option("-h", "--help", hidden=True)
+def close():
+    """Close one or many Spyderbat resources"""
+    pass
 
 
 # ----------------------------------------------------------------- #
@@ -467,9 +478,16 @@ def create():
     default=lib.OUTPUT_DEFAULT,
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
-def create_baseline(filename, output):
+@click.option(
+    "-n",
+    "--name",
+    help="Optional name for the Baseline, if not provided, a name will be"
+    " generated automatically",
+    metavar="",
+)
+def create_baseline(filename, output, name):
     """Create a Baseline from a file, outputted to stdout"""
-    c.handle_create_baseline(filename, output)
+    c.handle_create_baseline(filename, output, name)
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
@@ -479,7 +497,7 @@ def create_baseline(filename, output):
     "--from-file",
     "filename",
     help="File that contains the FingerprintsGroup or SpyderbatBaseline"
-    " object, from which spyctl creates a policy",
+    " object, from which spyctl creates a Guardian Policy",
     metavar="",
     required=True,
     type=click.File(),
@@ -490,9 +508,127 @@ def create_baseline(filename, output):
     default=lib.OUTPUT_DEFAULT,
     type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
 )
-def create_policy(filename, output):
-    """Create a Policy object from a file, outputted to stdout"""
-    c.handle_create_policy(filename, output)
+@click.option(
+    "-n",
+    "--name",
+    help="Optional name for the Guardian Policy, if not provided, a name will"
+    " be generated automatically",
+    metavar="",
+)
+@lib.colorization_option
+def create_policy(filename, output, name, colorize):
+    """Create a Guardian Policy object from a file, outputted to stdout"""
+    if not colorize:
+        lib.disable_colorization()
+    c.handle_create_guardian_policy(filename, output, name)
+
+
+class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
+    argument_name = "type"
+    argument_value_parameters = [
+        {
+            "type": [lib.POL_TYPE_TRACE],
+            "args": [
+                click.option(
+                    f"--{lib.SUP_POL_CMD_TRIG_ANCESTORS}",
+                    help="Scope the policy to Spydertraces with these"
+                    " ancestors from trigger. This option will overwrite"
+                    f" any auto-generated {lib.TRIGGER_ANCESTORS_FIELD} values"
+                    " generated using '--id'",
+                    metavar="",
+                    type=lib.ListParam(),
+                ),
+                click.option(
+                    f"--{lib.SUP_POL_CMD_TRIG_CLASS}",
+                    help="Scope the policy to Spydertraces with these"
+                    " trigger classes. This option will overwrite"
+                    f" any auto-generated {lib.TRIGGER_CLASS_FIELD} values"
+                    " generated using '--id'",
+                    metavar="",
+                    type=lib.ListParam(),
+                ),
+                click.option(
+                    f"--{lib.SUP_POL_CMD_INT_USERS}",
+                    help="Scope the policy to Spydertraces with these"
+                    " interactive users. This option will overwrite"
+                    f" any auto-generated {lib.USERS_FIELD} values generated"
+                    " using '--id'",
+                    metavar="",
+                    type=lib.ListParam(),
+                ),
+                click.option(
+                    f"--{lib.SUP_POL_CMD_N_INT_USERS}",
+                    help="Scope the policy to Spydertraces with these"
+                    " non-interactive users. This option will overwrite"
+                    f" any auto-generated {lib.USERS_FIELD} values generated"
+                    " using '--id'",
+                    metavar="",
+                    type=lib.ListParam(),
+                ),
+            ],
+        },
+    ]
+
+
+@create.command(
+    "suppression-policy",
+    cls=SuppressionPolicyCommand,
+    epilog=SUB_EPILOG,
+    hidden=True,
+)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("type", type=lib.SuppressionPolTypeParam())
+@click.option(
+    "-i",
+    "--id",
+    default=None,
+    help="UID of the object to build a Suppression Policy from.",
+    metavar="",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
+    "-u",
+    "--auto-generate-user-scope",
+    "include_users",
+    help=f"Auto generate the {lib.USERS_FIELD} in the"
+    f" suppression policies {lib.USER_SELECTOR_FIELD} if"
+    "'--id' is provided.",
+    default=False,
+    is_flag=True,
+    metavar="",
+)
+@click.option(
+    f"--{lib.SUP_POL_CMD_USERS}",
+    help="Scope the policy to these users. This option will overwrite"
+    f" any auto-generated {lib.USERS_FIELD} values generated"
+    " using '--id'",
+    metavar="",
+    type=lib.ListParam(),
+)
+@lib.tmp_context_options
+@lib.colorization_option
+def create_suppression_policy(
+    type, id, include_users, output, colorize, **selectors
+):
+    """Create a Suppression Policy object from a file, outputted to stdout"""
+    if not colorize:
+        lib.disable_colorization()
+    selectors = {
+        key: value for key, value in selectors.items() if value is not None
+    }
+    org_uid = selectors.pop(lib.CMD_ORG_FIELD, None)
+    api_key = selectors.pop(lib.API_KEY_FIELD, None)
+    api_url = selectors.pop(lib.API_URL_FIELD, "https://api.spyderbat.com")
+    if org_uid and api_key and api_url:
+        use_temp_secret_and_context(org_uid, api_key, api_url)
+    c.handle_create_suppression_policy(
+        type, id, include_users, output, **selectors
+    )
 
 
 # ----------------------------------------------------------------- #
@@ -614,12 +750,14 @@ def delete(resource, name_or_id, yes=False):
     " Default is to include network data in the diff.",
     default=True,
 )
+@lib.colorization_option
 def diff(
     filename,
     policy,
     st,
     et,
     include_network,
+    colorize,
     yes=False,
     with_file=None,
     with_policy=None,
@@ -691,6 +829,8 @@ def diff(
     """  # noqa E501
     if yes:
         cli.set_yes_option()
+    if not colorize:
+        lib.disable_colorization()
     d.handle_diff(
         filename,
         policy,
@@ -772,7 +912,15 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " returned by the query, and lists the ones that still"
                     " require a policy.",
                 ),
-                click.option("-T", "--type", is_flag=True, help=""),
+                click.option(
+                    "-T",
+                    "--type",
+                    type=click.Choice(
+                        [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC],
+                        case_sensitive=False,
+                    ),
+                    help="The type of fingerprint to return.",
+                ),
             ],
         },
         {
@@ -1151,6 +1299,7 @@ def get(
     " Default is to include network data in the merge.",
     default=True,
 )
+@lib.colorization_option
 def merge(
     filename,
     policy,
@@ -1158,6 +1307,7 @@ def merge(
     st,
     et,
     include_network,
+    colorize,
     yes=False,
     yes_except=False,
     with_file=None,
@@ -1239,6 +1389,8 @@ def merge(
     """  # noqa E501
     if yes or yes_except:
         cli.set_yes_option()
+    if not colorize:
+        lib.disable_colorization()
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     m.handle_merge(
@@ -1257,6 +1409,68 @@ def merge(
 
 
 # ----------------------------------------------------------------- #
+#                        Snooze Subcommand                          #
+# ----------------------------------------------------------------- #
+@main.group("snooze", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+def snooze():
+    "Snooze one or many Spyderbat Resources"
+    pass
+
+
+# ----------------------------------------------------------------- #
+#                       Suppress Subcommand                         #
+# ----------------------------------------------------------------- #
+@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG, hidden=True)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "--suppress",
+    help="suppress",
+    metavar="",
+    default=True,
+)
+def suppress(suppress):
+    "Tune your environment by suppressing Spyderbat Resources"
+    pass
+
+
+@suppress.command("trace", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-i",
+    "--id",
+    help="id of the spydertrace or spydertrace summary to suppress",
+    metavar="",
+)
+@click.option(
+    "-u",
+    "--include-users",
+    help="Scope the trace suppression policy to the users found in the trace",
+    metavar="",
+    is_flag=True,
+    default=False,
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def suppress_spydertrace(
+    include_users,
+    yes,
+    id=None,
+):
+    "Suppress one or many Spyderbat Resources"
+    if yes:
+        cli.set_yes_option()
+    if id:
+        sup.handle_suppress_trace_by_id(id, include_users)
+
+
+# ----------------------------------------------------------------- #
 #                       Validate Subcommand                         #
 # ----------------------------------------------------------------- #
 
@@ -1272,13 +1486,16 @@ def merge(
     required=True,
     type=click.File(),
 )
-def validate(file):
+@lib.colorization_option
+def validate(file, colorize):
     """Validate spyderbat resource and spyctl configuration files.
 
     \b
     example:
       spyctl validate -f my_baseline.yaml
     """
+    if not colorize:
+        lib.disable_colorization()
     v.handle_validate(file)
 
 
@@ -1308,3 +1525,28 @@ def update():
 )
 def update_response_actions(backup_file=None):
     u.handle_update_response_actions(backup_file)
+
+
+def use_temp_secret_and_context(org_uid, api_key, api_url):
+    secret_name = "__temp_secret__"
+    context_name = "__temp_context"
+    secret_data = {
+        lib.API_FIELD: lib.API_VERSION,
+        lib.KIND_FIELD: lib.SECRET_KIND,
+        lib.METADATA_FIELD: {
+            lib.METADATA_NAME_FIELD: secret_name,
+        },
+        lib.STRING_DATA_FIELD: {
+            lib.API_KEY_FIELD: api_key,
+            lib.API_URL_FIELD: api_url,
+        },
+    }
+    context_data = {
+        lib.CONTEXT_NAME_FIELD: context_name,
+        lib.SECRET_FIELD: secret_name,
+        lib.CONTEXT_FIELD: {lib.ORG_FIELD: org_uid},
+    }
+    secret = s.Secret(secret_data)
+    s.SECRETS[secret_name] = secret
+    context = cfgs.Context(context_data)
+    cfgs.set_current_context(context)
