@@ -49,9 +49,12 @@ REDFLAG_POL_OPTION_TO_SELECTORS_MAP = {
 
 
 def build_trace_suppression_policy(
-    trace_summary: Dict = None, include_users: bool = False, **selectors
+    trace_summary: Dict = None,
+    include_users: bool = False,
+    name: str = None,
+    **selectors,
 ):
-    pol = TraceSuppressionPolicy(trace_summary)
+    pol = TraceSuppressionPolicy(trace_summary, name)
     if not include_users:
         pol.spec.pop(lib.USER_SELECTOR_FIELD, None)
         pol.selectors.pop(lib.USER_SELECTOR_FIELD, None)
