@@ -359,7 +359,7 @@ def merge_resource(
             merge_obj.asymmetric_merge(with_obj)
     elif isinstance(with_obj, list):
         for w_obj in with_obj:
-            if is_type_mismatch(target, target_name, src_cmd, with_obj):
+            if is_type_mismatch(target, target_name, src_cmd, w_obj):
                 continue
             try:
                 merge_obj.asymmetric_merge(w_obj)
