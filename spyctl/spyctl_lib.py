@@ -1391,13 +1391,7 @@ class UniqueKeyLoader(yaml.SafeLoader):
 
 def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
     try:
-        if isinstance(file, io.TextIOWrapper):
-            name = file.name
-            resrc_data = yaml.load(file, UniqueKeyLoader)
-        else:
-            name = file
-            with open(file) as f:
-                resrc_data = yaml.load(f, UniqueKeyLoader)
+        name, resrc_data = __load_yaml_file(file)
     except ValueError as e:
         if validate_cmd:
             try_log(" ".join(e.args))
@@ -1405,48 +1399,103 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
         err_exit(" ".join(e.args))
     except Exception:
         try:
-            if isinstance(file, io.TextIOWrapper):
-                name = file.name
-                resrc_data = json.load(
-                    file, object_pairs_hook=dict_raise_on_duplicates
-                )
-            else:
-                name = file
-                with open(file) as f:
-                    resrc_data = json.load(
-                        f, object_pairs_hook=dict_raise_on_duplicates
-                    )
+            name, resrc_data = __load_json_file(file)
+        except json.JSONDecodeError as e:
+            if validate_cmd:
+                try_log("Error decoding json" + " ".join(e.args))
+                sys.exit(0)
+            err_exit("Error decoding json" + " ".join(e.args))
         except ValueError as e:
             if validate_cmd:
                 try_log(" ".join(e.args))
                 sys.exit(0)
             err_exit(" ".join(e.args))
         except Exception:
-            if validate_cmd:
-                try_log("Unable to load resource file.")
-                sys.exit(0)
             err_exit("Unable to load resource file.")
-    if not isinstance(resrc_data, dict):
+    try:
+        __validate_data_structure_on_load(resrc_data, validate_cmd)
+        if isinstance(resrc_data, dict):
+            __validate_resource_on_load(resrc_data, name, validate_cmd)
+        else:
+            for i, data in enumerate(resrc_data):
+                __validate_resource_on_load(data, name, validate_cmd, index=i)
+    except Exception as e:
         if validate_cmd:
-            try_log("Resource file does not contain a dictionary.")
+            try_log(" ".join(e.args))
             sys.exit(0)
-        err_exit("Resource file does not contain a dictionary.")
+        err_exit(" ".join(e.args))
+    if isinstance(file, io.TextIOWrapper):
+        file.seek(0, 0)
+    return resrc_data
+
+
+def __validate_data_structure_on_load(resrc_data: Any, validate_cmd=False):
+    if not isinstance(resrc_data, dict) and not isinstance(resrc_data, list):
+        if validate_cmd:
+            try_log(
+                "Resource file does not contain a dictionary or list of"
+                " dictionaries."
+            )
+            sys.exit(0)
+        err_exit(
+            "Resource file does not contain a dictionary or list of"
+            " dictionaries."
+        )
+
+
+def __validate_resource_on_load(
+    resrc_data: Dict, name, validate_cmd=False, index=None
+):
     resrc_kind = resrc_data.get(KIND_FIELD)
+    msg_suffix = "" if index is None else f" at index {index}"
     if not resrc_kind:
         if validate_cmd:
-            try_log(f"Missing or invalid {KIND_FIELD} field.")
+            try_log(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
             sys.exit(0)
-        err_exit(f"Missing or invalid {KIND_FIELD} field.")
+        err_exit(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
     from spyctl.schemas import valid_object
 
     if not valid_object(resrc_data, verbose=True):
         if validate_cmd:
-            try_log(f"{resrc_kind} invalid in {name!r}. See error logs.")
+            try_log(
+                f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
+            )
             sys.exit(0)
-        sys.exit(f"{resrc_kind} invalid in {name!r}. See error logs.")
-    if isinstance(file, io.TextIOWrapper):
-        file.seek(0, 0)
-    return resrc_data
+        sys.exit(
+            f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
+        )
+
+
+def __load_yaml_file(file: Union[str, IO]) -> Tuple[str, Any]:
+    try:
+        if isinstance(file, io.TextIOWrapper):
+            name = file.name
+            resrc_data = yaml.load(file, UniqueKeyLoader)
+        else:
+            name = file
+            with open(file) as f:
+                resrc_data = yaml.load(f, UniqueKeyLoader)
+    except IOError as e:
+        err_exit(" ".join(e.args))
+    return name, resrc_data
+
+
+def __load_json_file(file: Union[str, IO]) -> Tuple[str, Any]:
+    try:
+        if isinstance(file, io.TextIOWrapper):
+            name = file.name
+            resrc_data = json.load(
+                file, object_pairs_hook=dict_raise_on_duplicates
+            )
+        else:
+            name = file
+            with open(file) as f:
+                resrc_data = json.load(
+                    f, object_pairs_hook=dict_raise_on_duplicates
+                )
+    except IOError as e:
+        err_exit(" ".join(e.args))
+    return name, resrc_data
 
 
 def dictionary_mod(fn) -> Dict:

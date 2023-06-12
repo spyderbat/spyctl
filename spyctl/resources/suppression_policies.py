@@ -111,8 +111,12 @@ class TraceSuppressionPolicy:
             rv[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = self.metadata[
                 lib.METADATA_CREATE_TIME
             ]
-        rv[lib.SPEC_FIELD].update(self.selectors)
-        rv[lib.SPEC_FIELD][lib.ALLOWED_FLAGS_FIELD] = self.flags
+        rv[lib.SPEC_FIELD].update(
+            json.loads(json.dumps(self.selectors, sort_keys=True))
+        )
+        rv[lib.SPEC_FIELD][lib.ALLOWED_FLAGS_FIELD] = sorted(
+            self.flags, key=lambda x: x[lib.FLAG_CLASS]
+        )
         return rv
 
     def update_selectors(self, **selectors) -> Dict:
