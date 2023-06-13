@@ -140,21 +140,11 @@ class FingerprintGroup:
                 lib.METADATA_FIELD, {}
             )
         ):
-            self.fingerprints[fprint_id] = {
-                lib.API_FIELD: fingerprint[lib.API_FIELD],
-                lib.KIND_FIELD: fingerprint[lib.KIND_FIELD],
-                lib.METADATA_FIELD: fingerprint[lib.METADATA_FIELD],
-                lib.SPEC_FIELD: fingerprint[lib.SPEC_FIELD],
-            }
+            self.fingerprints[fprint_id] = fingerprint
         elif self.fingerprints[fprint_id][lib.METADATA_FIELD][
             LATEST_TIMESTAMP_FIELD
         ] <= fingerprint[lib.METADATA_FIELD].get(LATEST_TIMESTAMP_FIELD, 0):
-            self.fingerprints[fprint_id] = {
-                lib.API_FIELD: fingerprint[lib.API_FIELD],
-                lib.KIND_FIELD: fingerprint[lib.KIND_FIELD],
-                lib.METADATA_FIELD: fingerprint[lib.METADATA_FIELD],
-                lib.SPEC_FIELD: fingerprint[lib.SPEC_FIELD],
-            }
+            self.fingerprints[fprint_id] = fingerprint
 
     def __update_first_timestamp(self, timestamp):
         if timestamp is None:

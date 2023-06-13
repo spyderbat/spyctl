@@ -49,12 +49,9 @@ REDFLAG_POL_OPTION_TO_SELECTORS_MAP = {
 
 
 def build_trace_suppression_policy(
-    trace_summary: Dict = None,
-    include_users: bool = False,
-    name: str = None,
-    **selectors,
+    trace_summary: Dict = None, include_users: bool = False, **selectors
 ):
-    pol = TraceSuppressionPolicy(trace_summary, name)
+    pol = TraceSuppressionPolicy(trace_summary)
     if not include_users:
         pol.spec.pop(lib.USER_SELECTOR_FIELD, None)
         pol.selectors.pop(lib.USER_SELECTOR_FIELD, None)
@@ -111,12 +108,8 @@ class TraceSuppressionPolicy:
             rv[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = self.metadata[
                 lib.METADATA_CREATE_TIME
             ]
-        rv[lib.SPEC_FIELD].update(
-            json.loads(json.dumps(self.selectors, sort_keys=True))
-        )
-        rv[lib.SPEC_FIELD][lib.ALLOWED_FLAGS_FIELD] = sorted(
-            self.flags, key=lambda x: x[lib.FLAG_CLASS]
-        )
+        rv[lib.SPEC_FIELD].update(self.selectors)
+        rv[lib.SPEC_FIELD][lib.ALLOWED_FLAGS_FIELD] = self.flags
         return rv
 
     def update_selectors(self, **selectors) -> Dict:

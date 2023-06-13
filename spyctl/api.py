@@ -213,7 +213,6 @@ def get_filtered_data(
     schema,
     time,
     raise_notfound=False,
-    pipeline=None,
 ):
     url = f"{api_url}/api/v1/source/query/"
     data = {
@@ -223,8 +222,6 @@ def get_filtered_data(
         "data_type": datatype,
         "pipeline": [{"filter": {"schema": schema}}, {"latest_model": {}}],
     }
-    if pipeline:
-        data["pipeline"] = pipeline
     if source:
         data["src_uid"] = source
     return post(url, data, api_key, raise_notfound)
@@ -584,9 +581,7 @@ def get_opsflags(api_url, api_key, org_uid, time):
     return list(flags.values())
 
 
-def get_fingerprints(
-    api_url, api_key, org_uid, muids, time, fprint_type=None, pipeline=None
-):
+def get_fingerprints(api_url, api_key, org_uid, muids, time, fprint_type=None):
     fingerprints = {}
     if fprint_type:
         schema = (
@@ -607,7 +602,6 @@ def get_fingerprints(
                 "fingerprints",
                 schema,
                 time_tup,
-                pipeline=pipeline,
             ),
         ):
             for fprint_json in resp.iter_lines():
@@ -620,8 +614,9 @@ def get_fingerprints(
                 try:
                     id = fprint["id"]
                     version = fprint["version"]
+                    fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
                     fprint[lib.METADATA_FIELD]["version"] = version
-                except Exception:
+                except Exception as e:
                     continue
                 if id not in fingerprints:
                     fingerprints[id] = fprint
