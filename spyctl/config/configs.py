@@ -124,6 +124,11 @@ class Context:
         self.filters = {}
         self.__set_filters()
 
+    @property
+    def global_source(self):
+        self.get_api_data()
+        return f"global:{self.org_uid}"
+
     def get_api_data(self) -> Tuple[str, str, str]:
         if self.secret is None:
             cli.err_exit(f"Unable to locate secret '{self.secret_name}'")

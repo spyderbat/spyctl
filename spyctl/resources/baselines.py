@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 import spyctl.cli as cli
 import spyctl.merge_lib as m_lib
@@ -30,61 +30,36 @@ class Baseline:
     required_keys = {lib.API_FIELD, lib.KIND_FIELD, lib.METADATA_FIELD}
 
     def __init__(self, obj: Dict, name: str = None) -> None:
-        for key in self.required_keys:
-            if key not in obj:
-                raise InvalidBaselineError(f"Missing {key} for input object")
-        if not lib.valid_api_version(obj[lib.API_FIELD]):
-            raise InvalidBaselineError(f"Invalid {lib.API_FIELD}")
-        obj_kind = obj[lib.KIND_FIELD]
-        if obj_kind not in self.valid_obj_kinds:
-            raise InvalidBaselineError("Invalid kind for input object")
-        if obj_kind == FPRINT_KIND:
-            fprint = spyctl_fprints.Fingerprint(obj).as_dict()
-            baseline_data = fprint
-        elif obj_kind == GROUP_KIND:
-            if lib.DATA_FIELD not in obj:
-                raise InvalidBaselineError(
-                    f"Missing {lib.DATA_FIELD} for input object"
-                )
-            fprints = obj[lib.DATA_FIELD].get(
-                spyctl_fprints.FINGERPRINTS_FIELD, []
-            )
-            if len(fprints) == 0:
-                raise InvalidBaselineError(
-                    "No fingerprints to create object from."
-                )
-            elif len(fprints) == 1:
-                fprint_merge_base = m_lib.MergeObject(
-                    fprints[0],
-                    spyctl_fprints.FPRINT_MERGE_SCHEMAS,
-                    spyctl_fprints.Fingerprint,
-                )
-                fprint_merge_base.asymmetric_merge({})
-                if fprint_merge_base.is_valid:
-                    baseline_data = fprint_merge_base.get_obj_data()
-            else:
-                fprint_merge_base = m_lib.MergeObject(
-                    fprints[0],
-                    spyctl_fprints.FPRINT_MERGE_SCHEMAS,
-                    spyctl_fprints.Fingerprint,
-                )
-                for i, fprint in enumerate(fprints[1:]):
-                    fprint_merge_base.symmetric_merge(fprint)
-                if fprint_merge_base.is_valid:
-                    baseline_data = fprint_merge_base.get_obj_data()
-                else:
-                    raise InvalidBaselineError(
-                        "Merged Fingerprint Group failed validation."
-                    )
-        elif obj_kind == POLICY_KIND:
-            policy = spyctl_policies.Policy(obj)
-            baseline_data = policy.as_dict()
+        if isinstance(obj, list):
+            if len(obj) == 1:
+                obj = obj[0]
+        if isinstance(obj, list):
+            baseline_data = self.__baseline_from_fingerprints_list(obj)
         else:
-            if lib.SPEC_FIELD not in obj:
-                raise InvalidBaselineError(
-                    f"Missing {lib.SPEC_FIELD} for input object"
+            obj_kind = obj[lib.KIND_FIELD]
+            if obj_kind not in self.valid_obj_kinds:
+                raise InvalidBaselineError("Invalid kind for input object")
+            if obj_kind == FPRINT_KIND:
+                fprint = spyctl_fprints.Fingerprint(obj).as_dict()
+                baseline_data = fprint
+            elif obj_kind == GROUP_KIND:
+                if lib.DATA_FIELD not in obj:
+                    raise InvalidBaselineError(
+                        f"Missing {lib.DATA_FIELD} for input object"
+                    )
+                fprints = obj[lib.DATA_FIELD].get(
+                    spyctl_fprints.FINGERPRINTS_FIELD, []
                 )
-            baseline_data = obj
+                baseline_data = self.__baseline_from_fingerprints_list(fprints)
+            elif obj_kind == POLICY_KIND:
+                policy = spyctl_policies.Policy(obj)
+                baseline_data = policy.as_dict()
+            else:
+                if lib.SPEC_FIELD not in obj:
+                    raise InvalidBaselineError(
+                        f"Missing {lib.SPEC_FIELD} for input object"
+                    )
+                baseline_data = obj
         self.metadata = baseline_data[lib.METADATA_FIELD]
         if name:
             self.metadata[lib.METADATA_NAME_FIELD] = name
@@ -98,6 +73,36 @@ class Baseline:
             lib.SPEC_FIELD: self.spec,
         }
         return rv
+
+    def __baseline_from_fingerprints_list(self, fprints: List[Dict]) -> Dict:
+        if len(fprints) == 0:
+            raise InvalidBaselineError(
+                "Nothing to create baseline object from."
+            )
+        elif len(fprints) == 1:
+            fprint_merge_base = m_lib.MergeObject(
+                fprints[0],
+                spyctl_fprints.FPRINT_MERGE_SCHEMAS,
+                spyctl_fprints.Fingerprint,
+            )
+            fprint_merge_base.asymmetric_merge({})
+            if fprint_merge_base.is_valid:
+                baseline_data = fprint_merge_base.get_obj_data()
+        else:
+            fprint_merge_base = m_lib.MergeObject(
+                fprints[0],
+                spyctl_fprints.FPRINT_MERGE_SCHEMAS,
+                spyctl_fprints.Fingerprint,
+            )
+            for i, fprint in enumerate(fprints[1:]):
+                fprint_merge_base.symmetric_merge(fprint)
+            if fprint_merge_base.is_valid:
+                baseline_data = fprint_merge_base.get_obj_data()
+            else:
+                raise InvalidBaselineError(
+                    "Merged Fingerprint Group failed validation."
+                )
+        return baseline_data
 
 
 def create_baseline(obj: Dict, name: str = None):
