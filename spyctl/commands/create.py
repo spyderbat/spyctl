@@ -24,21 +24,16 @@ def handle_create_guardian_policy(filename: str, output: str, name: str):
 
 
 def handle_create_suppression_policy(
-    type: str,
-    id: Optional[str],
-    include_users: bool,
-    output: str,
-    name: str = None,
-    **selectors,
+    type: str, id: Optional[str], include_users: bool, output: str, **selectors
 ):
     if type == lib.POL_TYPE_TRACE:
         handle_create_trace_suppression_policy(
-            id, include_users, output, name, **selectors
+            id, include_users, output, **selectors
         )
 
 
 def handle_create_trace_suppression_policy(
-    id, include_users, output, name: str = None, **selectors
+    id, include_users, output, **selectors
 ):
     if id:
         trace = search.search_for_trace_by_uid(id)
@@ -51,10 +46,10 @@ def handle_create_trace_suppression_policy(
         if not t_sum:
             exit(1)
         pol = sp.build_trace_suppression_policy(
-            t_sum, include_users, name=name, **selectors
+            t_sum, include_users, **selectors
         )
     else:
-        pol = sp.build_trace_suppression_policy(name=name, **selectors)
+        pol = sp.build_trace_suppression_policy(**selectors)
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(pol.as_dict(), output)

@@ -574,6 +574,7 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     "suppression-policy",
     cls=SuppressionPolicyCommand,
     epilog=SUB_EPILOG,
+    hidden=True,
 )
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("type", type=lib.SuppressionPolTypeParam())
@@ -602,13 +603,6 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     metavar="",
 )
 @click.option(
-    "-n",
-    "--name",
-    help="Optional name for the Suppression Policy, if not provided, a name"
-    " will be generated automatically",
-    metavar="",
-)
-@click.option(
     f"--{lib.SUP_POL_CMD_USERS}",
     help="Scope the policy to these users. This option will overwrite"
     f" any auto-generated {lib.USERS_FIELD} values generated"
@@ -619,7 +613,7 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
 @lib.tmp_context_options
 @lib.colorization_option
 def create_suppression_policy(
-    type, id, include_users, output, name, colorize, **selectors
+    type, id, include_users, output, colorize, **selectors
 ):
     """Create a Suppression Policy object from a file, outputted to stdout"""
     if not colorize:
@@ -633,7 +627,7 @@ def create_suppression_policy(
     if org_uid and api_key and api_url:
         use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
-        type, id, include_users, output, name, **selectors
+        type, id, include_users, output, **selectors
     )
 
 
@@ -1427,7 +1421,7 @@ def snooze():
 # ----------------------------------------------------------------- #
 #                       Suppress Subcommand                         #
 # ----------------------------------------------------------------- #
-@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
+@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG, hidden=True)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "--suppress",
