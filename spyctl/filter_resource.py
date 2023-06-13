@@ -3,7 +3,6 @@ import time
 from copy import deepcopy
 from typing import Dict, Iterable, List, Optional, Union
 
-import spyctl.api as api
 import spyctl.config.configs as cfgs
 import spyctl.spyctl_lib as lib
 
@@ -30,30 +29,12 @@ POD_LABEL_TGT_FIELDS = [[*POD_SEL_TGT]]
 
 def filter_clusters(
     clusters_data: List[Dict],
-    namespaces_data=None,
-    machines_data=None,
-    pods_data=None,
-    cgroups_data=None,
-    containers_data=None,
     **filters,
 ):
-    def namespace_filter(data, filt):
-        if namespaces_data is None:
-            ctx = cfgs.get_current_context()
-            namespaces = api.get_namespaces(
-                *ctx.get_api_data(),
-                data,
-                DEFAULT_FILTER_TIME,
-            )
-            namespaces = filter_obj(namespaces, ["namespaces"], filt)
-            cluster_uids = [ns["cluster_uid"] for ns in namespaces]
-            return filter_obj(data, ["uid"], cluster_uids)
-
     filter_set = {
         cfgs.CLUSTER_FIELD: lambda data, filt: filter_obj(
             data, CLUSTERS_TGT_FIELDS, filt
         ),
-        cfgs.NAMESPACE_FIELD: namespace_filter,
     }
     clusters_data = use_filters(clusters_data, filter_set, filters)
     return clusters_data
@@ -109,11 +90,6 @@ def filter_spydertraces(
 
 def filter_machines(
     machines_data: List[Dict],
-    clusters_data=None,
-    namespaces_data=None,
-    pods_data=None,
-    cgroups_data=None,
-    containers_data=None,
     use_context_filters=True,
     **filters,
 ):
@@ -306,19 +282,6 @@ def filter_fingerprints(
             suppress_warning=suppress_warning,
         )
     return fingerprint_data
-
-
-def filter_fprint_groups(
-    fprint_grp_data: List[Dict],
-    namespaces_data=None,
-    clusters_data=None,
-    machines_data=None,
-    pods_data=None,
-    cgroups_data=None,
-    containers_data=None,
-    **filters,
-):
-    return fprint_grp_data
 
 
 def filter_policies(

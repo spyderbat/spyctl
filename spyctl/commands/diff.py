@@ -217,7 +217,7 @@ def get_with_obj(
         ):
             return False
         if FINGERPRINTS is None:
-            with_obj = get_with_fingerprints(target, st, et)
+            with_obj = get_with_fingerprints(target, st, et, latest)
             cli.try_log(f"Filtering fingerprints for {target_name}")
             with_obj = filter_fingerprints(target, with_obj)
         else:
@@ -242,20 +242,9 @@ def load_with_file(with_file: IO) -> Dict:
     return rv
 
 
-def get_with_fingerprints(target: Dict, st, et) -> List[Dict]:
+def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
     global FINGERPRINTS
-    ctx = cfgs.get_current_context()
-    filters = lib.selectors_to_filters(target)
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(
-        machines, filters, use_context_filters=False
-    )
-    muids = [m["uid"] for m in machines]
-    fingerprints = api.get_fingerprints(
-        *ctx.get_api_data(),
-        muids=muids,
-        time=(st, et),
-    )
+    fingerprints = merge_cmd.get_with_fingerprints(target, st, et, latest)
     FINGERPRINTS = fingerprints
     return fingerprints
 

@@ -9,7 +9,7 @@ import time
 import unicodedata
 from base64 import urlsafe_b64encode as b64url
 from datetime import timezone
-from fnmatch import fnmatch
+from fnmatch import fnmatch, translate
 from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -220,7 +220,7 @@ GET_RESOURCES: List[str] = [
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
     # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
-    # SUPPRESSION_POLICY_RESOURCE.name_plural,
+    SUPPRESSION_POLICY_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
     SPYDERTRACE_RESOURCE.name_plural,
 ]
@@ -446,6 +446,7 @@ POD_LABELS_FIELD = "pod-labels"
 MACHINES_FIELD = "machines"
 DEFAULT_API_URL = "https://api.spyderbat.com"
 POLICY_UID_FIELD = "policy"
+
 
 # Response Actions
 ACTION_KILL_POD = "agentKillPod"
@@ -1604,3 +1605,13 @@ def make_checksum(dictionary: Dict) -> str:
     dict_str = json.dumps(dictionary, sort_keys=True)
     hash = md5(dict_str.encode("utf-8"))
     return hash.hexdigest()
+
+
+def simple_glob_to_regex(input_str: str):
+    rv = input_str.replace(".", "\\.")
+    rv = rv.replace("^", "\\^")
+    rv = rv.replace("$", "\\$")
+    rv = rv.replace("*", ".*")
+    rv = rv.replace("?", ".")
+    rv = f"^{rv}$"
+    return rv

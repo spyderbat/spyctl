@@ -4,36 +4,43 @@ filtering.
 from typing import Dict, List
 import spyctl.spyctl_lib as lib
 
-# Filters for Container Fingerprints
-CONT_FPRINT_FILTER_FIELDS = {
-    lib.MACHINES_FIELD,
-    lib.POD_FIELD,
-    lib.NAMESPACE_FIELD,
-    lib.CLUSTER_FIELD,
-}
 
-
-def generate_pipeline(type, latest_model=True, filters={}):
+def generate_pipeline(
+    name_or_uid=None, type=None, latest_model=True, filters={}
+):
     pipeline_items = []
-    if type == lib.POL_TYPE_CONT:
-        pipeline_items.append(generate_container_fprint_api_filters(**filters))
+    if type == lib.POL_TYPE_CONT or type == lib.POL_TYPE_SVC:
+        schema = (
+            f"{lib.MODEL_FINGERPRINT_PREFIX}:"
+            f"{lib.MODEL_FINGERPRINT_SUBTYPE_MAP[type]}"
+        )
+    else:
+        schema = f"{lib.MODEL_FINGERPRINT_PREFIX}:"
+    pipeline_items.append(
+        generate_fprint_api_filters(name_or_uid, schema, **filters)
+    )
     if latest_model:
         pipeline_items.append({"latest_model": {}})
-    return {"pipeline": pipeline_items}
+    return pipeline_items
 
 
-def generate_container_fprint_api_filters(**filters) -> Dict:
-    and_items = [
-        {
-            "schema": f"{lib.MODEL_FINGERPRINT_PREFIX}:"
-            f"{lib.MODEL_FINGERPRINT_SUBTYPE_MAP[lib.POL_TYPE_CONT]}"
-        }
-    ]
+def generate_fprint_api_filters(name_or_uid, schema, **filters) -> Dict:
+    and_items = [{"schema": schema}]
+    if name_or_uid:
+        and_items.append(
+            build_or_block(
+                [lib.IMAGE_FIELD, lib.IMAGEID_FIELD, lib.CGROUP_FIELD],
+                [name_or_uid],
+            )
+        )
     for key, values in filters.items():
-        if len(values) > 1:
-            and_items.append(build_or_block(key, values))
+        if isinstance(values, list) and len(values) > 1:
+            and_items.append(build_or_block([key], values))
         else:
-            value = values[0]
+            if isinstance(values, list):
+                value = values[0]
+            else:
+                value = values
             property = build_property(key)
             if not property:
                 continue
@@ -42,21 +49,27 @@ def generate_container_fprint_api_filters(**filters) -> Dict:
                 and_items.append({"property": property, "re_match": value})
             else:
                 and_items.append({"property": property, "equals": value})
-    rv = {"filter": {"and", and_items}}
+    if len(and_items) > 1:
+        rv = {"filter": {"and": and_items}}
+    else:
+        rv = {"filter": and_items[0]}
     return rv
 
 
-def build_or_block(key: str, values: List[str]):
+def build_or_block(keys: str, values: List[str]):
     or_items = []
-    for value in values:
-        if "*" in value or "?" in value:
-            value = lib.simple_glob_to_regex(value)
-            or_items.append(
-                {"property": build_property(key), "re_match": value}
-            )
-        else:
-            or_items.append({"property": build_property(key), "equals": value})
-    return {"or", or_items}
+    for key in keys:
+        for value in values:
+            if "*" in value or "?" in value:
+                value = lib.simple_glob_to_regex(value)
+                or_items.append(
+                    {"property": build_property(key), "re_match": value}
+                )
+            else:
+                or_items.append(
+                    {"property": build_property(key), "equals": value}
+                )
+    return {"or": or_items}
 
 
 def build_property(key: str):

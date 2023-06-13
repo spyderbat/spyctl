@@ -574,7 +574,6 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     "suppression-policy",
     cls=SuppressionPolicyCommand,
     epilog=SUB_EPILOG,
-    hidden=True,
 )
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("type", type=lib.SuppressionPolTypeParam())
@@ -1428,7 +1427,7 @@ def snooze():
 # ----------------------------------------------------------------- #
 #                       Suppress Subcommand                         #
 # ----------------------------------------------------------------- #
-@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG, hidden=True)
+@main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "--suppress",
