@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import zulu
 from tabulate import tabulate
@@ -128,8 +128,13 @@ def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
     return uid, data
 
 
-def create_policy(obj: Dict, name: str = None):
-    obj_kind = obj.get(lib.KIND_FIELD)
+def create_policy(obj: Union[Dict, List[Dict]], name: str = None):
+    if isinstance(obj, list):
+        if len(obj) == 0:
+            cli.err_exit("Nothing to build policy with")
+        obj_kind = obj[0].get(lib.KIND_FIELD)
+    else:
+        obj_kind = obj.get(lib.KIND_FIELD)
     if obj_kind != POLICY_KIND:
         try:
             baseline = spyctl_baselines.Baseline(obj)
