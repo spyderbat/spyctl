@@ -3,12 +3,14 @@ from typing import IO, Dict, List, Optional, Union
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.commands.apply as apply
+import spyctl.commands.get as get
 import spyctl.config.configs as cfgs
 import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
+import spyctl.resources.api_filters.fingerprints as f_api_filt
 import spyctl.spyctl_lib as lib
 import spyctl.schemas as schemas
 
@@ -256,7 +258,7 @@ def get_with_obj(
         ):
             return False
         if FINGERPRINTS is None:
-            with_obj = get_with_fingerprints(target, st, et)
+            with_obj = get_with_fingerprints(target, st, et, latest)
             cli.try_log(f"Filtering fingerprints for {target_name}")
             with_obj = filter_fingerprints(target, with_obj)
         else:
@@ -280,20 +282,27 @@ def load_with_file(with_file: IO) -> Dict:
     return rv
 
 
-def get_with_fingerprints(target: Dict, st, et) -> List[Dict]:
+def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
     global FINGERPRINTS
-    filters = lib.selectors_to_filters(target)
     ctx = cfgs.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(
-        machines, filters, use_context_filters=False
-    )
-    muids = [m["uid"] for m in machines]
-    fingerprints = api.get_fingerprints(
-        *ctx.get_api_data(),
-        muids=muids,
-        time=(st, et),
-    )
+    if latest:
+        filters = lib.selectors_to_filters(target)
+        muids = get.get_muids_scope(**filters)
+        if muids:
+            filters[lib.MACHINES_FIELD] = muids
+        pipeline = f_api_filt.generate_pipeline(filters=filters)
+        fingerprints = api.get_fingerprints(
+            *ctx.get_api_data(),
+            [ctx.global_source],
+            time=(st, et),
+            pipeline=pipeline,
+        )
+    else:
+        fingerprints = api.get_fingerprints(
+            *ctx.get_api_data(),
+            [ctx.global_source],
+            time=(st, et),
+        )
     FINGERPRINTS = fingerprints
     return fingerprints
 
