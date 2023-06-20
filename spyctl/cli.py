@@ -38,6 +38,10 @@ def unsupported_output_msg(output: str) -> str:
 YES_OPTION = False
 
 
+def set_api_call():
+    set_yes_option()
+
+
 def set_yes_option():
     global YES_OPTION
     YES_OPTION = True

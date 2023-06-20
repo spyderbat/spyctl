@@ -40,6 +40,15 @@ def handle_create_suppression_policy(
 def handle_create_trace_suppression_policy(
     id, include_users, output, name: str = None, **selectors
 ):
+    pol = create_trace_suppression_policy(id, include_users, name, **selectors)
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
+    cli.show(pol.as_dict(), output)
+
+
+def create_trace_suppression_policy(
+    id, include_users, name: str = None, **selectors
+) -> sp.TraceSuppressionPolicy:
     if id:
         trace = search.search_for_trace_by_uid(id)
         if not trace:
@@ -55,9 +64,7 @@ def handle_create_trace_suppression_policy(
         )
     else:
         pol = sp.build_trace_suppression_policy(name=name, **selectors)
-    if output == lib.OUTPUT_DEFAULT:
-        output = lib.OUTPUT_YAML
-    cli.show(pol.as_dict(), output)
+    return pol
 
 
 def handle_create_flag_suppression_policy(

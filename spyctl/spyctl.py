@@ -631,7 +631,7 @@ def create_suppression_policy(
     api_key = selectors.pop(lib.API_KEY_FIELD, None)
     api_url = selectors.pop(lib.API_URL_FIELD, "https://api.spyderbat.com")
     if org_uid and api_key and api_url:
-        use_temp_secret_and_context(org_uid, api_key, api_url)
+        cfgs.use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
         type, id, include_users, output, name, **selectors
     )
@@ -1531,28 +1531,3 @@ def update():
 )
 def update_response_actions(backup_file=None):
     u.handle_update_response_actions(backup_file)
-
-
-def use_temp_secret_and_context(org_uid, api_key, api_url):
-    secret_name = "__temp_secret__"
-    context_name = "__temp_context"
-    secret_data = {
-        lib.API_FIELD: lib.API_VERSION,
-        lib.KIND_FIELD: lib.SECRET_KIND,
-        lib.METADATA_FIELD: {
-            lib.METADATA_NAME_FIELD: secret_name,
-        },
-        lib.STRING_DATA_FIELD: {
-            lib.API_KEY_FIELD: api_key,
-            lib.API_URL_FIELD: api_url,
-        },
-    }
-    context_data = {
-        lib.CONTEXT_NAME_FIELD: context_name,
-        lib.SECRET_FIELD: secret_name,
-        lib.CONTEXT_FIELD: {lib.ORG_FIELD: org_uid},
-    }
-    secret = s.Secret(secret_data)
-    s.SECRETS[secret_name] = secret
-    context = cfgs.Context(context_data)
-    cfgs.set_current_context(context)

@@ -7,3 +7,4 @@ build/
 *.egg_info/
 .coverage
 htmlcov/
+*_venv/
