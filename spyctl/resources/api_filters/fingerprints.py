@@ -80,7 +80,7 @@ def build_property(key: str):
     if key == lib.CLUSTER_FIELD:
         return "cluster_uid"
     if key == lib.NAMESPACE_FIELD:
-        return "namespace"
+        return "metadata.namespace"
     if key == lib.CGROUP_FIELD:
         return "cgroup"
     if key == lib.IMAGE_FIELD:
