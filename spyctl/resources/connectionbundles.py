@@ -65,10 +65,31 @@ def connection_bundle_summary_output(connectionb: List[Dict]) -> str:
 
           bundled_data[key] = data
 
-    aggregated_table_data = [[key[0], key[1], key[2], key[3], data['num_connections'], data['valid_from'], data['valid_to']] for key, data in bundled_data.items()]
+    aggregated_table_data = [
+       [
+          key[0], 
+          key[1], 
+          key[2], 
+          key[3], 
+          data['num_connections'], 
+          data['valid_from'], 
+          data['valid_to']
+        ] 
+        for key, data in bundled_data.items()
+    ]
     
-    print(tabulate(
+    print(
+       tabulate(
         aggregated_table_data, 
-        headers= ["CLIENT", "SERVER", "SERVER_PORT", "PROTOCOL", "CONNNECTIONS", "VALID_FROM", "VALID_TO"],
+        headers= [
+            "CLIENT",
+            "SERVER", 
+            "SERVER_PORT", 
+            "PROTOCOL",
+            "CONNNECTIONS", 
+            "VALID_FROM", 
+            "VALID_TO"
+        ],
         tablefmt= "plain",
-    ))
+    )
+)
