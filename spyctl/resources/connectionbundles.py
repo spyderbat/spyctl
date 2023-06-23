@@ -70,5 +70,5 @@ def connection_bundle_summary_output(connectionb: List[Dict]) -> str:
     print(tabulate(
         aggregated_table_data, 
         headers= ["CLIENT", "SERVER", "SERVER_PORT", "PROTOCOL", "CONNNECTIONS", "VALID_FROM", "VALID_TO"],
-        tablefmt= "simple",
+        tablefmt= "plain",
     ))

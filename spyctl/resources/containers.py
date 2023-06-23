@@ -53,6 +53,6 @@ def container_summary_output(containers: List[Dict]) -> str:
         tabulate(
             data,
             headers=["IMAGE", "STATUS", "UID", "AGE"],
-            tablefmt="simple",
+            tablefmt="plain",
         )
     )

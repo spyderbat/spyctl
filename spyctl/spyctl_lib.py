@@ -9,7 +9,8 @@ import time
 import unicodedata
 from base64 import urlsafe_b64encode as b64url
 from datetime import timezone
-from fnmatch import fnmatch
+from fnmatch import fnmatch, translate
+from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
@@ -35,10 +36,23 @@ class Aliases:
         return self.name_plural or self.name
 
 
+COLORIZE_OUTPUT = True
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
 WARNING_COLOR = "\x1b[38;5;203m"
+ADD_COLOR = "\x1b[38;5;35m"
+SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
+
+
+def disable_colorization():
+    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END, ADD_COLOR, SUB_COLOR
+    COLORIZE_OUTPUT = False
+    WARNING_COLOR = ""
+    COLOR_END = ""
+    SUB_COLOR = ""
+    ADD_COLOR = ""
+
 
 # Resource Aliases
 CLUSTERS_RESOURCE = Aliases(
@@ -98,7 +112,6 @@ POLICIES_RESOURCE = Aliases(
         "spyderbat-policies",
         "spy-pol",
         "spol",
-        "sp",
         "policy",
         "pol",
         "p",
@@ -149,6 +162,34 @@ CONNECTIONS_RESOURCE = Aliases(
     "connection",
     "connections",
 )
+SPYDERTRACE_SUMMARY_RESOURCE = Aliases(
+    [
+        "spydertrace-summary",
+        "spydertrace-summaries",
+        "trace-summary",
+        "trace-summaries",
+        "t-sum",
+    ],
+    "spydertrace-summary",
+    "spydertrace-summaries",
+)
+SUPPRESSION_POLICY_RESOURCE = Aliases(
+    [
+        "suppression-policy",
+        "suppression-policies",
+        "sp",
+        "s-pol",
+        "trace-policy",
+    ],
+    "suppression-policy",
+    "suppression-policies",
+)
+SPYDERTRACE_RESOURCE = Aliases(
+    ["spydertrace", "spydertraces", "spyder", "trace", "traces"],
+    "spydertrace",
+    "spydertraces",
+)
+
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
     ["config", "configs", "conf", "cfg", "configuration", "configurations"],
@@ -170,10 +211,14 @@ def get_plural_name_from_alias(alias: str):
     return None
 
 
-DEL_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
+DEL_RESOURCES: List[str] = [
+    POLICIES_RESOURCE.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
+]
 GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
+    CONTAINER_RESOURCE.name_plural,
     DEPLOYMENTS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
     MACHINES_RESOURCE.name_plural,
@@ -184,7 +229,10 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
+    # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
+    SUPPRESSION_POLICY_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
+    SPYDERTRACE_RESOURCE.name_plural,
 ]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -192,6 +240,24 @@ VAL_RESOURCES: List[str] = [
     SECRETS_ALIAS.name,
     CONFIG_ALIAS.name,
 ]
+
+CMD_ORG_FIELD = "org"
+
+
+def tmp_context_options(function):
+    function = click.option(f"--{CMD_ORG_FIELD}", hidden=True)(function)
+    function = click.option(f"--{API_KEY_FIELD}", hidden=True)(function)
+    function = click.option(f"--{API_URL_FIELD}", hidden=True)(function)
+    return function
+
+
+def colorization_option(function):
+    function = click.option(
+        "--colorize/--no-colorize",
+        help="Specify coloration on or off. Default is on.",
+        default=True,
+    )(function)
+    return function
 
 
 class DelResourcesParam(click.ParamType):
@@ -216,6 +282,19 @@ class GetResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in GET_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class SuppressionPolTypeParam(click.ParamType):
+    name = "get_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in [POL_TYPE_TRACE]
             if resrc_name.startswith(incomplete)
         ]
 
@@ -306,6 +385,15 @@ SCHEMA_FIELD = "schema"
 EVENT_REDFLAG_PREFIX = "event_redflag"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
+MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
+MODEL_FINGERPRINT_SUBTYPE_MAP = {
+    "container": "container",
+    "linux-service": "linux_svc",
+}
+
+# Datatypes for searching via API
+DATATYPE_SPYDERGRAPH = "spydergraph"
+DATATYPE_FINGERPRINTS = "fingerprints"
 
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
@@ -369,6 +457,7 @@ MACHINES_FIELD = "machines"
 DEFAULT_API_URL = "https://api.spyderbat.com"
 POLICY_UID_FIELD = "policy"
 
+
 # Response Actions
 ACTION_KILL_POD = "agentKillPod"
 ACTION_KILL_PROC = "agentKillProcess"
@@ -409,6 +498,8 @@ MACHINE_SELECTOR_FIELD = "machineSelector"
 NAMESPACE_SELECTOR_FIELD = "namespaceSelector"
 POD_SELECTOR_FIELD = "podSelector"
 SVC_SELECTOR_FIELD = "serviceSelector"
+TRACE_SELECTOR_FIELD = "traceSelector"
+USER_SELECTOR_FIELD = "userSelector"
 MATCH_LABELS_FIELD = "matchLabels"
 # Machine Selector Fields
 HOSTNAME_FIELD = "hostname"
@@ -426,12 +517,17 @@ SELECTOR_FIELDS = {
     MACHINE_SELECTOR_FIELD,
     NAMESPACE_SELECTOR_FIELD,
     POD_SELECTOR_FIELD,
+    TRACE_SELECTOR_FIELD,
+    USER_SELECTOR_FIELD,
 }
 
 # Policies/Fingerprints
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "linux-service"
-POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT]
+POL_TYPE_TRACE = "trace"
+SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
+GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
+POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
 ENABLED_FIELD = "enabled"
 METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
@@ -439,16 +535,44 @@ METADATA_TYPE_FIELD = "type"
 METADATA_UID_FIELD = "uid"
 METADATA_CREATE_TIME = "creationTimestamp"
 METADATA_NAMESPACE_FIELD = "namespace"
+METADATA_S_CHECKSUM_FIELD = "selectorHash"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
 LATEST_TIMESTAMP_FIELD = "latestTimestamp"
+TRIGGER_CLASS_FIELD = "triggerClass"
+TRIGGER_ANCESTORS_FIELD = "triggerAncestors"
+USERS_FIELD = "users"
+INTERACTIVE_USERS_FIELD = "interactiveUsers"
+NON_INTERACTIVE_USERS_FIELD = "nonInteractiveUsers"
+ALLOWED_FLAGS_FIELD = "allowedFlags"
+FLAG_SUMMARY_FIELD = "flagSummary"
+FLAGS_FIELD = "flags"
+# For the Spyderbat API
+API_REQ_FIELD_NAME = "name"
+API_REQ_FIELD_POLICY = "policy"
+API_REQ_FIELD_POL_SELECTORS = "selectors"
+API_REQ_FIELD_TAGS = "tags"
+API_REQ_FIELD_TYPE = "type"
+API_REQ_FIELD_UID = "uid"
+API_HAS_TAGS_FIELD = "has_tags"
+# Suppression Policy cmdline fields
+SUP_POL_CMD_TRIG_ANCESTORS = "trigger-ancestors"
+SUP_POL_CMD_TRIG_CLASS = "trigger-class"
+SUP_POL_CMD_USERS = "users"
+SUP_POL_CMD_INT_USERS = "interactive-users"
+SUP_POL_CMD_N_INT_USERS = "non-interactive-users"
+TRACE_SUMMARY_FIELD = "trace_summary"
+
 NOT_AVAILABLE = "N/A"
 # Fingerprint Groups
 FPRINT_GRP_FINGERPRINTS_FIELD = "fingerprints"
 FPRINT_GRP_CONT_NAMES_FIELD = "containerNames"
 FPRINT_GRP_CONT_IDS_FIELD = "containerIDs"
 FPRINT_GRP_MACHINES_FIELD = "machines"
+
+# Any Object
+VERSION_FIELD = "version"
 
 # Processes
 NAME_FIELD = "name"
@@ -477,6 +601,9 @@ ENDPORT_FIELD = "endPort"
 PROCESSES_FIELD = "processes"
 PROTO_FIELD = "protocol"
 TO_FIELD = "to"
+
+# Flags
+FLAG_CLASS = "class"
 
 # Output
 OUTPUT_YAML = "yaml"
@@ -635,15 +762,19 @@ def load_file(path: Path) -> Dict:
 
 class CustomGroup(click.Group):
     SECTION_BASIC = "Basic Commands"
+    SECTION_ALERT_MGMT = "Alert Management"
     SECTION_OTHER = "Other Commands"
-    command_sections = [SECTION_BASIC, SECTION_OTHER]
+    command_sections = [SECTION_BASIC, SECTION_ALERT_MGMT, SECTION_OTHER]
     cmd_to_section_map = {
         "apply": SECTION_BASIC,
         "create": SECTION_BASIC,
+        "close": SECTION_ALERT_MGMT,
         "delete": SECTION_BASIC,
         "diff": SECTION_BASIC,
         "get": SECTION_BASIC,
         "merge": SECTION_BASIC,
+        "snooze": SECTION_ALERT_MGMT,
+        "suppress": SECTION_ALERT_MGMT,
         "validate": SECTION_BASIC,
     }
 
@@ -1269,7 +1400,84 @@ class UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep)
 
 
-def load_resource_file(file: Union[str, IO]):
+def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
+    try:
+        name, resrc_data = __load_yaml_file(file)
+    except ValueError as e:
+        if validate_cmd:
+            try_log(" ".join(e.args))
+            sys.exit(0)
+        err_exit(" ".join(e.args))
+    except Exception:
+        try:
+            name, resrc_data = __load_json_file(file)
+        except json.JSONDecodeError as e:
+            if validate_cmd:
+                try_log("Error decoding json" + " ".join(e.args))
+                sys.exit(0)
+            err_exit("Error decoding json" + " ".join(e.args))
+        except ValueError as e:
+            if validate_cmd:
+                try_log(" ".join(e.args))
+                sys.exit(0)
+            err_exit(" ".join(e.args))
+        except Exception:
+            err_exit("Unable to load resource file.")
+    try:
+        __validate_data_structure_on_load(resrc_data, validate_cmd)
+        if isinstance(resrc_data, dict):
+            __validate_resource_on_load(resrc_data, name, validate_cmd)
+        else:
+            for i, data in enumerate(resrc_data):
+                __validate_resource_on_load(data, name, validate_cmd, index=i)
+    except Exception as e:
+        if validate_cmd:
+            try_log(" ".join(e.args))
+            sys.exit(0)
+        err_exit(" ".join(e.args))
+    if isinstance(file, io.TextIOWrapper):
+        file.seek(0, 0)
+    return resrc_data
+
+
+def __validate_data_structure_on_load(resrc_data: Any, validate_cmd=False):
+    if not isinstance(resrc_data, dict) and not isinstance(resrc_data, list):
+        if validate_cmd:
+            try_log(
+                "Resource file does not contain a dictionary or list of"
+                " dictionaries."
+            )
+            sys.exit(0)
+        err_exit(
+            "Resource file does not contain a dictionary or list of"
+            " dictionaries."
+        )
+
+
+def __validate_resource_on_load(
+    resrc_data: Dict, name, validate_cmd=False, index=None
+):
+    resrc_kind = resrc_data.get(KIND_FIELD)
+    msg_suffix = "" if index is None else f" at index {index}"
+    if not resrc_kind:
+        if validate_cmd:
+            try_log(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
+            sys.exit(0)
+        err_exit(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
+    from spyctl.schemas import valid_object
+
+    if not valid_object(resrc_data, verbose=True):
+        if validate_cmd:
+            try_log(
+                f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
+            )
+            sys.exit(0)
+        sys.exit(
+            f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
+        )
+
+
+def __load_yaml_file(file: Union[str, IO]) -> Tuple[str, Any]:
     try:
         if isinstance(file, io.TextIOWrapper):
             name = file.name
@@ -1278,37 +1486,27 @@ def load_resource_file(file: Union[str, IO]):
             name = file
             with open(file) as f:
                 resrc_data = yaml.load(f, UniqueKeyLoader)
-    except ValueError as e:
+    except IOError as e:
         err_exit(" ".join(e.args))
-    except Exception:
-        try:
-            if isinstance(file, io.TextIOWrapper):
-                name = file.name
-                resrc_data = json.load(
-                    file, object_pairs_hook=dict_raise_on_duplicates
-                )
-            else:
-                name = file
-                with open(file) as f:
-                    resrc_data = json.load(
-                        f, object_pairs_hook=dict_raise_on_duplicates
-                    )
-        except ValueError as e:
-            err_exit(" ".join(e.args))
-        except Exception:
-            err_exit("Unable to load resource file.")
-    if not isinstance(resrc_data, dict):
-        err_exit("Resource file does not contain a dictionary.")
-    resrc_kind = resrc_data.get(KIND_FIELD)
-    if not resrc_kind:
-        err_exit(f"Missing or invalid {KIND_FIELD} field.")
-    from spyctl.schemas import valid_object
+    return name, resrc_data
 
-    if not valid_object(resrc_data, verbose=True):
-        sys.exit(f"{resrc_kind} invalid in {name!r}. See error logs.")
-    if isinstance(file, io.TextIOWrapper):
-        file.seek(0, 0)
-    return resrc_data
+
+def __load_json_file(file: Union[str, IO]) -> Tuple[str, Any]:
+    try:
+        if isinstance(file, io.TextIOWrapper):
+            name = file.name
+            resrc_data = json.load(
+                file, object_pairs_hook=dict_raise_on_duplicates
+            )
+        else:
+            name = file
+            with open(file) as f:
+                resrc_data = json.load(
+                    f, object_pairs_hook=dict_raise_on_duplicates
+                )
+    except IOError as e:
+        err_exit(" ".join(e.args))
+    return name, resrc_data
 
 
 def dictionary_mod(fn) -> Dict:
@@ -1331,6 +1529,11 @@ def to_timestamp(zulu_str):
 
 def epoch_to_zulu(epoch):
     return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+
+
+def truncate_hour_epoch(input_epoch: float) -> float:
+    rv = input_epoch - (input_epoch % 3600)
+    return rv
 
 
 def get_metadata_name(resource: Dict) -> Optional[str]:
@@ -1406,3 +1609,19 @@ def unique_fn(fn: str, output_format) -> Optional[str]:
         try_log(f"Unable to build unique filename for {fn}", is_warning=True)
         return
     return str(new_fn)
+
+
+def make_checksum(dictionary: Dict) -> str:
+    dict_str = json.dumps(dictionary, sort_keys=True)
+    hash = md5(dict_str.encode("utf-8"))
+    return hash.hexdigest()
+
+
+def simple_glob_to_regex(input_str: str):
+    rv = input_str.replace(".", "\\.")
+    rv = rv.replace("^", "\\^")
+    rv = rv.replace("$", "\\$")
+    rv = rv.replace("*", ".*")
+    rv = rv.replace("?", ".")
+    rv = f"^{rv}$"
+    return rv

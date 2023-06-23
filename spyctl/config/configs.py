@@ -102,9 +102,12 @@ class Context:
         for key in self.required_context_keys.union(
             self.optional_context_keys
         ):
-            if key in self.context and not isinstance(self.context[key], str):
+            if key in self.context and not (
+                isinstance(self.context[key], str)
+                or isinstance(self.context[key], list)
+            ):
                 raise InvalidContextDataError(
-                    f"Value for {key} must be a string"
+                    f"Value for {key} must be a string or a list"
                 )
         self.name = context_data[CONTEXT_NAME_FIELD]
         if not isinstance(self.name, str) or not self.name:
@@ -120,6 +123,11 @@ class Context:
         self.org_uid = None
         self.filters = {}
         self.__set_filters()
+
+    @property
+    def global_source(self):
+        self.get_api_data()
+        return f"global:{self.org_uid}"
 
     def get_api_data(self) -> Tuple[str, str, str]:
         if self.secret is None:
@@ -308,8 +316,8 @@ def load_config(silent=False):
             for config in reversed(configs):
                 base_config.merge(config)
             LOADED_CONFIG = base_config
-            CURRENT_CONTEXT = base_config.contexts.get(
-                base_config.current_context
+            set_current_context(
+                base_config.contexts.get(base_config.current_context)
             )
 
 
@@ -317,7 +325,14 @@ def get_loaded_config() -> Optional[Config]:
     return LOADED_CONFIG
 
 
+def set_current_context(ctx: Optional[Context]):
+    global CURRENT_CONTEXT
+    CURRENT_CONTEXT = ctx
+
+
 def get_current_context() -> Context:
+    if CURRENT_CONTEXT:
+        return CURRENT_CONTEXT
     config = get_loaded_config()
     secrets = s.get_secrets()
     if len(secrets) == 0:
@@ -331,7 +346,7 @@ def get_current_context() -> Context:
             "No valid contexts. Try using 'spyctl config set-context' to"
             " create one."
         )
-    elif (
+    if (
         config.current_context == CURR_CONTEXT_NONE
         or not config.current_context
     ):
@@ -339,15 +354,15 @@ def get_current_context() -> Context:
             "Current context is not set. Try using"
             " 'spyctl config use-context'"
         )
-    elif config.current_context not in config.contexts:
+    if config.current_context not in config.contexts:
         cli.err_exit(
             "Unable to locate current context"
             f" '{config.current_context}'."
             " Try using 'spyctl config use-context'."
         )
-    elif CURRENT_CONTEXT is None:
+    if CURRENT_CONTEXT is None:
         cli.err_exit("No current context set")
-    return CURRENT_CONTEXT
+    cli.err_exit("Configuration not complete.")
 
 
 def init():

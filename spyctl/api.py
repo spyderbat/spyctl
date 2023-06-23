@@ -166,6 +166,44 @@ def threadpool_progress_bar(
             yield task.result()
 
 
+# Elastic
+def get_object_by_id(
+    api_url,
+    api_key,
+    org_uid,
+    id: str,
+    schema: str,
+    time: Tuple[float, float] = None,
+    datatype="spydergraph",
+):
+    if time:
+        hour_floor = lib.truncate_hour_epoch(time[0])
+        data = {
+            "data_type": datatype,
+            "org_uid": org_uid,
+            "query": f'(id:"{id}") AND (schema:"{schema}")'
+            f" AND ((((valid_to:>{time[0]})"
+            f' OR ((NOT status:"closed") AND time:>={hour_floor}))'
+            f" AND valid_from:<{time[1]}) OR (time:[{time[0]} TO {time[1]}]"
+            f" AND NOT _exists_:valid_to))",
+            "query_from": 0,
+            "query_size": 1,
+        }
+    else:
+        data = {
+            "data_type": datatype,
+            "org_uid": org_uid,
+            "query": f'(id:"{id}")',
+            "query_from": 0,
+            "query_size": 1,
+        }
+    url = (
+        f"{api_url}/api/v1/source/query/"
+        "?ui_tag=SearchLoadAllSchemaTypesInOneQuery"
+    )
+    return post(url, data, api_key)
+
+
 def get_filtered_data(
     api_url,
     api_key,
@@ -175,6 +213,7 @@ def get_filtered_data(
     schema,
     time,
     raise_notfound=False,
+    pipeline=None,
 ):
     url = f"{api_url}/api/v1/source/query/"
     data = {
@@ -184,6 +223,8 @@ def get_filtered_data(
         "data_type": datatype,
         "pipeline": [{"filter": {"schema": schema}}, {"latest_model": {}}],
     }
+    if pipeline:
+        data["pipeline"] = pipeline
     if source:
         data["src_uid"] = source
     return post(url, data, api_key, raise_notfound)
@@ -543,8 +584,17 @@ def get_opsflags(api_url, api_key, org_uid, time):
     return list(flags.values())
 
 
-def get_fingerprints(api_url, api_key, org_uid, muids, time):
+def get_fingerprints(
+    api_url, api_key, org_uid, muids, time, fprint_type=None, pipeline=None
+):
     fingerprints = {}
+    if fprint_type:
+        schema = (
+            f"{lib.MODEL_FINGERPRINT_PREFIX}:"
+            f"{lib.MODEL_FINGERPRINT_SUBTYPE_MAP[fprint_type]}"
+        )
+    else:
+        schema = lib.MODEL_FINGERPRINT_PREFIX
     try:
         for resp in threadpool_progress_bar_time_blocks(
             muids,
@@ -555,21 +605,64 @@ def get_fingerprints(api_url, api_key, org_uid, muids, time):
                 org_uid,
                 muid,
                 "fingerprints",
-                lib.MODEL_FINGERPRINT_PREFIX,
+                schema,
                 time_tup,
+                pipeline=pipeline,
             ),
         ):
             for fprint_json in resp.iter_lines():
                 fprint = json.loads(fprint_json)
+                if fprint.get("metadata", {}).get("type") not in {
+                    lib.POL_TYPE_CONT,
+                    lib.POL_TYPE_SVC,
+                }:
+                    continue
                 try:
                     id = fprint["id"]
                     version = fprint["version"]
-                    fprint = spyctl_fprints.Fingerprint(fprint).as_dict()
                     fprint[lib.METADATA_FIELD]["version"] = version
-                except Exception as e:
-                    cli.try_log(
-                        f"Error parsing fingerprint. {' '.join(e.args)}"
-                    )
+                except Exception:
+                    continue
+                if id not in fingerprints:
+                    fingerprints[id] = fprint
+                else:
+                    old_fp_version = fingerprints[id][lib.METADATA_FIELD][
+                        "version"
+                    ]
+                    if version > old_fp_version:
+                        fingerprints[id] = fprint
+    except KeyboardInterrupt:
+        if fingerprints:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(fingerprints.values())
+
+
+def get_trace_summaries(api_url, api_key, org_uid, muids, time):
+    fingerprints = {}
+    schema = f"{lib.MODEL_FINGERPRINT_PREFIX}:{lib.POL_TYPE_TRACE}"
+    try:
+        for resp in threadpool_progress_bar_time_blocks(
+            muids,
+            time,
+            lambda muid, time_tup: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                muid,
+                "fingerprints",
+                schema,
+                time_tup,
+            ),
+        ):
+            for fprint_json in resp.iter_lines():
+                try:
+                    fprint = json.loads(fprint_json)
+                    id = fprint["id"]
+                    version = fprint["version"]
+                    fprint[lib.METADATA_FIELD]["version"] = version
+                except Exception:
                     continue
                 if id not in fingerprints:
                     fingerprints[id] = fprint
@@ -688,12 +781,12 @@ def get_connections(api_url, api_key, org_uid, muids, time):
         for connection in get_source_data(
             api_url, api_key, org_uid, muids, "model_connection", time
         ):
-            id = connection["id"]
-            version = connection["version"]
+            id = connection[lib.ID_FIELD]
+            version = connection[lib.VERSION_FIELD]
             if id not in connections:
                 connections[id] = connection
             else:
-                old_version = connections[id]["version"]
+                old_version = connections[id][lib.VERSION_FIELD]
                 if version > old_version:
                     connections[id] = connection
     except KeyboardInterrupt:
@@ -702,6 +795,28 @@ def get_connections(api_url, api_key, org_uid, muids, time):
         else:
             __log_interrupt()
     return list(connections.values())
+
+
+def get_spydertraces(api_url, api_key, org_uid, muids, time):
+    spydertraces = {}
+    try:
+        for spydertrace in get_source_data(
+            api_url, api_key, org_uid, muids, "model_spydertrace", time
+        ):
+            id = spydertrace[lib.ID_FIELD]
+            version = spydertrace[lib.VERSION_FIELD]
+            if id not in spydertraces:
+                spydertraces[id] = spydertrace
+            else:
+                old_version = spydertraces[id][lib.VERSION_FIELD]
+                if version > old_version:
+                    spydertraces[id] = spydertrace
+    except KeyboardInterrupt:
+        if spydertraces:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(spydertraces.values())
 
 
 def get_containers(api_url, api_key, org_uid, muids, time):

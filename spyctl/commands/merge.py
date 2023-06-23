@@ -3,11 +3,14 @@ from typing import IO, Dict, List, Optional, Union
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.commands.apply as apply
+import spyctl.commands.get as get
 import spyctl.config.configs as cfgs
 import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
+import spyctl.resources.suppression_policies as sp
+import spyctl.resources.api_filters.fingerprints as f_api_filt
 import spyctl.spyctl_lib as lib
 import spyctl.schemas as schemas
 
@@ -255,7 +258,7 @@ def get_with_obj(
         ):
             return False
         if FINGERPRINTS is None:
-            with_obj = get_with_fingerprints(target, st, et)
+            with_obj = get_with_fingerprints(target, st, et, latest)
             cli.try_log(f"Filtering fingerprints for {target_name}")
             with_obj = filter_fingerprints(target, with_obj)
         else:
@@ -279,20 +282,27 @@ def load_with_file(with_file: IO) -> Dict:
     return rv
 
 
-def get_with_fingerprints(target: Dict, st, et) -> List[Dict]:
+def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
     global FINGERPRINTS
-    filters = lib.selectors_to_filters(target)
     ctx = cfgs.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(
-        machines, filters, use_context_filters=False
-    )
-    muids = [m["uid"] for m in machines]
-    fingerprints = api.get_fingerprints(
-        *ctx.get_api_data(),
-        muids=muids,
-        time=(st, et),
-    )
+    if latest:
+        filters = lib.selectors_to_filters(target)
+        muids = get.get_muids_scope(**filters)
+        if muids:
+            filters[lib.MACHINES_FIELD] = muids
+        pipeline = f_api_filt.generate_pipeline(filters=filters)
+        fingerprints = api.get_fingerprints(
+            *ctx.get_api_data(),
+            [ctx.global_source],
+            time=(st, et),
+            pipeline=pipeline,
+        )
+    else:
+        fingerprints = api.get_fingerprints(
+            *ctx.get_api_data(),
+            [ctx.global_source],
+            time=(st, et),
+        )
     FINGERPRINTS = fingerprints
     return fingerprints
 
@@ -330,8 +340,13 @@ def merge_resource(
             merge_network,
         )
     elif resrc_kind == lib.POL_KIND:
+        resrc_type = target[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+        if resrc_type == lib.POL_TYPE_TRACE:
+            merge_schemas = sp.T_S_POLICY_MERGE_SCHEMAS
+        else:
+            merge_schemas = p.POLICY_MERGE_SCHEMAS
         merge_obj = m_lib.MergeObject(
-            target, p.POLICY_MERGE_SCHEMAS, schemas.valid_object, merge_network
+            target, merge_schemas, schemas.valid_object, merge_network
         )
     else:
         cli.try_log(
@@ -339,9 +354,22 @@ def merge_resource(
             is_warning=True,
         )
     if isinstance(with_obj, dict):
-        merge_obj.asymmetric_merge(with_obj)
+        with_kind = with_obj.get(lib.KIND_FIELD)
+        if with_kind == lib.FPRINT_GROUP_KIND:
+            for fprint in with_obj[lib.DATA_FIELD][
+                lib.FPRINT_GRP_FINGERPRINTS_FIELD
+            ]:
+                if is_type_mismatch(target, target_name, src_cmd, fprint):
+                    return None
+                merge_obj.asymmetric_merge(fprint)
+        else:
+            if is_type_mismatch(target, target_name, src_cmd, with_obj):
+                return None
+            merge_obj.asymmetric_merge(with_obj)
     elif isinstance(with_obj, list):
         for w_obj in with_obj:
+            if is_type_mismatch(target, target_name, src_cmd, w_obj):
+                continue
             try:
                 merge_obj.asymmetric_merge(w_obj)
             except m_lib.InvalidMergeError as e:
@@ -349,7 +377,6 @@ def merge_resource(
                     f"Unable to {src_cmd} with invalid object. {w_obj}",
                     *e.args,
                 )
-        pass
     else:
         raise Exception(
             f"Bug found, attempting to {src_cmd} with invalid object"
@@ -361,6 +388,23 @@ def merge_resource(
         )
         return None
     return merge_obj
+
+
+def is_type_mismatch(
+    target: Dict, target_name: str, src_cmd: str, with_obj: Dict
+) -> bool:
+    resrc_type = target[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+    with_type = with_obj[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+    with_kind = with_obj.get(lib.KIND_FIELD)
+    if resrc_type != with_type:
+        cli.try_log(
+            f"Error type mismatch. Trying to {src_cmd} '{target_name}' of type"
+            f" '{resrc_type}' with '{with_kind}' object of type '{with_type}'."
+            " Skipping...",
+            is_warning=True,
+        )
+        return True
+    return False
 
 
 def handle_output(

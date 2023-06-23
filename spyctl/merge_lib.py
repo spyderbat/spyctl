@@ -18,6 +18,8 @@ SVC_SELECTOR_FIELD = lib.SVC_SELECTOR_FIELD
 POD_SELECTOR_FIELD = lib.POD_SELECTOR_FIELD
 MACHINE_SELECTOR_FIELD = lib.MACHINE_SELECTOR_FIELD
 NAMESPACE_SELECTOR_FIELD = lib.NAMESPACE_SELECTOR_FIELD
+USER_SELECTOR_FIELD = lib.USER_SELECTOR_FIELD
+TRACE_SELECTOR_FIELD = lib.TRACE_SELECTOR_FIELD
 MATCH_LABELS_FIELD = lib.MATCH_LABELS_FIELD
 PROC_POLICY_FIELD = lib.PROC_POLICY_FIELD
 NET_POLICY_FIELD = lib.NET_POLICY_FIELD
@@ -41,9 +43,6 @@ MERGING_NODE_LIST = None
 
 ADD_START = "+ "
 SUB_START = "- "
-ADD_COLOR = "\x1b[38;5;35m"
-SUB_COLOR = "\x1b[38;5;203m"
-COLOR_END = "\x1b[0m"
 LIST_MARKER = "- "
 DEFAULT_WHITESPACE = "  "
 NET_POL_FIELDS = {lib.INGRESS_FIELD, lib.EGRESS_FIELD}
@@ -1127,6 +1126,20 @@ def greatest_value_merge(base_val, other_val, symmetric: bool):
     return result
 
 
+def string_list_merge(base_value: List[str], other_value: List[str], _):
+    string_set = set(base_value).union(set(other_value))
+    return sorted(string_set)
+
+
+def unique_dict_list_merge(base_value: List[Dict], other_value: List[dict], _):
+    rv = base_value.copy()
+    for item in other_value:
+        if item in base_value:
+            continue
+        rv.append(item)
+    return rv
+
+
 NET_POLICY_MERGE_SCHEMA = MergeSchema(
     NET_POLICY_FIELD,
     merge_functions={
@@ -1175,6 +1188,23 @@ NAMESPACE_SELECTOR_MERGE_SCHEMA = MergeSchema(
     values_required=True,
     is_selector=True,
 )
+TRACE_SELECTOR_MERGE_SCHEMA = MergeSchema(
+    TRACE_SELECTOR_FIELD,
+    merge_functions={
+        lib.TRIGGER_ANCESTORS_FIELD: all_eq_merge,
+        lib.TRIGGER_CLASS_FIELD: all_eq_merge,
+    },
+    values_required=True,
+    is_selector=True,
+)
+USER_SELECTOR_MERGE_SCHEMA = MergeSchema(
+    USER_SELECTOR_FIELD,
+    merge_functions={
+        lib.USERS_FIELD: string_list_merge,
+        lib.INTERACTIVE_USERS_FIELD: string_list_merge,
+        lib.NON_INTERACTIVE_USERS_FIELD: string_list_merge,
+    },
+)
 SPEC_MERGE_SCHEMA = MergeSchema(
     SPEC_FIELD,
     sub_schemas={
@@ -1191,6 +1221,23 @@ SPEC_MERGE_SCHEMA = MergeSchema(
         RESPONSE_FIELD: keep_base_value_merge,
     },
     values_required=True,
+)
+TRACE_SUPPRESSION_SPEC_MERGE_SCHEMA = MergeSchema(
+    SPEC_FIELD,
+    sub_schemas={
+        SVC_SELECTOR_FIELD: SVC_SELECTOR_MERGE_SCHEMA,
+        CONT_SELECTOR_FIELD: CONTAINER_SELECTOR_MERGE_SCHEMA,
+        MACHINE_SELECTOR_FIELD: MACHINE_SELECTOR_MERGE_SCHEMA,
+        POD_SELECTOR_FIELD: POD_SELECTOR_MERGE_SCHEMA,
+        NAMESPACE_SELECTOR_FIELD: NAMESPACE_SELECTOR_MERGE_SCHEMA,
+        TRACE_SELECTOR_FIELD: TRACE_SELECTOR_MERGE_SCHEMA,
+        USER_SELECTOR_FIELD: USER_SELECTOR_MERGE_SCHEMA,
+    },
+    merge_functions={
+        lib.ENABLED_FIELD: keep_base_value_merge,
+        lib.ALLOWED_FLAGS_FIELD: unique_dict_list_merge,
+        RESPONSE_FIELD: keep_base_value_merge,
+    },
 )
 
 
@@ -1229,11 +1276,11 @@ def make_orig_line(line: str) -> str:
 
 
 def make_sub_line(line: str) -> str:
-    return f"{SUB_COLOR}{SUB_START}{line}{COLOR_END}"
+    return f"{lib.SUB_COLOR}{SUB_START}{line}{lib.COLOR_END}"
 
 
 def make_add_line(line: str) -> str:
-    return f"{ADD_COLOR}{ADD_START}{line}{COLOR_END}"
+    return f"{lib.ADD_COLOR}{ADD_START}{line}{lib.COLOR_END}"
 
 
 class DiffLines:
