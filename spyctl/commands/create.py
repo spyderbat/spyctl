@@ -4,6 +4,7 @@ import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.search as search
+import spyctl.config.configs as cfg
 from typing import Optional
 
 
@@ -47,16 +48,16 @@ def handle_create_trace_suppression_policy(
 
 
 def create_trace_suppression_policy(
-    id, include_users, name: str = None, **selectors
+    id, include_users, name: str = None, ctx: cfg.Context = None, **selectors
 ) -> sp.TraceSuppressionPolicy:
     if id:
-        trace = search.search_for_trace_by_uid(id)
+        trace = search.search_for_trace_by_uid(id, ctx)
         if not trace:
             exit(1)
         summary_uid = trace.get(lib.TRACE_SUMMARY_FIELD)
         if not summary_uid:
             cli.err_exit(f"Unable to find a Trace Summary for Trace {id}")
-        t_sum = search.search_for_trace_summary_by_uid(summary_uid)
+        t_sum = search.search_for_trace_summary_by_uid(summary_uid, ctx)
         if not t_sum:
             exit(1)
         pol = sp.build_trace_suppression_policy(

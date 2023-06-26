@@ -6,16 +6,20 @@ import spyctl.spyctl_lib as lib
 import json
 
 
-def search_for_trace_by_uid(uid: str) -> Optional[Dict]:
+def search_for_trace_by_uid(
+    uid: str, ctx: cfg.Context = None
+) -> Optional[Dict]:
     if not uid.startswith("trace:"):
         cli.err_exit("Expected uid in search for trace to start with 'trace:'")
     cli.try_log("Searching for trace object...")
     schema = lib.MODEL_SPYDERTRACE_PREFIX
     datatype = lib.DATATYPE_SPYDERGRAPH
-    return search_for_obj_by_uid(uid, schema, datatype)
+    return search_for_obj_by_uid(uid, schema, datatype, ctx)
 
 
-def search_for_trace_summary_by_uid(uid: str) -> Optional[Dict]:
+def search_for_trace_summary_by_uid(
+    uid: str, ctx: cfg.Context = None
+) -> Optional[Dict]:
     if not uid.startswith("fprint:trace"):
         cli.err_exit(
             "Expected uid in search for trace to start with 'fprint:trace'"
@@ -23,13 +27,14 @@ def search_for_trace_summary_by_uid(uid: str) -> Optional[Dict]:
     cli.try_log("Searching for trace summary...")
     schema = lib.MODEL_FINGERPRINT_PREFIX
     datatype = lib.DATATYPE_FINGERPRINTS
-    return search_for_obj_by_uid(uid, schema, datatype)
+    return search_for_obj_by_uid(uid, schema, datatype, ctx)
 
 
 def search_for_obj_by_uid(
-    uid: str, schema: str, datatype: str
+    uid: str, schema: str, datatype: str, ctx: cfg.Context = None
 ) -> Optional[Dict]:
-    ctx = cfg.get_current_context()
+    if not ctx:
+        ctx = cfg.get_current_context()
     resp = api.get_object_by_id(
         *ctx.get_api_data(),
         id=uid,

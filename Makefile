@@ -5,6 +5,13 @@ test_build: clean
 	pip uninstall spyctl -y
 	pip install .
 
+build_api:
+	rm -rf ./spyctl_api/build
+	mkdir ./spyctl_api/build
+	mkdir ./spyctl_api/build/spyctl
+	cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+	(cd ./spyctl_api; make docker_build)
+
 release:
 	python3 -m twine upload dist/*
 
