@@ -5,9 +5,11 @@ import zulu
 from tabulate import tabulate
 
 import spyctl.cli as cli
+import spyctl.config.configs as cfg
 import spyctl.merge_lib as m_lib
-import spyctl.resources.baselines as spyctl_baselines
 import spyctl.resources.fingerprints as spyctl_fprints
+import spyctl.resources.resources_lib as r_lib
+import spyctl.schemas as schemas
 import spyctl.spyctl_lib as lib
 
 FPRINT_KIND = spyctl_fprints.FPRINT_KIND
@@ -39,44 +41,19 @@ class Policy:
         lib.METADATA_FIELD,
         lib.SPEC_FIELD,
     }
-    valid_obj_kinds = {POLICY_KIND, BASELINE_KIND}
 
     def __init__(self, obj: Dict, name: str = None) -> None:
-        self.policy = {}
-        obj_kind = obj.get(lib.KIND_FIELD)
-        if obj_kind not in self.valid_obj_kinds:
-            raise InvalidPolicyError("Invalid kind for input object")
-        if obj_kind == BASELINE_KIND:
-            for key in self.required_keys:
-                if key not in obj:
-                    raise InvalidPolicyError(f"Missing {key} for input object")
-            try:
-                baseline = spyctl_baselines.Baseline(obj)
-            except (
-                spyctl_baselines.InvalidBaselineError,
-                spyctl_fprints.InvalidFingerprintError,
-            ) as e:
-                (
-                    "Unable to create policy, invalid input object."
-                    f" {' '.join(e.args)}"
-                )
-            policy_data = baseline.as_dict()
-        else:
-            for key in self.required_keys:
-                if key not in obj:
-                    raise InvalidPolicyError(f"Missing {key} for input object")
-            policy_data = obj
-        self.metadata = policy_data[lib.METADATA_FIELD]
+        for key in self.required_keys:
+            if key not in obj:
+                raise InvalidPolicyError(f"Missing {key} for input object")
+        self.metadata = obj[lib.METADATA_FIELD]
         if name:
             self.metadata[lib.METADATA_NAME_FIELD] = name
-        self.spec = policy_data[lib.SPEC_FIELD]
-        self.response_actions = policy_data[lib.SPEC_FIELD].get(
+        self.spec = obj[lib.SPEC_FIELD]
+        self.response_actions = obj[lib.SPEC_FIELD].get(
             lib.RESPONSE_FIELD, lib.RESPONSE_ACTION_TEMPLATE
         )
         self.spec[lib.RESPONSE_FIELD] = self.response_actions
-
-    def get_uid(self) -> Optional[str]:
-        return self.policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
 
     def as_dict(self):
         rv = {
@@ -86,21 +63,6 @@ class Policy:
             lib.SPEC_FIELD: self.spec,
         }
         return rv
-
-    def add_response_action(self, resp_action: Dict):
-        resp_actions: List[Dict] = self.policy[lib.SPEC_FIELD][
-            lib.RESPONSE_FIELD
-        ][lib.RESP_ACTIONS_FIELD]
-        resp_actions.append(resp_action)
-
-    def disable(self):
-        spec = self.policy[lib.SPEC_FIELD]
-        spec[lib.ENABLED_FIELD] = False
-
-    def enable(self):
-        spec = self.policy[lib.SPEC_FIELD]
-        if lib.ENABLED_FIELD in spec:
-            del spec[lib.ENABLED_FIELD]
 
 
 def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
@@ -128,96 +90,36 @@ def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
     return uid, data
 
 
-def create_policy(obj: Union[Dict, List[Dict]], name: str = None):
-    if isinstance(obj, list):
-        if len(obj) == 0:
+def create_policy(
+    input_data: Union[Dict, List[Dict]],
+    name: str = None,
+    ctx: cfg.Context = None,
+):
+    input_objs = []
+    if isinstance(input_data, list):
+        if len(input_data) == 0:
             cli.err_exit("Nothing to build policy with")
-        obj_kind = obj[0].get(lib.KIND_FIELD)
+        for datum in input_data:
+            input_objs.extend(r_lib.handle_input_data(datum, ctx))
     else:
-        obj_kind = obj.get(lib.KIND_FIELD)
-    if obj_kind != POLICY_KIND:
-        try:
-            baseline = spyctl_baselines.Baseline(obj)
-        except (
-            spyctl_baselines.InvalidBaselineError,
-            spyctl_fprints.InvalidFingerprintError,
-        ) as e:
-            cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
-        try:
-            policy = Policy(baseline.as_dict(), name)
-        except InvalidPolicyError as e:
-            cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
+        input_objs.extend(r_lib.handle_input_data(input_data, ctx))
+    if len(input_objs) == 0:
+        cli.err_exit("Nothing to build policy with")
+    merge_object = m_lib.MergeObject(input_objs[0], POLICY_MERGE_SCHEMAS, None)
+    if len(input_objs) == 1:
+        merge_object.asymmetric_merge({})
     else:
-        try:
-            policy = Policy(obj, name)
-        except InvalidPolicyError as e:
-            cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
-    return policy.as_dict()
-
-
-def merge_policy(
-    policy: Dict, with_obj: Dict, fingerprints: List[Dict] = None
-) -> Optional[m_lib.MergeObject]:
+        for obj in input_objs[1:]:
+            merge_object.symmetric_merge(obj)
     try:
-        _ = Policy(policy)
+        policy = Policy(merge_object.get_obj_data(), name)
     except InvalidPolicyError as e:
-        cli.err_exit(f"Invalid policy as input. {' '.join(e.args)}")
-    with_obj_kind = (
-        with_obj.get(lib.KIND_FIELD) if isinstance(with_obj, dict) else None
-    )
-    pol_merge_obj = m_lib.MergeObject(policy, POLICY_MERGE_SCHEMAS, Policy)
-    if with_obj_kind == GROUP_KIND:
-        fingerprints = with_obj.get(lib.DATA_FIELD, {}).get(
-            spyctl_fprints.FINGERPRINTS_FIELD, []
-        )
-        for fprint in fingerprints:
-            pol_merge_obj.asymmetric_merge(fprint)
-        if not pol_merge_obj.is_valid:
-            cli.try_log("Merge was unable to create a valid policy")
-    elif with_obj_kind == BASELINE_KIND:
-        try:
-            _ = spyctl_baselines.Baseline(with_obj)
-        except (
-            spyctl_baselines.InvalidBaselineError,
-            spyctl_fprints.InvalidFingerprintError,
-        ) as e:
-            cli.err_exit(
-                "Invalid baseline object as 'with object' input."
-                f" {' '.join(e.args)}"
-            )
-        pol_merge_obj.asymmetric_merge(with_obj)
-        if not pol_merge_obj.is_valid:
-            cli.try_log("Merge was unable to create a valid policy")
-    elif with_obj == POLICY_KIND:
-        try:
-            _ = Policy(with_obj)
-        except InvalidPolicyError as e:
-            cli.err_exit(
-                "Invalid policy object as 'with object' input."
-                f" {' '.join(e.args)}"
-            )
-        pol_merge_obj.asymmetric_merge(with_obj)
-        if not pol_merge_obj.is_valid:
-            cli.try_log("Merge was unable to create a valid policy")
-    elif fingerprints is not None:
-        for fingerprint in fingerprints:
-            pol_merge_obj.asymmetric_merge(fingerprint)
-        if not pol_merge_obj.is_valid:
-            cli.try_log("Merge was unable to create a valid policy")
-    else:
-        cli.try_log(
-            f"Merging policy with {with_obj_kind} is not yet supported."
-        )
-        return
-    return pol_merge_obj
-
-
-def diff_policy(policy: Dict, with_obj: Dict, fingerprints=None) -> str:
-    pol_merge_obj = merge_policy(policy, with_obj, fingerprints)
-    if not pol_merge_obj:
-        cli.err_exit("Unable to perform Diff")
-    diff = pol_merge_obj.get_diff()
-    return diff
+        cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
+    # Validate the policy
+    rv = policy.as_dict()
+    if not schemas.valid_object(rv):
+        cli.err_exit("Created policy failed validation.")
+    return rv
 
 
 def policies_output(policies: List[Dict]):

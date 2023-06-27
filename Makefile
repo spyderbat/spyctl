@@ -5,13 +5,6 @@ test_build: clean
 	pip uninstall spyctl -y
 	pip install .
 
-build_api:
-	rm -rf ./spyctl_api/build
-	mkdir ./spyctl_api/build
-	mkdir ./spyctl_api/build/spyctl
-	cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
-	(cd ./spyctl_api; make docker_build)
-
 release:
 	python3 -m twine upload dist/*
 
@@ -22,7 +15,7 @@ install_from_test:
 	pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple spyctl
 
 venv:
-	python3 -m venv ~/spyctl_demo --clear
+	python3.7 -m venv ./spyctl_venv --clear
 
 clean:
 	rm -rf ./dist

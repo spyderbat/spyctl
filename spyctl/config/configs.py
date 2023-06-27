@@ -758,6 +758,7 @@ class ContextsParam(click.ParamType):
 
 def set_api_call():
     s.set_api_call()
+    lib.set_api_call()
     cli.set_yes_option()
 
 

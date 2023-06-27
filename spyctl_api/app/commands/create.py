@@ -6,6 +6,10 @@ import spyctl.spyctl_lib as lib
 from fastapi import HTTPException
 import json
 
+# ------------------------------------------------------------------------------
+# Create Suppression Policy
+# ------------------------------------------------------------------------------
+
 
 @dataclass
 class CreateSuppressionPolicyInput:
@@ -60,3 +64,37 @@ def trace_suppression_policy(
     )
     output = CreateSuppressionPolicyOutput(json.dumps(pol.as_dict()))
     return output
+
+
+# ------------------------------------------------------------------------------
+# Create Guardian Policy
+# ------------------------------------------------------------------------------
+
+
+@dataclass
+class CreateGuardianPolicyInput:
+    name: str = ""
+    input_objs: str = ""
+    org_uid: str = ""
+    api_key: str = ""
+    api_url: str = ""
+
+
+@dataclass
+class CreateGuardianPolicyOutput:
+    policy: str
+
+
+def guardian_policy(
+    input: CreateGuardianPolicyInput,
+) -> CreateGuardianPolicyOutput:
+    if not input.org_uid or not input.api_key or not input.api_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Bad Request. Missing org_uid, api_key, and/or api_url",
+        )
+    else:
+        spyctl_ctx = cfg.create_temp_secret_and_context(
+            input.org_uid, input.api_key, input.api_url
+        )
+    pol = spyctl_create.create_guardian_policy()

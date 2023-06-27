@@ -9,7 +9,7 @@ import time
 import unicodedata
 from base64 import urlsafe_b64encode as b64url
 from datetime import timezone
-from fnmatch import fnmatch, translate
+from fnmatch import fnmatch
 from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -43,6 +43,10 @@ WARNING_COLOR = "\x1b[38;5;203m"
 ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
+API_CALL = False
+LOG_VAR = []
+ERR_VAR = []
+USE_LOG_VARS = False
 
 
 def disable_colorization():
@@ -52,6 +56,20 @@ def disable_colorization():
     COLOR_END = ""
     SUB_COLOR = ""
     ADD_COLOR = ""
+
+
+def flush_log_var() -> str:
+    global LOG_VAR
+    rv = "\n".join(LOG_VAR)
+    LOG_VAR.clear()
+    return rv
+
+
+def flush_err_var() -> str:
+    global ERR_VAR
+    rv = "\n".join(ERR_VAR)
+    ERR_VAR.clear()
+    return rv
 
 
 # Resource Aliases
@@ -125,10 +143,6 @@ PROCESSES_RESOURCE = Aliases(
         "process",
         "proc",
         "procs",
-        "pro",
-        "pros",
-        "pces",
-        "pcess",
     ],
     "process",
     "processes",
@@ -390,6 +404,7 @@ POL_KIND = "SpyderbatPolicy"
 BASELINE_KIND = "SpyderbatBaseline"
 FPRINT_KIND = "SpyderbatFingerprint"
 FPRINT_GROUP_KIND = "FingerprintGroup"
+UID_LIST_KIND = "UidList"
 
 # CONFIG Kinds
 CONFIG_KIND = "Config"
@@ -526,6 +541,8 @@ METADATA_UID_FIELD = "uid"
 METADATA_CREATE_TIME = "creationTimestamp"
 METADATA_NAMESPACE_FIELD = "namespace"
 METADATA_S_CHECKSUM_FIELD = "selectorHash"
+METADATA_START_TIME_FIELD = "StartTime"
+METADATA_END_TIME_FIELD = "EndTime"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
@@ -560,6 +577,8 @@ FPRINT_GRP_FINGERPRINTS_FIELD = "fingerprints"
 FPRINT_GRP_CONT_NAMES_FIELD = "containerNames"
 FPRINT_GRP_CONT_IDS_FIELD = "containerIDs"
 FPRINT_GRP_MACHINES_FIELD = "machines"
+# UID List
+UIDS_FIELD = "UniqueIdentifiers"
 
 # Any Object
 VERSION_FIELD = "version"
@@ -572,11 +591,11 @@ EUSER_FIELD = "euser"
 CHILDREN_FIELD = "children"
 LISTENING_SOCKETS = "listeningSockets"
 
-# Conatiner
+# Container
 CONTAINER_NAME_FIELD = "name"
 CONTAINER_ID_FIELD = "id"
 CONTAINER_AGE = "age"
-CONATINER_IMAGE_NAME = "image-name"
+CONTAINER_IMAGE_NAME = "image-name"
 
 # Network
 CIDR_FIELD = "cidr"
@@ -1136,6 +1155,26 @@ class MutuallyExclusiveEatAll(MutuallyExclusiveOption, OptionEatAll):
 
 
 def try_log(*args, **kwargs):
+    global LOG_VAR
+    try:
+        if kwargs.pop(WARNING_MSG, False):
+            msg = f"{WARNING_COLOR}{' '.join(args)}{COLOR_END}"
+            if USE_LOG_VARS:
+                LOG_VAR.append(msg)
+            print(msg, **kwargs, file=sys.stderr)
+        else:
+            if USE_LOG_VARS:
+                LOG_VAR.append(msg)
+            print(*args, **kwargs, file=sys.stderr)
+        sys.stderr.flush()
+    except BrokenPipeError:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stderr.fileno())
+        err_exit("Broken Pipe")
+
+
+def api_log(*args, **kwargs):
+    global LOG_VAR
     try:
         if kwargs.pop(WARNING_MSG, False):
             msg = f"{WARNING_COLOR}{' '.join(args)}{COLOR_END}"
@@ -1146,7 +1185,7 @@ def try_log(*args, **kwargs):
     except BrokenPipeError:
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stderr.fileno())
-        sys.exit(1)
+        err_exit("Broken Pipe")
 
 
 def time_inp(time_str: str, cap_one_day=False) -> int:
@@ -1359,7 +1398,16 @@ def make_uuid():
     return b64url(uuid4().bytes).decode("ascii").strip("=")
 
 
-def err_exit(message: str):
+def err_exit(message: str, exception: Exception = None):
+    if API_CALL:
+        if USE_LOG_VARS:
+            global ERR_VAR
+            ERR_VAR.append(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
+        if exception:
+            raise exception
+        elif USE_LOG_VARS:
+            raise Exception()
+        raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
 
@@ -1459,10 +1507,11 @@ def __validate_resource_on_load(
     if not valid_object(resrc_data, verbose=True):
         if validate_cmd:
             try_log(
-                f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
+                f"{resrc_kind} invalid in {name!r}{msg_suffix}."
+                " See error logs."
             )
             sys.exit(0)
-        sys.exit(
+        err_exit(
             f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
         )
 
@@ -1615,3 +1664,10 @@ def simple_glob_to_regex(input_str: str):
     rv = rv.replace("?", ".")
     rv = f"^{rv}$"
     return rv
+
+
+def set_api_call():
+    global API_CALL, USE_LOG_VARS
+    API_CALL = True
+    USE_LOG_VARS = True
+    disable_colorization()

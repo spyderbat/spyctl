@@ -10,10 +10,21 @@ import spyctl.spyctl_lib as lib
 def valid_object(data: Dict, verbose=True) -> bool:
     kind = data.get(lib.KIND_FIELD)
     if kind not in KIND_TO_SCHEMA:
-        lib.err_exit(
-            f"Unable to validate {kind!r}, no schema exists for objects of"
-            " that type."
-        )
+        if lib.ITEMS_FIELD not in data:
+            lib.err_exit(
+                f"Unable to validate {kind!r}, no schema exists for objects of"
+                " that type."
+            )
+        try:
+            item_list_schema.validate(data)
+        except SchemaError as e:
+            output = "\n".join(e.autos)
+            lib.try_log(output, is_warning=True)
+            return False
+        for item in data[lib.ITEMS_FIELD]:
+            if not valid_object(item):
+                return False
+        return True
     if kind == lib.POL_KIND:
         type = data.get(lib.METADATA_FIELD, {}).get(lib.METADATA_TYPE_FIELD)
         if type == lib.POL_TYPE_TRACE:
@@ -651,6 +662,11 @@ policy_metadata_schema = Schema(
     },
 )
 
+uid_list_metadata_schema = Schema(
+    {lib.METADATA_START_TIME_FIELD: int, lib.METADATA_END_TIME_FIELD: int},
+    ignore_extra_keys=True,
+)
+
 fprint_schema = SpyderbatObjSchema(
     {
         lib.API_FIELD: lib.API_VERSION,
@@ -701,6 +717,7 @@ policy_schema = SpyderbatObjSchema(
         lib.SPEC_FIELD: policy_spec_schema,
     }
 )
+
 suppression_policy_schema = SpyderbatObjSchema(
     {
         lib.API_FIELD: lib.API_VERSION,
@@ -708,6 +725,19 @@ suppression_policy_schema = SpyderbatObjSchema(
         lib.METADATA_FIELD: policy_metadata_schema,
         lib.SPEC_FIELD: suppression_policy_spec_schema,
     }
+)
+
+uid_list_schema = Schema(
+    {
+        lib.API_FIELD: lib.API_VERSION,
+        lib.KIND_FIELD: lib.UID_LIST_KIND,
+        lib.METADATA_FIELD: uid_list_metadata_schema,
+        lib.DATA_FIELD: {lib.UIDS_FIELD: [str]},
+    }
+)
+
+item_list_schema = Schema(
+    {lib.API_FIELD: lib.API_VERSION, lib.ITEMS_FIELD: [{}]}
 )
 
 KIND_TO_SCHEMA: Dict[str, Schema] = {

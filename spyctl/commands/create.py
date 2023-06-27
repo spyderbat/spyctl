@@ -1,11 +1,14 @@
+import json
+from typing import Optional
+
 import spyctl.cli as cli
-import spyctl.spyctl_lib as lib
+import spyctl.commands.validate as val
+import spyctl.config.configs as cfg
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.search as search
-import spyctl.config.configs as cfg
-from typing import Optional
+import spyctl.spyctl_lib as lib
 
 
 def handle_create_baseline(filename: str, output: str, name: str):
@@ -17,11 +20,26 @@ def handle_create_baseline(filename: str, output: str, name: str):
 
 
 def handle_create_guardian_policy(filename: str, output: str, name: str):
-    resrc_data = lib.load_resource_file(filename)
-    policy = p.create_policy(resrc_data, name)
+    policy = create_guardian_policy_from_file(filename, name)
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(policy, output)
+
+
+def create_guardian_policy_from_file(filename: str, name: str):
+    resrc_data = lib.load_resource_file(filename)
+    policy = p.create_policy(resrc_data, name)
+    return policy
+
+
+def create_guardian_policy_from_json(
+    name: str, input_objects: str, ctx: cfg.Context
+):
+    json_data = json.loads(input_objects)
+    if not val.validate_json(json_data):
+        raise ValueError()
+    policy = p.create_policy(json_data, name, ctx)
+    return policy
 
 
 def handle_create_suppression_policy(
