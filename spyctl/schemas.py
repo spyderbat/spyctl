@@ -737,7 +737,7 @@ uid_list_schema = Schema(
 )
 
 item_list_schema = Schema(
-    {lib.API_FIELD: lib.API_VERSION, lib.ITEMS_FIELD: [{}]}
+    {lib.API_FIELD: lib.API_VERSION, lib.ITEMS_FIELD: [dict]}
 )
 
 KIND_TO_SCHEMA: Dict[str, Schema] = {
@@ -748,4 +748,5 @@ KIND_TO_SCHEMA: Dict[str, Schema] = {
     (lib.POL_KIND, lib.POL_TYPE_TRACE): suppression_policy_schema,
     lib.CONFIG_KIND: config_schema,
     lib.SECRET_KIND: secret_schema,
+    lib.UID_LIST_KIND: uid_list_schema,
 }

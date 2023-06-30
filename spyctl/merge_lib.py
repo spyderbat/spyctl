@@ -1250,7 +1250,13 @@ def make_wildcard(strs: List[str]):
     # Simple string match didn't work so lets see if there is a
     # better match (takes more computation)
     original_str = sub_str = strs[0]
+    first_char = original_str[0]
+    last_char = original_str[-1]
     for name in strs[1:]:
+        if first_char != name[0]:
+            first_char = None
+        if last_char != name[-1]:
+            last_char = None
         name = name.strip("*")
         match = SequenceMatcher(None, sub_str, name).find_longest_match(
             0, len(sub_str), 0, len(name)
@@ -1262,12 +1268,17 @@ def make_wildcard(strs: List[str]):
             break
     if len(sub_str) < 3:
         ret = None
-    elif original_str.startswith(sub_str):
-        ret = sub_str + "*"
-    elif original_str.endswith(sub_str):
-        ret = "*" + sub_str
-    else:
+    if not first_char and not last_char:
         ret = "*" + sub_str + "*"
+    elif not first_char:
+        ret = "*" + sub_str
+    elif not last_char:
+        ret = sub_str + "*"
+    else:
+        cli.err_exit(
+            f"Bug detected in wildcard logic. Return value: '{ret}' | input:"
+            f" '{strs}'."
+        )
     return ret
 
 

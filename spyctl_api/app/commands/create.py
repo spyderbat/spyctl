@@ -5,6 +5,7 @@ import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
 from fastapi import HTTPException
 import json
+import app_lib
 
 # ------------------------------------------------------------------------------
 # Create Suppression Policy
@@ -29,9 +30,9 @@ class CreateSuppressionPolicyOutput:
 
 
 def suppression_policy(
-    input: CreateSuppressionPolicyInput,
+    i: CreateSuppressionPolicyInput,
 ) -> CreateSuppressionPolicyOutput:
-    if input.type == lib.POL_TYPE_TRACE:
+    if i.type == lib.POL_TYPE_TRACE:
         return trace_suppression_policy(input)
     else:
         raise HTTPException(
@@ -41,27 +42,26 @@ def suppression_policy(
 
 
 def trace_suppression_policy(
-    input: CreateSuppressionPolicyInput,
+    i: CreateSuppressionPolicyInput,
 ) -> CreateSuppressionPolicyOutput:
-    if input.obj_uid:
-        if not input.org_uid or not input.api_key or not input.api_url:
-            raise HTTPException(
-                status_code=400,
-                detail="Bad Request. Missing org_uid, api_key, and/or api_url",
-            )
-        else:
-            spyctl_ctx = cfg.create_temp_secret_and_context(
-                input.org_uid, input.api_key, input.api_url
-            )
-    else:
-        spyctl_ctx = None
-    pol = spyctl_create.create_trace_suppression_policy(
-        input.obj_uid,
-        input.auto_generate_user_scope,
-        input.name,
-        ctx=spyctl_ctx,
-        **input.selectors,
+    spyctl_ctx = app_lib.generate_spyctl_context(
+        i.org_uid, i.api_key, i.api_url
     )
+    try:
+        pol = spyctl_create.create_trace_suppression_policy(
+            i.obj_uid,
+            i.auto_generate_user_scope,
+            i.name,
+            ctx=spyctl_ctx,
+            **i.selectors,
+        )
+    except HTTPException as e:
+        raise e
+    except Exception:
+        msg = app_lib.flush_spyctl_log_messages()
+        raise HTTPException(
+            status_code=500, detail=f"Internal Server Error. {msg}"
+        )
     output = CreateSuppressionPolicyOutput(json.dumps(pol.as_dict()))
     return output
 
@@ -86,15 +86,21 @@ class CreateGuardianPolicyOutput:
 
 
 def guardian_policy(
-    input: CreateGuardianPolicyInput,
+    i: CreateGuardianPolicyInput,
 ) -> CreateGuardianPolicyOutput:
-    if not input.org_uid or not input.api_key or not input.api_url:
+    spyctl_ctx = app_lib.generate_spyctl_context(
+        i.org_uid, i.api_key, i.api_url
+    )
+    try:
+        pol = spyctl_create.create_guardian_policy_from_json(
+            i.name, i.input_objs, spyctl_ctx
+        )
+    except HTTPException as e:
+        raise e
+    except Exception:
+        msg = app_lib.flush_spyctl_log_messages()
         raise HTTPException(
-            status_code=400,
-            detail="Bad Request. Missing org_uid, api_key, and/or api_url",
+            status_code=500, detail=f"Internal Server Error. {msg}"
         )
-    else:
-        spyctl_ctx = cfg.create_temp_secret_and_context(
-            input.org_uid, input.api_key, input.api_url
-        )
-    pol = spyctl_create.create_guardian_policy()
+    output = CreateGuardianPolicyOutput(pol)
+    return output

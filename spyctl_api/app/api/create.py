@@ -4,6 +4,10 @@ from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1")
 
+# ------------------------------------------------------------------------------
+# Create Suppression Policy
+# ------------------------------------------------------------------------------
+
 
 class CreateSuppressionPolicyHandlerInput(BaseModel):
     type: str = Field(title="The type of suppression policy to create")
@@ -17,9 +21,9 @@ class CreateSuppressionPolicyHandlerInput(BaseModel):
     name: str = Field(
         default="", title="Optional name for the suppression policy"
     )
-    org_uid: str | None
-    api_key: str | None
-    api_url: str | None
+    org_uid: str
+    api_key: str
+    api_url: str
 
 
 class CreateSuppressionPolicyHandlerOutput(BaseModel):
@@ -42,3 +46,39 @@ def create_suppression_policy(
     )
     output = cmd_create.suppression_policy(cmd_input)
     return CreateSuppressionPolicyHandlerOutput(policy=output.policy)
+
+
+# ------------------------------------------------------------------------------
+# Create Guardian Policy
+# ------------------------------------------------------------------------------
+
+
+class CreateGuardianPolicyHandlerInput(BaseModel):
+    input_objs: str = Field(
+        title="Scope the created policy to the relevant users"
+    )
+    name: str = Field(
+        default="", title="Optional name for the guardian policy"
+    )
+    org_uid: str
+    api_key: str
+    api_url: str
+
+
+class CreateGuardianPolicyHandlerOutput(BaseModel):
+    policy: str = Field(default="", title="The policy that was created")
+
+
+@router.post("/create/guardianpolicy")
+def create_guardian_policy(
+    i: CreateGuardianPolicyHandlerInput,
+) -> CreateGuardianPolicyHandlerOutput:
+    cmd_input = cmd_create.CreateGuardianPolicyInput(
+        i.name,
+        i.input_objs,
+        i.org_uid,
+        i.api_key,
+        i.api_url,
+    )
+    output = cmd_create.guardian_policy(cmd_input)
+    return CreateGuardianPolicyHandlerOutput(policy=output.policy)

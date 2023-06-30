@@ -541,8 +541,8 @@ METADATA_UID_FIELD = "uid"
 METADATA_CREATE_TIME = "creationTimestamp"
 METADATA_NAMESPACE_FIELD = "namespace"
 METADATA_S_CHECKSUM_FIELD = "selectorHash"
-METADATA_START_TIME_FIELD = "StartTime"
-METADATA_END_TIME_FIELD = "EndTime"
+METADATA_START_TIME_FIELD = "startTime"
+METADATA_END_TIME_FIELD = "endTime"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
@@ -578,7 +578,7 @@ FPRINT_GRP_CONT_NAMES_FIELD = "containerNames"
 FPRINT_GRP_CONT_IDS_FIELD = "containerIDs"
 FPRINT_GRP_MACHINES_FIELD = "machines"
 # UID List
-UIDS_FIELD = "UniqueIdentifiers"
+UIDS_FIELD = "uniqueIdentifiers"
 
 # Any Object
 VERSION_FIELD = "version"
@@ -1495,25 +1495,14 @@ def __validate_data_structure_on_load(resrc_data: Any, validate_cmd=False):
 def __validate_resource_on_load(
     resrc_data: Dict, name, validate_cmd=False, index=None
 ):
-    resrc_kind = resrc_data.get(KIND_FIELD)
     msg_suffix = "" if index is None else f" at index {index}"
-    if not resrc_kind:
-        if validate_cmd:
-            try_log(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
-            sys.exit(0)
-        err_exit(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
     from spyctl.schemas import valid_object
 
     if not valid_object(resrc_data, verbose=True):
         if validate_cmd:
-            try_log(
-                f"{resrc_kind} invalid in {name!r}{msg_suffix}."
-                " See error logs."
-            )
+            try_log(f"Invalid object in {name!r}{msg_suffix}. See error logs.")
             sys.exit(0)
-        err_exit(
-            f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
-        )
+        err_exit(f"Invalid object in {name!r}{msg_suffix}. See error logs.")
 
 
 def __load_yaml_file(file: Union[str, IO]) -> Tuple[str, Any]:

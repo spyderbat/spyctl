@@ -6,7 +6,7 @@ import spyctl.config.configs as cfg
 
 
 def handle_input_data(data: Dict, ctx: cfg.Context = None) -> List[Dict]:
-    obj_kind = data[lib.KIND_FIELD]
+    obj_kind = data.get(lib.KIND_FIELD)
     rv = []
     if obj_kind == lib.POL_KIND:
         rv.append(data)
@@ -20,6 +20,7 @@ def handle_input_data(data: Dict, ctx: cfg.Context = None) -> List[Dict]:
         rv.extend(__handle_uid_list_input(data, ctx))
     elif lib.ITEMS_FIELD in data:
         rv.extend(__handle_spyctl_items_input(data))
+    return rv
 
 
 def __handle_fprint_group_input(data: Dict):
@@ -45,3 +46,4 @@ def __handle_spyctl_items_input(data: Dict):
     rv = []
     for item in data[lib.ITEMS_FIELD]:
         rv.extend(handle_input_data(item))
+    return rv

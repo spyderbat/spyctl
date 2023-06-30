@@ -183,8 +183,8 @@ def time_input(args):
         return t, t
 
 
-def err_exit(message: str):
-    lib.err_exit(message)
+def err_exit(message: str, exception: Exception = None):
+    lib.err_exit(message, exception)
 
 
 def output_to_pager(text: str):
