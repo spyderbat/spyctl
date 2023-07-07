@@ -9,6 +9,8 @@ import spyctl.commands.create as c
 import spyctl.commands.diff as d
 import spyctl.commands.get as g
 import spyctl.commands.merge as m
+import spyctl.commands.show_schema as sh_s
+import spyctl.commands.suppress as sup
 import spyctl.commands.update as u
 import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
@@ -16,7 +18,6 @@ import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
-import spyctl.commands.suppress as sup
 
 MAIN_EPILOG = (
     "\b\n"
@@ -1415,9 +1416,23 @@ def merge(
 
 
 # ----------------------------------------------------------------- #
+#                        ShowSchema Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("show-schema", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("kind", click.Choice(lib.KINDS_WITH_SCHEMA))
+def show_schema(kind):
+    sh_s.handle_show_schema(kind)
+
+
+# ----------------------------------------------------------------- #
 #                        Snooze Subcommand                          #
 # ----------------------------------------------------------------- #
-@main.group("snooze", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
+
+
+@main.group("snooze", cls=lib.CustomSubGroup, epilog=SUB_EPILOG, hidden=True)
 @click.help_option("-h", "--help", hidden=True)
 def snooze():
     "Snooze one or many Spyderbat Resources"
@@ -1427,6 +1442,8 @@ def snooze():
 # ----------------------------------------------------------------- #
 #                       Suppress Subcommand                         #
 # ----------------------------------------------------------------- #
+
+
 @main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(

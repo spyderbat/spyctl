@@ -401,6 +401,7 @@ DATATYPE_FINGERPRINTS = "fingerprints"
 
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
+SUP_POL_KIND_ALIAS = "SuppressionPolicy"
 BASELINE_KIND = "SpyderbatBaseline"
 FPRINT_KIND = "SpyderbatFingerprint"
 FPRINT_GROUP_KIND = "FingerprintGroup"
@@ -409,6 +410,17 @@ UID_LIST_KIND = "UidList"
 # CONFIG Kinds
 CONFIG_KIND = "Config"
 SECRET_KIND = "APISecret"
+
+KINDS_WITH_SCHEMA = [
+    BASELINE_KIND,
+    CONFIG_KIND,
+    FPRINT_GROUP_KIND,
+    FPRINT_KIND,
+    POL_KIND,
+    SECRET_KIND,
+    SUP_POL_KIND_ALIAS,
+    UID_LIST_KIND,
+]
 
 # Top-level yaml Fields
 API_FIELD = "apiVersion"

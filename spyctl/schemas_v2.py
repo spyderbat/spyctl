@@ -1,5 +1,5 @@
 import ipaddress
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -10,7 +10,6 @@ from pydantic import (
     root_validator,
     validator,
 )
-from pydantic.typing import Literal
 
 import spyctl.spyctl_lib as lib
 
@@ -58,6 +57,11 @@ def valid_context(context_data: Dict, verbose=True):
     return True
 
 
+def handle_show_schema(kind: str) -> str:
+    object = KIND_TO_SCHEMA.get(kind)
+    return object.schema_json()
+
+
 __PROC_IDS = {}
 
 # -----------------------------------------------------------------------------
@@ -75,7 +79,7 @@ class ContainerSelectorModel(BaseModel):
     container_name: Optional[str] = Field(alias=lib.CONTAINER_NAME_FIELD)
     container_id: Optional[str] = Field(alias=lib.CONTAINER_ID_FIELD)
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def ensure_one_field(cls, values: Dict):
         if not any(value for value in values.values()):
             # TODO fill out error
@@ -121,17 +125,18 @@ class UserSelectorModel(BaseModel):
 # -----------------------------------------------------------------------------
 
 
+# This is a reused validator ensuring that the objects have a required selector
 def validate_selectors(_, values):
-    type = values["metadata"]["type"]
+    type = getattr(values["metadata"], "type", "")
     if type == lib.POL_TYPE_CONT:
-        s_val = values["spec"]["container_selector"]
+        s_val = getattr(values["spec"], "container_selector", None)
         if not s_val:
             raise ValueError(
                 f"Type is '{lib.POL_TYPE_CONT}' and no "
                 f"'{lib.CONT_SELECTOR_FIELD}' found in {lib.SPEC_FIELD}"
             )
     else:
-        s_val = values["spec"]["service_selector"]
+        s_val = getattr(values["spec"], "service_selector", None)
         if not s_val:
             raise ValueError(
                 f"Type is '{lib.POL_TYPE_SVC}' and no "
@@ -171,7 +176,7 @@ class CIDRModel(BaseModel):
         alias=lib.EXCEPT_FIELD, max_items=10
     )
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_except_within_cidr(cls, values):
         cidr = values["cidr"]
         try:
@@ -179,7 +184,7 @@ class CIDRModel(BaseModel):
         except ipaddress.AddressValueError:
             cidr_net = ipaddress.IPv6Network(cidr)
         net_type = type(cidr_net)
-        if "except_cidr" in values:
+        if "except_cidr" in values and values["except_cidr"]:
             for e_cidr in values["except_cidr"]:
                 try:
                     e_net = ipaddress.IPv4Network(e_cidr)
@@ -200,12 +205,13 @@ class IpBlockModel(BaseModel):
 
 class PortsModel(BaseModel):
     port: int = Field(alias=lib.PORT_FIELD, ge=0, le=65535)
-    proto: Literal["TCP", "UDP"] = Field(alias=lib.PROTO_FIELD)
-    # endport: Optional[int] = Field(alias=lib.ENDPORT_FIELD, ge=0, le=66535)
+    proto: Literal["UDP", "TCP"] = Field(alias=lib.PROTO_FIELD)
+    endport: Optional[int] = Field(alias=lib.ENDPORT_FIELD, ge=0, le=66535)
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def endport_ge_port(cls, values):
-        if "endport" in values and values["endport"] < values["port"]:
+        endport = values.get("endport")
+        if endport is not None and endport < values["port"]:
             raise ValueError(
                 f"{lib.ENDPORT_FIELD} must be greater than or equal to"
                 f" {lib.PORT_FIELD}"
@@ -219,6 +225,15 @@ class IngressNodeModel(BaseModel):
     )
     processes: List[str] = Field(alias=lib.PROCESSES_FIELD)
     ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
+
+    @validator("processes", each_item=True)
+    def validate_proc_ids(cls, v):
+        if not in_proc_ids(v):
+            raise ValueError(f"No process found with id '{v}'.")
+        return v
+
+    class Config:
+        smart_union = True
 
 
 class EgressNodeModel(BaseModel):
@@ -246,6 +261,13 @@ class ProcessNodeModel(BaseModel):
     children: Optional[List["ProcessNodeModel"]] = Field(
         alias=lib.CHILDREN_FIELD
     )
+
+    @validator("id")
+    def validate_no_duplicate_ids(cls, v):
+        if in_proc_ids(v):
+            raise ValueError(f"Duplicate id '{v}' detected.")
+        add_proc_id(v)
+        return v
 
 
 # Actions Models --------------------------------------------------------------
@@ -311,7 +333,7 @@ class ResponseActionsModel(BaseModel):
         alias=lib.ACTION_KILL_PROC_GRP
     )
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_only_one_action(cls, values: Dict):
         actions_count = len([action for action in values.values() if action])
         if actions_count == 0:
@@ -404,12 +426,14 @@ class GuardianFingerprintModel(BaseModel):
             raise ValueError(f"Kind is not {lib.FPRINT_KIND}")
         return v
 
-    # _selector_validator = root_validator(allow_reuse=True)(validate_selectors)
+    _selector_validator = root_validator(
+        allow_reuse=True, skip_on_failure=True
+    )(validate_selectors)
 
     def __init__(self, **data: Any):
+        clear_proc_ids()
         super().__init__(**data)
-        global __PROC_IDS
-        __PROC_IDS.clear()
+        clear_proc_ids()
 
     class Config:
         extra = Extra.forbid
@@ -456,12 +480,14 @@ class GuardianBaselineModel(BaseModel):
             raise ValueError(f"Kind is not {lib.BASELINE_KIND}")
         return v
 
-    # _selector_validator = root_validator(allow_reuse=True)(validate_selectors)
+    _selector_validator = root_validator(
+        allow_reuse=True, skip_on_failure=True
+    )(validate_selectors)
 
     def __init__(self, **data: Any):
+        clear_proc_ids()
         super().__init__(**data)
-        global __PROC_IDS
-        __PROC_IDS.clear()
+        clear_proc_ids()
 
     class Config:
         extra = Extra.forbid
@@ -479,12 +505,14 @@ class GuardianPolicyModel(BaseModel):
             raise ValueError(f"Kind is not {lib.POL_KIND}")
         return v
 
-    # _selector_validator = root_validator(allow_reuse=True)(validate_selectors)
+    _selector_validator = root_validator(
+        allow_reuse=True, skip_on_failure=True
+    )(validate_selectors)
 
     def __init__(self, **data: Any):
+        clear_proc_ids()
         super().__init__(**data)
-        global __PROC_IDS
-        __PROC_IDS.clear()
+        clear_proc_ids()
 
     class Config:
         extra = Extra.forbid
@@ -688,3 +716,17 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     lib.SECRET_KIND: SecretModel,
     lib.UID_LIST_KIND: UidListModel,
 }
+
+
+def clear_proc_ids():
+    global __PROC_IDS
+    __PROC_IDS.clear()
+
+
+def in_proc_ids(id: str) -> bool:
+    return id in __PROC_IDS
+
+
+def add_proc_id(id: str):
+    global __PROC_IDS
+    __PROC_IDS[id] = True
