@@ -1,7 +1,7 @@
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
 from typing import List, Dict, Union, Any
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 import json
 
 

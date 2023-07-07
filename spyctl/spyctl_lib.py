@@ -1462,18 +1462,12 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
             err_exit(" ".join(e.args))
         except Exception:
             err_exit("Unable to load resource file.")
-    try:
-        __validate_data_structure_on_load(resrc_data, validate_cmd)
-        if isinstance(resrc_data, dict):
-            __validate_resource_on_load(resrc_data, name, validate_cmd)
-        else:
-            for i, data in enumerate(resrc_data):
-                __validate_resource_on_load(data, name, validate_cmd, index=i)
-    except Exception as e:
-        if validate_cmd:
-            try_log(" ".join(e.args))
-            sys.exit(0)
-        err_exit(" ".join(e.args))
+    __validate_data_structure_on_load(resrc_data, validate_cmd)
+    if isinstance(resrc_data, dict):
+        __validate_resource_on_load(resrc_data, name, validate_cmd)
+    else:
+        for i, data in enumerate(resrc_data):
+            __validate_resource_on_load(data, name, validate_cmd, index=i)
     if isinstance(file, io.TextIOWrapper):
         file.seek(0, 0)
     return resrc_data
@@ -1497,7 +1491,7 @@ def __validate_resource_on_load(
     resrc_data: Dict, name, validate_cmd=False, index=None
 ):
     msg_suffix = "" if index is None else f" at index {index}"
-    from spyctl.schemas import valid_object
+    from spyctl.schemas_v2 import valid_object
 
     if not valid_object(resrc_data, verbose=True):
         if validate_cmd:
