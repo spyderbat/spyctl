@@ -8,7 +8,7 @@ import spyctl.filter_resource as filt
 def handle_delete(resource, name_or_id):
     if resource == lib.POLICIES_RESOURCE:
         handle_delete_policy(name_or_id)
-    if resource == lib.SUPPRESSION_POLICY_RESOURCE:
+    elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_delete_suppression_policy(name_or_id)
     else:
         cli.err_exit(f"The 'delete' command is not supported for {resource}")
