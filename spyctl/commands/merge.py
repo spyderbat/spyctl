@@ -341,7 +341,7 @@ def merge_resource(
     else:
         for obj in with_obj:
             merge_with_objects.extend(
-                r_lib.handle_input_data(data=with_obj, ctx=ctx)
+                r_lib.handle_input_data(data=obj, ctx=ctx)
             )
     resrc_kind = target.get(lib.KIND_FIELD)
     merge_obj = get_merge_object(resrc_kind, target, merge_network, src_cmd)

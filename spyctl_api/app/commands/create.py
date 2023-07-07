@@ -1,11 +1,11 @@
+import json
 from dataclasses import dataclass, field
 
 import spyctl.commands.create as spyctl_create
-import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
 from fastapi import HTTPException
-import json
-import app_lib
+
+import app.app_lib as app_lib
 
 # ------------------------------------------------------------------------------
 # Create Suppression Policy
@@ -102,5 +102,5 @@ def guardian_policy(
         raise HTTPException(
             status_code=500, detail=f"Internal Server Error. {msg}"
         )
-    output = CreateGuardianPolicyOutput(pol)
+    output = CreateGuardianPolicyOutput(policy=json.dumps(pol))
     return output

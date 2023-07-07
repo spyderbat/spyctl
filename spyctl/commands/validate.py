@@ -38,7 +38,8 @@ def validate_list(objs: List):
                 cli.try_log(f"Object at index {i} is invalid. See logs.")
                 return False
         else:
-            cli.err_exit(f"Invalid Object at index {i}, expect dictionary.")
+            cli.try_log(f"Invalid Object at index {i}, expect dictionary.")
+            return False
     return True
 
 

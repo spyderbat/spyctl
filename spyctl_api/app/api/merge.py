@@ -1,12 +1,14 @@
-import app.commands.merge as cmd_merge
+import json
+
+import spyctl.commands.validate as val
+import spyctl.schemas as schemas
+import spyctl.spyctl_lib as lib
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, validator
-import json
-import spyctl.spyctl_lib as lib
-import spyctl.schemas as schemas
-import exceptions as ex
-import app_lib
-import spyctl.commands.validate as val
+
+import app.app_lib as app_lib
+import app.commands.merge as cmd_merge
+import app.exceptions as ex
 
 router = APIRouter(prefix="/api/v1")
 
@@ -43,24 +45,34 @@ class MergeHandlerInput(BaseModel):
         except json.JSONDecodeError:
             ex.bad_request("Error decoding json for 'object' field.")
         app_lib.flush_spyctl_log_messages()
+        return v
 
     @validator("merge_objects")
     def merge_objects_must_be_valid_json_list(cls, v):
         try:
             objs = json.loads(v)
-            if not isinstance(objs, list):
+            if not isinstance(objs, list) and not isinstance(objs, dict):
                 ex.bad_request(
-                    "The 'merge_objects' field does not contain a json dict"
+                    "The 'merge_objects' field does not contain a json list or"
+                    " json dict"
                 )
-            if not val.validate_list(objs):
-                messages = app_lib.flush_spyctl_log_messages()
-                ex.bad_request(
-                    f"'merge_objects' failed validation.\n{messages}"
-                )
+            if isinstance(objs, list):
+                if not val.validate_list(objs):
+                    messages = app_lib.flush_spyctl_log_messages()
+                    ex.bad_request(
+                        f"'merge_objects' failed validation.\n{messages}"
+                    )
+            else:
+                if not val.validate_object(objs):
+                    messages = app_lib.flush_spyctl_log_messages()
+                    ex.bad_request(
+                        f"'merge_objects' failed validation.\n{messages}"
+                    )
         except json.JSONDecodeError:
             messages = app_lib.flush_spyctl_log_messages()
             ex.bad_request("Error decoding json for 'merge_objects' field.")
         app_lib.flush_spyctl_log_messages()
+        return v
 
 
 class MergeHandlerOutput(BaseModel):
@@ -79,4 +91,4 @@ def merge(
         i.api_url,
     )
     output = cmd_merge.merge(cmd_input)
-    return MergeHandlerOutput(policy=output.merged_object)
+    return MergeHandlerOutput(merged_object=output.merged_object)

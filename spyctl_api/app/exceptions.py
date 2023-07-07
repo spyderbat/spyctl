@@ -1,3 +1,5 @@
+import traceback
+
 from fastapi import HTTPException
 
 
@@ -9,6 +11,7 @@ def bad_request(msg: str = None):
 
 
 def internal_server_error(msg: str = None):
+    traceback.print_exc()
     detail = "Internal Server Error."
     if msg:
         detail += f" {msg}"

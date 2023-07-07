@@ -1,6 +1,7 @@
-import app.commands.create as cmd_create
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+
+import app.commands.create as cmd_create
 
 router = APIRouter(prefix="/api/v1")
 

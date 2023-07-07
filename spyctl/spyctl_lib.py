@@ -1163,6 +1163,7 @@ def try_log(*args, **kwargs):
                 LOG_VAR.append(msg)
             print(msg, **kwargs, file=sys.stderr)
         else:
+            msg = " ".join(args)
             if USE_LOG_VARS:
                 LOG_VAR.append(msg)
             print(*args, **kwargs, file=sys.stderr)

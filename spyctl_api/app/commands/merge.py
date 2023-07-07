@@ -1,9 +1,10 @@
 import json
 from dataclasses import dataclass
 
-import app_lib
-import exceptions as ex
 from spyctl.commands.merge import merge_resource
+
+import app.app_lib as app_lib
+import app.exceptions as ex
 
 # ------------------------------------------------------------------------------
 # Merge Object(s) into Object
