@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ipaddress
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -241,6 +243,12 @@ class EgressNodeModel(BaseModel):
     processes: List[str] = Field(alias=lib.PROCESSES_FIELD)
     ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
 
+    @validator("processes", each_item=True)
+    def validate_proc_ids(cls, v):
+        if not in_proc_ids(v):
+            raise ValueError(f"No process found with id '{v}'.")
+        return v
+
 
 class NetworkPolicyModel(BaseModel):
     ingress: List[IngressNodeModel] = Field(alias=lib.INGRESS_FIELD)
@@ -258,7 +266,7 @@ class ProcessNodeModel(BaseModel):
     listening_sockets: Optional[List[PortsModel]] = Field(
         alias=lib.LISTENING_SOCKETS
     )
-    children: Optional[List["ProcessNodeModel"]] = Field(
+    children: Optional[List[ProcessNodeModel]] = Field(
         alias=lib.CHILDREN_FIELD
     )
 
@@ -280,15 +288,9 @@ class SharedActionFieldsModel(GuardianSelectorsModel):
 class MakeRedflagModel(SharedActionFieldsModel):
     content: Optional[str] = Field(alias=lib.FLAG_CONTENT, max_length=350)
     impact: Optional[str] = Field(alias=lib.FLAG_IMPACT, max_length=100)
-    severity: str = Field(alias=lib.FLAG_SEVERITY)
-
-    @validator("severity")
-    def validate_severity(cls, v):
-        if v not in lib.ALLOWED_SEVERITIES:
-            raise ValueError(
-                f"Severity '{v}' is not in '{lib.ALLOWED_SEVERITIES}'"
-            )
-        return v
+    severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(
+        alias=lib.FLAG_SEVERITY
+    )
 
 
 class MakeOpsflagModel(SharedActionFieldsModel):
@@ -296,23 +298,18 @@ class MakeOpsflagModel(SharedActionFieldsModel):
     description: Optional[str] = Field(
         alias=lib.FLAG_DESCRIPTION, max_length=350
     )
-    severity: str = Field(alias=lib.FLAG_SEVERITY)
+    severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(
+        alias=lib.FLAG_SEVERITY
+    )
 
 
 class WebhookActionModel(SharedActionFieldsModel):
     url_destination: str = Field(
         alias=lib.URL_DESTINATION_FIELD, max_length=2048
     )
-    template: str = Field(alias=lib.TEMPLATE_FIELD)
-
-    @validator("template")
-    def validate_template(cls, v):
-        if v not in lib.ALLOWED_TEMPLATES:
-            raise ValueError(
-                f"{lib.TEMPLATE_FIELD} '{v}' is not in "
-                f"'{lib.ALLOWED_TEMPLATES}'"
-            )
-        return v
+    template: Literal[tuple(lib.ALLOWED_TEMPLATES)] = Field(
+        alias=lib.TEMPLATE_FIELD
+    )
 
 
 class ResponseActionsModel(BaseModel):
@@ -359,7 +356,9 @@ class GuardianResponseModel(BaseModel):
 
 class GuardianMetadataModel(BaseModel):
     name: str = Field(alias=lib.METADATA_NAME_FIELD)
-    type: str = Field(alias=lib.METADATA_TYPE_FIELD)
+    type: Literal[tuple(lib.GUARDIAN_POL_TYPES)] = Field(
+        alias=lib.METADATA_TYPE_FIELD
+    )
     create_time: Optional[Union[int, float]] = Field(
         alias=lib.METADATA_CREATE_TIME
     )
@@ -371,14 +370,6 @@ class GuardianMetadataModel(BaseModel):
     )
     uid: Optional[str] = Field(alias=lib.METADATA_UID_FIELD)
     checksum: Optional[str] = Field(alias=lib.METADATA_S_CHECKSUM_FIELD)
-
-    @validator("type")
-    def valid_type(cls, v):
-        if v not in lib.GUARDIAN_POL_TYPES:
-            raise ValueError(
-                f"Invalid type, '{v}' not in {lib.GUARDIAN_POL_TYPES}"
-            )
-        return v
 
 
 class GuardianFingerprintGroupMetadataModel(BaseModel):
@@ -416,15 +407,9 @@ class GuardianBaselineSpecModel(GuardianSelectorsModel):
 
 class GuardianFingerprintModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.FPRINT_KIND] = Field(alias=lib.KIND_FIELD)
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
-
-    @validator("kind")
-    def valid_kind(cls, v):
-        if v != lib.FPRINT_KIND:
-            raise ValueError(f"Kind is not {lib.FPRINT_KIND}")
-        return v
 
     _selector_validator = root_validator(
         allow_reuse=True, skip_on_failure=True
@@ -452,17 +437,11 @@ class FingerprintGroupDataModel(BaseModel):
 
 class GuardianFingerprintGroupModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.FPRINT_GROUP_KIND] = Field(alias=lib.KIND_FIELD)
     metadata: GuardianFingerprintGroupMetadataModel = Field(
         alias=lib.METADATA_FIELD
     )
     data: FingerprintGroupDataModel
-
-    @validator("kind")
-    def valid_kind(cls, v):
-        if v != lib.FPRINT_GROUP_KIND:
-            raise ValueError(f"Kind is not {lib.FPRINT_GROUP_KIND}")
-        return v
 
     class Config:
         extra = Extra.forbid
@@ -470,15 +449,9 @@ class GuardianFingerprintGroupModel(BaseModel):
 
 class GuardianBaselineModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.BASELINE_KIND] = Field(alias=lib.KIND_FIELD)
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
-
-    @validator("kind")
-    def valid_kind(cls, v):
-        if v != lib.BASELINE_KIND:
-            raise ValueError(f"Kind is not {lib.BASELINE_KIND}")
-        return v
 
     _selector_validator = root_validator(
         allow_reuse=True, skip_on_failure=True
@@ -495,15 +468,9 @@ class GuardianBaselineModel(BaseModel):
 
 class GuardianPolicyModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianPolicySpecModel = Field(alias=lib.SPEC_FIELD)
-
-    @validator("kind")
-    def valid_kind(cls, v):
-        if v != lib.POL_KIND:
-            raise ValueError(f"Kind is not {lib.POL_KIND}")
-        return v
 
     _selector_validator = root_validator(
         allow_reuse=True, skip_on_failure=True
@@ -563,7 +530,9 @@ class SuppressionPolicySelectorsModel(BaseModel):
 
 class SuppressionPolicyMetadataModel(BaseModel):
     name: str = Field(alias=lib.METADATA_NAME_FIELD)
-    type: str = Field(alias=lib.METADATA_TYPE_FIELD)
+    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(
+        alias=lib.METADATA_TYPE_FIELD
+    )
     create_time: Optional[Union[int, float]] = Field(
         alias=lib.METADATA_CREATE_TIME
     )
@@ -575,14 +544,6 @@ class SuppressionPolicyMetadataModel(BaseModel):
     )
     uid: Optional[str] = Field(alias=lib.METADATA_UID_FIELD)
     checksum: Optional[str] = Field(alias=lib.METADATA_S_CHECKSUM_FIELD)
-
-    @validator("type")
-    def valid_type(cls, v):
-        if v not in lib.SUPPRESSION_POL_TYPES:
-            raise ValueError(
-                f"Invalid type, '{v}' not in {lib.SUPPRESSION_POL_TYPES}"
-            )
-        return v
 
 
 # Spec Models -----------------------------------------------------------------
@@ -604,7 +565,7 @@ class SuppressionPolicySpecModel(SuppressionPolicySelectorsModel):
 
 class SuppressionPolicyModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)
     metadata: SuppressionPolicyMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: SuppressionPolicySpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -648,16 +609,10 @@ class SecretMetadataModel(BaseModel):
 
 class SecretModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.SECRET_KIND] = Field(alias=lib.KIND_FIELD)
     metadata: SecretMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: Optional[Dict[str, str]] = Field(alias=lib.DATA_FIELD)
     string_data: Optional[Dict[str, str]] = Field(alias=lib.STRING_DATA_FIELD)
-
-    @validator("kind")
-    def valid_kind(cls, v):
-        if v != lib.SECRET_KIND:
-            raise ValueError(f"Kind is not {lib.SECRET_KIND}")
-        return v
 
 
 class ContextsModel(BaseModel):
@@ -668,15 +623,9 @@ class ContextsModel(BaseModel):
 
 class ConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.CONFIG_KIND] = Field(alias=lib.KIND_FIELD)
     contexts: List[ContextsModel] = Field(alias=lib.CONTEXTS_FIELD)
     current_context: str = Field(alias=lib.CURR_CONTEXT_FIELD)
-
-    @validator("kind")
-    def valid_kind(cls, v):
-        if v != lib.CONFIG_KIND:
-            raise ValueError(f"Kind is not {lib.CONFIG_KIND}")
-        return v
 
 
 # -----------------------------------------------------------------------------
@@ -695,15 +644,17 @@ class UidListDataModel(BaseModel):
 
 class UidListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: str = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.UID_LIST_KIND] = Field(alias=lib.KIND_FIELD)
     metadata: UidListMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: UidListDataModel = Field(alias=lib.DATA_FIELD)
 
-    @validator("kind")
-    def valid_kind(cls, v):
-        if v != lib.POL_KIND:
-            raise ValueError(f"Kind is not {lib.POL_KIND}")
-        return v
+
+class SpyderbatObject(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: str = Field(alias=lib.KIND_FIELD)
+
+    class Config:
+        extra = Extra.allow
 
 
 KIND_TO_SCHEMA: Dict[str, BaseModel] = {

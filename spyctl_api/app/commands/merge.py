@@ -5,6 +5,7 @@ from spyctl.commands.merge import merge_resource
 
 import app.app_lib as app_lib
 import app.exceptions as ex
+from typing import Dict, List
 
 # ------------------------------------------------------------------------------
 # Merge Object(s) into Object
@@ -13,8 +14,8 @@ import app.exceptions as ex
 
 @dataclass
 class MergeInput:
-    object: str
-    merge_objects: str
+    object: Dict
+    merge_objects: List[Dict]
     org_uid: str = ""
     api_key: str = ""
     api_url: str = ""
@@ -30,10 +31,11 @@ def merge(i: MergeInput) -> MergeOutput:
         i.org_uid, i.api_key, i.api_url
     )
     try:
-        object = json.loads(i.object)
-        merge_objects = json.loads(i.merge_objects)
         merged_object = merge_resource(
-            object, "API Merge Request Object", merge_objects, ctx=spyctl_ctx
+            i.object,
+            "API Merge Request Object",
+            i.merge_objects,
+            ctx=spyctl_ctx,
         )
         if not merged_object:
             print(app_lib.flush_spyctl_log_messages())

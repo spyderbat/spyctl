@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import spyctl.commands.create as spyctl_create
 import spyctl.spyctl_lib as lib
 from fastapi import HTTPException
+from typing import List, Dict
 
 import app.app_lib as app_lib
 
@@ -33,7 +34,7 @@ def suppression_policy(
     i: CreateSuppressionPolicyInput,
 ) -> CreateSuppressionPolicyOutput:
     if i.type == lib.POL_TYPE_TRACE:
-        return trace_suppression_policy(input)
+        return trace_suppression_policy(i)
     else:
         raise HTTPException(
             status_code=400,
@@ -74,7 +75,7 @@ def trace_suppression_policy(
 @dataclass
 class CreateGuardianPolicyInput:
     name: str = ""
-    input_objs: str = ""
+    input_objs: List[Dict] = field(default_factory=list())
     org_uid: str = ""
     api_key: str = ""
     api_url: str = ""

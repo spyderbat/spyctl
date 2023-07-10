@@ -1,7 +1,11 @@
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Json
+from typing import Dict, List, Union, Literal, Optional
+from typing_extensions import Annotated
 
 import app.commands.create as cmd_create
+import spyctl.schemas_v2 as schemas
+import spyctl.spyctl_lib as lib
 
 router = APIRouter(prefix="/api/v1")
 
@@ -10,13 +14,31 @@ router = APIRouter(prefix="/api/v1")
 # ------------------------------------------------------------------------------
 
 
+class CreateSuppressionPolicyInputSelectorFields(BaseModel):
+    trigger_ancestors: Optional[List[str]] = Field(
+        alias=lib.SUP_POL_CMD_TRIG_ANCESTORS
+    )
+    trigger_class: Optional[List[str]] = Field(
+        alias=lib.SUP_POL_CMD_TRIG_CLASS
+    )
+    users: Optional[List[str]] = Field(alias=lib.SUP_POL_CMD_USERS)
+    interactive_users: Optional[List[str]] = Field(
+        alias=lib.SUP_POL_CMD_INT_USERS
+    )
+    non_interactive_users: Optional[List[str]] = Field(
+        alias=lib.SUP_POL_CMD_N_INT_USERS
+    )
+
+
 class CreateSuppressionPolicyHandlerInput(BaseModel):
-    type: str = Field(title="The type of suppression policy to create")
+    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(
+        title="The type of suppression policy to create"
+    )
     obj_uid: str | None = Field(title="UID of the object to suppress")
     scope_to_users: bool = Field(
         default=False, title="Scope the created policy to the relevant users"
     )
-    selectors: dict = Field(
+    selectors: CreateSuppressionPolicyInputSelectorFields = Field(
         default={}, title="Additional selectors to add to the policy"
     )
     name: str = Field(
@@ -43,7 +65,7 @@ def create_suppression_policy(
         i.org_uid,
         i.api_key,
         i.api_url,
-        i.selectors,
+        i.selectors.dict(by_alias=True, exclude_unset=True),
     )
     output = cmd_create.suppression_policy(cmd_input)
     return CreateSuppressionPolicyHandlerOutput(policy=output.policy)
@@ -53,10 +75,20 @@ def create_suppression_policy(
 # Create Guardian Policy
 # ------------------------------------------------------------------------------
 
+InputObject = Annotated[
+    Union[
+        schemas.GuardianBaselineModel,
+        schemas.GuardianFingerprintModel,
+        schemas.GuardianFingerprintGroupModel,
+        schemas.UidListModel,
+    ],
+    Field(discriminator="kind"),
+]
+
 
 class CreateGuardianPolicyHandlerInput(BaseModel):
-    input_objs: str = Field(
-        title="Scope the created policy to the relevant users"
+    input_objs: Json[List[InputObject]] = Field(
+        title="The input object(s) used to build the policy"
     )
     name: str = Field(
         default="", title="Optional name for the guardian policy"
@@ -74,9 +106,12 @@ class CreateGuardianPolicyHandlerOutput(BaseModel):
 def create_guardian_policy(
     i: CreateGuardianPolicyHandlerInput,
 ) -> CreateGuardianPolicyHandlerOutput:
+    input_objects = [
+        obj.dict(by_alias=True, exclude_unset=True) for obj in i.input_objs
+    ]
     cmd_input = cmd_create.CreateGuardianPolicyInput(
         i.name,
-        i.input_objs,
+        input_objects,
         i.org_uid,
         i.api_key,
         i.api_url,

@@ -1,5 +1,5 @@
 import json
-from typing import Optional
+from typing import Dict, List, Optional
 
 import spyctl.cli as cli
 import spyctl.commands.validate as val
@@ -33,12 +33,9 @@ def create_guardian_policy_from_file(filename: str, name: str):
 
 
 def create_guardian_policy_from_json(
-    name: str, input_objects: str, ctx: cfg.Context
+    name: str, input_objects: List[Dict], ctx: cfg.Context
 ):
-    json_data = json.loads(input_objects)
-    if not val.validate_json(json_data):
-        raise ValueError()
-    policy = p.create_policy(json_data, name, ctx)
+    policy = p.create_policy(input_objects, name, ctx)
     return policy
 
 
