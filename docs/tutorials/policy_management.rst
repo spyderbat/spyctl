@@ -107,18 +107,16 @@ A full list of redflag severities can be found :ref:`here<Redflag_Severities>`.
 
 The |actions| in the ``actions`` field are taken when certain criteria are met. Every |action| in the ``actions`` field
 must include a |selector|. |selectors| are a way of limiting the scope of an |action|. 
-One example of this is to take an |action| to send a Slack notification via webhook when a |policy| violation occurs in a
+One example of this is to take an |action| to kill a process when a |policy| violation occurs in a
 development environment:
 
 .. code-block:: yaml
 
     actions:
-    - webhook:
+    - agentKillProcess:
         podSelector:
           matchLabels:
             env: dev
-        urlDestination: <url>
-        template: slack
 
 .. note:: 
     Adding |responses| is completely optional. When a |policy| is enforcing,
@@ -127,13 +125,24 @@ development environment:
     will happen when a violation occurs. The full
     |responses| documentation can be found :ref:`here<Response_Actions>`.
 
-For example, to add a default webhook action, edit your policy file:
+If you are in a Kubernetes environment you can also set up an |action| to kill a pod when a |policy| violation occurs.
+Lets say you want to kill a pod in your staging environment, the action would look like so:
+
+.. code-block:: yaml
+
+    actions:
+    - agentKillPod:
+        podSelector:
+          matchLabels:
+            env: staging
+
+For example, to add a kill process action, edit your policy file:
 
 .. code-block:: console
 
     $ vim python_srv_policy.yaml
 
-And add a webhook |action| to the ``default`` list.
+And add a kill process |action| to the ``actions`` list.
 
 .. code-block:: yaml
 
@@ -141,10 +150,17 @@ And add a webhook |action| to the ``default`` list.
       default:
       - makeRedFlag:
           severity: high
-      - webhook:
-          urlDestination: https://hooks.slack.com/services/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s
-          template: slack
-      actions: []
+      actions:
+      - agentKillProcess:
+          podSelector:
+            matchLabels:
+              env: dev
+      - makeRedFlag:
+          severity: high
+          podSelector:
+            matchLabels:
+              env: dev
+
 
 Our |policy| now looks like this:
 
@@ -194,10 +210,16 @@ Our |policy| now looks like this:
         default:
         - makeRedFlag:
             severity: high
-        - webhook:
-            urlDestination: https://hooks.slack.com/services/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s
-            template: slack
-        actions: []
+        actions:
+        - agentKillProcess:
+            podSelector:
+              matchLabels:
+                env: dev
+        - makeRedFlag:
+            severity: high
+            podSelector:
+              matchLabels:
+                env: dev
 
 Managing A Policy
 =================
@@ -340,10 +362,16 @@ The |policy| will look something like this:
         default:
         - makeRedFlag:
             severity: high
-        - webhook:
-            urlDestination: https://hooks.slack.com/services/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s
-            template: slack
-        actions: []
+        actions:
+        - agentKillProcess:
+            podSelector:
+              matchLabels:
+                env: dev
+        - makeRedFlag:
+            severity: high
+            podSelector:
+              matchLabels:
+                env: dev
 
 Disabling and Re-enabling a Policy
 ==================================
