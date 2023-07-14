@@ -33,7 +33,7 @@ def test_create_suppression_policy():
 
 def test_create_guardian_policy():
     data = {
-        "input_objs": TEST_FINGERPRINT_LIST,
+        "input_objects": TEST_FINGERPRINT_LIST,
         "name": "Test Policy",
         "org_uid": ORG,
         "api_key": API_KEY,

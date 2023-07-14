@@ -179,8 +179,8 @@ def test_apply_delete():
     response = runner.invoke(
         spyctl.main, ["delete", "policy", "-y", "spyderbat-test"]
     )
-    # assert response.exit_code == 0
-    # assert response.output.startswith("Successfully deleted policy")
+    assert response.exit_code == 0
+    assert response.output.startswith("Successfully deleted policy")
 
 
 def test_diff():
