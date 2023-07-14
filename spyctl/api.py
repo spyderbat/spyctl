@@ -10,7 +10,6 @@ import tqdm
 import zulu
 
 import spyctl.cli as cli
-import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.spyctl_lib as lib
 
 # Get policy parameters

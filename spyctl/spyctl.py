@@ -73,7 +73,7 @@ def apply(filename):
 # ----------------------------------------------------------------- #
 #                          Close Subcommand                         #
 # ----------------------------------------------------------------- #
-@main.group("close", cls=lib.CustomSubGroup)
+@main.group("close", cls=lib.CustomSubGroup, hidden=True)
 @click.help_option("-h", "--help", hidden=True)
 def close():
     """Close one or many Spyderbat resources"""

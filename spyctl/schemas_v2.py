@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import ipaddress
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+from typing_extensions import Literal
 
 from pydantic import (
     BaseModel,
@@ -288,7 +289,7 @@ class SharedActionFieldsModel(GuardianSelectorsModel):
 class MakeRedflagModel(SharedActionFieldsModel):
     content: Optional[str] = Field(alias=lib.FLAG_CONTENT, max_length=350)
     impact: Optional[str] = Field(alias=lib.FLAG_IMPACT, max_length=100)
-    severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(
+    severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(  # type: ignore
         alias=lib.FLAG_SEVERITY
     )
 
@@ -298,7 +299,7 @@ class MakeOpsflagModel(SharedActionFieldsModel):
     description: Optional[str] = Field(
         alias=lib.FLAG_DESCRIPTION, max_length=350
     )
-    severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(
+    severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(  # type: ignore
         alias=lib.FLAG_SEVERITY
     )
 
@@ -307,7 +308,7 @@ class WebhookActionModel(SharedActionFieldsModel):
     url_destination: str = Field(
         alias=lib.URL_DESTINATION_FIELD, max_length=2048
     )
-    template: Literal[tuple(lib.ALLOWED_TEMPLATES)] = Field(
+    template: Literal[tuple(lib.ALLOWED_TEMPLATES)] = Field(  # type: ignore
         alias=lib.TEMPLATE_FIELD
     )
 
@@ -356,7 +357,7 @@ class GuardianResponseModel(BaseModel):
 
 class GuardianMetadataModel(BaseModel):
     name: str = Field(alias=lib.METADATA_NAME_FIELD)
-    type: Literal[tuple(lib.GUARDIAN_POL_TYPES)] = Field(
+    type: Literal[tuple(lib.GUARDIAN_POL_TYPES)] = Field(  # type: ignore
         alias=lib.METADATA_TYPE_FIELD
     )
     create_time: Optional[Union[int, float, str]] = Field(
@@ -407,7 +408,9 @@ class GuardianBaselineSpecModel(GuardianSelectorsModel):
 
 class GuardianFingerprintModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.FPRINT_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.FPRINT_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -437,7 +440,9 @@ class FingerprintGroupDataModel(BaseModel):
 
 class GuardianFingerprintGroupModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.FPRINT_GROUP_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.FPRINT_GROUP_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     metadata: GuardianFingerprintGroupMetadataModel = Field(
         alias=lib.METADATA_FIELD
     )
@@ -449,7 +454,9 @@ class GuardianFingerprintGroupModel(BaseModel):
 
 class GuardianBaselineModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.BASELINE_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.BASELINE_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -468,7 +475,7 @@ class GuardianBaselineModel(BaseModel):
 
 class GuardianPolicyModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianPolicySpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -530,7 +537,7 @@ class SuppressionPolicySelectorsModel(BaseModel):
 
 class SuppressionPolicyMetadataModel(BaseModel):
     name: str = Field(alias=lib.METADATA_NAME_FIELD)
-    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(
+    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(  # type: ignore
         alias=lib.METADATA_TYPE_FIELD
     )
     create_time: Optional[Union[int, float]] = Field(
@@ -565,7 +572,7 @@ class SuppressionPolicySpecModel(SuppressionPolicySelectorsModel):
 
 class SuppressionPolicyModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
     metadata: SuppressionPolicyMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: SuppressionPolicySpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -609,7 +616,9 @@ class SecretMetadataModel(BaseModel):
 
 class SecretModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.SECRET_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.SECRET_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     metadata: SecretMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: Optional[Dict[str, str]] = Field(alias=lib.DATA_FIELD)
     string_data: Optional[Dict[str, str]] = Field(alias=lib.STRING_DATA_FIELD)
@@ -623,7 +632,9 @@ class ContextsModel(BaseModel):
 
 class ConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.CONFIG_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.CONFIG_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     contexts: List[ContextsModel] = Field(alias=lib.CONTEXTS_FIELD)
     current_context: str = Field(alias=lib.CURR_CONTEXT_FIELD)
 
@@ -644,7 +655,9 @@ class UidListDataModel(BaseModel):
 
 class UidListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.UID_LIST_KIND] = Field(alias=lib.KIND_FIELD)
+    kind: Literal[lib.UID_LIST_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     metadata: UidListMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: UidListDataModel = Field(alias=lib.DATA_FIELD)
 
