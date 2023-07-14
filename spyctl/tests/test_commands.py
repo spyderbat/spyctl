@@ -60,6 +60,8 @@ def test_get_namespaces():
 
 TWOHOURS = ("-t", "2h")
 OUTYML = ("-o", "yaml")
+MINS_30 = ("-t", "30m")
+MINS_1 = ("-t", "1m")
 
 
 def remove_timestamps(str_list):
@@ -121,7 +123,10 @@ resources = (
 
 @pytest.mark.parametrize("resource", resources)
 def test_get_resources(resource):
-    time_range = TWOHOURS
+    if resource not in ["opsflags", "fingerprints"]:
+        time_range = MINS_30
+    else:
+        time_range = TWOHOURS
     output = OUTYML
     table = get_resource(resource, time_range)
     comparison_line, ids = process_table_response(table)
@@ -129,6 +134,7 @@ def test_get_resources(resource):
         single = get_resource(resource, time_range + (name_or_id,))
         first_output = remove_timestamps(single.splitlines()[1].split())
         assert first_output == comparison_line
+    time_range = MINS_1
     get_resource(resource, time_range + output)
 
 
