@@ -120,6 +120,7 @@ class TraceSuppressionPolicy:
         return rv
 
     def update_selectors(self, **selectors) -> Dict:
+        selectors = {undash(k): v for k, v in selectors.items()}
         if (
             undash(lib.SUP_POL_CMD_INT_USERS) in selectors
             or undash(lib.SUP_POL_CMD_N_INT_USERS) in selectors

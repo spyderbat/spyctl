@@ -28,7 +28,7 @@ def try_print(*args, **kwargs):
     except BrokenPipeError:
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
-        sys.exit(1)
+        lib.err_exit("Broken Pipe")
 
 
 def unsupported_output_msg(output: str) -> str:
@@ -183,8 +183,8 @@ def time_input(args):
         return t, t
 
 
-def err_exit(message: str):
-    lib.err_exit(message)
+def err_exit(message: str, exception: Exception = None):
+    lib.err_exit(message, exception)
 
 
 def output_to_pager(text: str):

@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.7"]
+        python-version: ["3.7", "3.11"]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -38,4 +38,4 @@ jobs:
         API_URL: ${{ vars.API_URL }}
         ORG: ${{ vars.ORG }}
       run: |
-        pytest
+        pytest ./spyctl

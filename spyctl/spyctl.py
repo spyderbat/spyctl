@@ -9,6 +9,8 @@ import spyctl.commands.create as c
 import spyctl.commands.diff as d
 import spyctl.commands.get as g
 import spyctl.commands.merge as m
+import spyctl.commands.show_schema as sh_s
+import spyctl.commands.suppress as sup
 import spyctl.commands.update as u
 import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
@@ -16,7 +18,6 @@ import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
-import spyctl.commands.suppress as sup
 
 MAIN_EPILOG = (
     "\b\n"
@@ -38,11 +39,14 @@ DEFAULT_START_TIME = 1614811600
 @click.group(cls=lib.CustomGroup, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.version_option(None, "-v", "--version", prog_name="Spyctl", hidden=True)
+@click.option("--debug", is_flag=True, hidden=True)
 @click.pass_context
-def main(ctx: click.Context):
+def main(ctx: click.Context, debug=False):
     """spyctl displays and controls resources within your Spyderbat
     environment
     """
+    if debug:
+        lib.set_debug()
     cfgs.load_config()
 
 
@@ -69,7 +73,7 @@ def apply(filename):
 # ----------------------------------------------------------------- #
 #                          Close Subcommand                         #
 # ----------------------------------------------------------------- #
-@main.group("close", cls=lib.CustomSubGroup)
+@main.group("close", cls=lib.CustomSubGroup, hidden=True)
 @click.help_option("-h", "--help", hidden=True)
 def close():
     """Close one or many Spyderbat resources"""
@@ -631,7 +635,7 @@ def create_suppression_policy(
     api_key = selectors.pop(lib.API_KEY_FIELD, None)
     api_url = selectors.pop(lib.API_URL_FIELD, "https://api.spyderbat.com")
     if org_uid and api_key and api_url:
-        use_temp_secret_and_context(org_uid, api_key, api_url)
+        cfgs.use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
         type, id, include_users, output, name, **selectors
     )
@@ -1415,9 +1419,24 @@ def merge(
 
 
 # ----------------------------------------------------------------- #
+#                        ShowSchema Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("show-schema", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("kind", type=click.Choice(lib.RESOURCES_WITH_SCHEMAS))
+def show_schema(kind):
+    "Display the schema of a specific resource"
+    sh_s.handle_show_schema(kind)
+
+
+# ----------------------------------------------------------------- #
 #                        Snooze Subcommand                          #
 # ----------------------------------------------------------------- #
-@main.group("snooze", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
+
+
+@main.group("snooze", cls=lib.CustomSubGroup, epilog=SUB_EPILOG, hidden=True)
 @click.help_option("-h", "--help", hidden=True)
 def snooze():
     "Snooze one or many Spyderbat Resources"
@@ -1427,6 +1446,8 @@ def snooze():
 # ----------------------------------------------------------------- #
 #                       Suppress Subcommand                         #
 # ----------------------------------------------------------------- #
+
+
 @main.group("suppress", cls=lib.CustomSubGroup, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
@@ -1531,28 +1552,3 @@ def update():
 )
 def update_response_actions(backup_file=None):
     u.handle_update_response_actions(backup_file)
-
-
-def use_temp_secret_and_context(org_uid, api_key, api_url):
-    secret_name = "__temp_secret__"
-    context_name = "__temp_context"
-    secret_data = {
-        lib.API_FIELD: lib.API_VERSION,
-        lib.KIND_FIELD: lib.SECRET_KIND,
-        lib.METADATA_FIELD: {
-            lib.METADATA_NAME_FIELD: secret_name,
-        },
-        lib.STRING_DATA_FIELD: {
-            lib.API_KEY_FIELD: api_key,
-            lib.API_URL_FIELD: api_url,
-        },
-    }
-    context_data = {
-        lib.CONTEXT_NAME_FIELD: context_name,
-        lib.SECRET_FIELD: secret_name,
-        lib.CONTEXT_FIELD: {lib.ORG_FIELD: org_uid},
-    }
-    secret = s.Secret(secret_data)
-    s.SECRETS[secret_name] = secret
-    context = cfgs.Context(context_data)
-    cfgs.set_current_context(context)

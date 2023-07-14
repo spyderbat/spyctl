@@ -9,7 +9,7 @@ import time
 import unicodedata
 from base64 import urlsafe_b64encode as b64url
 from datetime import timezone
-from fnmatch import fnmatch, translate
+from fnmatch import fnmatch
 from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -43,6 +43,11 @@ WARNING_COLOR = "\x1b[38;5;203m"
 ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
+API_CALL = False
+DEBUG = False
+LOG_VAR = []
+ERR_VAR = []
+USE_LOG_VARS = False
 
 
 def disable_colorization():
@@ -52,6 +57,20 @@ def disable_colorization():
     COLOR_END = ""
     SUB_COLOR = ""
     ADD_COLOR = ""
+
+
+def flush_log_var() -> str:
+    global LOG_VAR
+    rv = "\n".join(LOG_VAR)
+    LOG_VAR.clear()
+    return rv
+
+
+def flush_err_var() -> str:
+    global ERR_VAR
+    rv = "\n".join(ERR_VAR)
+    ERR_VAR.clear()
+    return rv
 
 
 # Resource Aliases
@@ -90,6 +109,11 @@ NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
 OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
+FINGERPRINT_GROUP_RESOURCE = Aliases(
+    ["fingerprint-group", "fingerprint-groups", "fprint-group", "fg"],
+    "fingerprint-group",
+    "fingerprint-groups",
+)
 FINGERPRINTS_RESOURCE = Aliases(
     [
         "fingerprints",
@@ -125,10 +149,6 @@ PROCESSES_RESOURCE = Aliases(
         "process",
         "proc",
         "procs",
-        "pro",
-        "pros",
-        "pces",
-        "pcess",
     ],
     "process",
     "processes",
@@ -178,6 +198,9 @@ SPYDERTRACE_RESOURCE = Aliases(
     ["spydertrace", "spydertraces", "spyder", "trace", "traces"],
     "spydertrace",
     "spydertraces",
+)
+UID_LIST_RESOURCE = Aliases(
+    ["uid-list", "uid-lists", "uid", "uids-list"], "uid-list", "uid-lists"
 )
 
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
@@ -229,6 +252,16 @@ VAL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SECRETS_ALIAS.name,
     CONFIG_ALIAS.name,
+]
+RESOURCES_WITH_SCHEMAS = [
+    BASELINES_RESOURCE.name,
+    CONFIG_ALIAS.name,
+    FINGERPRINTS_RESOURCE.name,
+    FINGERPRINT_GROUP_RESOURCE.name,
+    POLICIES_RESOURCE.name,
+    SECRETS_ALIAS.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
+    UID_LIST_RESOURCE.name,
 ]
 
 CMD_ORG_FIELD = "org"
@@ -387,9 +420,11 @@ DATATYPE_FINGERPRINTS = "fingerprints"
 
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
+SUP_POL_KIND_ALIAS = "SuppressionPolicy"
 BASELINE_KIND = "SpyderbatBaseline"
 FPRINT_KIND = "SpyderbatFingerprint"
 FPRINT_GROUP_KIND = "FingerprintGroup"
+UID_LIST_KIND = "UidList"
 
 # CONFIG Kinds
 CONFIG_KIND = "Config"
@@ -526,6 +561,8 @@ METADATA_UID_FIELD = "uid"
 METADATA_CREATE_TIME = "creationTimestamp"
 METADATA_NAMESPACE_FIELD = "namespace"
 METADATA_S_CHECKSUM_FIELD = "selectorHash"
+METADATA_START_TIME_FIELD = "startTime"
+METADATA_END_TIME_FIELD = "endTime"
 NET_POLICY_FIELD = "networkPolicy"
 PROC_POLICY_FIELD = "processPolicy"
 FIRST_TIMESTAMP_FIELD = "firstTimestamp"
@@ -552,6 +589,13 @@ SUP_POL_CMD_TRIG_CLASS = "trigger-class"
 SUP_POL_CMD_USERS = "users"
 SUP_POL_CMD_INT_USERS = "interactive-users"
 SUP_POL_CMD_N_INT_USERS = "non-interactive-users"
+SUP_POL_SELECTOR_FIELDS = [
+    SUP_POL_CMD_TRIG_ANCESTORS,
+    SUP_POL_CMD_TRIG_CLASS,
+    SUP_POL_CMD_USERS,
+    SUP_POL_CMD_INT_USERS,
+    SUP_POL_CMD_N_INT_USERS,
+]
 TRACE_SUMMARY_FIELD = "trace_summary"
 
 NOT_AVAILABLE = "N/A"
@@ -560,6 +604,8 @@ FPRINT_GRP_FINGERPRINTS_FIELD = "fingerprints"
 FPRINT_GRP_CONT_NAMES_FIELD = "containerNames"
 FPRINT_GRP_CONT_IDS_FIELD = "containerIDs"
 FPRINT_GRP_MACHINES_FIELD = "machines"
+# UID List
+UIDS_FIELD = "uniqueIdentifiers"
 
 # Any Object
 VERSION_FIELD = "version"
@@ -572,11 +618,11 @@ EUSER_FIELD = "euser"
 CHILDREN_FIELD = "children"
 LISTENING_SOCKETS = "listeningSockets"
 
-# Conatiner
+# Container
 CONTAINER_NAME_FIELD = "name"
 CONTAINER_ID_FIELD = "id"
 CONTAINER_AGE = "age"
-CONATINER_IMAGE_NAME = "image-name"
+CONTAINER_IMAGE_NAME = "image-name"
 
 # Network
 CIDR_FIELD = "cidr"
@@ -1136,6 +1182,27 @@ class MutuallyExclusiveEatAll(MutuallyExclusiveOption, OptionEatAll):
 
 
 def try_log(*args, **kwargs):
+    global LOG_VAR
+    try:
+        if kwargs.pop(WARNING_MSG, False):
+            msg = f"{WARNING_COLOR}{' '.join(args)}{COLOR_END}"
+            if USE_LOG_VARS:
+                LOG_VAR.append(msg)
+            print(msg, **kwargs, file=sys.stderr)
+        else:
+            msg = " ".join(args)
+            if USE_LOG_VARS:
+                LOG_VAR.append(msg)
+            print(*args, **kwargs, file=sys.stderr)
+        sys.stderr.flush()
+    except BrokenPipeError:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stderr.fileno())
+        err_exit("Broken Pipe")
+
+
+def api_log(*args, **kwargs):
+    global LOG_VAR
     try:
         if kwargs.pop(WARNING_MSG, False):
             msg = f"{WARNING_COLOR}{' '.join(args)}{COLOR_END}"
@@ -1146,7 +1213,7 @@ def try_log(*args, **kwargs):
     except BrokenPipeError:
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stderr.fileno())
-        sys.exit(1)
+        err_exit("Broken Pipe")
 
 
 def time_inp(time_str: str, cap_one_day=False) -> int:
@@ -1359,7 +1426,16 @@ def make_uuid():
     return b64url(uuid4().bytes).decode("ascii").strip("=")
 
 
-def err_exit(message: str):
+def err_exit(message: str, exception: Exception = None):
+    if API_CALL:
+        if USE_LOG_VARS:
+            global ERR_VAR
+            ERR_VAR.append(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
+        if exception:
+            raise exception
+        elif USE_LOG_VARS:
+            raise Exception()
+        raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
 
@@ -1413,18 +1489,12 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
             err_exit(" ".join(e.args))
         except Exception:
             err_exit("Unable to load resource file.")
-    try:
-        __validate_data_structure_on_load(resrc_data, validate_cmd)
-        if isinstance(resrc_data, dict):
-            __validate_resource_on_load(resrc_data, name, validate_cmd)
-        else:
-            for i, data in enumerate(resrc_data):
-                __validate_resource_on_load(data, name, validate_cmd, index=i)
-    except Exception as e:
-        if validate_cmd:
-            try_log(" ".join(e.args))
-            sys.exit(0)
-        err_exit(" ".join(e.args))
+    __validate_data_structure_on_load(resrc_data, validate_cmd)
+    if isinstance(resrc_data, dict):
+        __validate_resource_on_load(resrc_data, name, validate_cmd)
+    else:
+        for i, data in enumerate(resrc_data):
+            __validate_resource_on_load(data, name, validate_cmd, index=i)
     if isinstance(file, io.TextIOWrapper):
         file.seek(0, 0)
     return resrc_data
@@ -1447,24 +1517,14 @@ def __validate_data_structure_on_load(resrc_data: Any, validate_cmd=False):
 def __validate_resource_on_load(
     resrc_data: Dict, name, validate_cmd=False, index=None
 ):
-    resrc_kind = resrc_data.get(KIND_FIELD)
     msg_suffix = "" if index is None else f" at index {index}"
-    if not resrc_kind:
-        if validate_cmd:
-            try_log(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
-            sys.exit(0)
-        err_exit(f"Missing or invalid {KIND_FIELD} field{msg_suffix}.")
-    from spyctl.schemas import valid_object
+    from spyctl.schemas_v2 import valid_object
 
     if not valid_object(resrc_data, verbose=True):
         if validate_cmd:
-            try_log(
-                f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
-            )
+            try_log(f"Invalid object in {name!r}{msg_suffix}. See error logs.")
             sys.exit(0)
-        sys.exit(
-            f"{resrc_kind} invalid in {name!r}{msg_suffix}. See error logs."
-        )
+        err_exit(f"Invalid object in {name!r}{msg_suffix}. See error logs.")
 
 
 def __load_yaml_file(file: Union[str, IO]) -> Tuple[str, Any]:
@@ -1522,7 +1582,9 @@ def to_timestamp(zulu_str):
 
 def epoch_to_zulu(epoch):
     try:
-        return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+        return (
+            zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+        )
     except Exception:
         return epoch
 
@@ -1621,3 +1683,15 @@ def simple_glob_to_regex(input_str: str):
     rv = rv.replace("?", ".")
     rv = f"^{rv}$"
     return rv
+
+
+def set_api_call():
+    global API_CALL, USE_LOG_VARS
+    API_CALL = True
+    USE_LOG_VARS = True
+    disable_colorization()
+
+
+def set_debug():
+    global DEBUG
+    DEBUG = True

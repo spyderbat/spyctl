@@ -381,3 +381,8 @@ class SecretsParam(click.ParamType):
             for secret_name in secret_names
             if secret_name.startswith(incomplete)
         ]
+
+
+def set_api_call():
+    global SECRETS
+    SECRETS = {}

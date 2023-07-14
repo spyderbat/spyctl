@@ -10,7 +10,6 @@ import tqdm
 import zulu
 
 import spyctl.cli as cli
-import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.spyctl_lib as lib
 
 # Get policy parameters
@@ -38,6 +37,12 @@ def get(url, key, params=None, raise_notfound=False):
         r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
     except requests.exceptions.Timeout as e:
         cli.err_exit(TIMEOUT_MSG + str(*e.args))
+    context_uid = r.headers.get("x-context-uid", "No context uid found.")
+    if lib.DEBUG:
+        print(
+            f"Request to {url}\n\tcontext_uid: {context_uid}"
+            f"\n\tstatus: {r.status_code}"
+        )
     if r.status_code == 404 and raise_notfound:
         raise ValueError
     if r.status_code != 200:
@@ -57,6 +62,12 @@ def post(url, data, key, raise_notfound=False):
         r = requests.post(url, json=data, headers=headers, timeout=TIMEOUT)
     except requests.exceptions.Timeout as e:
         cli.err_exit(TIMEOUT_MSG + str(e.args))
+    context_uid = r.headers.get("x-context-uid", "No context uid found.")
+    if lib.DEBUG:
+        print(
+            f"Request to {url}\n\tcontext_uid: {context_uid}"
+            f"\n\tstatus: {r.status_code}"
+        )
     if r.status_code == 404 and raise_notfound:
         raise ValueError
     if r.status_code != 200:
@@ -76,6 +87,12 @@ def put(url, data, key):
         r = requests.put(url, json=data, headers=headers, timeout=TIMEOUT)
     except requests.exceptions.Timeout as e:
         cli.err_exit(TIMEOUT_MSG + str(e.args))
+    context_uid = r.headers.get("x-context-uid", "No context uid found.")
+    if lib.DEBUG:
+        print(
+            f"Request to {url}\n\tcontext_uid: {context_uid}"
+            f"\n\tstatus: {r.status_code}"
+        )
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]
@@ -93,6 +110,12 @@ def delete(url, key):
         r = requests.delete(url, headers=headers, timeout=TIMEOUT)
     except requests.exceptions.Timeout as e:
         cli.err_exit(TIMEOUT_MSG + str(e.args))
+    context_uid = r.headers.get("x-context-uid", "No context uid found.")
+    if lib.DEBUG:
+        print(
+            f"Request to {url}\n\tcontext_uid: {context_uid}"
+            f"\n\tstatus: {r.status_code}"
+        )
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]

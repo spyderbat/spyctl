@@ -330,6 +330,11 @@ def set_current_context(ctx: Optional[Context]):
     CURRENT_CONTEXT = ctx
 
 
+def clear_current_context():
+    global CURRENT_CONTEXT
+    CURRENT_CONTEXT = None
+
+
 def get_current_context() -> Context:
     if CURRENT_CONTEXT:
         return CURRENT_CONTEXT
@@ -749,3 +754,39 @@ class ContextsParam(click.ParamType):
             ]
         else:
             return []
+
+
+def set_api_call():
+    s.set_api_call()
+    lib.set_api_call()
+    cli.set_yes_option()
+
+
+def use_temp_secret_and_context(org_uid, api_key, api_url):
+    context = create_temp_secret_and_context(org_uid, api_key, api_url)
+    set_current_context(context)
+
+
+def create_temp_secret_and_context(org_uid, api_key, api_url):
+    secret_name = "__temp_secret__"
+    context_name = "__temp_context"
+    secret_data = {
+        lib.API_FIELD: lib.API_VERSION,
+        lib.KIND_FIELD: lib.SECRET_KIND,
+        lib.METADATA_FIELD: {
+            lib.METADATA_NAME_FIELD: secret_name,
+        },
+        lib.STRING_DATA_FIELD: {
+            lib.API_KEY_FIELD: api_key,
+            lib.API_URL_FIELD: api_url,
+        },
+    }
+    context_data = {
+        lib.CONTEXT_NAME_FIELD: context_name,
+        lib.SECRET_FIELD: secret_name,
+        lib.CONTEXT_FIELD: {lib.ORG_FIELD: org_uid},
+    }
+    secret = s.Secret(secret_data)
+    s.SECRETS[secret_name] = secret
+    context = Context(context_data)
+    return context

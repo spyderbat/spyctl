@@ -13,6 +13,7 @@ import spyctl.resources.suppression_policies as sp
 import spyctl.resources.api_filters.fingerprints as f_api_filt
 import spyctl.spyctl_lib as lib
 import spyctl.schemas as schemas
+import spyctl.resources.resources_lib as r_lib
 
 POLICIES = None
 FINGERPRINTS = None
@@ -325,13 +326,54 @@ def merge_resource(
     with_obj: Union[Dict, List[Dict]],
     src_cmd="merge",
     merge_network=True,
+    ctx: cfgs.Context = None,
 ) -> Optional[m_lib.MergeObject]:
     if target == with_obj:
         cli.try_log(
             f"{src_cmd} target and with-object are the same.. skipping"
         )
         return None
+    if not ctx:
+        ctx = cfgs.get_current_context()
+    merge_with_objects = []
+    if isinstance(with_obj, Dict):
+        merge_with_objects = r_lib.handle_input_data(with_obj, ctx)
+    else:
+        for obj in with_obj:
+            merge_with_objects.extend(
+                r_lib.handle_input_data(data=obj, ctx=ctx)
+            )
     resrc_kind = target.get(lib.KIND_FIELD)
+    merge_obj = get_merge_object(resrc_kind, target, merge_network, src_cmd)
+    if isinstance(merge_with_objects, list):
+        for w_obj in merge_with_objects:
+            if is_type_mismatch(target, target_name, src_cmd, w_obj):
+                continue
+            try:
+                merge_obj.asymmetric_merge(w_obj)
+            except m_lib.InvalidMergeError as e:
+                cli.try_log(
+                    f"Unable to {src_cmd} with invalid object. {w_obj}",
+                    *e.args,
+                )
+    else:
+        raise Exception(
+            f"Bug found, attempting to {src_cmd} with invalid object"
+        )
+    if target[lib.SPEC_FIELD] == merge_obj.get_obj_data().get(lib.SPEC_FIELD):
+        cli.try_log(
+            f"{src_cmd} of {target_name} produced no updates to the"
+            f" '{lib.SPEC_FIELD}' field.. skipping"
+        )
+        if lib.API_CALL:
+            return merge_obj
+        return None
+    return merge_obj
+
+
+def get_merge_object(
+    resrc_kind: str, target: Dict, merge_network: bool, src_cmd: str
+):
     if resrc_kind == lib.BASELINE_KIND:
         merge_obj = m_lib.MergeObject(
             target,
@@ -353,40 +395,6 @@ def merge_resource(
             f"The '{src_cmd}' command is not supported for {resrc_kind}",
             is_warning=True,
         )
-    if isinstance(with_obj, dict):
-        with_kind = with_obj.get(lib.KIND_FIELD)
-        if with_kind == lib.FPRINT_GROUP_KIND:
-            for fprint in with_obj[lib.DATA_FIELD][
-                lib.FPRINT_GRP_FINGERPRINTS_FIELD
-            ]:
-                if is_type_mismatch(target, target_name, src_cmd, fprint):
-                    return None
-                merge_obj.asymmetric_merge(fprint)
-        else:
-            if is_type_mismatch(target, target_name, src_cmd, with_obj):
-                return None
-            merge_obj.asymmetric_merge(with_obj)
-    elif isinstance(with_obj, list):
-        for w_obj in with_obj:
-            if is_type_mismatch(target, target_name, src_cmd, w_obj):
-                continue
-            try:
-                merge_obj.asymmetric_merge(w_obj)
-            except m_lib.InvalidMergeError as e:
-                cli.try_log(
-                    f"Unable to {src_cmd} with invalid object. {w_obj}",
-                    *e.args,
-                )
-    else:
-        raise Exception(
-            f"Bug found, attempting to {src_cmd} with invalid object"
-        )
-    if target[lib.SPEC_FIELD] == merge_obj.get_obj_data().get(lib.SPEC_FIELD):
-        cli.try_log(
-            f"{src_cmd} of {target_name} produced no updates to the"
-            f" '{lib.SPEC_FIELD}' field.. skipping"
-        )
-        return None
     return merge_obj
 
 
