@@ -359,13 +359,13 @@ class GuardianMetadataModel(BaseModel):
     type: Literal[tuple(lib.GUARDIAN_POL_TYPES)] = Field(
         alias=lib.METADATA_TYPE_FIELD
     )
-    create_time: Optional[Union[int, float]] = Field(
+    create_time: Optional[Union[int, float, str]] = Field(
         alias=lib.METADATA_CREATE_TIME
     )
-    first_timestamp: Optional[Union[int, float]] = Field(
+    first_timestamp: Optional[Union[int, float, str]] = Field(
         alias=lib.FIRST_TIMESTAMP_FIELD
     )
-    latest_timestamp: Optional[Union[int, float]] = Field(
+    latest_timestamp: Optional[Union[int, float, str]] = Field(
         alias=lib.LATEST_TIMESTAMP_FIELD
     )
     uid: Optional[str] = Field(alias=lib.METADATA_UID_FIELD)

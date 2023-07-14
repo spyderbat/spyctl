@@ -44,6 +44,7 @@ ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
 API_CALL = False
+DEBUG = False
 LOG_VAR = []
 ERR_VAR = []
 USE_LOG_VARS = False
@@ -1674,3 +1675,8 @@ def set_api_call():
     API_CALL = True
     USE_LOG_VARS = True
     disable_colorization()
+
+
+def set_debug():
+    global DEBUG
+    DEBUG = True

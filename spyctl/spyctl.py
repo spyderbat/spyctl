@@ -39,11 +39,14 @@ DEFAULT_START_TIME = 1614811600
 @click.group(cls=lib.CustomGroup, epilog=MAIN_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.version_option(None, "-v", "--version", prog_name="Spyctl", hidden=True)
+@click.option("--debug", is_flag=True, hidden=True)
 @click.pass_context
-def main(ctx: click.Context):
+def main(ctx: click.Context, debug=False):
     """spyctl displays and controls resources within your Spyderbat
     environment
     """
+    if debug:
+        lib.set_debug()
     cfgs.load_config()
 
 
