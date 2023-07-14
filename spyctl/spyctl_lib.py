@@ -1567,11 +1567,17 @@ def dictionary_mod(fn) -> Dict:
 
 
 def to_timestamp(zulu_str):
-    return zulu.Zulu.parse(zulu_str).timestamp()
+    try:
+        return zulu.Zulu.parse(zulu_str).timestamp()
+    except Exception:
+        return zulu_str
 
 
 def epoch_to_zulu(epoch):
-    return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+    try:
+        return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+    except Exception:
+        return epoch
 
 
 def truncate_hour_epoch(input_epoch: float) -> float:

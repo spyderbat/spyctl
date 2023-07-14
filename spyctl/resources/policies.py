@@ -174,9 +174,12 @@ def policy_summary_data(policy: Dict):
         uid = "N/A"
     create_time = policy[lib.METADATA_FIELD].get(lib.METADATA_CREATE_TIME)
     if create_time:
-        create_time = (
-            zulu.parse(create_time).format("YYYY-MM-ddTHH:mm:ss") + "Z"
-        )
+        try:
+            create_time = (
+                zulu.parse(create_time).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+            )
+        except Exception:
+            pass
     else:
         create_time = "N/A"
     rv = [

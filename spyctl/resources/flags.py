@@ -37,11 +37,7 @@ class FlagsGroup:
             self.latest_timestamp is not None
             and self.latest_timestamp != NOT_AVAILABLE
         ):
-            timestamp = str(
-                zulu.Zulu.fromtimestamp(self.latest_timestamp).format(
-                    "YYYY-MM-ddTHH:mm:ss"
-                )
-            )
+            timestamp = lib.epoch_to_zulu(self.latest_timestamp)
         ref_obj = self.ref_flag["class"][1]
         if ref_obj in lib.CLASS_LONG_NAMES:
             ref_obj = lib.CLASS_LONG_NAMES[ref_obj]

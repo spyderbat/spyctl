@@ -58,8 +58,7 @@ def pod_summary_data(pod: Dict) -> List:
         pod_status[pod["id"]],
         pod["k8s_status"]["phase"],
         f"{(zulu.now() - creation_timestamp).days}d",
-        str(zulu.Zulu.fromtimestamp(pod["time"]).format("YYYY-MM-ddTHH:mm:ss"))
-        + "Z",
+        lib.epoch_to_zulu(pod["time"]),
         pod["status"],
     ]
     return rv
