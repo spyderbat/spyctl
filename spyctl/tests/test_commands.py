@@ -165,7 +165,7 @@ def test_create():
 def test_apply_delete():
     runner = CliRunner()
     response = runner.invoke(
-        spyctl.main, ["apply", "-f", resources_dir / "test_policy.yaml"]
+        spyctl.main, ["apply", "-f", Path(resources_dir, "test_policy.yaml")]
     )
     assert response.exit_code == 0
     assert response.output.startswith(

@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from spyctl import spyctl
 from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
 
+environ = dict(os.environ)
 API_KEY = os.environ.get("API_KEY")
 API_URL = os.environ.get("API_URL")
 ORG = os.environ.get("ORG")
