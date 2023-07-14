@@ -1425,7 +1425,7 @@ def merge(
 
 @main.command("show-schema", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.argument("kind", type=click.Choice(lib.KINDS_WITH_SCHEMA))
+@click.argument("kind", type=click.Choice(lib.RESOURCES_WITH_SCHEMAS))
 def show_schema(kind):
     "Display the schema of a specific resource"
     sh_s.handle_show_schema(kind)

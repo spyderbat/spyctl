@@ -109,6 +109,11 @@ NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
 OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
+FINGERPRINT_GROUP_RESOURCE = Aliases(
+    ["fingerprint-group", "fingerprint-groups", "fprint-group", "fg"],
+    "fingerprint-group",
+    "fingerprint-groups",
+)
 FINGERPRINTS_RESOURCE = Aliases(
     [
         "fingerprints",
@@ -194,6 +199,9 @@ SPYDERTRACE_RESOURCE = Aliases(
     "spydertrace",
     "spydertraces",
 )
+UID_LIST_RESOURCE = Aliases(
+    ["uid-list", "uid-lists", "uid", "uids-list"], "uid-list", "uid-lists"
+)
 
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
@@ -244,6 +252,16 @@ VAL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SECRETS_ALIAS.name,
     CONFIG_ALIAS.name,
+]
+RESOURCES_WITH_SCHEMAS = [
+    BASELINES_RESOURCE.name,
+    CONFIG_ALIAS.name,
+    FINGERPRINT_GROUP_RESOURCE.name,
+    FINGERPRINTS_RESOURCE.name,
+    POLICIES_RESOURCE.name,
+    SECRETS_ALIAS.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
+    UID_LIST_RESOURCE.name,
 ]
 
 CMD_ORG_FIELD = "org"
@@ -411,17 +429,6 @@ UID_LIST_KIND = "UidList"
 # CONFIG Kinds
 CONFIG_KIND = "Config"
 SECRET_KIND = "APISecret"
-
-KINDS_WITH_SCHEMA = [
-    BASELINE_KIND,
-    CONFIG_KIND,
-    FPRINT_GROUP_KIND,
-    FPRINT_KIND,
-    POL_KIND,
-    SECRET_KIND,
-    SUP_POL_KIND_ALIAS,
-    UID_LIST_KIND,
-]
 
 # Top-level yaml Fields
 API_FIELD = "apiVersion"
