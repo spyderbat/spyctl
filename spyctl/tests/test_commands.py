@@ -61,7 +61,7 @@ def test_get_namespaces():
 TWOHOURS = ("-t", "2h")
 OUTYML = ("-o", "yaml")
 MINS_30 = ("-t", "30m")
-MINS_1 = ("-t", "1m")
+MINS_5 = ("-t", "5m")
 
 
 def remove_timestamps(str_list):
@@ -134,7 +134,7 @@ def test_get_resources(resource):
         single = get_resource(resource, time_range + (name_or_id,))
         first_output = remove_timestamps(single.splitlines()[1].split())
         assert first_output == comparison_line
-    time_range = MINS_1
+    time_range = MINS_5
     get_resource(resource, time_range + output)
 
 
