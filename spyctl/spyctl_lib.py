@@ -1575,7 +1575,9 @@ def to_timestamp(zulu_str):
 
 def epoch_to_zulu(epoch):
     try:
-        return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+        return (
+            zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
+        )
     except Exception:
         return epoch
 
