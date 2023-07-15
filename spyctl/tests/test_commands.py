@@ -141,6 +141,9 @@ resources = (
 @mock.patch(
     "spyctl.commands.get.api.get_opsflags", mock_func.mock_get_opsflags
 )
+@mock.patch(
+    "spyctl.commands.get.api.get_policies", mock_func.mock_get_policies
+)
 @pytest.mark.parametrize("resource", resources)
 def test_get_resources(resource):
     if resource not in ["opsflags", "fingerprints"]:
@@ -188,6 +191,20 @@ def test_create():
         assert response.output.strip("\n") == f.read().strip("\n")
 
 
+@mock.patch(
+    "spyctl.commands.get.api.get_policies", mock_func.mock_get_policies
+)
+@mock.patch.multiple(
+    "spyctl.commands.apply.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+    post_new_policy=mock_func.mock_post_new_policy,
+)
+@mock.patch.multiple(
+    "spyctl.commands.delete.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+)
 def test_update_policy():
     runner = CliRunner()
     response = runner.invoke(
@@ -223,6 +240,20 @@ def test_update_policy():
     assert response.output.startswith("Successfully deleted policy")
 
 
+@mock.patch(
+    "spyctl.commands.get.api.get_policies", mock_func.mock_get_policies
+)
+@mock.patch.multiple(
+    "spyctl.commands.apply.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+    post_new_policy=mock_func.mock_post_new_policy,
+)
+@mock.patch.multiple(
+    "spyctl.commands.delete.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+)
 def test_apply_delete():
     runner = CliRunner()
     response = runner.invoke(
