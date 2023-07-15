@@ -199,6 +199,7 @@ def test_create():
     get_policies=mock_func.mock_get_policies,
     delete_policy=mock_func.mock_delete_policy,
     post_new_policy=mock_func.mock_post_new_policy,
+    put_policy_update=mock_func.mock_put_policy_update,
 )
 @mock.patch.multiple(
     "spyctl.commands.delete.api",
