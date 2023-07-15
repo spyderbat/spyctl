@@ -10,6 +10,8 @@ from click.testing import CliRunner
 from spyctl import spyctl
 from spyctl.spyctl_lib import time_inp
 from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
+import unittest.mock as mock
+import spyctl.tests.mock_functions as mock_func
 
 
 API_KEY = os.environ.get("API_KEY")
@@ -53,6 +55,9 @@ def test_help():
     assert response.exit_code == 0
 
 
+@mock.patch(
+    "spyctl.commands.get.api.get_namespaces", mock_func.mock_get_namespaces
+)
 def test_get_namespaces():
     get_resource("namespaces", TWOHOURS)
     get_resource("namespaces", TWOHOURS + OUTYML)
@@ -77,12 +82,7 @@ def remove_timestamps(str_list):
 # asserts that the table has some population and returns
 # name_or_id values that should give the first line again
 def process_table_response(output: str):
-    name_or_id_fields = (
-        "NAME",
-        "UID",
-        "FLAG",
-        "IMAGE",
-    )
+    name_or_id_fields = ("NAME", "UID", "FLAG", "IMAGE", "CGROUP")
     lines = output.strip().splitlines()
     assert len(lines) > 1
     header_line, first_line = lines[:2]
@@ -121,6 +121,29 @@ resources = (
 )
 
 
+@mock.patch(
+    "spyctl.commands.get.api.get_clusters", mock_func.mock_get_clusters
+)
+@mock.patch(
+    "spyctl.commands.get.api.get_machines", mock_func.mock_get_machines
+)
+@mock.patch("spyctl.commands.get.api.get_pods", mock_func.mock_get_pods)
+@mock.patch("spyctl.commands.get.api.get_nodes", mock_func.mock_get_nodes)
+@mock.patch(
+    "spyctl.commands.get.api.get_deployments", mock_func.mock_get_deployments
+)
+@mock.patch(
+    "spyctl.commands.get.api.get_fingerprints", mock_func.mock_get_fingerprints
+)
+@mock.patch(
+    "spyctl.commands.get.api.get_redflags", mock_func.mock_get_redflags
+)
+@mock.patch(
+    "spyctl.commands.get.api.get_opsflags", mock_func.mock_get_opsflags
+)
+@mock.patch(
+    "spyctl.commands.get.api.get_policies", mock_func.mock_get_policies
+)
 @pytest.mark.parametrize("resource", resources)
 def test_get_resources(resource):
     if resource not in ["opsflags", "fingerprints"]:
@@ -168,6 +191,21 @@ def test_create():
         assert response.output.strip("\n") == f.read().strip("\n")
 
 
+@mock.patch(
+    "spyctl.commands.get.api.get_policies", mock_func.mock_get_policies
+)
+@mock.patch.multiple(
+    "spyctl.commands.apply.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+    post_new_policy=mock_func.mock_post_new_policy,
+    put_policy_update=mock_func.mock_put_policy_update,
+)
+@mock.patch.multiple(
+    "spyctl.commands.delete.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+)
 def test_update_policy():
     runner = CliRunner()
     response = runner.invoke(
@@ -203,6 +241,20 @@ def test_update_policy():
     assert response.output.startswith("Successfully deleted policy")
 
 
+@mock.patch(
+    "spyctl.commands.get.api.get_policies", mock_func.mock_get_policies
+)
+@mock.patch.multiple(
+    "spyctl.commands.apply.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+    post_new_policy=mock_func.mock_post_new_policy,
+)
+@mock.patch.multiple(
+    "spyctl.commands.delete.api",
+    get_policies=mock_func.mock_get_policies,
+    delete_policy=mock_func.mock_delete_policy,
+)
 def test_apply_delete():
     runner = CliRunner()
     response = runner.invoke(
