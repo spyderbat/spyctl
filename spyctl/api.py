@@ -413,7 +413,8 @@ def get_deployments(api_url, api_key, org_uid, clusters, time):
             __log_interrupt_partial()
         else:
             __log_interrupt()
-    return [d for d in deployments.values() if d["status"] == "active"]
+    rv = [d for d in deployments.values() if d["status"] == "active"]
+    return rv
 
 
 def get_clust_namespaces(api_url, api_key, org_uid, clus_uid, time):
@@ -483,7 +484,8 @@ def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
             __log_interrupt_partial()
         else:
             __log_interrupt()
-    return list(nodes.values())
+    rv = list(nodes.values())
+    return rv
 
 
 def get_clust_nodes(api_url, api_key, org_uid, clus_uid, time):
@@ -523,7 +525,8 @@ def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
             __log_interrupt_partial()
         else:
             __log_interrupt()
-    return list(pods.values())
+    rv = list(pods.values())
+    return rv
 
 
 def get_clust_pods(api_url, api_key, org_uid, clus_uid, time):
@@ -570,6 +573,8 @@ def get_redflags(api_url, api_key, org_uid, time):
             __log_interrupt_partial()
         else:
             __log_interrupt()
+    rv = list(flags.values())
+    print(rv[0])
     return list(flags.values())
 
 
@@ -604,7 +609,8 @@ def get_opsflags(api_url, api_key, org_uid, time):
             __log_interrupt_partial()
         else:
             __log_interrupt()
-    return list(flags.values())
+    rv = list(flags.values())
+    return rv
 
 
 def get_fingerprints(
@@ -659,7 +665,8 @@ def get_fingerprints(
             __log_interrupt_partial()
         else:
             __log_interrupt()
-    return list(fingerprints.values())
+    rv = list(fingerprints.values())
+    return rv
 
 
 def get_trace_summaries(api_url, api_key, org_uid, muids, time):
