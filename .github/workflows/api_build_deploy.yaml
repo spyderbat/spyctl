@@ -1,6 +1,7 @@
 name: API Build & Deploy
 on:
-  pull_request: [integration_api, staging_api, production_api]
+  pull_request: 
+    branches: [integration_api, staging_api, production_api]
 jobs:
   run-tests:
     name: Run Tests
