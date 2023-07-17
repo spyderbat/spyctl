@@ -1,9 +1,6 @@
 name: API Build & Deploy
 on:
-  pull_request:
-  - integration_api
-  - staging_api
-  - production_api
+  pull_request: [integration_api, staging_api, production_api]
 jobs:
   run_tests:
     name: Run Tests
