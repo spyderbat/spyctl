@@ -2,7 +2,7 @@ name: API Build & Deploy
 on:
   pull_request: [integration_api, staging_api, production_api]
 jobs:
-  run_tests:
+  run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
     environment: [integration_api, staging_api, production_api]
@@ -24,7 +24,7 @@ jobs:
     name: Build and Push Container Image
     runs-on: ubuntu-latest
     environment: [integration_api, staging_api, production_api]
-    needs: run_tests
+    needs: run-tests
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -55,7 +55,7 @@ jobs:
     name: Install Helm Chart
     runs-on: ubuntu-latest
     environment: [integration_api, staging_api, production_api]
-    needs: [run_tests, i_deployment]
+    needs: [run-tests, i_deployment]
     steps:
     - name: Checkout
       uses: actions/checkout@v3
