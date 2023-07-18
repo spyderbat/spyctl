@@ -54,8 +54,8 @@ jobs:
         echo docker tag spyctl-api:$IMAGE_TAG $ECR_REPOSITORY:$IMAGE_TAG
         docker tag spyctl-api:$IMAGE_TAG $ECR_REPOSITORY:$IMAGE_TAG
         echo "Pushing image to ECR..."
-        echo docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo docker push $ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REPOSITORY:$IMAGE_TAG
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
   install:
     if: ${{ false }}  # disable for now
