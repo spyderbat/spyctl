@@ -29,6 +29,7 @@ def test_create_suppression_policy():
         "api_key": API_KEY,
         "api_url": API_URL,
     }
+    print(data)
     response = client.post("/api/v1/create/suppressionpolicy", json=data)
     assert response.status_code == 200
 
