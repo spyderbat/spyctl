@@ -19,13 +19,10 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install pytest
         python -m pip install -r ./spyctl_api/requirements.txt
-    - name: Print Working Dir
-      run: |
-        pwd
-        ls
     - name: Test with pytest
-      run: | 
-        pytest ./spyctl_api
+      run: |
+        cd ./spyctl_api
+        pytest ./app
   build:
     name: Build and Push Container Image
     runs-on: ubuntu-latest
