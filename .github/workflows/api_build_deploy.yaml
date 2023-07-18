@@ -24,7 +24,7 @@ jobs:
         pytest ./spyctl_api
   build:
     name: Build and Push Container Image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, x64]
     environment: integration_api
     needs: run-tests
     steps:
@@ -48,8 +48,10 @@ jobs:
       run: |
         # Build docker container and push it to ECR
         cd ./spyctl_api
-        echo build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        echo build -t spyctl-api .
+        docker build -t spyctl-api .
+        echo "Tagging Image"
+        docker tag spyctl-api:$IMAGE_TAG $ECR_REPOSITORY:$IMAGE_TAG
         echo "Pushing image to ECR..."
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
