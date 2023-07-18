@@ -57,7 +57,7 @@ jobs:
     name: Install Helm Chart
     runs-on: ubuntu-latest
     environment: integration_api
-    needs: [run-tests, i_deployment]
+    needs: [run-tests, build]
     steps:
     - name: Checkout
       uses: actions/checkout@v3
