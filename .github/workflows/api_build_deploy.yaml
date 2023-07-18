@@ -56,7 +56,7 @@ jobs:
     if: ${{ false }}  # disable for now
     name: Install Helm Chart
     runs-on: ubuntu-latest
-    environment: [integration_api, staging_api, production_api]
+    environment: integration_api
     needs: [run-tests, i_deployment]
     steps:
     - name: Checkout
