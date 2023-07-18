@@ -77,7 +77,7 @@ jobs:
       uses: azure/setup-helm@v3
       with:
         version: "v3.12.2" # default is latest (stable)
-      id: install
+      id: install-helm
     - name: Run helm upgrade
       run: |
         helm upgrade -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
