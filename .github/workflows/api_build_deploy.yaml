@@ -6,7 +6,7 @@ jobs:
   run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
-    environment: [integration_api, staging_api, production_api]
+    environment: integration_api
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -25,7 +25,7 @@ jobs:
   build:
     name: Build and Push Container Image
     runs-on: ubuntu-latest
-    environment: [integration_api, staging_api, production_api]
+    environment: integration_api
     needs: run-tests
     steps:
     - name: Checkout
