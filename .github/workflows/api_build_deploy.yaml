@@ -21,8 +21,7 @@ jobs:
         python -m pip install -r ./spyctl_api/requirements.txt
     - name: Test with pytest
       run: |
-        cd ./spyctl_api
-        pytest ./app
+        pytest ./spyctl_api
   build:
     name: Build and Push Container Image
     runs-on: ubuntu-latest
