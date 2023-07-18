@@ -42,7 +42,6 @@ jobs:
     - name: Build, Tag & Push Img to ECR
       id: build-image
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
         IMAGE_TAG: "latest"
       run: |
@@ -56,7 +55,6 @@ jobs:
         echo "Pushing image to ECR..."
         echo docker push $ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REPOSITORY:$IMAGE_TAG
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
   install:
     if: ${{ false }}  # disable for now
     name: Install Helm Chart
