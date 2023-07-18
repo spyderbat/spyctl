@@ -24,7 +24,7 @@ jobs:
         pytest ./spyctl_api
   build:
     name: Build and Push Container Image
-    runs-on: [self-hosted, x64]
+    runs-on: ubuntu-latest
     environment: integration_api
     needs: run-tests
     steps:
