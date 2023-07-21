@@ -62,7 +62,7 @@ jobs:
     name: Install Helm Chart
     runs-on: ubuntu-latest
     environment: integration_api
-    needs: [run-tests, build]
+    needs: [self-hosted, x64]
     steps:
     - name: Checkout
       uses: actions/checkout@v3
