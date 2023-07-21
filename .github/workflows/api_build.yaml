@@ -59,7 +59,6 @@ jobs:
         echo docker push $ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REPOSITORY:$IMAGE_TAG
   install:
-    if: ${{ false }}  # disable for now
     name: Install Helm Chart
     runs-on: ubuntu-latest
     environment: integration_api
@@ -84,11 +83,17 @@ jobs:
       with:
         version: "v3.12.2" # default is latest (stable)
       id: install-helm
+    - name: Set short sha
+      id: sha_var
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
     - name: Run helm upgrade
+      env:
+        ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
+        IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
       run: |
         helm upgrade -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
           --set image.repository=${{ secrets.REPO_NAME }} \
-          --set image.tag=${{ vars.ENVIRO }} \
+          --set image.tag=$IMAGE_TAG \
           --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.AWS_ROLE_TO_ASSUME }}_spyctl_iam_role_1 \
           --set deployment=${{ vars.ENVIRO }} \
           --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local \
