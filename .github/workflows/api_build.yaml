@@ -60,9 +60,9 @@ jobs:
         docker push $ECR_REPOSITORY:$IMAGE_TAG
   install:
     name: Install Helm Chart
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, x64]
     environment: integration_api
-    needs: [self-hosted, x64]
+    needs: [run-tests, build]
     steps:
     - name: Checkout
       uses: actions/checkout@v3
