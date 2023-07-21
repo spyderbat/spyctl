@@ -38,6 +38,9 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
+    - name: Set short sha
+        id: sha_var
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
@@ -45,7 +48,7 @@ jobs:
       id: build-image
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
-        IMAGE_TAG: ${{ vars.ENVIRO }}.${{ github.sha }}
+        IMAGE_TAG: ${{ vars.ENVIRO }}-${{ steps.sha_var.outputs.sha_short }}
       run: |
         # Build docker container and push it to ECR
         cd ./spyctl_api
