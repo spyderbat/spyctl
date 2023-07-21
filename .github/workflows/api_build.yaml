@@ -5,8 +5,9 @@ on:
 jobs:
   run-tests:
     name: Run Tests
-    runs-on: ubuntu-latest
-    environment: integration_api
+    runs-on: ubuntu-lates
+    environment: 
+      name: ${{ vars.GH_ENVIRONMENT }}
     steps:
     - name: Checkout
       uses: actions/checkout@v3

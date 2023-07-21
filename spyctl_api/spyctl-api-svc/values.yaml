@@ -50,7 +50,7 @@ service:
 ingress:
   enabled: true
   className: ""
-  annotations: {}
+  annotations: {service.beta.kubernetes.io/aws-load-balancer-type: "internal"}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
