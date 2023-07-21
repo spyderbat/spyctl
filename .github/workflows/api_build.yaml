@@ -5,7 +5,7 @@ on:
 jobs:
   run-tests:
     name: Run Tests
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     environment: 
       name: ${{ vars.GH_ENVIRONMENT }}
     steps:
@@ -26,7 +26,8 @@ jobs:
   build:
     name: Build and Push Container Image
     runs-on: [self-hosted, x64]
-    environment: integration_api
+    environment: 
+      name: ${{ vars.GH_ENVIRONMENT }}
     needs: run-tests
     steps:
     - name: Checkout
