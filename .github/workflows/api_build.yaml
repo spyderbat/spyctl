@@ -45,7 +45,7 @@ jobs:
       id: build-image
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
-        IMAGE_TAG: ${{ vars.ENVIRO }}
+        IMAGE_TAG: ${{ vars.ENVIRO }}.${{ github.sha }}
       run: |
         # Build docker container and push it to ECR
         cd ./spyctl_api
