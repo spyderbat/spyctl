@@ -1,4 +1,4 @@
-name: API Build & Deploy
+name: API Deploy
 on:
   push: 
     branches: [integration_api, staging_api, production_api]
@@ -56,6 +56,7 @@ jobs:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
         IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
       run: |
+        echo "Upgrading helm spyctl image $IMAGE_TAG"
         helm upgrade -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
           --set image.repository=${{ secrets.REPO_NAME }} \
           --set image.tag=$IMAGE_TAG \
