@@ -38,7 +38,7 @@ jobs:
         aws-region: us-east-1
     - name: Set short sha
       id: sha_var
-      run: echo "sha_short=$(git rev-list --no-merges --format=short -n 1 HEAD)" >> $GITHUB_OUTPUT
+      run: echo "sha_short=$(git rev-list --no-merges --abbrev-commit -n 1 HEAD)" >> $GITHUB_OUTPUT
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
@@ -86,7 +86,7 @@ jobs:
       id: install-helm
     - name: Set short sha
       id: sha_var
-      run: echo "sha_short=$(git rev-list --no-merges --format=short -n 1 HEAD)" >> $GITHUB_OUTPUT
+      run: echo "sha_short=$(git rev-list --no-merges --abbrev-commit -n 1 HEAD)" >> $GITHUB_OUTPUT
     - name: Run helm upgrade
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
