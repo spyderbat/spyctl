@@ -51,7 +51,7 @@ jobs:
         # Build docker container and push it to ECR
         cd ./spyctl_api
         echo build -t spyctl-api .
-        docker buildx build --platform linux/amd64,linux/arm64 -t spyctl-api .
+        docker build -t spyctl-api .
         echo "Tagging Image"
         echo docker tag spyctl-api:$IMAGE_TAG $ECR_REPOSITORY:$IMAGE_TAG
         docker tag spyctl-api:latest $ECR_REPOSITORY:$IMAGE_TAG
@@ -60,7 +60,7 @@ jobs:
         docker push $ECR_REPOSITORY:$IMAGE_TAG
   install:
     name: Install Helm Chart
-    runs-on: [self-hosted, x64]
+    runs-on: [self-hosted, ARM64]
     environment: integration_api
     needs: [run-tests, build-and-push]
     steps:
