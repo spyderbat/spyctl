@@ -41,16 +41,14 @@ securityContext: {}
 service:
   enabled: true
   type: LoadBalancer
-  ports:
-    spyctl-api:
-      port: 80
-      targetPort: 80
-      protocol: TCP
+  port: 80
+  targetPort: 80
+  protocol: TCP
 
 ingress:
   enabled: true
   className: ""
-  annotations: {service.beta.kubernetes.io/aws-load-balancer-type: "internal"}
+  annotations:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:

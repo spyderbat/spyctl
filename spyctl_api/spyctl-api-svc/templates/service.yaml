@@ -4,12 +4,15 @@ metadata:
   name: {{ include "spyctl-api-svc.fullname" . }}
   labels:
     {{- include "spyctl-api-svc.labels" . | nindent 4 }}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "internal"
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
-      name: http
   selector:
     {{- include "spyctl-api-svc.selectorLabels" . | nindent 4 }}
+  loadBalancerClass: service.k8s.aws/nlb
