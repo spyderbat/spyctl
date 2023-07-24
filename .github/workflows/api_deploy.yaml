@@ -60,7 +60,7 @@ jobs:
         docker push $ECR_REPOSITORY:$IMAGE_TAG
   install:
     name: Install Helm Chart
-    runs-on: [self-hosted, x64]
+    runs-on: [self-hosted, ARM64]
     environment: integration_api
     needs: [run-tests, build-and-push]
     steps:
