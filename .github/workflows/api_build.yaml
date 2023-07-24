@@ -24,7 +24,7 @@ jobs:
         pytest ./spyctl_api
   build-dry-run:
     name: Docker Build Dry-Run
-    runs-on: [self-hosted, x64]
+    runs-on: [self-hosted, ARM64]
     environment: integration_api
     needs: run-tests
     steps:
