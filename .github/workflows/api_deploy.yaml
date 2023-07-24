@@ -1,0 +1,66 @@
+name: API Build & Deploy
+on:
+  push: 
+    branches: [integration_api, staging_api, production_api]
+jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    environment: integration_api
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Set up Python 11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pytest
+        python -m pip install -r ./spyctl_api/requirements.txt
+    - name: Test with pytest
+      run: |
+        pytest ./spyctl_api
+  install:
+    name: Install Helm Chart
+    runs-on: [self-hosted, x64]
+    environment: integration_api
+    needs: [run-tests]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+        role-duration-seconds: 1200
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+    - name: Install Kubectl
+      uses: azure/setup-kubectl@v3
+      id: install
+    - name: Update Kube Config
+      run: aws eks update-kubeconfig --name ${{ secrets.CLUSTER_NAME }}
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: "v3.12.2" # default is latest (stable)
+      id: install-helm
+    - name: Set short sha
+      id: sha_var
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    - name: Run helm upgrade
+      env:
+        ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
+        IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
+      run: |
+        helm upgrade -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
+          --set image.repository=${{ secrets.REPO_NAME }} \
+          --set image.tag=$IMAGE_TAG \
+          --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.SPYCTL_SVC_ACCOUNT_ROLE_ARN }} \
+          --set deployment=${{ vars.ENVIRO }} \
+          --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local \
+          --set	ingress.hosts[0].paths[0].path="/" \
+          --set ingress.hosts[0].paths[0].pathType="ImplementationSpecific"
