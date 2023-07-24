@@ -97,5 +97,5 @@ jobs:
           --set image.tag=$IMAGE_TAG \
           --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.AWS_ROLE_TO_ASSUME }}_spyctl_iam_role_1 \
           --set deployment=${{ vars.ENVIRO }} \
-          --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local \
+          --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local
 
