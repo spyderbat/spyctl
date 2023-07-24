@@ -22,8 +22,8 @@ jobs:
     - name: Test with pytest
       run: |
         pytest ./spyctl_api
-  build:
-    name: Build and Push Container Image
+  build-dry-run:
+    name: Docker Build Dry-Run
     runs-on: [self-hosted, x64]
     environment: integration_api
     needs: run-tests
@@ -38,7 +38,7 @@ jobs:
         aws-region: us-east-1
     - name: Set short sha
       id: sha_var
-      run: echo "sha_short=$(git rev-list --no-merges --abbrev-commit -n 1 HEAD)" >> $GITHUB_OUTPUT
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
@@ -62,7 +62,7 @@ jobs:
     name: Install Helm Chart (Dry Run)
     runs-on: [self-hosted, x64]
     environment: integration_api
-    needs: [run-tests, build]
+    needs: [run-tests, build-dry-run]
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -86,7 +86,7 @@ jobs:
       id: install-helm
     - name: Set short sha
       id: sha_var
-      run: echo "sha_short=$(git rev-list --no-merges --abbrev-commit -n 1 HEAD)" >> $GITHUB_OUTPUT
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
     - name: Run helm upgrade
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
