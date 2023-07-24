@@ -58,7 +58,7 @@ jobs:
         echo "Pushing image to ECR..."
         echo docker push $ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REPOSITORY:$IMAGE_TAG
-  install:
+  install-dry-run:
     name: Install Helm Chart
     runs-on: [self-hosted, x64]
     environment: integration_api
@@ -92,10 +92,12 @@ jobs:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
         IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
       run: |
-        helm upgrade -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
+        helm upgrade --dry-run -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
           --set image.repository=${{ secrets.REPO_NAME }} \
           --set image.tag=$IMAGE_TAG \
-          --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.AWS_ROLE_TO_ASSUME }}_spyctl_iam_role_1 \
+          --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.SPYCTL_SVC_ACCOUNT_ROLE_ARN }} \
           --set deployment=${{ vars.ENVIRO }} \
-          --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local
+          --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local \
+          --set	ingress.hosts[0].paths[0].path="/" \
+          --set ingress.hosts[0].paths[0].pathType="ImplementationSpecific"
 
