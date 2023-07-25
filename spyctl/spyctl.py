@@ -18,6 +18,7 @@ import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
+from spyctl.commands.describe import handle_describe
 
 MAIN_EPILOG = (
     "\b\n"
@@ -663,6 +664,18 @@ def delete(resource, name_or_id, yes=False):
     if yes:
         cli.set_yes_option()
     handle_delete(resource, name_or_id)
+
+
+# ----------------------------------------------------------------- #
+#                        Describe Subcommand                        #
+# ----------------------------------------------------------------- #
+@main.group("describe", cls=lib.CustomSubGroup)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.DescribeResourcesParam())
+@click.argument("name_or_id")
+def describe(resource, name_or_id):
+    """Describe a Spyderbat resource"""
+    handle_describe(resource, name_or_id)
 
 
 # ----------------------------------------------------------------- #

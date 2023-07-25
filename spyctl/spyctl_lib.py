@@ -228,6 +228,9 @@ DEL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
 ]
+DESC_RESOURCES: List[str] = [
+    POLICIES_RESOURCE.name,
+]
 GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
@@ -292,6 +295,19 @@ class DelResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in DEL_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class DescribeResourcesParam(click.ParamType):
+    name = "del_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in DESC_RESOURCES
             if resrc_name.startswith(incomplete)
         ]
 
