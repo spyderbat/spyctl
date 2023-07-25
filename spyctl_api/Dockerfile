@@ -7,6 +7,12 @@ WORKDIR /code
 # 
 COPY ./requirements.txt /code/requirements.txt
 
+RUN apt-get update 
+RUN apt-get -y install curl unzip groff less
+# AWS CLI installation commands
+RUN	curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+RUN	unzip awscliv2.zip && ./aws/install
+
 # 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 

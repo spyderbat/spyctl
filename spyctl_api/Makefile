@@ -6,7 +6,7 @@ docker_test_build:
 	mkdir ./build
 	mkdir ./build/spyctl
 	cp -r ../spyctl ../pyproject.toml ./build/spyctl
-	docker build -f TestDockerfile -t spyctl_test_api:latest .
+	docker build -f TestDockerfile -t spyctl_test_api:latest . --progress=plain --no-cache
 
 docker-run:
 	docker-compose up -d
