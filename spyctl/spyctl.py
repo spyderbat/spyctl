@@ -669,13 +669,20 @@ def delete(resource, name_or_id, yes=False):
 # ----------------------------------------------------------------- #
 #                        Describe Subcommand                        #
 # ----------------------------------------------------------------- #
-@main.group("describe", cls=lib.CustomSubGroup)
+@main.command("describe", cls=lib.CustomCommand)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.DescribeResourcesParam())
-@click.argument("name_or_id")
-def describe(resource, name_or_id):
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--filename",
+    help="File to diff with target.",
+    metavar="",
+    type=click.File(),
+)
+def describe(resource, name_or_id, filename=None):
     """Describe a Spyderbat resource"""
-    handle_describe(resource, name_or_id)
+    handle_describe(resource, name_or_id, filename)
 
 
 # ----------------------------------------------------------------- #
