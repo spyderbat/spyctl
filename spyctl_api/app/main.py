@@ -6,8 +6,13 @@ from .api import create, diff, merge, validate
 app = FastAPI()
 
 
+@app.get("/")
+def root():
+    return {}
+
+
 @app.get("/alive")
-async def root():
+def alive():
     return {"message": "Alive"}
 
 
