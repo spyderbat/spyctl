@@ -9,6 +9,7 @@ import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.search as search
 import spyctl.spyctl_lib as lib
+import spyctl.api as api
 
 
 def handle_create_baseline(filename: str, output: str, name: str):
@@ -55,17 +56,34 @@ def handle_create_suppression_policy(
     include_users: bool,
     output: str,
     name: str = None,
+    do_api: bool = False,
     **selectors,
 ):
     if type == lib.POL_TYPE_TRACE:
         handle_create_trace_suppression_policy(
-            id, include_users, output, name, **selectors
+            id, include_users, output, name, do_api, **selectors
         )
 
 
 def handle_create_trace_suppression_policy(
-    id, include_users, output, name: str = None, **selectors
+    id,
+    include_users,
+    output,
+    name: str = None,
+    do_api: bool = False,
+    **selectors,
 ):
+    if do_api:
+        ctx = cfg.get_current_context()
+        policy = api.create_suppression_policy(
+            *ctx.get_api_data(),
+            name,
+            lib.POL_TYPE_TRACE,
+            include_users,
+            id,
+            **selectors,
+        )
+        cli.show(policy, output)
     pol = create_trace_suppression_policy(id, include_users, name, **selectors)
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML

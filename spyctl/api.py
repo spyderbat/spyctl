@@ -878,3 +878,39 @@ def __log_interrupt_partial():
 def __log_interrupt():
     cli.try_log("\nRequest aborted, no partial results.. exiting.")
     exit(0)
+
+
+# Spyctl api test functions
+
+
+def create_suppression_policy(
+    api_url,
+    api_key,
+    org_uid,
+    name,
+    type,
+    scope_to_users,
+    object_uid,
+    **selectors,
+) -> Dict:
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/suppressionpolicy/build/"
+    data = {"type": type}
+    if name:
+        data["name"] = name
+    if scope_to_users:
+        data["scope_to_users"] = scope_to_users
+    if object_uid:
+        data["object_uid"] = object_uid
+    if selectors:
+        data["selectors"] = selectors
+    print(data)
+    resp = post(url, data, api_key)
+    policy = resp.json()["policy"]
+    return policy
+
+
+def validate(api_url, api_key, org_uid, data: Dict) -> str:
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/validate/"
+    resp = post(url, data, api_key)
+    invalid_msg = resp.json()["invalid_message"]
+    return invalid_msg

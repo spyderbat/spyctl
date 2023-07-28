@@ -648,10 +648,18 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     metavar="",
     type=lib.ListParam(),
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.tmp_context_options
 @lib.colorization_option
 def create_suppression_policy(
-    type, id, include_users, output, name, colorize, **selectors
+    type, id, include_users, output, name, colorize, api, **selectors
 ):
     """Create a Suppression Policy object from a file, outputted to stdout"""
     if not colorize:
@@ -665,7 +673,7 @@ def create_suppression_policy(
     if org_uid and api_key and api_url:
         cfgs.use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
-        type, id, include_users, output, name, **selectors
+        type, id, include_users, output, name, api, **selectors
     )
 
 
@@ -1560,8 +1568,16 @@ def suppress_spydertrace(
     required=True,
     type=click.File(),
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
-def validate(file, colorize):
+def validate(file, colorize, api):
     """Validate spyderbat resource and spyctl configuration files.
 
     \b
@@ -1570,7 +1586,7 @@ def validate(file, colorize):
     """
     if not colorize:
         lib.disable_colorization()
-    v.handle_validate(file)
+    v.handle_validate(file, api)
 
 
 if __name__ == "__main__":
