@@ -226,13 +226,21 @@ class IngressNodeModel(BaseModel):
     from_field: List[Union[DnsBlockModel, IpBlockModel]] = Field(
         alias=lib.FROM_FIELD
     )
-    processes: List[str] = Field(alias=lib.PROCESSES_FIELD)
+    processes: Union[Literal["any"], List[str]] = Field(
+        alias=lib.PROCESSES_FIELD
+    )
     ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
 
-    @validator("processes", each_item=True)
+    @validator("processes")
     def validate_proc_ids(cls, v):
-        if not in_proc_ids(v):
-            raise ValueError(f"No process found with id '{v}'.")
+        if v == "any":
+            return v
+        bad = []
+        for proc_id in v:
+            if not in_proc_ids(proc_id):
+                bad.append(proc_id)
+        if bad:
+            raise ValueError(f"No process found with id(s) '{bad}'.")
         return v
 
     class Config:
@@ -241,14 +249,25 @@ class IngressNodeModel(BaseModel):
 
 class EgressNodeModel(BaseModel):
     to: List[Union[DnsBlockModel, IpBlockModel]] = Field(alias=lib.TO_FIELD)
-    processes: List[str] = Field(alias=lib.PROCESSES_FIELD)
+    processes: Union[Literal["any"], List[str]] = Field(
+        alias=lib.PROCESSES_FIELD
+    )
     ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
 
-    @validator("processes", each_item=True)
+    @validator("processes")
     def validate_proc_ids(cls, v):
-        if not in_proc_ids(v):
-            raise ValueError(f"No process found with id '{v}'.")
+        if v == "any":
+            return v
+        bad = []
+        for proc_id in v:
+            if not in_proc_ids(proc_id):
+                bad.append(proc_id)
+        if bad:
+            raise ValueError(f"No process found with id(s) '{bad}'.")
         return v
+
+    class Config:
+        smart_union = True
 
 
 class NetworkPolicyModel(BaseModel):
@@ -259,11 +278,14 @@ class NetworkPolicyModel(BaseModel):
 # Process Models --------------------------------------------------------------
 
 
-class ProcessNodeModel(BaseModel):
+class SimpleProcessNodeModel(BaseModel):
     name: str = Field(alias=lib.NAME_FIELD)
     exe: List[str] = Field(alias=lib.EXE_FIELD)
-    id: str = Field(alias=lib.ID_FIELD)
     euser: Optional[List[str]] = Field(alias=lib.EUSER_FIELD)
+
+
+class ProcessNodeModel(SimpleProcessNodeModel):
+    id: str = Field(alias=lib.ID_FIELD)
     listening_sockets: Optional[List[PortsModel]] = Field(
         alias=lib.LISTENING_SOCKETS
     )
@@ -277,6 +299,41 @@ class ProcessNodeModel(BaseModel):
             raise ValueError(f"Duplicate id '{v}' detected.")
         add_proc_id(v)
         return v
+
+
+# Ignore Rules Models ---------------------------------------------------------
+
+
+class IgnoreProcessRulesModel(BaseModel):
+    ignore_process_rules: Union[
+        Literal[tuple(lib.IGNORE_PROCS_STRINGS)],  # type: ignore
+        List[Union[str, SimpleProcessNodeModel]],
+    ] = Field(alias=lib.IGNORE_PROCS_FIELD)
+
+    @validator("ignore_process_rules")
+    def validate_rules(cls, v):
+        rv = v
+        if isinstance(v, str) and v not in lib.IGNORE_PROCS_STRINGS:
+            raise ValueError(
+                f"Incorrect value '{v}' is not in"
+                f" {lib.IGNORE_PROCS_STRINGS}"
+            )
+        else:
+            for value in v:
+                if isinstance(value, str):
+                    if value not in lib.IGNORE_PROCS_STRINGS:
+                        raise ValueError(
+                            f"Incorrect value '{value}' is not in"
+                            f" {lib.IGNORE_PROCS_STRINGS}"
+                        )
+                    rv = value
+        return rv
+
+
+class IgnoreConnectionRulesModel(BaseModel):
+    ignore_connection_rules: Literal[
+        tuple(lib.IGNORE_CONN_STRINGS)  # type: ignore
+    ] = Field(alias=lib.IGNORE_CONNS_FIELD)
 
 
 # Actions Models --------------------------------------------------------------

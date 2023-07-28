@@ -18,6 +18,7 @@ import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
+from spyctl.commands.describe import handle_describe
 
 MAIN_EPILOG = (
     "\b\n"
@@ -519,12 +520,39 @@ def create_baseline(filename, output, name):
     " be generated automatically",
     metavar="",
 )
+@click.option(
+    "-I",
+    "--ignore-procs",
+    type=lib.ListDictParam(),
+    multiple=True,
+    metavar="",
+    default=[],
+    hidden=True,
+    help="Optional processes to ignore. This option may be used multiple times"
+    " (ex. '-I name=foo -I name=bar,exe=/foo/bar'). Fields listed together"
+    " will be AND'ed together, multiple uses of the option will be OR'ed. You"
+    " can also specify ignoring all processes with '-I all'. Wildcarding is"
+    " also available",
+)
+@click.option(
+    "-C",
+    "--ignore-conns",
+    type=click.Choice(lib.IGNORE_CONN_STRINGS),
+    metavar="",
+    help="Ignore connections during policy enforcement and don't build them"
+    " into the policy.",
+    hidden=True,
+)
 @lib.colorization_option
-def create_policy(filename, output, name, colorize):
+def create_policy(
+    filename, output, name, colorize, ignore_procs, ignore_conns
+):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
-    c.handle_create_guardian_policy(filename, output, name)
+    c.handle_create_guardian_policy(
+        filename, output, name, ignore_procs, ignore_conns
+    )
 
 
 class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
@@ -620,10 +648,18 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     metavar="",
     type=lib.ListParam(),
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.tmp_context_options
 @lib.colorization_option
 def create_suppression_policy(
-    type, id, include_users, output, name, colorize, **selectors
+    type, id, include_users, output, name, colorize, api, **selectors
 ):
     """Create a Suppression Policy object from a file, outputted to stdout"""
     if not colorize:
@@ -637,7 +673,7 @@ def create_suppression_policy(
     if org_uid and api_key and api_url:
         cfgs.use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
-        type, id, include_users, output, name, **selectors
+        type, id, include_users, output, name, api, **selectors
     )
 
 
@@ -663,6 +699,25 @@ def delete(resource, name_or_id, yes=False):
     if yes:
         cli.set_yes_option()
     handle_delete(resource, name_or_id)
+
+
+# ----------------------------------------------------------------- #
+#                        Describe Subcommand                        #
+# ----------------------------------------------------------------- #
+@main.command("describe", cls=lib.CustomCommand)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.DescribeResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--filename",
+    help="File to diff with target.",
+    metavar="",
+    type=click.File(),
+)
+def describe(resource, name_or_id, filename=None):
+    """Describe a Spyderbat resource"""
+    handle_describe(resource, name_or_id, filename)
 
 
 # ----------------------------------------------------------------- #
@@ -1513,8 +1568,16 @@ def suppress_spydertrace(
     required=True,
     type=click.File(),
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
-def validate(file, colorize):
+def validate(file, colorize, api):
     """Validate spyderbat resource and spyctl configuration files.
 
     \b
@@ -1523,7 +1586,7 @@ def validate(file, colorize):
     """
     if not colorize:
         lib.disable_colorization()
-    v.handle_validate(file)
+    v.handle_validate(file, api)
 
 
 if __name__ == "__main__":

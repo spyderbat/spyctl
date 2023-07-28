@@ -94,6 +94,8 @@ def create_policy(
     input_data: Union[Dict, List[Dict]],
     name: str = None,
     ctx: cfg.Context = None,
+    ignore_procs: List = [],
+    ignore_conns: List = [],
 ):
     input_objs = []
     if isinstance(input_data, list):
