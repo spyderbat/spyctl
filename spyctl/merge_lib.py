@@ -64,6 +64,8 @@ class MergeObject:
         merge_schemas: List["MergeSchema"],
         validation_fn: Callable,
         merge_network: bool = True,
+        ignore_procs: List = [],
+        ignore_conns: List = [],
     ) -> None:
         self.original_obj = deepcopy(obj_data)
         self.obj_data = deepcopy(obj_data)
@@ -71,6 +73,8 @@ class MergeObject:
         self.validation_fn = validation_fn
         self.starting_yaml = yaml.dump(obj_data)
         self.merge_network = merge_network
+        self.ignore_procs = parse_ignore_procs(ignore_procs)
+        self.ignore_conns = parse_ignore_conns(ignore_conns)
 
     def symmetric_merge(self, other: Union["MergeObject", Dict]):
         global BASE_NODE_LIST, MERGING_NODE_LIST
@@ -351,9 +355,14 @@ class ProcessNode:
 
     def __eq__(self, other):
         if isinstance(other, __class__):
-            if not fnmatch.fnmatch(other.name, self.name):
+            if not (
+                fnmatch.fnmatch(other.name, self.name)
+                or fnmatch.fnmatch(self.name, other.name)
+            ):
                 return False
-            if not self.__match_exes(other.exes, strict=True):
+            if not self.__match_exes(
+                other.exes, strict=True, single_match=True
+            ):
                 return False
             if not self.__match_eusers(other.eusers):
                 return False
@@ -373,6 +382,7 @@ class ProcessNode:
                 exe_name = Path(exe).name
                 if fnmatch.fnmatch(other_name, exe_name):
                     return True
+        return False
 
     def __match_exes(
         self, other_exes: str, strict=False, single_match=False
@@ -447,7 +457,7 @@ class ProcessNode:
 
 class ProcessNodeList:
     def __init__(self, nodes_data: List[Dict]) -> None:
-        self.proc_nodes: Dict[str, ProcessNode] = {}
+        self.proc_nodes: Dict[str, ProcessNode] = {}  # id > ProcessNode
         self.proc_name_index: Dict[str, List[str]] = {}
         self.roots: List[ProcessNode] = []
         self.ids = set()
@@ -718,10 +728,12 @@ class NetworkNode:
     def symmetrical_merge(self, other_node: "NetworkNode"):
         self.__merge_ip_blocks(other_node.ip_blocks, symmetrical=True)
         self.__merge_dns_names(other_node.dns_names, symmetrical=True)
+        self.__merge_process_ids(other_node.processes)
 
     def asymmetrical_merge(self, other_node: "NetworkNode"):
         self.__merge_ip_blocks(other_node.ip_blocks, symmetrical=False)
         self.__merge_dns_names(other_node.dns_names, symmetrical=False)
+        self.__merge_process_ids(other_node.processes)
 
     def as_dict(self) -> Dict:
         or_field_string = (
@@ -821,6 +833,10 @@ class NetworkNode:
                     port.get(lib.ENDPORT_FIELD),
                 )
             )
+
+    def __merge_process_ids(self, other_processes: List[str]):
+        self.processes.extend(other_processes)
+        self.processes = sorted(list(set(self.processes)))
 
     def __merge_ip_block(self, other_ip_block: IPBlock, symmetrical=False):
         # if other_ip_block in self.ip_blocks:
@@ -927,11 +943,19 @@ class NetworkNode:
         other_node = self.__find_proc_node(other_process_id, other_proc_list)
         if other_node is None:
             raise InvalidNetworkNode("Unable to find process node")
+        # First check if the IDs are a match
         cmp_id = other_node.id
         if other_node.merged_id is not None:
             cmp_id = other_node.merged_id
         if cmp_id in self.processes:
             return True
+        # If not a match check that the processes are comparable
+        # Here we disregard place in the process tree and we're
+        # just looking for processes with the same name and exes
+        for node_id in self.processes:
+            node = self.proc_node_list.get_node(node_id)
+            if other_node in node or node in other_node:
+                return True
         return False
 
     def __contains_processes(
@@ -998,6 +1022,25 @@ class NetworkNodeList:
         for other_node in other_list.nodes:
             self.__asymmetrical_merge_helper(other_node)
 
+    def internal_merge(self):
+        if len(self.nodes) <= 1:
+            return
+        skip_index = set()
+        new_nodes = []
+        for i, node in enumerate(self.nodes):
+            if i in skip_index:
+                continue
+            if i == len(self.nodes) - 1:
+                new_nodes.append(self.nodes[i])
+                break
+            x = i + 1
+            new_nodes.append(node)
+            for j, other_node in enumerate(self.nodes[x:]):
+                if other_node in node or node in other_node:
+                    node.symmetrical_merge(other_node)
+                    skip_index.add(j + x)
+        self.nodes = new_nodes
+
     def get_data(self) -> List[Dict]:
         rv = []
         for node in self.nodes:
@@ -1055,6 +1098,7 @@ def merge_ingress_or_egress(
 ):
     result = []
     net_node_list = NetworkNodeList(base_data, BASE_NODE_LIST)
+    net_node_list.internal_merge()
     other_node_list = NetworkNodeList(other_data, MERGING_NODE_LIST)
     if symmetric:
         net_node_list.symmetrical_merge(other_node_list)
@@ -1990,3 +2034,11 @@ def list_diffs(
             )
         )
     return unify_diffs(diffs)
+
+
+def parse_ignore_procs(rules: List[Union[str, Dict]]):
+    pass
+
+
+def parse_ignore_conns(rule: str):
+    pass

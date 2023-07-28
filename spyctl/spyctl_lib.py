@@ -228,6 +228,9 @@ DEL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
 ]
+DESC_RESOURCES: List[str] = [
+    POLICIES_RESOURCE.name,
+]
 GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
@@ -296,6 +299,19 @@ class DelResourcesParam(click.ParamType):
         ]
 
 
+class DescribeResourcesParam(click.ParamType):
+    name = "del_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in DESC_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
 class GetResourcesParam(click.ParamType):
     name = "get_resources"
 
@@ -348,6 +364,28 @@ class ListParam(click.ParamType):
             rv = value.split(" ")
         for i, v in enumerate(rv):
             rv[i] = v.strip(" ")
+        return rv
+
+
+class ListDictParam(click.ParamType):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        rv = []
+        rv_dict = {}
+        if "," in value:
+            args_list = value.split(",")
+        for v in args_list:
+            if "=" in v:
+                key, val = v.split("=")[:2]
+                rv_dict[key] = val
+            else:
+                rv.append(v)
+        if rv_dict:
+            rv.append(rv_dict)
         return rv
 
 
@@ -554,6 +592,30 @@ SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
 GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
 ENABLED_FIELD = "enabled"
+IGNORE_PROCS_FIELD = "ignoreProcesses"
+IGNORE_PROCS_ALL = "all"
+IGNORE_PROCS_STRINGS = [IGNORE_PROCS_ALL]
+IGNORE_CONNS_ALL = "all"
+IGNORE_CONNS_INGRESS = "all-ingress"
+IGNORE_CONNS_EGRESS = "all-egress"
+IGNORE_CONNS_PRIVATE = "private"
+IGNORE_CONNS_PRIVATE_E = "private-egress"
+IGNORE_CONNS_PRIVATE_I = "private-ingress"
+IGNORE_CONNS_PUBLIC = "public"
+IGNORE_CONNS_PUBLIC_E = "public-egress"
+IGNORE_CONNS_PUBLIC_I = "public-ingress"
+IGNORE_CONN_STRINGS = [
+    IGNORE_CONNS_ALL,
+    IGNORE_CONNS_EGRESS,
+    IGNORE_CONNS_INGRESS,
+    IGNORE_CONNS_PRIVATE,
+    IGNORE_CONNS_PRIVATE_E,
+    IGNORE_CONNS_PRIVATE_I,
+    IGNORE_CONNS_PUBLIC,
+    IGNORE_CONNS_PUBLIC_E,
+    IGNORE_CONNS_PUBLIC_I,
+]
+IGNORE_CONNS_FIELD = "ignoreConnections"
 METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"

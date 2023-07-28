@@ -35,14 +35,14 @@ class CreateSuppressionPolicyInputSelectorFields(BaseModel):
 
 
 class CreateSuppressionPolicyHandlerInput(BaseModel):
-    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(
+    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(  # type: ignore
         title="The type of suppression policy to create"
     )
     object_uid: str | None = Field(title="UID of the object to suppress")
     scope_to_users: bool = Field(
         default=False, title="Scope the created policy to the relevant users"
     )
-    selectors: CreateSuppressionPolicyInputSelectorFields = Field(
+    selectors: Optional[CreateSuppressionPolicyInputSelectorFields] = Field(
         default={}, title="Additional selectors to add to the policy"
     )
     name: str = Field(
