@@ -367,6 +367,28 @@ class ListParam(click.ParamType):
         return rv
 
 
+class ListDictParam(click.ParamType):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        rv = []
+        rv_dict = {}
+        if "," in value:
+            args_list = value.split(",")
+        for v in args_list:
+            if "=" in v:
+                key, val = v.split("=")[:2]
+                rv_dict[key] = val
+            else:
+                rv.append(v)
+        if rv_dict:
+            rv.append(rv_dict)
+        return rv
+
+
 class FileList(click.File):
     def convert(
         self,
@@ -570,6 +592,30 @@ SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
 GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
 ENABLED_FIELD = "enabled"
+IGNORE_PROCS_FIELD = "ignoreProcesses"
+IGNORE_PROCS_ALL = "all"
+IGNORE_PROCS_STRINGS = [IGNORE_PROCS_ALL]
+IGNORE_CONNS_ALL = "all"
+IGNORE_CONNS_INGRESS = "all-ingress"
+IGNORE_CONNS_EGRESS = "all-egress"
+IGNORE_CONNS_PRIVATE = "private"
+IGNORE_CONNS_PRIVATE_E = "private-egress"
+IGNORE_CONNS_PRIVATE_I = "private-ingress"
+IGNORE_CONNS_PUBLIC = "public"
+IGNORE_CONNS_PUBLIC_E = "public-egress"
+IGNORE_CONNS_PUBLIC_I = "public-ingress"
+IGNORE_CONN_STRINGS = [
+    IGNORE_CONNS_ALL,
+    IGNORE_CONNS_EGRESS,
+    IGNORE_CONNS_INGRESS,
+    IGNORE_CONNS_PRIVATE,
+    IGNORE_CONNS_PRIVATE_E,
+    IGNORE_CONNS_PRIVATE_I,
+    IGNORE_CONNS_PUBLIC,
+    IGNORE_CONNS_PUBLIC_E,
+    IGNORE_CONNS_PUBLIC_I,
+]
+IGNORE_CONNS_FIELD = "ignoreConnections"
 METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"

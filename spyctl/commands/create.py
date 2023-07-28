@@ -19,16 +19,26 @@ def handle_create_baseline(filename: str, output: str, name: str):
     cli.show(baseline, output)
 
 
-def handle_create_guardian_policy(filename: str, output: str, name: str):
-    policy = create_guardian_policy_from_file(filename, name)
+def handle_create_guardian_policy(
+    filename: str,
+    output: str,
+    name: str,
+    ignore_procs: List,
+    ignore_conns: List,
+):
+    policy = create_guardian_policy_from_file(
+        filename, name, ignore_procs, ignore_conns
+    )
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(policy, output)
 
 
-def create_guardian_policy_from_file(filename: str, name: str):
+def create_guardian_policy_from_file(
+    filename: str, name: str, ignore_procs: List = [], ignore_conns: List = []
+):
     resrc_data = lib.load_resource_file(filename)
-    policy = p.create_policy(resrc_data, name)
+    policy = p.create_policy(resrc_data, name, ignore_procs, ignore_conns)
     return policy
 
 

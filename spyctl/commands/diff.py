@@ -129,6 +129,7 @@ def handle_diff(
                     lib.METADATA_UID_FIELD
                 )
                 target_name = f"applied policy '{t_name} - {t_uid}'"
+                target_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
                 with_obj = get_with_obj(
                     target,
                     target_name,

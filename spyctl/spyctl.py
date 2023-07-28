@@ -520,12 +520,39 @@ def create_baseline(filename, output, name):
     " be generated automatically",
     metavar="",
 )
+@click.option(
+    "-I",
+    "--ignore-procs",
+    type=lib.ListDictParam(),
+    multiple=True,
+    metavar="",
+    default=[],
+    hidden=True,
+    help="Optional processes to ignore. This option may be used multiple times"
+    " (ex. '-I name=foo -I name=bar,exe=/foo/bar'). Fields listed together"
+    " will be AND'ed together, multiple uses of the option will be OR'ed. You"
+    " can also specify ignoring all processes with '-I all'. Wildcarding is"
+    " also available",
+)
+@click.option(
+    "-C",
+    "--ignore-conns",
+    type=click.Choice(lib.IGNORE_CONN_STRINGS),
+    metavar="",
+    help="Ignore connections during policy enforcement and don't build them"
+    " into the policy.",
+    hidden=True,
+)
 @lib.colorization_option
-def create_policy(filename, output, name, colorize):
+def create_policy(
+    filename, output, name, colorize, ignore_procs, ignore_conns
+):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
-    c.handle_create_guardian_policy(filename, output, name)
+    c.handle_create_guardian_policy(
+        filename, output, name, ignore_procs, ignore_conns
+    )
 
 
 class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
