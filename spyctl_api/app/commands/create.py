@@ -57,6 +57,7 @@ def trace_suppression_policy(
             **i.selectors,
         )
     except HTTPException as e:
+        app_lib.flush_spyctl_log_messages()
         raise e
     except Exception:
         msg = app_lib.flush_spyctl_log_messages()
@@ -64,6 +65,7 @@ def trace_suppression_policy(
             status_code=500, detail=f"Internal Server Error. {msg}"
         )
     output = CreateSuppressionPolicyOutput(json.dumps(pol.as_dict()))
+    app_lib.flush_spyctl_log_messages()
     return output
 
 
@@ -97,6 +99,7 @@ def guardian_policy(
             i.name, i.input_objs, spyctl_ctx
         )
     except HTTPException as e:
+        app_lib.flush_spyctl_log_messages()
         raise e
     except Exception:
         msg = app_lib.flush_spyctl_log_messages()
@@ -104,4 +107,5 @@ def guardian_policy(
             status_code=500, detail=f"Internal Server Error. {msg}"
         )
     output = CreateGuardianPolicyOutput(policy=json.dumps(pol))
+    app_lib.flush_spyctl_log_messages()
     return output

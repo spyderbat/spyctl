@@ -1,8 +1,6 @@
-import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, IO
 
 import spyctl.cli as cli
-import spyctl.commands.validate as val
 import spyctl.config.configs as cfg
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
@@ -21,24 +19,33 @@ def handle_create_baseline(filename: str, output: str, name: str):
 
 
 def handle_create_guardian_policy(
-    filename: str,
+    file: IO,
     output: str,
     name: str,
     ignore_procs: List,
     ignore_conns: List,
+    do_api=False,
 ):
-    policy = create_guardian_policy_from_file(
-        filename, name, ignore_procs, ignore_conns
-    )
-    if output == lib.OUTPUT_DEFAULT:
-        output = lib.OUTPUT_YAML
-    cli.show(policy, output)
+    if do_api:
+        ctx = cfg.get_current_context()
+        resrc_data = lib.load_file_for_api_test(file)
+        policy = api.api_create_guardian_policy(
+            *ctx.get_api_data(), name, resrc_data
+        )
+        cli.show(policy, lib.OUTPUT_RAW)
+    else:
+        policy = create_guardian_policy_from_file(
+            file, name, ignore_procs, ignore_conns
+        )
+        if output == lib.OUTPUT_DEFAULT:
+            output = lib.OUTPUT_YAML
+        cli.show(policy, output)
 
 
 def create_guardian_policy_from_file(
-    filename: str, name: str, ignore_procs: List = [], ignore_conns: List = []
+    file: IO, name: str, ignore_procs: List = [], ignore_conns: List = []
 ):
-    resrc_data = lib.load_resource_file(filename)
+    resrc_data = lib.load_resource_file(file)
     policy = p.create_policy(resrc_data, name, ignore_procs, ignore_conns)
     return policy
 
@@ -75,7 +82,7 @@ def handle_create_trace_suppression_policy(
 ):
     if do_api:
         ctx = cfg.get_current_context()
-        policy = api.create_suppression_policy(
+        policy = api.api_create_suppression_policy(
             *ctx.get_api_data(),
             name,
             lib.POL_TYPE_TRACE,
@@ -83,11 +90,14 @@ def handle_create_trace_suppression_policy(
             id,
             **selectors,
         )
-        cli.show(policy, output)
-    pol = create_trace_suppression_policy(id, include_users, name, **selectors)
-    if output == lib.OUTPUT_DEFAULT:
-        output = lib.OUTPUT_YAML
-    cli.show(pol.as_dict(), output)
+        cli.show(policy, lib.OUTPUT_RAW)
+    else:
+        pol = create_trace_suppression_policy(
+            id, include_users, name, **selectors
+        )
+        if output == lib.OUTPUT_DEFAULT:
+            output = lib.OUTPUT_YAML
+        cli.show(pol.as_dict(), output)
 
 
 def create_trace_suppression_policy(

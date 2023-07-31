@@ -38,8 +38,10 @@ def merge(i: MergeInput) -> MergeOutput:
             ctx=spyctl_ctx,
         )
         if not merged_object:
-            print(app_lib.flush_spyctl_log_messages())
-            ex.internal_server_error()
+            msg = app_lib.flush_spyctl_log_messages()
+            ex.internal_server_error(msg)
+        app_lib.flush_spyctl_log_messages()
         return MergeOutput(json.dumps(merged_object.get_obj_data()))
     except Exception:
+        app_lib.flush_spyctl_log_messages()
         ex.internal_server_error()

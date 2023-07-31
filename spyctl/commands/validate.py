@@ -6,27 +6,14 @@ import spyctl.config.configs as cfg
 import spyctl.cli as cli
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
-import sys
 
 
 def handle_validate(file: IO, do_api=False):
     if file and do_api:
         ctx = cfg.get_current_context()
-        try:
-            _, resrc_data = lib.__load_yaml_file(file)
-        except ValueError as e:
-            lib.err_exit(" ".join(e.args))
-        except Exception:
-            try:
-                _, resrc_data = lib.__load_json_file(file)
-            except json.JSONDecodeError as e:
-                lib.err_exit("Error decoding json" + " ".join(e.args))
-            except ValueError as e:
-                lib.err_exit(" ".join(e.args))
-            except Exception:
-                lib.err_exit("Unable to load resource file.")
+        resrc_data = lib.load_file_for_api_test(file)
         data = {"object": json.dumps(resrc_data)}
-        invalid_message = api.validate(*ctx.get_api_data(), data)
+        invalid_message = api.api_validate(*ctx.get_api_data(), data)
         if not invalid_message:
             kind = resrc_data[lib.KIND_FIELD]
             cli.try_log(f"{kind} valid!")

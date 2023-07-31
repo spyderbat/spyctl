@@ -37,8 +37,10 @@ def diff(i: DiffInput) -> DiffOutput:
             ctx=spyctl_ctx,
         )
         if not merge_data:
-            print(app_lib.flush_spyctl_log_messages())
-            ex.internal_server_error()
+            msg = app_lib.flush_spyctl_log_messages()
+            ex.internal_server_error(msg)
+        app_lib.flush_spyctl_log_messages()
         return DiffOutput(merge_data.get_diff())
     except Exception:
+        app_lib.flush_spyctl_log_messages()
         ex.internal_server_error()
