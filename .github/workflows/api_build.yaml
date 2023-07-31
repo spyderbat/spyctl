@@ -1,4 +1,4 @@
-name: API Build
+name: Spyctl Build Dry-Run
 on:
   pull_request: 
     branches: [integration_api, staging_api, production_api]
@@ -7,5 +7,6 @@ jobs:
   integration-build:
     uses: ./.github/workflows/reusable-build.yaml
     with:
-      enviro: ${{ vars.ENVIRO }}
+      deployment: ${{ vars.ENVIRO }}
+      environment: integration_api
     secrets: inherit
