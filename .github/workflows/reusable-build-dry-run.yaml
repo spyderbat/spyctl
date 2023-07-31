@@ -1,12 +1,21 @@
-name: API Build
+name: Reusable Build Dry-Run Workflow
+
 on:
-  pull_request: 
-    branches: [integration_api, staging_api, production_api]
+  workflow_call:
+    inputs:
+      deployment:
+        required: true
+        description: name of the spyderbat deployment (integration, staging, prod, etc)
+        type: string
+      environment:
+        type: string
+        description: name of the github environment
+        required: true
+
 jobs:
   run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
-    environment: integration_api
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -25,7 +34,7 @@ jobs:
   build-dry-run:
     name: Docker Build Dry-Run
     runs-on: [self-hosted, ARM64]
-    environment: integration_api
+    environment: ${{ inputs.environment }}
     needs: run-tests
     steps:
     - name: Checkout
@@ -46,7 +55,7 @@ jobs:
       id: build-image
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
-        IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
+        IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
       run: |
         # Build docker container and push it to ECR
         cd ./spyctl_api
@@ -61,8 +70,8 @@ jobs:
   install-dry-run:
     name: Install Helm Chart (Dry Run)
     runs-on: [self-hosted, ARM64]
-    environment: integration_api
     needs: [run-tests, build-dry-run]
+    environment: ${{ inputs.environment }}
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -90,15 +99,14 @@ jobs:
     - name: Run helm upgrade
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
-        IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
+        IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
       run: |
         echo "Dry-Run Upgrading helm spyctl image $IMAGE_TAG"
         helm upgrade --dry-run -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
           --set image.repository=${{ secrets.REPO_NAME }} \
           --set image.tag=$IMAGE_TAG \
           --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.SPYCTL_SVC_ACCOUNT_ROLE_ARN }} \
-          --set deployment=${{ vars.ENVIRO }} \
-          --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local \
+          --set deployment=${{ inputs.deployment }} \
+          --set ingress.hosts[0].host=spyctl-api.${{ inputs.deployment }}.local \
           --set	ingress.hosts[0].paths[0].path="/" \
           --set ingress.hosts[0].paths[0].pathType="ImplementationSpecific"
-
