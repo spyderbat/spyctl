@@ -21,7 +21,7 @@ jobs:
     secrets: inherit
   
   prod-build:
-    if: github.base_ref == production_api'
+    if: github.base_ref == 'production_api'
     uses: ./.github/workflows/reusable-build-dry-run.yaml
     with:
       deployment: prod
