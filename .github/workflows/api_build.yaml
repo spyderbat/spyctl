@@ -7,6 +7,6 @@ jobs:
   integration-build:
     uses: ./.github/workflows/reusable-build.yaml
     with:
-      deployment: ${{ vars.ENVIRO }}
+      deployment: integration
       environment: integration_api
     secrets: inherit
