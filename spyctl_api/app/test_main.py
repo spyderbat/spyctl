@@ -62,8 +62,8 @@ def test_merge():
 
 def test_diff():
     data = {
-        "object": TEST_POLICY2,
-        "diff_objects": TEST_UID_LIST,
+        "object": TEST_POLICY,
+        "diff_objects": TEST_FINGERPRINT_LIST,
         "org_uid": ORG,
         "api_key": API_KEY,
         "api_url": API_URL,
