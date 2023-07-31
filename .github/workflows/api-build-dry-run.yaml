@@ -5,7 +5,7 @@ on:
 
 jobs:
   integration-build:
-    if: github.base_ref == "integration_api"
+    if: github.base_ref == 'integration_api'
     uses: ./.github/workflows/reusable-build-dry-run.yaml
     with:
       deployment: integration
@@ -13,7 +13,7 @@ jobs:
     secrets: inherit
   
   staging-build:
-    if: github.base_ref == "staging_api"
+    if: github.base_ref == 'staging_api'
     uses: ./.github/workflows/reusable-build-dry-run.yaml
     with:
       deployment: staging
@@ -21,7 +21,7 @@ jobs:
     secrets: inherit
   
   prod-build:
-    if: github.base_ref == "production_api"
+    if: github.base_ref == production_api'
     uses: ./.github/workflows/reusable-build-dry-run.yaml
     with:
       deployment: prod
