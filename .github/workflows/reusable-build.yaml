@@ -6,7 +6,6 @@ on:
       enviro:
         required: true
         type: string
-    secrets: inherit
 
 jobs:
   run-tests:
