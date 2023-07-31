@@ -1,3 +1,4 @@
+import json
 from typing import List, Union
 
 import spyctl.schemas_v2 as schemas
@@ -51,10 +52,11 @@ def merge(
     i: MergeHandlerInput,
 ) -> MergeHandlerOutput:
     merge_objects = [
-        obj.dict(by_alias=True, exclude_unset=True) for obj in i.merge_objects
+        json.loads(obj.json(by_alias=True, exclude_unset=True))
+        for obj in i.merge_objects
     ]
     cmd_input = cmd_merge.MergeInput(
-        i.object.dict(by_alias=True, exclude_unset=True),
+        json.loads(i.object.json(by_alias=True, exclude_unset=True)),
         merge_objects,
         i.org_uid,
         i.api_key,

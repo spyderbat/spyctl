@@ -543,15 +543,23 @@ def create_baseline(filename, output, name):
     " into the policy.",
     hidden=True,
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
 def create_policy(
-    filename, output, name, colorize, ignore_procs, ignore_conns
+    filename, output, name, colorize, ignore_procs, ignore_conns, api
 ):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
     c.handle_create_guardian_policy(
-        filename, output, name, ignore_procs, ignore_conns
+        filename, output, name, ignore_procs, ignore_conns, api
     )
 
 
@@ -815,6 +823,14 @@ def describe(resource, name_or_id, filename=None):
     " Default is to include network data in the diff.",
     default=True,
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
 def diff(
     filename,
@@ -827,6 +843,7 @@ def diff(
     with_file=None,
     with_policy=None,
     latest=False,
+    api=False,
 ):
     """Diff target Baselines and Policies with other Resources.
 
@@ -905,6 +922,7 @@ def diff(
         et,
         latest,
         include_network,
+        api,
     )
 
 
@@ -1364,6 +1382,14 @@ def get(
     " Default is to include network data in the merge.",
     default=True,
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
 def merge(
     filename,
@@ -1379,6 +1405,7 @@ def merge(
     with_policy=None,
     latest=False,
     output_to_file=False,
+    api=False,
 ):
     """Merge target Baselines and Policies with other Resources.
 
@@ -1470,6 +1497,7 @@ def merge(
         output_to_file,
         yes_except,
         include_network,
+        api,
     )
 
 
@@ -1591,6 +1619,28 @@ def validate(file, colorize, api):
 
 if __name__ == "__main__":
     main()
+
+# ----------------------------------------------------------------- #
+#                     Hidden Print Subcommand                       #
+# ----------------------------------------------------------------- #
+
+
+@main.command("print", cls=lib.CustomCommand, hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    "file",
+    help="Target file to print",
+    metavar="",
+    required=True,
+    type=click.File(),
+)
+@click.option("-l", "--list-output", is_flag=True, default=False)
+@click.help_option("-h", "--help", hidden=True)
+def print_file(file, list_output):
+    from spyctl.commands.print_file import handle_print_file
+
+    handle_print_file(file, list_output)
 
 
 # ----------------------------------------------------------------- #

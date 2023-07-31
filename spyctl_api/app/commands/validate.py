@@ -29,4 +29,5 @@ def validate(i: ValidateInput) -> ValidateOutput:
             invalid_msg = ""
         return ValidateOutput(invalid_message=invalid_msg)
     except Exception:
+        app_lib.flush_spyctl_log_messages()
         ex.internal_server_error()

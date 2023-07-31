@@ -883,7 +883,21 @@ def __log_interrupt():
 # Spyctl api test functions
 
 
-def create_suppression_policy(
+def api_create_guardian_policy(
+    api_url, api_key, org_uid, name, data: Dict
+) -> str:
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/guardianpolicy/build/"
+    data = {
+        "input_objects": json.dumps([data]),
+    }
+    if name:
+        data["name"] = name
+    resp = post(url, data, api_key)
+    policy = resp.json()["policy"]
+    return policy
+
+
+def api_create_suppression_policy(
     api_url,
     api_key,
     org_uid,
@@ -892,24 +906,45 @@ def create_suppression_policy(
     scope_to_users,
     object_uid,
     **selectors,
-) -> Dict:
+) -> str:
     url = f"{api_url}/api/v1/org/{org_uid}/spyctl/suppressionpolicy/build/"
     data = {"type": type}
+
+    def dash(key: str) -> str:
+        return key.replace("_", "-")
+
+    processed_selectors = {dash(k): v for k, v in selectors.items()}
     if name:
         data["name"] = name
     if scope_to_users:
         data["scope_to_users"] = scope_to_users
     if object_uid:
         data["object_uid"] = object_uid
-    if selectors:
-        data["selectors"] = selectors
+    if processed_selectors:
+        data["selectors"] = processed_selectors
     print(data)
     resp = post(url, data, api_key)
     policy = resp.json()["policy"]
     return policy
 
 
-def validate(api_url, api_key, org_uid, data: Dict) -> str:
+def api_merge(api_url, api_key, org_uid, obj, m_objs):
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/merge/"
+    data = {"merge_objects": json.dumps([m_objs]), "object": json.dumps(obj)}
+    resp = post(url, data, api_key)
+    merged_object = resp.json()["merged_object"]
+    return merged_object
+
+
+def api_diff(api_url, api_key, org_uid, obj, d_objs):
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/diff/"
+    data = {"diff_objects": json.dumps([d_objs]), "object": json.dumps(obj)}
+    resp = post(url, data, api_key)
+    diff_data = resp.json()["diff_data"]
+    return diff_data
+
+
+def api_validate(api_url, api_key, org_uid, data: Dict) -> str:
     url = f"{api_url}/api/v1/org/{org_uid}/spyctl/validate/"
     resp = post(url, data, api_key)
     invalid_msg = resp.json()["invalid_message"]
