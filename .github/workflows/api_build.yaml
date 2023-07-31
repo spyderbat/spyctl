@@ -6,7 +6,6 @@ jobs:
   run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
-    environment: integration_api
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -25,7 +24,6 @@ jobs:
   build-dry-run:
     name: Docker Build Dry-Run
     runs-on: [self-hosted, ARM64]
-    environment: integration_api
     needs: run-tests
     steps:
     - name: Checkout
@@ -61,7 +59,6 @@ jobs:
   install-dry-run:
     name: Install Helm Chart (Dry Run)
     runs-on: [self-hosted, ARM64]
-    environment: integration_api
     needs: [run-tests, build-dry-run]
     steps:
     - name: Checkout

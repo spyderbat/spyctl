@@ -6,7 +6,6 @@ jobs:
   run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
-    environment: integration_api
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -25,7 +24,6 @@ jobs:
   build-and-push:
     name: Build and Push Container Image
     runs-on: [self-hosted, ARM64]
-    environment: integration_api
     needs: run-tests
     steps:
     - name: Checkout
@@ -61,7 +59,6 @@ jobs:
   install:
     name: Install Helm Chart
     runs-on: [self-hosted, ARM64]
-    environment: integration_api
     needs: [run-tests, build-and-push]
     steps:
     - name: Checkout
@@ -101,3 +98,18 @@ jobs:
           --set ingress.hosts[0].host=spyctl-api.${{ vars.ENVIRO }}.local \
           --set	ingress.hosts[0].paths[0].path="/" \
           --set ingress.hosts[0].paths[0].pathType="ImplementationSpecific"
+    - name: Notify Slack
+      env:
+        IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
+      run: |
+        curl -request POST \
+          --header 'Content-type: application/json' \
+          --url ${{ secrets.SLACK_HOOK }} \
+          --data '{"text": "*Spyctl API* released to *'"${{ vars.ENVIRO }}"'*. *Image Tag*: $IMAGE_TAG *Author*: ${{ github.event.head_commit.author.name }} "}'
+    - name: Failure
+      if: ${{ failure() }}
+      run: |
+        curl --request POST \
+        --url ${{ secrets.SLACK_HOOK }} \
+        --header 'content-type: application/json' \
+        --data '{"text": "*Spyctl API* release failure from branch '"${{ vars.ENVIRO }}"' "}'
