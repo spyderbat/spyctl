@@ -1,3 +1,4 @@
+import json
 from typing import List, Union
 
 import spyctl.schemas_v2 as schemas
@@ -48,11 +49,15 @@ class DiffHandlerOutput(BaseModel):
 def diff(
     i: DiffHandlerInput,
 ) -> DiffHandlerOutput:
+    # diff_objects = [
+    #     obj.dict(by_alias=True, exclude_unset=True) for obj in i.diff_objects
+    # ]
     diff_objects = [
-        obj.dict(by_alias=True, exclude_unset=True) for obj in i.diff_objects
+        json.loads(obj.json(by_alias=True, exclude_unset=True))
+        for obj in i.diff_objects
     ]
     cmd_input = cmd_diff.DiffInput(
-        i.object.dict(by_alias=True, exclude_unset=True),
+        json.loads(i.object.json(by_alias=True, exclude_unset=True)),
         diff_objects,
         i.org_uid,
         i.api_key,

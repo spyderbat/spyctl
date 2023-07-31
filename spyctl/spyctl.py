@@ -1625,7 +1625,7 @@ if __name__ == "__main__":
 # ----------------------------------------------------------------- #
 
 
-@main.group("print", cls=lib.CustomSubGroup, hidden=True)
+@main.command("print", cls=lib.CustomCommand, hidden=True)
 @click.option(
     "-f",
     "--filename",
@@ -1635,11 +1635,12 @@ if __name__ == "__main__":
     required=True,
     type=click.File(),
 )
+@click.option("-l", "--list-output", is_flag=True, default=False)
 @click.help_option("-h", "--help", hidden=True)
-def print_file(file):
+def print_file(file, list_output):
     from spyctl.commands.print_file import handle_print_file
 
-    handle_print_file(file)
+    handle_print_file(file, list_output)
 
 
 # ----------------------------------------------------------------- #
