@@ -32,7 +32,10 @@ TIMEOUT_MSG = "A timeout occurred during the API request. "
 
 
 def get(url, key, params=None, raise_notfound=False):
-    headers = {"Authorization": f"Bearer {key}"}
+    if key:
+        headers = {"Authorization": f"Bearer {key}"}
+    else:
+        headers = None
     try:
         r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
     except requests.exceptions.Timeout as e:
@@ -878,6 +881,20 @@ def __log_interrupt_partial():
 def __log_interrupt():
     cli.try_log("\nRequest aborted, no partial results.. exiting.")
     exit(0)
+
+
+def get_pypi_version():
+    url = "https://pypi.org/pypi/spyctl/json"
+    try:
+        resp = get(url, key=None, raise_notfound=True)
+        version = resp.json().get("info", {}).get("version")
+        if not version:
+            # cli.try_log("Unable to parse latest pypi version")
+            return None
+        return version
+    except ValueError:
+        # cli.try_log("Unable to reach version API")
+        pass
 
 
 # Spyctl api test functions
