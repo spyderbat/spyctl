@@ -1,9 +1,12 @@
 #! /usr/bin/env python3
 
+import os
 import time
+from pathlib import Path
 
 import click
 
+import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.commands.create as c
 import spyctl.commands.diff as d
@@ -49,6 +52,7 @@ def main(ctx: click.Context, debug=False):
     if debug:
         lib.set_debug()
     cfgs.load_config()
+    version_check()
 
 
 # ----------------------------------------------------------------- #
@@ -1665,3 +1669,91 @@ def update():
 )
 def update_response_actions(backup_file=None):
     u.handle_update_response_actions(backup_file)
+
+
+# ----------------------------------------------------------------- #
+#                          Helper Functions                         #
+# ----------------------------------------------------------------- #
+
+V_CHECK_CACHE = Path.joinpath(cfgs.GLOBAL_CONFIG_DIR, ".v_check_cache")
+V_CHECK_TIMEOUT = 14400  # 4 hours
+
+
+def version_check():
+    check_version = False
+    if not V_CHECK_CACHE.exists():
+        check_version = True
+    elif not V_CHECK_CACHE.is_file():
+        os.rmdir(str(V_CHECK_CACHE))
+        check_version = True
+    else:
+        with open(V_CHECK_CACHE) as f:
+            lines = f.readlines()
+            if len(lines) == 0:
+                check_version = True
+            else:
+                try:
+                    last_check = float(lines[0])
+                    now = time.time()
+                    if last_check > now or now - last_check > V_CHECK_TIMEOUT:
+                        check_version = True
+                except Exception:
+                    check_version = True
+
+    if check_version:
+        pypi_version = api.get_pypi_version()
+        if not pypi_version:
+            return
+        local_version = get_local_version()
+        if not local_version:
+            cli.try_log("Unable to parse local version")
+        if local_version != pypi_version:
+            cli.try_log(
+                f"[{lib.NOTICE_COLOR}notice{lib.COLOR_END}] A new release of"
+                f" spyctl is available, {lib.WARNING_COLOR}{local_version}"
+                f"{lib.COLOR_END} -> {lib.ADD_COLOR}{pypi_version}"
+                f"{lib.COLOR_END}"
+            )
+            cli.try_log(
+                f"[{lib.NOTICE_COLOR}notice{lib.COLOR_END}] To update, run: "
+                f"{lib.ADD_COLOR}pip install spyctl -U{lib.COLOR_END}"
+            )
+    now = time.time()
+    with open(V_CHECK_CACHE, "w") as f:
+        f.write(f"{now}")
+
+
+def get_local_version():
+    # used click's decorators.py as a reference for getting the version
+    import inspect
+    import types
+    import typing as t
+
+    frame = inspect.currentframe()
+    f_back = frame.f_back if frame is not None else None
+    f_globals = f_back.f_globals if f_back is not None else None
+    del frame
+    if f_globals is not None:
+        package_name = f_globals.get("__name__")
+        if package_name == "__main__":
+            package_name = f_globals.get("__package__")
+        if package_name:
+            package_name = package_name.partition(".")[0]
+        if package_name is not None:
+            metadata: t.Optional[types.ModuleType]
+
+            try:
+                from importlib import metadata  # type: ignore
+            except ImportError:
+                # Python < 3.8
+                import importlib_metadata as metadata  # type: ignore
+
+            try:
+                version = metadata.version(package_name)  # type: ignore
+            except metadata.PackageNotFoundError:  # type: ignore
+                raise RuntimeError(
+                    f"{package_name!r} is not installed. Try passing"
+                    " 'package_name' instead."
+                ) from None
+            return version
+    return None

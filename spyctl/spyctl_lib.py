@@ -40,6 +40,7 @@ COLORIZE_OUTPUT = True
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
 WARNING_COLOR = "\x1b[38;5;203m"
+NOTICE_COLOR = "\x1b[38;5;75m"
 ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
@@ -51,12 +52,14 @@ USE_LOG_VARS = False
 
 
 def disable_colorization():
-    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END, ADD_COLOR, SUB_COLOR
+    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END
+    global ADD_COLOR, SUB_COLOR, NOTICE_COLOR
     COLORIZE_OUTPUT = False
     WARNING_COLOR = ""
     COLOR_END = ""
     SUB_COLOR = ""
     ADD_COLOR = ""
+    NOTICE_COLOR = ""
 
 
 def flush_log_var() -> str:
