@@ -40,6 +40,7 @@ COLORIZE_OUTPUT = True
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
 WARNING_COLOR = "\x1b[38;5;203m"
+NOTICE_COLOR = "\x1b[38;5;75m"
 ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
@@ -51,12 +52,14 @@ USE_LOG_VARS = False
 
 
 def disable_colorization():
-    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END, ADD_COLOR, SUB_COLOR
+    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END
+    global ADD_COLOR, SUB_COLOR, NOTICE_COLOR
     COLORIZE_OUTPUT = False
     WARNING_COLOR = ""
     COLOR_END = ""
     SUB_COLOR = ""
     ADD_COLOR = ""
+    NOTICE_COLOR = ""
 
 
 def flush_log_var() -> str:
@@ -1757,3 +1760,20 @@ def set_api_call():
 def set_debug():
     global DEBUG
     DEBUG = True
+
+
+def load_file_for_api_test(file: IO):
+    try:
+        _, resrc_data = __load_yaml_file(file)
+    except ValueError as e:
+        err_exit(" ".join(e.args))
+    except Exception:
+        try:
+            _, resrc_data = __load_json_file(file)
+        except json.JSONDecodeError as e:
+            err_exit("Error decoding json" + " ".join(e.args))
+        except ValueError as e:
+            err_exit(" ".join(e.args))
+        except Exception:
+            err_exit("Unable to load resource file.")
+    return resrc_data

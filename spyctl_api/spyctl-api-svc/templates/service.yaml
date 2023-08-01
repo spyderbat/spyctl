@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "spyctl-api-svc.fullname" . }}
+  labels:
+    {{- include "spyctl-api-svc.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+  selector:
+    {{- include "spyctl-api-svc.selectorLabels" . | nindent 4 }}

@@ -1,11 +1,13 @@
+import json
+from typing import List, Literal, Optional, Union
+
+import spyctl.schemas_v2 as schemas
+import spyctl.spyctl_lib as lib
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, Json
-from typing import Dict, List, Union, Literal, Optional
 from typing_extensions import Annotated
 
 import app.commands.create as cmd_create
-import spyctl.schemas_v2 as schemas
-import spyctl.spyctl_lib as lib
 
 router = APIRouter(prefix="/api/v1")
 
@@ -35,14 +37,14 @@ class CreateSuppressionPolicyInputSelectorFields(BaseModel):
 
 
 class CreateSuppressionPolicyHandlerInput(BaseModel):
-    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(
+    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(  # type: ignore
         title="The type of suppression policy to create"
     )
     object_uid: str | None = Field(title="UID of the object to suppress")
     scope_to_users: bool = Field(
         default=False, title="Scope the created policy to the relevant users"
     )
-    selectors: CreateSuppressionPolicyInputSelectorFields = Field(
+    selectors: Optional[CreateSuppressionPolicyInputSelectorFields] = Field(
         default={}, title="Additional selectors to add to the policy"
     )
     name: str = Field(
@@ -111,7 +113,8 @@ def create_guardian_policy(
     i: CreateGuardianPolicyHandlerInput,
 ) -> CreateGuardianPolicyHandlerOutput:
     input_objects = [
-        obj.dict(by_alias=True, exclude_unset=True) for obj in i.input_objects
+        json.loads(obj.json(by_alias=True, exclude_unset=True))
+        for obj in i.input_objects
     ]
     cmd_input = cmd_create.CreateGuardianPolicyInput(
         i.name,

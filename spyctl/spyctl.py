@@ -1,9 +1,12 @@
 #! /usr/bin/env python3
 
+import os
 import time
+from pathlib import Path
 
 import click
 
+import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.commands.create as c
 import spyctl.commands.diff as d
@@ -49,6 +52,7 @@ def main(ctx: click.Context, debug=False):
     if debug:
         lib.set_debug()
     cfgs.load_config()
+    version_check()
 
 
 # ----------------------------------------------------------------- #
@@ -543,15 +547,23 @@ def create_baseline(filename, output, name):
     " into the policy.",
     hidden=True,
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
 def create_policy(
-    filename, output, name, colorize, ignore_procs, ignore_conns
+    filename, output, name, colorize, ignore_procs, ignore_conns, api
 ):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
     c.handle_create_guardian_policy(
-        filename, output, name, ignore_procs, ignore_conns
+        filename, output, name, ignore_procs, ignore_conns, api
     )
 
 
@@ -648,10 +660,18 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     metavar="",
     type=lib.ListParam(),
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.tmp_context_options
 @lib.colorization_option
 def create_suppression_policy(
-    type, id, include_users, output, name, colorize, **selectors
+    type, id, include_users, output, name, colorize, api, **selectors
 ):
     """Create a Suppression Policy object from a file, outputted to stdout"""
     if not colorize:
@@ -665,7 +685,7 @@ def create_suppression_policy(
     if org_uid and api_key and api_url:
         cfgs.use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
-        type, id, include_users, output, name, **selectors
+        type, id, include_users, output, name, api, **selectors
     )
 
 
@@ -807,6 +827,14 @@ def describe(resource, name_or_id, filename=None):
     " Default is to include network data in the diff.",
     default=True,
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
 def diff(
     filename,
@@ -819,6 +847,7 @@ def diff(
     with_file=None,
     with_policy=None,
     latest=False,
+    api=False,
 ):
     """Diff target Baselines and Policies with other Resources.
 
@@ -897,6 +926,7 @@ def diff(
         et,
         latest,
         include_network,
+        api,
     )
 
 
@@ -1356,6 +1386,14 @@ def get(
     " Default is to include network data in the merge.",
     default=True,
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
 def merge(
     filename,
@@ -1371,6 +1409,7 @@ def merge(
     with_policy=None,
     latest=False,
     output_to_file=False,
+    api=False,
 ):
     """Merge target Baselines and Policies with other Resources.
 
@@ -1462,6 +1501,7 @@ def merge(
         output_to_file,
         yes_except,
         include_network,
+        api,
     )
 
 
@@ -1560,8 +1600,16 @@ def suppress_spydertrace(
     required=True,
     type=click.File(),
 )
+@click.option(
+    "-a",
+    "--api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
 @lib.colorization_option
-def validate(file, colorize):
+def validate(file, colorize, api):
     """Validate spyderbat resource and spyctl configuration files.
 
     \b
@@ -1570,11 +1618,33 @@ def validate(file, colorize):
     """
     if not colorize:
         lib.disable_colorization()
-    v.handle_validate(file)
+    v.handle_validate(file, api)
 
 
 if __name__ == "__main__":
     main()
+
+# ----------------------------------------------------------------- #
+#                     Hidden Print Subcommand                       #
+# ----------------------------------------------------------------- #
+
+
+@main.command("print", cls=lib.CustomCommand, hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    "file",
+    help="Target file to print",
+    metavar="",
+    required=True,
+    type=click.File(),
+)
+@click.option("-l", "--list-output", is_flag=True, default=False)
+@click.help_option("-h", "--help", hidden=True)
+def print_file(file, list_output):
+    from spyctl.commands.print_file import handle_print_file
+
+    handle_print_file(file, list_output)
 
 
 # ----------------------------------------------------------------- #
@@ -1599,3 +1669,91 @@ def update():
 )
 def update_response_actions(backup_file=None):
     u.handle_update_response_actions(backup_file)
+
+
+# ----------------------------------------------------------------- #
+#                          Helper Functions                         #
+# ----------------------------------------------------------------- #
+
+V_CHECK_CACHE = Path.joinpath(cfgs.GLOBAL_CONFIG_DIR, ".v_check_cache")
+V_CHECK_TIMEOUT = 14400  # 4 hours
+
+
+def version_check():
+    check_version = False
+    if not V_CHECK_CACHE.exists():
+        check_version = True
+    elif not V_CHECK_CACHE.is_file():
+        os.rmdir(str(V_CHECK_CACHE))
+        check_version = True
+    else:
+        with open(V_CHECK_CACHE) as f:
+            lines = f.readlines()
+            if len(lines) == 0:
+                check_version = True
+            else:
+                try:
+                    last_check = float(lines[0])
+                    now = time.time()
+                    if last_check > now or now - last_check > V_CHECK_TIMEOUT:
+                        check_version = True
+                except Exception:
+                    check_version = True
+
+    if check_version:
+        pypi_version = api.get_pypi_version()
+        if not pypi_version:
+            return
+        local_version = get_local_version()
+        if not local_version:
+            cli.try_log("Unable to parse local version")
+        if local_version != pypi_version:
+            cli.try_log(
+                f"[{lib.NOTICE_COLOR}notice{lib.COLOR_END}] A new release of"
+                f" spyctl is available, {lib.WARNING_COLOR}{local_version}"
+                f"{lib.COLOR_END} -> {lib.ADD_COLOR}{pypi_version}"
+                f"{lib.COLOR_END}"
+            )
+            cli.try_log(
+                f"[{lib.NOTICE_COLOR}notice{lib.COLOR_END}] To update, run: "
+                f"{lib.ADD_COLOR}pip install spyctl -U{lib.COLOR_END}"
+            )
+    now = time.time()
+    with open(V_CHECK_CACHE, "w") as f:
+        f.write(f"{now}")
+
+
+def get_local_version():
+    # used click's decorators.py as a reference for getting the version
+    import inspect
+    import types
+    import typing as t
+
+    frame = inspect.currentframe()
+    f_back = frame.f_back if frame is not None else None
+    f_globals = f_back.f_globals if f_back is not None else None
+    del frame
+    if f_globals is not None:
+        package_name = f_globals.get("__name__")
+        if package_name == "__main__":
+            package_name = f_globals.get("__package__")
+        if package_name:
+            package_name = package_name.partition(".")[0]
+        if package_name is not None:
+            metadata: t.Optional[types.ModuleType]
+
+            try:
+                from importlib import metadata  # type: ignore
+            except ImportError:
+                # Python < 3.8
+                import importlib_metadata as metadata  # type: ignore
+
+            try:
+                version = metadata.version(package_name)  # type: ignore
+            except metadata.PackageNotFoundError:  # type: ignore
+                raise RuntimeError(
+                    f"{package_name!r} is not installed. Try passing"
+                    " 'package_name' instead."
+                ) from None
+            return version
+    return None

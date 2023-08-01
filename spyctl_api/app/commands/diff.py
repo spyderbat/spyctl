@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 
 from spyctl.commands.merge import merge_resource
@@ -8,40 +7,40 @@ import app.exceptions as ex
 from typing import Dict, List
 
 # ------------------------------------------------------------------------------
-# Merge Object(s) into Object
+# Diff Object with Object(s)
 # ------------------------------------------------------------------------------
 
 
 @dataclass
-class MergeInput:
+class DiffInput:
     object: Dict
-    merge_objects: List[Dict]
+    diff_objects: List[Dict]
     org_uid: str = ""
     api_key: str = ""
     api_url: str = ""
 
 
 @dataclass
-class MergeOutput:
-    merged_object: str
+class DiffOutput:
+    diff_data: str
 
 
-def merge(i: MergeInput) -> MergeOutput:
+def diff(i: DiffInput) -> DiffOutput:
     spyctl_ctx = app_lib.generate_spyctl_context(
         i.org_uid, i.api_key, i.api_url
     )
     try:
-        merged_object = merge_resource(
+        merge_data = merge_resource(
             i.object,
-            "API Merge Request Object",
-            i.merge_objects,
+            "API Diff Request Object",
+            i.diff_objects,
             ctx=spyctl_ctx,
         )
-        if not merged_object:
+        if not merge_data:
             msg = app_lib.flush_spyctl_log_messages()
             ex.internal_server_error(msg)
         app_lib.flush_spyctl_log_messages()
-        return MergeOutput(json.dumps(merged_object.get_obj_data()))
+        return DiffOutput(merge_data.get_diff())
     except Exception:
         app_lib.flush_spyctl_log_messages()
         ex.internal_server_error()
