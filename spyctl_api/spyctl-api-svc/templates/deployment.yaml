@@ -41,7 +41,7 @@ spec:
             httpGet:
               path: /alive
               port: http
-            failureThreshold: 1
+            failureThreshold: 2
             periodSeconds: 10
           readinessProbe:
             httpGet:
