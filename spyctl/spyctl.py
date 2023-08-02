@@ -525,27 +525,23 @@ def create_baseline(filename, output, name):
     metavar="",
 )
 @click.option(
-    "-I",
-    "--ignore-procs",
-    type=lib.ListDictParam(),
-    multiple=True,
+    "-d",
+    "--disable-processes",
+    "disable_procs",
+    type=click.Choice(lib.DISABLE_PROCS_STRINGS),
     metavar="",
-    default=[],
-    hidden=True,
-    help="Optional processes to ignore. This option may be used multiple times"
-    " (ex. '-I name=foo -I name=bar,exe=/foo/bar'). Fields listed together"
-    " will be AND'ed together, multiple uses of the option will be OR'ed. You"
-    " can also specify ignoring all processes with '-I all'. Wildcarding is"
-    " also available",
+    hidden=False,
+    help="Disable processes detections for this policy. Disabling all "
+    "processes detections effectively turns this into a network policy.",
 )
 @click.option(
     "-C",
-    "--ignore-conns",
-    type=click.Choice(lib.IGNORE_CONN_STRINGS),
+    "--disable-connections",
+    "disable_conns",
+    type=click.Choice(lib.DISABLE_CONN_OPTIONS_STRINGS),
     metavar="",
-    help="Ignore connections during policy enforcement and don't build them"
-    " into the policy.",
-    hidden=True,
+    help="Disable detections for all, public, or private connections.",
+    hidden=False,
 )
 @click.option(
     "-a",
@@ -557,13 +553,13 @@ def create_baseline(filename, output, name):
 )
 @lib.colorization_option
 def create_policy(
-    filename, output, name, colorize, ignore_procs, ignore_conns, api
+    filename, output, name, colorize, disable_procs, disable_conns, api
 ):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
     c.handle_create_guardian_policy(
-        filename, output, name, ignore_procs, ignore_conns, api
+        filename, output, name, disable_procs, disable_conns, api
     )
 
 

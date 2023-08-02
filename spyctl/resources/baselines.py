@@ -7,7 +7,7 @@ import spyctl.resources.policies as spyctl_policies
 import spyctl.spyctl_lib as lib
 import spyctl.config.configs as cfg
 import spyctl.resources.resources_lib as r_lib
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 
 FPRINT_KIND = spyctl_fprints.FPRINT_KIND
 GROUP_KIND = spyctl_fprints.GROUP_KIND

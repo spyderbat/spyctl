@@ -10,7 +10,7 @@ import yaml
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 
 SPEC_FIELD = lib.SPEC_FIELD
 CONT_SELECTOR_FIELD = lib.CONT_SELECTOR_FIELD
@@ -64,8 +64,8 @@ class MergeObject:
         merge_schemas: List["MergeSchema"],
         validation_fn: Callable,
         merge_network: bool = True,
-        ignore_procs: List = [],
-        ignore_conns: List = [],
+        disable_procs: str = None,
+        disable_conns: str = None,
     ) -> None:
         self.original_obj = deepcopy(obj_data)
         self.obj_data = deepcopy(obj_data)
@@ -73,8 +73,10 @@ class MergeObject:
         self.validation_fn = validation_fn
         self.starting_yaml = yaml.dump(obj_data)
         self.merge_network = merge_network
-        self.ignore_procs = parse_ignore_procs(ignore_procs)
-        self.ignore_conns = parse_ignore_conns(ignore_conns)
+
+        # guardian spec merge settings
+        self.__parse_disable_procs_settings(disable_procs)
+        self.__parse_disable_conns_settings(disable_conns)
 
     def symmetric_merge(self, other: Union["MergeObject", Dict]):
         global BASE_NODE_LIST, MERGING_NODE_LIST
@@ -212,7 +214,7 @@ class MergeObject:
             if data is None or other_data is None:
                 result = None
             else:
-                result = func(data, other_data, symmetric)
+                result = func(self, data, other_data, symmetric)
         else:
             if data is None and other_data is None:
                 result = None
@@ -221,8 +223,54 @@ class MergeObject:
             if other_data is None:
                 result = data
             else:
-                result = func(data, other_data, symmetric)
+                result = func(self, data, other_data, symmetric)
         return result
+
+    def __parse_disable_procs_settings(self, s: str) -> bool:
+        dpf = self.original_obj.get(lib.SPEC_FIELD, {}).get(
+            lib.DISABLE_PROCS_FIELD, ""
+        )
+        if s == lib.DISABLE_PROCS_ALL or dpf == lib.DISABLE_PROCS_ALL:
+            self.disable_procs = lib.DISABLE_PROCS_ALL
+        else:
+            self.disable_procs = None
+
+    def __parse_disable_conns_settings(self, s: str) -> bool:
+        dcf = self.original_obj.get(lib.SPEC_FIELD, {}).get(
+            lib.DISABLE_CONNS_FIELD, ""
+        )
+        if s == lib.DISABLE_CONNS_ALL or dcf == lib.DISABLE_CONNS_ALL:
+            self.disable_conns = lib.DISABLE_CONNS_ALL
+        elif s == lib.DISABLE_CONNS_EGRESS or dcf == lib.EGRESS_FIELD:
+            self.disable_conns = lib.EGRESS_FIELD
+        elif s == lib.DISABLE_CONNS_INGRESS or dcf == lib.INGRESS_FIELD:
+            self.disable_conns = lib.INGRESS_FIELD
+        else:
+            self.disable_conns = None
+
+        dpr = self.original_obj.get(lib.SPEC_FIELD, {}).get(
+            lib.DISABLE_PR_CONNS_FIELD, ""
+        )
+        if s == lib.DISABLE_CONNS_PRIVATE or dpr == lib.DISABLE_CONNS_ALL:
+            self.disable_private_conns = lib.DISABLE_CONNS_ALL
+        elif s == lib.DISABLE_CONNS_PRIVATE_E or dpr == lib.EGRESS_FIELD:
+            self.disable_private_conns = lib.EGRESS_FIELD
+        elif s == lib.DISABLE_CONNS_PRIVATE_I or dpr == lib.INGRESS_FIELD:
+            self.disable_private_conns = lib.INGRESS_FIELD
+        else:
+            self.disable_private_conns = None
+
+        dpu = self.original_obj.get(lib.SPEC_FIELD, {}).get(
+            lib.DISABLE_PU_CONNS_FIELD, ""
+        )
+        if s == lib.DISABLE_CONNS_PUBLIC or dpu == lib.DISABLE_CONNS_ALL:
+            self.disable_public_conns = lib.DISABLE_CONNS_ALL
+        elif s == lib.DISABLE_CONNS_PUBLIC_E or dpu == lib.EGRESS_FIELD:
+            self.disable_public_conns = lib.EGRESS_FIELD
+        elif s == lib.DISABLE_CONNS_PUBLIC_I or dpu == lib.INGRESS_FIELD:
+            self.disable_public_conns = lib.INGRESS_FIELD
+        else:
+            self.disable_public_conns = None
 
 
 class MergeSchema:
@@ -625,7 +673,11 @@ class InvalidNetworkNode(Exception):
 
 
 class IPBlock:
-    def __init__(self, ip_network, except_networks: List = None) -> None:
+    def __init__(
+        self,
+        ip_network: Union[ipaddr.IPv4Network, ipaddr.IPv6Network],
+        except_networks: List = None,
+    ) -> None:
         self.network = ip_network
         self.except_networks = except_networks
         if except_networks is not None:
@@ -725,17 +777,54 @@ class NetworkNode:
             )
         self.__parse_port_block(node_data[lib.PORTS_FIELD])
 
-    def symmetrical_merge(self, other_node: "NetworkNode"):
-        self.__merge_ip_blocks(other_node.ip_blocks, symmetrical=True)
-        self.__merge_dns_names(other_node.dns_names, symmetrical=True)
+    def symmetrical_merge(
+        self,
+        other_node: "NetworkNode",
+    ):
+        self.__merge_ip_blocks(
+            other_node.ip_blocks,
+            symmetrical=True,
+        )
+        self.__merge_dns_names(
+            other_node.dns_names,
+            symmetrical=True,
+        )
         self.__merge_process_ids(other_node.processes)
 
     def asymmetrical_merge(self, other_node: "NetworkNode"):
-        self.__merge_ip_blocks(other_node.ip_blocks, symmetrical=False)
-        self.__merge_dns_names(other_node.dns_names, symmetrical=False)
+        self.__merge_ip_blocks(
+            other_node.ip_blocks,
+            symmetrical=False,
+        )
+        self.__merge_dns_names(
+            other_node.dns_names,
+            symmetrical=False,
+        )
         self.__merge_process_ids(other_node.processes)
 
-    def as_dict(self) -> Dict:
+    def internal_merge(self):
+        if self.node_list.ignore_procs:
+            self.proc_node_list = []
+        new_blocks = []
+        for block in self.ip_blocks:
+            if block in new_blocks:
+                continue
+            if self.node_list.ignore_private and block.network.is_private:
+                continue
+            if self.node_list.ignore_public and not block.network.is_private:
+                continue
+            new_blocks.append(block)
+        self.ip_blocks = new_blocks
+        dns_names = set()
+        for dns_name in self.dns_names:
+            if self.node_list.ignore_private and lib.is_private_dns(dns_name):
+                continue
+            if self.node_list.ignore_public and lib.is_public_dns(dns_name):
+                continue
+            dns_names.add(dns_name)
+        self.dns_names = list(dns_names)
+
+    def as_dict(self) -> Optional[Dict]:
         or_field_string = (
             lib.TO_FIELD if self.type == NODE_TYPE_EGRESS else lib.FROM_FIELD
         )
@@ -757,8 +846,12 @@ class NetworkNode:
         ]
         ipv6_blocks.sort(key=lambda x: x.network)
         ipv6_blocks = [b.as_dict() for b in ipv6_blocks]
-        rv[or_field_string] = dns_names + ipv4_blocks + ipv6_blocks
-        rv[lib.PROCESSES_FIELD] = self.processes
+        or_blocks = dns_names + ipv4_blocks + ipv6_blocks
+        if not or_blocks:
+            return None
+        rv[or_field_string] = or_blocks
+        if self.processes:
+            rv[lib.PROCESSES_FIELD] = self.processes
         rv[lib.PORTS_FIELD] = [p.as_dict() for p in self.port_ranges]
         return rv
 
@@ -772,15 +865,18 @@ class NetworkNode:
             NetworkNode: a converted copy of this network node
         """
         rv = deepcopy(self)
-        for i, id in enumerate(rv.processes.copy()):
-            proc_node = rv.__find_proc_node(id, self.proc_node_list)
-            if proc_node is None:
-                raise InvalidNetworkNode(
-                    "Unable to find process node to convert"
-                )
-            if proc_node.merged_id is not None:
-                rv.processes[i] = proc_node.merged_id
-        rv.processes = list(set(rv.processes))
+        if self.node_list.ignore_procs:
+            rv.processes = []
+        else:
+            for i, id in enumerate(rv.processes.copy()):
+                proc_node = rv.__find_proc_node(id, self.proc_node_list)
+                if proc_node is None:
+                    raise InvalidNetworkNode(
+                        "Unable to find process node to convert"
+                    )
+                if proc_node.merged_id is not None:
+                    rv.processes[i] = proc_node.merged_id
+            rv.processes = list(set(rv.processes))
         rv.proc_node_list = BASE_NODE_LIST
         return rv
 
@@ -835,12 +931,17 @@ class NetworkNode:
             )
 
     def __merge_process_ids(self, other_processes: List[str]):
+        if self.node_list.ignore_procs:
+            self.processes = []
+            return
         self.processes.extend(other_processes)
         self.processes = sorted(list(set(self.processes)))
 
-    def __merge_ip_block(self, other_ip_block: IPBlock, symmetrical=False):
-        # if other_ip_block in self.ip_blocks:
-        #     return
+    def __merge_ip_block(
+        self,
+        other_ip_block: IPBlock,
+        symmetrical=False,
+    ):
         if symmetrical:
             match = False
             for i, ip_block in enumerate(self.ip_blocks):
@@ -863,12 +964,25 @@ class NetworkNode:
                 self.ip_blocks.append(other_ip_block)
 
     def __merge_ip_blocks(
-        self, other_ip_blocks: List[IPBlock], symmetrical=False
+        self,
+        other_ip_blocks: List[IPBlock],
+        symmetrical=False,
     ):
         for o_ip_block in other_ip_blocks:
+            if self.node_list.ignore_private and o_ip_block.network.is_private:
+                continue
+            if (
+                self.node_list.ignore_public
+                and not o_ip_block.network.is_private
+            ):
+                continue
             self.__merge_ip_block(o_ip_block, symmetrical)
 
-    def __merge_dns_name(self, other_dns_name: str, symmetrical=False):
+    def __merge_dns_name(
+        self,
+        other_dns_name: str,
+        symmetrical=False,
+    ):
         if symmetrical:
             match = False
             for i, dns_name in enumerate(self.dns_names):
@@ -890,9 +1004,19 @@ class NetworkNode:
             if not match:
                 self.dns_names.append(other_dns_name)
 
-    def __merge_dns_names(self, other_dns_names: List[str], symmetrical=False):
+    def __merge_dns_names(
+        self,
+        other_dns_names: List[str],
+        symmetrical=False,
+    ):
         for o_dns_name in other_dns_names:
-            self.__merge_dns_name(o_dns_name)
+            if self.node_list.ignore_private and lib.is_private_dns(
+                o_dns_name
+            ):
+                continue
+            if self.node_list.ignore_public and lib.is_public_dns(o_dns_name):
+                continue
+            self.__merge_dns_name(o_dns_name, symmetrical)
 
     def __find_proc_node(
         self, proc_id, node_list: ProcessNodeList
@@ -907,6 +1031,13 @@ class NetworkNode:
 
     def __contains_ip_blocks(self, other_ip_blocks: List[IPBlock]) -> bool:
         for o_ip_block in other_ip_blocks:
+            if self.node_list.ignore_private and o_ip_block.network.is_private:
+                continue
+            if (
+                self.node_list.ignore_public
+                and not o_ip_block.network.is_private
+            ):
+                continue
             if not self.__contains_ip_block(o_ip_block):
                 return False
         return True
@@ -933,6 +1064,12 @@ class NetworkNode:
 
     def __contains_dns_names(self, other_dns_names: List[str]) -> bool:
         for o_dns_name in other_dns_names:
+            if self.node_list.ignore_private and lib.is_private_dns(
+                o_dns_name
+            ):
+                continue
+            if self.node_list.ignore_public and lib.is_public_dns(o_dns_name):
+                continue
             if not self.__contains_dns_name(o_dns_name):
                 return False
         return True
@@ -961,6 +1098,9 @@ class NetworkNode:
     def __contains_processes(
         self, other_processes: List[str], other_proc_list: ProcessNodeList
     ) -> bool:
+        if len(self.processes) == 0 or self.node_list.ignore_procs:
+            # processes of len 0 means any process
+            return True
         for o_process_id in other_processes:
             if not self.__contains_process(o_process_id, other_proc_list):
                 return False
@@ -1007,27 +1147,50 @@ class NetworkNode:
 
 class NetworkNodeList:
     def __init__(
-        self, nodes_data: List[Dict], proc_node_list: ProcessNodeList
+        self,
+        nodes_data: List[Dict],
+        proc_node_list: ProcessNodeList,
+        ignore_private=False,
+        ignore_public=False,
+        ignore_procs=False,
     ) -> None:
         self.nodes: List[NetworkNode] = []
         self.proc_node_list = proc_node_list
+        self.ignore_private = ignore_private
+        self.ignore_public = ignore_public
+        self.ignore_procs = ignore_procs
         for node_data in nodes_data:
             self.__add_node(node_data)
+        if self.nodes:
+            self.type = self.nodes[0].type
+        else:
+            self.type = None
 
-    def symmetrical_merge(self, other_list: "NetworkNodeList"):
+    def symmetrical_merge(
+        self,
+        other_list: "NetworkNodeList",
+    ):
         for other_node in other_list.nodes:
             self.__symmetrical_merge_helper(other_node)
 
-    def asymmetrical_merge(self, other_list: "NetworkNodeList"):
+    def asymmetrical_merge(
+        self,
+        other_list: "NetworkNodeList",
+    ):
         for other_node in other_list.nodes:
             self.__asymmetrical_merge_helper(other_node)
 
-    def internal_merge(self):
+    def internal_merge(
+        self,
+    ):
         if len(self.nodes) <= 1:
+            if len(self.nodes) == 1:
+                self.nodes[0].internal_merge()
             return
         skip_index = set()
         new_nodes = []
         for i, node in enumerate(self.nodes):
+            node.internal_merge()
             if i in skip_index:
                 continue
             if i == len(self.nodes) - 1:
@@ -1044,7 +1207,9 @@ class NetworkNodeList:
     def get_data(self) -> List[Dict]:
         rv = []
         for node in self.nodes:
-            rv.append(node.as_dict())
+            node_dict = node.as_dict()
+            if node_dict:
+                rv.append(node_dict)
         return rv
 
     def __add_node(self, node_data: Dict):
@@ -1065,7 +1230,10 @@ class NetworkNodeList:
         if not match:
             self.nodes.append(cvt_other_node)
 
-    def __asymmetrical_merge_helper(self, other_node: "NetworkNode"):
+    def __asymmetrical_merge_helper(
+        self,
+        other_node: "NetworkNode",
+    ):
         match = False
         cvt_other_node = other_node.converted
         for i, node in enumerate(self.nodes):
@@ -1078,9 +1246,16 @@ class NetworkNodeList:
 
 
 def merge_proc_policies(
-    proc_data: List[Dict], other_proc_data: List[Dict], symmetric: bool
+    mo: MergeObject,
+    proc_data: List[Dict],
+    other_proc_data: List[Dict],
+    symmetric: bool,
 ):
     global BASE_NODE_LIST, MERGING_NODE_LIST
+    if mo.disable_procs:
+        BASE_NODE_LIST = ProcessNodeList([])
+        MERGING_NODE_LIST = ProcessNodeList([])
+        return []
     if BASE_NODE_LIST is None:
         BASE_NODE_LIST = ProcessNodeList(proc_data)
     MERGING_NODE_LIST = ProcessNodeList(other_proc_data)
@@ -1094,12 +1269,53 @@ def merge_proc_policies(
 
 
 def merge_ingress_or_egress(
-    base_data: List[Dict], other_data: List[Dict], symmetric: bool
+    mo: MergeObject,
+    base_data: List[Dict],
+    other_data: List[Dict],
+    symmetric: bool,
 ):
-    result = []
-    net_node_list = NetworkNodeList(base_data, BASE_NODE_LIST)
+    if mo.disable_conns == lib.DISABLE_CONNS_ALL:
+        return []
+    disable_private = mo.disable_private_conns == lib.DISABLE_CONNS_ALL
+    disable_public = mo.disable_public_conns == lib.DISABLE_CONNS_ALL
+    disable_procs = mo.disable_procs == lib.DISABLE_PROCS_ALL
+    net_node_list = NetworkNodeList(
+        base_data,
+        BASE_NODE_LIST,
+        disable_private,
+        disable_public,
+        disable_procs,
+    )
+    other_node_list = NetworkNodeList(
+        other_data,
+        MERGING_NODE_LIST,
+        disable_private,
+        disable_public,
+        disable_procs,
+    )
+    direction = net_node_list.type or other_node_list.type
+    if not direction:
+        return []
+    if direction == lib.EGRESS_FIELD:
+        if mo.disable_conns == lib.DISABLE_CONNS_EGRESS:
+            return []
+        if mo.disable_private_conns == lib.DISABLE_CONNS_EGRESS:
+            net_node_list.ignore_private = True
+            other_node_list.ignore_private = True
+        if mo.disable_public_conns == lib.DISABLE_CONNS_EGRESS:
+            net_node_list.ignore_public = True
+            other_node_list.ignore_public = True
+    else:
+        if mo.disable_conns == lib.DISABLE_CONNS_INGRESS:
+            return []
+        if mo.disable_private_conns == lib.DISABLE_CONNS_INGRESS:
+            net_node_list.ignore_private = True
+            other_node_list.ignore_private = True
+        if mo.disable_public_conns == lib.DISABLE_CONNS_INGRESS:
+            net_node_list.ignore_public = True
+            other_node_list.ignore_public = True
     net_node_list.internal_merge()
-    other_node_list = NetworkNodeList(other_data, MERGING_NODE_LIST)
+    other_node_list.internal_merge()
     if symmetric:
         net_node_list.symmetrical_merge(other_node_list)
     else:
@@ -1108,7 +1324,9 @@ def merge_ingress_or_egress(
     return result
 
 
-def common_keys_merge(base_data: Dict, other_data: Dict, symmetric: bool):
+def common_keys_merge(
+    mo: MergeObject, base_data: Dict, other_data: Dict, symmetric: bool
+):
     result = {}
     common_keys = set(base_data).intersection(set(other_data))
     for key, value in base_data.items():
@@ -1121,7 +1339,9 @@ def common_keys_merge(base_data: Dict, other_data: Dict, symmetric: bool):
     return None
 
 
-def wildcard_merge(base_str: str, other_str: str, symmetric: bool):
+def wildcard_merge(
+    mo: MergeObject, base_str: str, other_str: str, symmetric: bool
+):
     "Result of the merge can be wildcarded"
     if symmetric:
         if base_str and other_str:
@@ -1144,7 +1364,7 @@ def wildcard_merge(base_str: str, other_str: str, symmetric: bool):
     return result
 
 
-def all_eq_merge(base_str: str, other_str: str, _):
+def all_eq_merge(mo: MergeObject, base_str: str, other_str: str, _):
     if base_str == other_str:
         result = base_str
     else:
@@ -1152,11 +1372,13 @@ def all_eq_merge(base_str: str, other_str: str, _):
     return result
 
 
-def keep_base_value_merge(base_val: Any, other_val: Any, _):
+def keep_base_value_merge(mo: MergeObject, base_val: Any, other_val: Any, _):
     return base_val
 
 
-def greatest_value_merge(base_val, other_val, symmetric: bool):
+def greatest_value_merge(
+    mo: MergeObject, base_val, other_val, symmetric: bool
+):
     if base_val is not None and other_val is None:
         result = base_val
     elif base_val is None and other_val is not None:
@@ -1170,12 +1392,16 @@ def greatest_value_merge(base_val, other_val, symmetric: bool):
     return result
 
 
-def string_list_merge(base_value: List[str], other_value: List[str], _):
+def string_list_merge(
+    mo: MergeObject, base_value: List[str], other_value: List[str], _
+):
     string_set = set(base_value).union(set(other_value))
     return sorted(string_set)
 
 
-def unique_dict_list_merge(base_value: List[Dict], other_value: List[dict], _):
+def unique_dict_list_merge(
+    mo: MergeObject, base_value: List[Dict], other_value: List[dict], _
+):
     rv = base_value.copy()
     for item in other_value:
         if item in base_value:
@@ -1263,6 +1489,10 @@ SPEC_MERGE_SCHEMA = MergeSchema(
         lib.ENABLED_FIELD: keep_base_value_merge,
         PROC_POLICY_FIELD: merge_proc_policies,
         RESPONSE_FIELD: keep_base_value_merge,
+        lib.DISABLE_PROCS_FIELD: keep_base_value_merge,
+        lib.DISABLE_CONNS_FIELD: keep_base_value_merge,
+        lib.DISABLE_PU_CONNS_FIELD: keep_base_value_merge,
+        lib.DISABLE_PR_CONNS_FIELD: keep_base_value_merge,
     },
     values_required=True,
 )
@@ -2034,11 +2264,3 @@ def list_diffs(
             )
         )
     return unify_diffs(diffs)
-
-
-def parse_ignore_procs(rules: List[Union[str, Dict]]):
-    pass
-
-
-def parse_ignore_conns(rule: str):
-    pass
