@@ -1493,6 +1493,7 @@ SPEC_MERGE_SCHEMA = MergeSchema(
         lib.DISABLE_CONNS_FIELD: keep_base_value_merge,
         lib.DISABLE_PU_CONNS_FIELD: keep_base_value_merge,
         lib.DISABLE_PR_CONNS_FIELD: keep_base_value_merge,
+        lib.POL_MODE_FIELD: keep_base_value_merge,
     },
     values_required=True,
 )

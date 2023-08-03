@@ -166,6 +166,21 @@ class GuardianSelectorsModel(BaseModel):
     )
 
 
+class GuardianSpecOptionsModel(BaseModel):
+    disable_processes: Optional[
+        Literal[tuple(lib.DISABLE_PROCS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PROCS_FIELD)
+    disable_connections: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_CONNS_FIELD)
+    disable_private_conns: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PR_CONNS_FIELD)
+    disable_public_conns: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PU_CONNS_FIELD)
+
+
 # Network Models --------------------------------------------------------------
 
 
@@ -412,20 +427,13 @@ class GuardianFingerprintGroupMetadataModel(BaseModel):
 # Spec Models -----------------------------------------------------------------
 
 
-class GuardianPolicySpecModel(GuardianSelectorsModel):
+class GuardianPolicySpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
-    disable_processes: Optional[
-        Literal[tuple(lib.DISABLE_PROCS_STRINGS)]  # type: ignore
-    ] = Field(alias=lib.DISABLE_PROCS_FIELD)
-    disable_connections: Optional[
-        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
-    ] = Field(alias=lib.DISABLE_CONNS_FIELD)
-    disable_private_conns: Optional[
-        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
-    ] = Field(alias=lib.DISABLE_PR_CONNS_FIELD)
-    disable_public_conns: Optional[
-        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
-    ] = Field(alias=lib.DISABLE_PU_CONNS_FIELD)
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        alias=lib.POL_MODE_FIELD
+    )
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
     response: GuardianResponseModel = Field(alias=lib.RESPONSE_FIELD)
@@ -434,9 +442,14 @@ class GuardianPolicySpecModel(GuardianSelectorsModel):
         extra = Extra.forbid
 
 
-class GuardianBaselineSpecModel(GuardianSelectorsModel):
+class GuardianBaselineSpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 # Top-level Models ------------------------------------------------------------

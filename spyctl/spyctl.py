@@ -565,6 +565,19 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     hidden=False,
 )
 @click.option(
+    "-m",
+    "--mode",
+    type=click.Choice(lib.POL_MODES),
+    default=lib.POL_MODE_AUDIT,
+    metavar="",
+    help="This determines what the policy should do when applied and enabled."
+    " Default is audit mode. Audit mode will generate log messages when a"
+    " violation occurs and when it would have taken an action, but it will not"
+    " actually take an action or generate a violation flag. Enforcing mode"
+    " will take actions, generate flags, and also generate audit events.",
+    hidden=False,
+)
+@click.option(
     "-a",
     "--api",
     metavar="",
@@ -574,13 +587,13 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
 )
 @lib.colorization_option
 def create_policy(
-    filename, output, name, colorize, disable_procs, disable_conns, api
+    filename, output, name, colorize, mode, disable_procs, disable_conns, api
 ):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
     c.handle_create_guardian_policy(
-        filename, output, name, disable_procs, disable_conns, api
+        filename, output, name, mode, disable_procs, disable_conns, api
     )
 
 
@@ -1686,6 +1699,20 @@ def update():
 )
 def update_response_actions(backup_file=None):
     u.handle_update_response_actions(backup_file)
+
+
+@update.command("policy-modes", cls=lib.CustomCommand)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-b",
+    "--backup-file",
+    "backup_file",
+    help="location to place policy backups",
+    required=True,
+    type=click.Path(exists=True, writable=True, file_okay=False),
+)
+def update_policy_modes(backup_file=None):
+    u.handle_update_policy_modes(backup_file)
 
 
 # ----------------------------------------------------------------- #

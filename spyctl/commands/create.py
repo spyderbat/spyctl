@@ -33,6 +33,7 @@ def handle_create_guardian_policy(
     file: IO,
     output: str,
     name: str,
+    mode: str,
     disable_procs: str,
     disable_conns: str,
     do_api=False,
@@ -46,7 +47,7 @@ def handle_create_guardian_policy(
         cli.show(policy, lib.OUTPUT_RAW)
     else:
         policy = create_guardian_policy_from_file(
-            file, name, disable_procs, disable_conns
+            file, name, mode, disable_procs, disable_conns
         )
         if output == lib.OUTPUT_DEFAULT:
             output = lib.OUTPUT_YAML
@@ -54,12 +55,13 @@ def handle_create_guardian_policy(
 
 
 def create_guardian_policy_from_file(
-    file: IO, name: str, disable_procs: str, disable_conns: str
+    file: IO, name: str, mode: str, disable_procs: str, disable_conns: str
 ):
     resrc_data = lib.load_resource_file(file)
     policy = p.create_policy(
         resrc_data,
-        name,
+        name=name,
+        mode=mode,
         disable_procs=disable_procs,
         disable_conns=disable_conns,
     )

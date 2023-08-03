@@ -46,6 +46,7 @@ class Policy:
         self,
         obj: Dict,
         name: str = None,
+        mode: str = lib.POL_MODE_AUDIT,
         disable_procs: str = None,
         disable_conns: str = None,
     ) -> None:
@@ -59,6 +60,8 @@ class Policy:
         self.response_actions = obj[lib.SPEC_FIELD].get(
             lib.RESPONSE_FIELD, lib.RESPONSE_ACTION_TEMPLATE
         )
+        self.mode = obj[lib.SPEC_FIELD].get(lib.POL_MODE_FIELD, mode)
+        self.spec[lib.POL_MODE_FIELD] = self.mode
         self.spec[lib.RESPONSE_FIELD] = self.response_actions
         self.__parse_disable_procs(disable_procs)
         self.__parse_disable_conns(disable_conns)
@@ -148,6 +151,7 @@ def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
 
 def create_policy(
     input_data: Union[Dict, List[Dict]],
+    mode: str,
     name: str = None,
     ctx: cfg.Context = None,
     disable_procs: str = None,
@@ -177,7 +181,11 @@ def create_policy(
             merge_object.symmetric_merge(obj)
     try:
         policy = Policy(
-            merge_object.get_obj_data(), name, disable_procs, disable_conns
+            merge_object.get_obj_data(),
+            name,
+            mode,
+            disable_procs,
+            disable_conns,
         )
     except InvalidPolicyError as e:
         cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
@@ -228,12 +236,17 @@ def policies_summary_output(
 def policy_summary_data(policy: Dict):
     uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     status = policy[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
+    mode = policy[lib.SPEC_FIELD].get(lib.POL_MODE_FIELD, lib.POL_MODE_ENFORCE)
     if status is False and uid:
         status = "Disabled"
-    elif status and uid:
-        status = "Enforcing"
-    elif status is False:
+    elif status is False and not uid:
         status = "Not Applied & Disabled"
+    elif status and mode == lib.POL_MODE_ENFORCE and uid:
+        status = "Enforcing"
+    elif status and mode == lib.POL_MODE_AUDIT and uid:
+        status = "Audit"
+    elif status and mode == lib.POL_MODE_AUDIT and not uid:
+        status = "Not Applied & Audit"
     else:
         status = "Not Applied"
     if not uid:
