@@ -244,9 +244,7 @@ def policy_summary_data(policy: Dict):
     elif status and mode == lib.POL_MODE_ENFORCE and uid:
         status = "Enforcing"
     elif status and mode == lib.POL_MODE_AUDIT and uid:
-        status = "Audit"
-    elif status and mode == lib.POL_MODE_AUDIT and not uid:
-        status = "Not Applied & Audit"
+        status = "Auditing"
     else:
         status = "Not Applied"
     if not uid:

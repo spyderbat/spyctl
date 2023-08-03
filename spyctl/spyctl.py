@@ -573,7 +573,7 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     help="This determines what the policy should do when applied and enabled."
     " Default is audit mode. Audit mode will generate log messages when a"
     " violation occurs and when it would have taken an action, but it will not"
-    " actually take an action or generate a violation flag. Enforcing mode"
+    " actually take an action or generate a violation flag. Enforce mode"
     " will take actions, generate flags, and also generate audit events.",
     hidden=False,
 )
@@ -683,6 +683,19 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     metavar="",
 )
 @click.option(
+    "-m",
+    "--mode",
+    type=click.Choice(lib.POL_MODES),
+    default=lib.POL_MODE_AUDIT,
+    metavar="",
+    help="This determines what the policy should do when applied and enabled."
+    " Default is audit mode. Audit mode will generate log messages when a"
+    " an object matches the policy and would be suppressed, but it will not"
+    " suppress the object. Enforce mode actually suppress the object if it"
+    " matches the policy.",
+    hidden=False,
+)
+@click.option(
     f"--{lib.SUP_POL_CMD_USERS}",
     help="Scope the policy to these users. This option will overwrite"
     f" any auto-generated {lib.USERS_FIELD} values generated"
@@ -701,7 +714,7 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
 @lib.tmp_context_options
 @lib.colorization_option
 def create_suppression_policy(
-    type, id, include_users, output, name, colorize, api, **selectors
+    type, id, include_users, output, name, colorize, mode, api, **selectors
 ):
     """Create a Suppression Policy object from a file, outputted to stdout"""
     if not colorize:
@@ -715,7 +728,7 @@ def create_suppression_policy(
     if org_uid and api_key and api_url:
         cfgs.use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
-        type, id, include_users, output, name, api, **selectors
+        type, id, include_users, output, mode, name, api, **selectors
     )
 
 

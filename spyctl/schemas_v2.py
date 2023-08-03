@@ -611,6 +611,9 @@ class AllowedFlagsModel(BaseModel):
 
 class SuppressionPolicySpecModel(SuppressionPolicySelectorsModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        alias=lib.POL_MODE_FIELD
+    )
     allowed_flags: List[AllowedFlagsModel] = Field(
         alias=lib.ALLOWED_FLAGS_FIELD
     )

@@ -80,13 +80,14 @@ def handle_create_suppression_policy(
     id: Optional[str],
     include_users: bool,
     output: str,
+    mode: str,
     name: str = None,
     do_api: bool = False,
     **selectors,
 ):
     if type == lib.POL_TYPE_TRACE:
         handle_create_trace_suppression_policy(
-            id, include_users, output, name, do_api, **selectors
+            id, include_users, output, mode, name, do_api, **selectors
         )
 
 
@@ -94,6 +95,7 @@ def handle_create_trace_suppression_policy(
     id,
     include_users,
     output,
+    mode: str,
     name: str = None,
     do_api: bool = False,
     **selectors,
@@ -111,7 +113,7 @@ def handle_create_trace_suppression_policy(
         cli.show(policy, lib.OUTPUT_RAW)
     else:
         pol = create_trace_suppression_policy(
-            id, include_users, name, **selectors
+            id, include_users, mode, name, **selectors
         )
         if output == lib.OUTPUT_DEFAULT:
             output = lib.OUTPUT_YAML
@@ -119,7 +121,12 @@ def handle_create_trace_suppression_policy(
 
 
 def create_trace_suppression_policy(
-    id, include_users, name: str = None, ctx: cfg.Context = None, **selectors
+    id,
+    include_users,
+    mode,
+    name: str = None,
+    ctx: cfg.Context = None,
+    **selectors,
 ) -> sp.TraceSuppressionPolicy:
     if id:
         trace = search.search_for_trace_by_uid(id, ctx)
@@ -132,10 +139,12 @@ def create_trace_suppression_policy(
         if not t_sum:
             exit(1)
         pol = sp.build_trace_suppression_policy(
-            t_sum, include_users, name=name, **selectors
+            t_sum, include_users, mode=mode, name=name, **selectors
         )
     else:
-        pol = sp.build_trace_suppression_policy(name=name, **selectors)
+        pol = sp.build_trace_suppression_policy(
+            mode=mode, name=name, **selectors
+        )
     return pol
 
 
