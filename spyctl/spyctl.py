@@ -494,9 +494,30 @@ def create():
     " generated automatically",
     metavar="",
 )
-def create_baseline(filename, output, name):
+@click.option(
+    "-d",
+    "--disable-processes",
+    "disable_procs",
+    type=click.Choice(lib.DISABLE_PROCS_STRINGS),
+    metavar="",
+    hidden=False,
+    help="Disable processes detections for this policy. Disabling all "
+    "processes detections effectively turns this into a network policy.",
+)
+@click.option(
+    "-D",
+    "--disable-connections",
+    "disable_conns",
+    type=click.Choice(lib.DISABLE_CONN_OPTIONS_STRINGS),
+    metavar="",
+    help="Disable detections for all, public, or private connections.",
+    hidden=False,
+)
+def create_baseline(filename, output, name, disable_procs, disable_conns):
     """Create a Baseline from a file, outputted to stdout"""
-    c.handle_create_baseline(filename, output, name)
+    c.handle_create_baseline(
+        filename, output, name, disable_procs, disable_conns
+    )
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
@@ -535,7 +556,7 @@ def create_baseline(filename, output, name):
     "processes detections effectively turns this into a network policy.",
 )
 @click.option(
-    "-C",
+    "-D",
     "--disable-connections",
     "disable_conns",
     type=click.Choice(lib.DISABLE_CONN_OPTIONS_STRINGS),

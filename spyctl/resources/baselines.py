@@ -36,7 +36,13 @@ class Baseline:
         lib.SPEC_FIELD,
     }
 
-    def __init__(self, obj: Dict, name: str = None) -> None:
+    def __init__(
+        self,
+        obj: Dict,
+        name: str = None,
+        disable_procs=None,
+        disable_conns=None,
+    ) -> None:
         self.baseline = {}
         for key in self.required_keys:
             if key not in obj:
@@ -44,22 +50,75 @@ class Baseline:
         self.metadata = obj[lib.METADATA_FIELD]
         if name:
             self.metadata[lib.METADATA_NAME_FIELD] = name
-        self.spec = obj[lib.SPEC_FIELD]
+        self.spec: Dict = obj[lib.SPEC_FIELD]
+        self.__parse_disable_procs(disable_procs)
+        self.__parse_disable_conns(disable_conns)
+
+    def spec_dict(self):
+        spec_field_names = [
+            lib.PROC_POLICY_FIELD,
+            lib.NET_POLICY_FIELD,
+        ]
+        selectors = {}
+        other_fields = {}
+        pol_fields = {}
+        for k, v in self.spec.items():
+            if "Selector" in k:
+                selectors[k] = v
+            if k in spec_field_names:
+                continue
+            elif k == lib.RESPONSE_FIELD:
+                continue
+            else:
+                other_fields[k] = v
+        for name in spec_field_names:
+            pol_fields[name] = self.spec[name]
+        rv = {}
+        rv.update(selectors)
+        rv.update(other_fields)
+        rv.update(pol_fields)
+        return rv
 
     def as_dict(self) -> Dict:
         rv = {
             lib.API_FIELD: lib.API_VERSION,
             lib.KIND_FIELD: BASELINE_KIND,
             lib.METADATA_FIELD: self.metadata,
-            lib.SPEC_FIELD: self.spec,
+            lib.SPEC_FIELD: self.spec_dict(),
         }
         return rv
+
+    def __parse_disable_procs(self, disable_procs: Optional[str]):
+        if disable_procs == lib.DISABLE_PROCS_ALL:
+            self.spec[lib.DISABLE_PROCS_FIELD] = lib.DISABLE_PROCS_ALL
+
+    def __parse_disable_conns(self, disable_conns: Optional[str]):
+        if disable_conns == lib.DISABLE_CONNS_ALL:
+            self.spec[lib.DISABLE_CONNS_FIELD] = lib.DISABLE_CONNS_ALL
+        elif disable_conns == lib.DISABLE_CONNS_EGRESS:
+            self.spec[lib.DISABLE_CONNS_FIELD] = lib.EGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_INGRESS:
+            self.spec[lib.DISABLE_CONNS_FIELD] = lib.INGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PRIVATE:
+            self.spec[lib.DISABLE_PR_CONNS_FIELD] = lib.DISABLE_CONNS_ALL
+        elif disable_conns == lib.DISABLE_CONNS_PRIVATE_E:
+            self.spec[lib.DISABLE_PR_CONNS_FIELD] = lib.EGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PRIVATE_I:
+            self.spec[lib.DISABLE_PR_CONNS_FIELD] = lib.INGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PUBLIC:
+            self.spec[lib.DISABLE_PU_CONNS_FIELD] = lib.DISABLE_CONNS_ALL
+        elif disable_conns == lib.DISABLE_CONNS_PUBLIC_E:
+            self.spec[lib.DISABLE_PU_CONNS_FIELD] = lib.EGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PUBLIC_I:
+            self.spec[lib.DISABLE_PU_CONNS_FIELD] = lib.INGRESS_FIELD
 
 
 def create_baseline(
     input_data: Union[Dict, List[Dict]],
     name: str = None,
     ctx: cfg.Context = None,
+    disable_procs: str = None,
+    disable_conns: str = None,
 ):
     input_objs = []
     if isinstance(input_data, list):
@@ -72,7 +131,11 @@ def create_baseline(
     if len(input_objs) == 0:
         cli.err_exit("Nothing to build baseline with")
     merge_object = m_lib.MergeObject(
-        input_objs[0], BASELINE_MERGE_SCHEMAS, None
+        input_objs[0],
+        BASELINE_MERGE_SCHEMAS,
+        None,
+        disable_procs=disable_procs,
+        disable_conns=disable_conns,
     )
     if len(input_objs) == 1:
         merge_object.asymmetric_merge({})
@@ -80,7 +143,9 @@ def create_baseline(
         for obj in input_objs[1:]:
             merge_object.symmetric_merge(obj)
     try:
-        baseline = Baseline(merge_object.get_obj_data(), name)
+        baseline = Baseline(
+            merge_object.get_obj_data(), name, disable_procs, disable_conns
+        )
     except InvalidBaselineError as e:
         cli.err_exit(f"Unable to create baseline. {' '.join(e.args)}")
     # Validate the Baseline

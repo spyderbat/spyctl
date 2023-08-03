@@ -10,9 +10,20 @@ import spyctl.spyctl_lib as lib
 import spyctl.api as api
 
 
-def handle_create_baseline(filename: str, output: str, name: str):
+def handle_create_baseline(
+    filename: str,
+    output: str,
+    name: str,
+    disable_procs: str,
+    disable_conns: str,
+):
     resrc_data = lib.load_resource_file(filename)
-    baseline = b.create_baseline(resrc_data, name)
+    baseline = b.create_baseline(
+        resrc_data,
+        name,
+        disable_procs=disable_procs,
+        disable_conns=disable_conns,
+    )
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(baseline, output)

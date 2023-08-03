@@ -64,7 +64,7 @@ class Policy:
         self.__parse_disable_conns(disable_conns)
 
     def spec_dict(self):
-        pol_field_names = [
+        spec_field_names = [
             lib.PROC_POLICY_FIELD,
             lib.NET_POLICY_FIELD,
             lib.RESPONSE_FIELD,
@@ -75,11 +75,11 @@ class Policy:
         for k, v in self.spec.items():
             if "Selector" in k:
                 selectors[k] = v
-            if k in pol_field_names:
+            if k in spec_field_names:
                 continue
             else:
                 other_fields[k] = v
-        for name in pol_field_names:
+        for name in spec_field_names:
             pol_fields[name] = self.spec[name]
         rv = {}
         rv.update(selectors)
