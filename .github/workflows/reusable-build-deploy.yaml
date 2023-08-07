@@ -25,12 +25,13 @@ jobs:
         python-version: 3.11
     - name: Install dependencies
       run: |
+        cd ./spyctl_api
         python -m pip install --upgrade pip
         python -m pip install pytest
-        python -m pip install -r ./spyctl_api/requirements.txt
+        python -m pip install -r ./requirements.txt
     - name: Test with pytest
       run: |
-        pytest ./spyctl_api
+        pytest .
   build-and-push:
     name: Build and Push Container Image
     runs-on: [self-hosted, ARM64]
