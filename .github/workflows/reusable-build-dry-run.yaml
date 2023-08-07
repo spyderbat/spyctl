@@ -39,7 +39,7 @@ jobs:
         python -m pip install -r ./requirements.txt
     - name: Test with pytest
       run: |
-        pytest .
+        pytest ./spyctl_api
   build-dry-run:
     name: Docker Build Dry-Run
     runs-on: [self-hosted, ARM64]
