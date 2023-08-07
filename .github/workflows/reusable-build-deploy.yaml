@@ -39,7 +39,7 @@ jobs:
         python -m pip install -r ./requirements.txt
     - name: Test with pytest
       run: |
-        pytest .
+        pytest ./spyctl_api
   build-and-push:
     name: Build and Push Container Image
     runs-on: [self-hosted, ARM64]
