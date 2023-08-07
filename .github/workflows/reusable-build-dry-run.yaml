@@ -51,9 +51,11 @@ jobs:
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
-    - name: Copy spyctl files for package build
+    - name: Copy spyctl
       id: make-directories
       run: |
+        # Move spyctl code to the right directory
+        echo mkdir ./spyctl_api/build
         mkdir ./spyctl_api/build
 	      mkdir ./spyctl_api/build/spyctl
 	      cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
