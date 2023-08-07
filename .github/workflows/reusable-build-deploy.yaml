@@ -51,6 +51,11 @@ jobs:
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
+    - name: Copy spyctl files for package build
+      run: |
+        mkdir ./spyctl_api/build
+	      mkdir ./spyctl_api/build/spyctl
+	      cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
     - name: Build, Tag & Push Img to ECR
       id: build-image
       env:
