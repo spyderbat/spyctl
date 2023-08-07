@@ -506,7 +506,7 @@ class GuardianFingerprintGroupModel(BaseModel):
     data: FingerprintGroupDataModel
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianBaselineModel(BaseModel):
@@ -527,7 +527,7 @@ class GuardianBaselineModel(BaseModel):
         clear_proc_ids()
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianPolicyModel(BaseModel):
@@ -556,7 +556,7 @@ class GuardianObjectModel(BaseModel):
     spec: Dict = Field(alias=lib.SPEC_FIELD)
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianObjectListModel(BaseModel):
