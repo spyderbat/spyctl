@@ -57,8 +57,8 @@ jobs:
         # Move spyctl code to the right directory
         echo mkdir ./spyctl_api/build
         mkdir ./spyctl_api/build
-	      mkdir ./spyctl_api/build/spyctl
-	      cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+        mkdir ./spyctl_api/build/spyctl
+        cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
     - name: Build, Tag & Push Img to ECR
       id: build-image
       env:
