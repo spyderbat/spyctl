@@ -3,9 +3,10 @@ from typing import List, Literal, Optional, Union
 
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field, Json
 from typing_extensions import Annotated
+import app.app_lib as app_lib
 
 import app.commands.create as cmd_create
 
@@ -61,8 +62,9 @@ class CreateSuppressionPolicyHandlerOutput(BaseModel):
 
 @router.post("/create/suppressionpolicy")
 def create_suppression_policy(
-    i: CreateSuppressionPolicyHandlerInput,
+    i: CreateSuppressionPolicyHandlerInput, background_tasks: BackgroundTasks
 ) -> CreateSuppressionPolicyHandlerOutput:
+    background_tasks.add_task(app_lib.flush_spyctl_log_messages)
     cmd_input = cmd_create.CreateSuppressionPolicyInput(
         i.type,
         i.object_uid,
@@ -110,8 +112,9 @@ class CreateGuardianPolicyHandlerOutput(BaseModel):
 
 @router.post("/create/guardianpolicy")
 def create_guardian_policy(
-    i: CreateGuardianPolicyHandlerInput,
+    i: CreateGuardianPolicyHandlerInput, background_tasks: BackgroundTasks
 ) -> CreateGuardianPolicyHandlerOutput:
+    background_tasks.add_task(app_lib.flush_spyctl_log_messages)
     input_objects = [
         json.loads(obj.json(by_alias=True, exclude_unset=True))
         for obj in i.input_objects
