@@ -1493,13 +1493,6 @@ def make_uuid():
 
 def err_exit(message: str, exception: Exception = None):
     if API_CALL:
-        if USE_LOG_VARS:
-            global ERR_VAR
-            ERR_VAR.append(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
-        if exception:
-            raise exception
-        elif USE_LOG_VARS:
-            raise Exception()
         raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
