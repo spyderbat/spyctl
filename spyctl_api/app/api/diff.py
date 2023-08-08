@@ -2,10 +2,11 @@ import json
 from typing import List, Union
 
 import spyctl.schemas_v2 as schemas
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field, Json
 from typing_extensions import Annotated
 
+import app.app_lib as app_lib
 import app.commands.diff as cmd_diff
 
 router = APIRouter(prefix="/api/v1")
@@ -47,11 +48,9 @@ class DiffHandlerOutput(BaseModel):
 
 @router.post("/diff")
 def diff(
-    i: DiffHandlerInput,
+    i: DiffHandlerInput, background_tasks: BackgroundTasks
 ) -> DiffHandlerOutput:
-    # diff_objects = [
-    #     obj.dict(by_alias=True, exclude_unset=True) for obj in i.diff_objects
-    # ]
+    background_tasks.add_task(app_lib.flush_spyctl_log_messages)
     diff_objects = [
         json.loads(obj.json(by_alias=True, exclude_unset=True))
         for obj in i.diff_objects

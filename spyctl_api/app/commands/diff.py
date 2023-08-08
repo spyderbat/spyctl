@@ -29,18 +29,14 @@ def diff(i: DiffInput) -> DiffOutput:
     spyctl_ctx = app_lib.generate_spyctl_context(
         i.org_uid, i.api_key, i.api_url
     )
-    try:
-        merge_data = merge_resource(
-            i.object,
-            "API Diff Request Object",
-            i.diff_objects,
-            ctx=spyctl_ctx,
-        )
-        if not merge_data:
-            msg = app_lib.flush_spyctl_log_messages()
-            ex.internal_server_error(msg)
-        app_lib.flush_spyctl_log_messages()
-        return DiffOutput(merge_data.get_diff())
-    except Exception:
-        app_lib.flush_spyctl_log_messages()
-        ex.internal_server_error()
+    merge_data = merge_resource(
+        i.object,
+        "API Diff Request Object",
+        i.diff_objects,
+        ctx=spyctl_ctx,
+    )
+    if not merge_data:
+        msg = app_lib.flush_spyctl_log_messages()
+        ex.internal_server_error(msg)
+    app_lib.flush_spyctl_log_messages()
+    return DiffOutput(merge_data.get_diff())

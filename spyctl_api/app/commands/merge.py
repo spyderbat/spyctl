@@ -30,18 +30,14 @@ def merge(i: MergeInput) -> MergeOutput:
     spyctl_ctx = app_lib.generate_spyctl_context(
         i.org_uid, i.api_key, i.api_url
     )
-    try:
-        merged_object = merge_resource(
-            i.object,
-            "API Merge Request Object",
-            i.merge_objects,
-            ctx=spyctl_ctx,
-        )
-        if not merged_object:
-            msg = app_lib.flush_spyctl_log_messages()
-            ex.internal_server_error(msg)
-        app_lib.flush_spyctl_log_messages()
-        return MergeOutput(json.dumps(merged_object.get_obj_data()))
-    except Exception:
-        app_lib.flush_spyctl_log_messages()
-        ex.internal_server_error()
+    merged_object = merge_resource(
+        i.object,
+        "API Merge Request Object",
+        i.merge_objects,
+        ctx=spyctl_ctx,
+    )
+    if not merged_object:
+        msg = app_lib.flush_spyctl_log_messages()
+        ex.internal_server_error(msg)
+    app_lib.flush_spyctl_log_messages()
+    return MergeOutput(json.dumps(merged_object.get_obj_data()))
