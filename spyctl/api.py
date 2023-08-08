@@ -53,9 +53,11 @@ def get(url, key, params=None, raise_notfound=False):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
@@ -78,9 +80,11 @@ def post(url, data, key, raise_notfound=False):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
@@ -101,9 +105,11 @@ def put(url, data, key):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
@@ -124,9 +130,11 @@ def delete(url, key):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
