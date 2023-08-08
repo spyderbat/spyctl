@@ -705,6 +705,17 @@ class UidListMetadataModel(BaseModel):
     start_time: Union[int, float] = Field(alias=lib.METADATA_START_TIME_FIELD)
     end_time: Union[int, float] = Field(alias=lib.METADATA_END_TIME_FIELD)
 
+    @root_validator
+    def valid_end_time(cls, values: Dict):
+        start_time = values["start_time"]
+        end_time = values["end_time"]
+        if end_time <= start_time:
+            raise ValueError(
+                f"'{lib.METADATA_END_TIME_FIELD}' must be greater than"
+                f" '{lib.METADATA_START_TIME_FIELD}'"
+            )
+        return values
+
 
 class UidListDataModel(BaseModel):
     uids: List[str] = Field(alias=lib.UIDS_FIELD)
