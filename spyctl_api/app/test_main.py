@@ -40,6 +40,7 @@ def test_create_guardian_policy():
     data = {
         "input_objects": TEST_FINGERPRINT_LIST,
         "name": "Test Policy",
+        "mode": "enforce",
         "org_uid": ORG,
         "api_key": API_KEY,
         "api_url": API_URL,
