@@ -909,12 +909,10 @@ def get_pypi_version():
 
 
 def api_create_guardian_policy(
-    api_url, api_key, org_uid, name, data: Dict
+    api_url, api_key, org_uid, name, mode, data: Dict
 ) -> str:
     url = f"{api_url}/api/v1/org/{org_uid}/spyctl/guardianpolicy/build/"
-    data = {
-        "input_objects": json.dumps([data]),
-    }
+    data = {"input_objects": json.dumps([data]), "mode": mode}
     if name:
         data["name"] = name
     resp = post(url, data, api_key)
