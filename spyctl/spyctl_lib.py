@@ -1504,13 +1504,6 @@ def make_uuid():
 
 def err_exit(message: str, exception: Exception = None):
     if API_CALL:
-        if USE_LOG_VARS:
-            global ERR_VAR
-            ERR_VAR.append(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
-        if exception:
-            raise exception
-        elif USE_LOG_VARS:
-            raise Exception()
         raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
@@ -1550,7 +1543,9 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
             try_log(" ".join(e.args))
             sys.exit(0)
         err_exit(" ".join(e.args))
-    except Exception:
+    except Exception as e:
+        if file.name.endswith(".yaml"):
+            err_exit("Error decoding yaml" + " ".join(e.args))
         try:
             name, resrc_data = __load_json_file(file)
         except json.JSONDecodeError as e:

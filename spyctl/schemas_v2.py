@@ -498,7 +498,7 @@ class GuardianFingerprintGroupModel(BaseModel):
     data: FingerprintGroupDataModel
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianBaselineModel(BaseModel):
@@ -519,7 +519,7 @@ class GuardianBaselineModel(BaseModel):
         clear_proc_ids()
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianPolicyModel(BaseModel):
@@ -548,7 +548,7 @@ class GuardianObjectModel(BaseModel):
     spec: Dict = Field(alias=lib.SPEC_FIELD)
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianObjectListModel(BaseModel):
@@ -699,6 +699,17 @@ class ConfigModel(BaseModel):
 class UidListMetadataModel(BaseModel):
     start_time: Union[int, float] = Field(alias=lib.METADATA_START_TIME_FIELD)
     end_time: Union[int, float] = Field(alias=lib.METADATA_END_TIME_FIELD)
+
+    @root_validator
+    def valid_end_time(cls, values: Dict):
+        start_time = values["start_time"]
+        end_time = values["end_time"]
+        if end_time <= start_time:
+            raise ValueError(
+                f"'{lib.METADATA_END_TIME_FIELD}' must be greater than"
+                f" '{lib.METADATA_START_TIME_FIELD}'"
+            )
+        return values
 
 
 class UidListDataModel(BaseModel):

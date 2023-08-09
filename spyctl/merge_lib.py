@@ -1543,17 +1543,18 @@ def make_wildcard(strs: List[str]):
             break
     if len(sub_str) < 3:
         ret = None
-    if not first_char and not last_char:
+    elif not (match.b == 0 and original_str.startswith(sub_str)) and not (
+        match.b + match.size == len(name) and original_str.endswith(sub_str)
+    ):
         ret = "*" + sub_str + "*"
-    elif not first_char:
+    elif not (match.b == 0 and original_str.startswith(sub_str)):
         ret = "*" + sub_str
-    elif not last_char:
+    elif not (
+        match.b + match.size == len(name) and original_str.endswith(sub_str)
+    ):
         ret = sub_str + "*"
     else:
-        cli.err_exit(
-            f"Bug detected in wildcard logic. Return value: '{ret}' | input:"
-            f" '{strs}'."
-        )
+        cli.err_exit(f"Bug detected in wildcard logic. Input:" f" '{strs}'.")
     return ret
 
 

@@ -2,10 +2,11 @@ import json
 from typing import List, Union
 
 import spyctl.schemas_v2 as schemas
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field, Json
 from typing_extensions import Annotated
 
+import app.app_lib as app_lib
 import app.commands.merge as cmd_merge
 
 router = APIRouter(prefix="/api/v1")
@@ -50,7 +51,9 @@ class MergeHandlerOutput(BaseModel):
 @router.post("/merge")
 def merge(
     i: MergeHandlerInput,
+    background_tasks: BackgroundTasks,
 ) -> MergeHandlerOutput:
+    background_tasks.add_task(app_lib.flush_spyctl_log_messages)
     merge_objects = [
         json.loads(obj.json(by_alias=True, exclude_unset=True))
         for obj in i.merge_objects
