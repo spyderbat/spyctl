@@ -101,6 +101,10 @@ class CreateGuardianPolicyHandlerInput(BaseModel):
     name: str = Field(
         default="", title="Optional name for the guardian policy"
     )
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        default=lib.POL_MODE_AUDIT,
+        title="Determines whether a policy is in enforce or audit mode.",
+    )
     org_uid: str
     api_key: str
     api_url: str
@@ -122,6 +126,7 @@ def create_guardian_policy(
     cmd_input = cmd_create.CreateGuardianPolicyInput(
         i.name,
         input_objects,
+        i.mode,
         i.org_uid,
         i.api_key,
         i.api_url,

@@ -51,10 +51,11 @@ REDFLAG_POL_OPTION_TO_SELECTORS_MAP = {
 def build_trace_suppression_policy(
     trace_summary: Dict = None,
     include_users: bool = False,
+    mode: str = lib.POL_MODE_AUDIT,
     name: str = None,
     **selectors,
 ):
-    pol = TraceSuppressionPolicy(trace_summary, name)
+    pol = TraceSuppressionPolicy(trace_summary, mode, name)
     if not include_users:
         pol.spec.pop(lib.USER_SELECTOR_FIELD, None)
         pol.selectors.pop(lib.USER_SELECTOR_FIELD, None)
@@ -66,6 +67,7 @@ class TraceSuppressionPolicy:
     def __init__(
         self,
         obj: Dict = None,
+        mode: str = lib.POL_MODE_AUDIT,
         name: str = None,
     ) -> None:
         if obj:
@@ -77,6 +79,7 @@ class TraceSuppressionPolicy:
         self.selectors: Dict[str, Dict] = {}
         self.flags = []
         self.name = name
+        self.mode = self.spec.get(lib.POL_MODE_FIELD, mode)
         self.__build_name()
         self.__build_flags()
         self.__build_trace_selector()
@@ -114,6 +117,7 @@ class TraceSuppressionPolicy:
         rv[lib.SPEC_FIELD].update(
             json.loads(json.dumps(self.selectors, sort_keys=True))
         )
+        rv[lib.SPEC_FIELD][lib.POL_MODE_FIELD] = self.mode
         rv[lib.SPEC_FIELD][lib.ALLOWED_FLAGS_FIELD] = sorted(
             self.flags, key=lambda x: x[lib.FLAG_CLASS]
         )
@@ -268,12 +272,15 @@ def s_policies_summary_output(policies: List[Dict]):
 def s_policy_summary_data(policy: Dict):
     uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     status = policy[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
+    mode = policy[lib.SPEC_FIELD].get(lib.POL_MODE_FIELD, lib.POL_MODE_ENFORCE)
     if status is False and uid:
         status = "Disabled"
-    elif status and uid:
-        status = "Enforcing"
-    elif status is False:
+    elif status is False and not uid:
         status = "Not Applied & Disabled"
+    elif status and mode == lib.POL_MODE_ENFORCE and uid:
+        status = "Enforcing"
+    elif status and mode == lib.POL_MODE_AUDIT and uid:
+        status = "Auditing"
     else:
         status = "Not Applied"
     if not uid:

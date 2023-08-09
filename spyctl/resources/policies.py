@@ -9,7 +9,7 @@ import spyctl.config.configs as cfg
 import spyctl.merge_lib as m_lib
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.resources_lib as r_lib
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
 
 FPRINT_KIND = spyctl_fprints.FPRINT_KIND
@@ -42,27 +42,86 @@ class Policy:
         lib.SPEC_FIELD,
     }
 
-    def __init__(self, obj: Dict, name: str = None) -> None:
+    def __init__(
+        self,
+        obj: Dict,
+        name: str = None,
+        mode: str = lib.POL_MODE_AUDIT,
+        disable_procs: str = None,
+        disable_conns: str = None,
+    ) -> None:
         for key in self.required_keys:
             if key not in obj:
                 raise InvalidPolicyError(f"Missing {key} for input object")
         self.metadata = obj[lib.METADATA_FIELD]
         if name:
             self.metadata[lib.METADATA_NAME_FIELD] = name
-        self.spec = obj[lib.SPEC_FIELD]
+        self.spec: Dict = obj[lib.SPEC_FIELD]
         self.response_actions = obj[lib.SPEC_FIELD].get(
             lib.RESPONSE_FIELD, lib.RESPONSE_ACTION_TEMPLATE
         )
+        self.mode = obj[lib.SPEC_FIELD].get(lib.POL_MODE_FIELD, mode)
+        self.spec[lib.POL_MODE_FIELD] = self.mode
         self.spec[lib.RESPONSE_FIELD] = self.response_actions
+        self.__parse_disable_procs(disable_procs)
+        self.__parse_disable_conns(disable_conns)
+
+    def spec_dict(self):
+        spec_field_names = [
+            lib.PROC_POLICY_FIELD,
+            lib.NET_POLICY_FIELD,
+            lib.RESPONSE_FIELD,
+        ]
+        selectors = {}
+        other_fields = {}
+        pol_fields = {}
+        for k, v in self.spec.items():
+            if "Selector" in k:
+                selectors[k] = v
+            if k in spec_field_names:
+                continue
+            else:
+                other_fields[k] = v
+        for name in spec_field_names:
+            pol_fields[name] = self.spec[name]
+        rv = {}
+        rv.update(selectors)
+        rv.update(other_fields)
+        rv.update(pol_fields)
+        return rv
 
     def as_dict(self):
         rv = {
             lib.API_FIELD: lib.API_VERSION,
             lib.KIND_FIELD: POLICY_KIND,
             lib.METADATA_FIELD: self.metadata,
-            lib.SPEC_FIELD: self.spec,
+            lib.SPEC_FIELD: self.spec_dict(),
         }
         return rv
+
+    def __parse_disable_procs(self, disable_procs: Optional[str]):
+        if disable_procs == lib.DISABLE_PROCS_ALL:
+            self.spec[lib.DISABLE_PROCS_FIELD] = lib.DISABLE_PROCS_ALL
+
+    def __parse_disable_conns(self, disable_conns: Optional[str]):
+        if disable_conns == lib.DISABLE_CONNS_ALL:
+            self.spec[lib.DISABLE_CONNS_FIELD] = lib.DISABLE_CONNS_ALL
+        elif disable_conns == lib.DISABLE_CONNS_EGRESS:
+            self.spec[lib.DISABLE_CONNS_FIELD] = lib.EGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_INGRESS:
+            self.spec[lib.DISABLE_CONNS_FIELD] = lib.INGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PRIVATE:
+            self.spec[lib.DISABLE_PR_CONNS_FIELD] = lib.DISABLE_CONNS_ALL
+        elif disable_conns == lib.DISABLE_CONNS_PRIVATE_E:
+            self.spec[lib.DISABLE_PR_CONNS_FIELD] = lib.EGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PRIVATE_I:
+            self.spec[lib.DISABLE_PR_CONNS_FIELD] = lib.INGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PUBLIC:
+            self.spec[lib.DISABLE_PU_CONNS_FIELD] = lib.DISABLE_CONNS_ALL
+        elif disable_conns == lib.DISABLE_CONNS_PUBLIC_E:
+            self.spec[lib.DISABLE_PU_CONNS_FIELD] = lib.EGRESS_FIELD
+        elif disable_conns == lib.DISABLE_CONNS_PUBLIC_I:
+            self.spec[lib.DISABLE_PU_CONNS_FIELD] = lib.INGRESS_FIELD
 
 
 def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
@@ -92,10 +151,11 @@ def get_data_for_api_call(policy: Policy) -> Tuple[Optional[str], str]:
 
 def create_policy(
     input_data: Union[Dict, List[Dict]],
+    mode: str,
     name: str = None,
     ctx: cfg.Context = None,
-    ignore_procs: List = [],
-    ignore_conns: List = [],
+    disable_procs: str = None,
+    disable_conns: str = None,
 ):
     input_objs = []
     if isinstance(input_data, list):
@@ -107,14 +167,26 @@ def create_policy(
         input_objs.extend(r_lib.handle_input_data(input_data, ctx))
     if len(input_objs) == 0:
         cli.err_exit("Nothing to build policy with")
-    merge_object = m_lib.MergeObject(input_objs[0], POLICY_MERGE_SCHEMAS, None)
+    merge_object = m_lib.MergeObject(
+        input_objs[0],
+        POLICY_MERGE_SCHEMAS,
+        None,
+        disable_procs=disable_procs,
+        disable_conns=disable_conns,
+    )
     if len(input_objs) == 1:
         merge_object.asymmetric_merge({})
     else:
         for obj in input_objs[1:]:
             merge_object.symmetric_merge(obj)
     try:
-        policy = Policy(merge_object.get_obj_data(), name)
+        policy = Policy(
+            merge_object.get_obj_data(),
+            name,
+            mode,
+            disable_procs,
+            disable_conns,
+        )
     except InvalidPolicyError as e:
         cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
     # Validate the policy
@@ -164,12 +236,15 @@ def policies_summary_output(
 def policy_summary_data(policy: Dict):
     uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     status = policy[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
+    mode = policy[lib.SPEC_FIELD].get(lib.POL_MODE_FIELD, lib.POL_MODE_ENFORCE)
     if status is False and uid:
         status = "Disabled"
-    elif status and uid:
-        status = "Enforcing"
-    elif status is False:
+    elif status is False and not uid:
         status = "Not Applied & Disabled"
+    elif status and mode == lib.POL_MODE_ENFORCE and uid:
+        status = "Enforcing"
+    elif status and mode == lib.POL_MODE_AUDIT and uid:
+        status = "Auditing"
     else:
         status = "Not Applied"
     if not uid:
