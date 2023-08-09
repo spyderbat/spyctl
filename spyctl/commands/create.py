@@ -69,9 +69,9 @@ def create_guardian_policy_from_file(
 
 
 def create_guardian_policy_from_json(
-    name: str, input_objects: List[Dict], ctx: cfg.Context
+    name: str, mode: str, input_objects: List[Dict], ctx: cfg.Context
 ):
-    policy = p.create_policy(input_objects, name, ctx)
+    policy = p.create_policy(input_objects, mode=mode, name=name, ctx=ctx)
     return policy
 
 
