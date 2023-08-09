@@ -42,7 +42,7 @@ def handle_create_guardian_policy(
         ctx = cfg.get_current_context()
         resrc_data = lib.load_file_for_api_test(file)
         policy = api.api_create_guardian_policy(
-            *ctx.get_api_data(), name, resrc_data
+            *ctx.get_api_data(), name, mode, resrc_data
         )
         cli.show(policy, lib.OUTPUT_RAW)
     else:
