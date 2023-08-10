@@ -1,11 +1,14 @@
-from fastapi import APIRouter
-from pydantic import BaseModel, Field, Json
-from typing import Dict, List, Union, Literal, Optional
-from typing_extensions import Annotated
+import json
+from typing import List, Literal, Optional, Union
 
-import app.commands.create as cmd_create
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from fastapi import APIRouter, BackgroundTasks
+from pydantic import BaseModel, Field, Json
+from typing_extensions import Annotated
+import app.app_lib as app_lib
+
+import app.commands.create as cmd_create
 
 router = APIRouter(prefix="/api/v1")
 
@@ -35,14 +38,14 @@ class CreateSuppressionPolicyInputSelectorFields(BaseModel):
 
 
 class CreateSuppressionPolicyHandlerInput(BaseModel):
-    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(
+    type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(  # type: ignore
         title="The type of suppression policy to create"
     )
     object_uid: str | None = Field(title="UID of the object to suppress")
     scope_to_users: bool = Field(
         default=False, title="Scope the created policy to the relevant users"
     )
-    selectors: CreateSuppressionPolicyInputSelectorFields = Field(
+    selectors: Optional[CreateSuppressionPolicyInputSelectorFields] = Field(
         default={}, title="Additional selectors to add to the policy"
     )
     name: str = Field(
@@ -59,8 +62,9 @@ class CreateSuppressionPolicyHandlerOutput(BaseModel):
 
 @router.post("/create/suppressionpolicy")
 def create_suppression_policy(
-    i: CreateSuppressionPolicyHandlerInput,
+    i: CreateSuppressionPolicyHandlerInput, background_tasks: BackgroundTasks
 ) -> CreateSuppressionPolicyHandlerOutput:
+    background_tasks.add_task(app_lib.flush_spyctl_log_messages)
     cmd_input = cmd_create.CreateSuppressionPolicyInput(
         i.type,
         i.object_uid,
@@ -97,6 +101,10 @@ class CreateGuardianPolicyHandlerInput(BaseModel):
     name: str = Field(
         default="", title="Optional name for the guardian policy"
     )
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        default=lib.POL_MODE_AUDIT,
+        title="Determines whether a policy is in enforce or audit mode.",
+    )
     org_uid: str
     api_key: str
     api_url: str
@@ -108,14 +116,17 @@ class CreateGuardianPolicyHandlerOutput(BaseModel):
 
 @router.post("/create/guardianpolicy")
 def create_guardian_policy(
-    i: CreateGuardianPolicyHandlerInput,
+    i: CreateGuardianPolicyHandlerInput, background_tasks: BackgroundTasks
 ) -> CreateGuardianPolicyHandlerOutput:
+    background_tasks.add_task(app_lib.flush_spyctl_log_messages)
     input_objects = [
-        obj.dict(by_alias=True, exclude_unset=True) for obj in i.input_objects
+        json.loads(obj.json(by_alias=True, exclude_unset=True))
+        for obj in i.input_objects
     ]
     cmd_input = cmd_create.CreateGuardianPolicyInput(
         i.name,
         input_objects,
+        i.mode,
         i.org_uid,
         i.api_key,
         i.api_url,

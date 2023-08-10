@@ -1,3 +1,4 @@
 fastapi
 uvicorn[standard]
-spyctl
+httpx>=0.9.36
+-e file:./build/spyctl

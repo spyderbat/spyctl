@@ -12,7 +12,7 @@ import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.resources.api_filters.fingerprints as f_api_filt
 import spyctl.spyctl_lib as lib
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 import spyctl.resources.resources_lib as r_lib
 
 POLICIES = None
@@ -35,7 +35,17 @@ def handle_merge(
     output_to_file: bool = False,
     yes_except: bool = False,
     merge_network: bool = True,
+    do_api=False,
 ):
+    if do_api:
+        ctx = cfgs.get_current_context()
+        if not filename_target or not with_file:
+            cli.err_exit("api test only with local files")
+        r_data = lib.load_file_for_api_test(filename_target[0])
+        w_data = lib.load_file_for_api_test(with_file)
+        merged_data = api.api_merge(*ctx.get_api_data(), r_data, w_data)
+        cli.show(merged_data, lib.OUTPUT_RAW)
+        return
     global POLICIES, YES_EXCEPT
     YES_EXCEPT = yes_except
     if not POLICIES and (with_policy or policy_target):

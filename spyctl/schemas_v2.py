@@ -52,7 +52,7 @@ def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
 
 def valid_context(context_data: Dict, verbose=True):
     try:
-        ContextModel(**context_data)
+        ContextsModel(**context_data)
     except ValidationError as e:
         if verbose:
             lib.try_log(str(e), is_warning=True)
@@ -166,6 +166,21 @@ class GuardianSelectorsModel(BaseModel):
     )
 
 
+class GuardianSpecOptionsModel(BaseModel):
+    disable_processes: Optional[
+        Literal[tuple(lib.DISABLE_PROCS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PROCS_FIELD)
+    disable_connections: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_CONNS_FIELD)
+    disable_private_conns: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PR_CONNS_FIELD)
+    disable_public_conns: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PU_CONNS_FIELD)
+
+
 # Network Models --------------------------------------------------------------
 
 
@@ -224,15 +239,23 @@ class PortsModel(BaseModel):
 
 class IngressNodeModel(BaseModel):
     from_field: List[Union[DnsBlockModel, IpBlockModel]] = Field(
-        alias=lib.FROM_FIELD
+        alias=lib.FROM_FIELD, min_items=1
     )
-    processes: List[str] = Field(alias=lib.PROCESSES_FIELD)
-    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
+    processes: Optional[List[str]] = Field(
+        alias=lib.PROCESSES_FIELD, min_items=1
+    )
+    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD, min_items=1)
 
-    @validator("processes", each_item=True)
+    @validator("processes")
     def validate_proc_ids(cls, v):
-        if not in_proc_ids(v):
-            raise ValueError(f"No process found with id '{v}'.")
+        if not v:
+            return v
+        bad = []
+        for proc_id in v:
+            if not in_proc_ids(proc_id):
+                bad.append(proc_id)
+        if bad:
+            raise ValueError(f"No process found with id(s) '{bad}'.")
         return v
 
     class Config:
@@ -240,15 +263,28 @@ class IngressNodeModel(BaseModel):
 
 
 class EgressNodeModel(BaseModel):
-    to: List[Union[DnsBlockModel, IpBlockModel]] = Field(alias=lib.TO_FIELD)
-    processes: List[str] = Field(alias=lib.PROCESSES_FIELD)
-    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
+    to: List[Union[DnsBlockModel, IpBlockModel]] = Field(
+        alias=lib.TO_FIELD, min_items=1
+    )
+    processes: Optional[List[str]] = Field(
+        alias=lib.PROCESSES_FIELD, min_items=1
+    )
+    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD, min_items=1)
 
-    @validator("processes", each_item=True)
+    @validator("processes")
     def validate_proc_ids(cls, v):
-        if not in_proc_ids(v):
-            raise ValueError(f"No process found with id '{v}'.")
+        if not v:
+            return v
+        bad = []
+        for proc_id in v:
+            if not in_proc_ids(proc_id):
+                bad.append(proc_id)
+        if bad:
+            raise ValueError(f"No process found with id(s) '{bad}'.")
         return v
+
+    class Config:
+        smart_union = True
 
 
 class NetworkPolicyModel(BaseModel):
@@ -259,11 +295,14 @@ class NetworkPolicyModel(BaseModel):
 # Process Models --------------------------------------------------------------
 
 
-class ProcessNodeModel(BaseModel):
+class SimpleProcessNodeModel(BaseModel):
     name: str = Field(alias=lib.NAME_FIELD)
     exe: List[str] = Field(alias=lib.EXE_FIELD)
-    id: str = Field(alias=lib.ID_FIELD)
     euser: Optional[List[str]] = Field(alias=lib.EUSER_FIELD)
+
+
+class ProcessNodeModel(SimpleProcessNodeModel):
+    id: str = Field(alias=lib.ID_FIELD)
     listening_sockets: Optional[List[PortsModel]] = Field(
         alias=lib.LISTENING_SOCKETS
     )
@@ -388,8 +427,13 @@ class GuardianFingerprintGroupMetadataModel(BaseModel):
 # Spec Models -----------------------------------------------------------------
 
 
-class GuardianPolicySpecModel(GuardianSelectorsModel):
+class GuardianPolicySpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        alias=lib.POL_MODE_FIELD
+    )
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
     response: GuardianResponseModel = Field(alias=lib.RESPONSE_FIELD)
@@ -398,9 +442,14 @@ class GuardianPolicySpecModel(GuardianSelectorsModel):
         extra = Extra.forbid
 
 
-class GuardianBaselineSpecModel(GuardianSelectorsModel):
+class GuardianBaselineSpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 # Top-level Models ------------------------------------------------------------
@@ -449,7 +498,7 @@ class GuardianFingerprintGroupModel(BaseModel):
     data: FingerprintGroupDataModel
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianBaselineModel(BaseModel):
@@ -470,7 +519,7 @@ class GuardianBaselineModel(BaseModel):
         clear_proc_ids()
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianPolicyModel(BaseModel):
@@ -499,7 +548,7 @@ class GuardianObjectModel(BaseModel):
     spec: Dict = Field(alias=lib.SPEC_FIELD)
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
 
 class GuardianObjectListModel(BaseModel):
@@ -562,6 +611,9 @@ class AllowedFlagsModel(BaseModel):
 
 class SuppressionPolicySpecModel(SuppressionPolicySelectorsModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        alias=lib.POL_MODE_FIELD
+    )
     allowed_flags: List[AllowedFlagsModel] = Field(
         alias=lib.ALLOWED_FLAGS_FIELD
     )
@@ -647,6 +699,17 @@ class ConfigModel(BaseModel):
 class UidListMetadataModel(BaseModel):
     start_time: Union[int, float] = Field(alias=lib.METADATA_START_TIME_FIELD)
     end_time: Union[int, float] = Field(alias=lib.METADATA_END_TIME_FIELD)
+
+    @root_validator
+    def valid_end_time(cls, values: Dict):
+        start_time = values["start_time"]
+        end_time = values["end_time"]
+        if end_time <= start_time:
+            raise ValueError(
+                f"'{lib.METADATA_END_TIME_FIELD}' must be greater than"
+                f" '{lib.METADATA_START_TIME_FIELD}'"
+            )
+        return values
 
 
 class UidListDataModel(BaseModel):

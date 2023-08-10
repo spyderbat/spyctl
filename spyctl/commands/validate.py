@@ -1,18 +1,31 @@
-import spyctl.cli as cli
-import spyctl.spyctl_lib as lib
-from typing import List, Dict, Union, Any
-import spyctl.schemas_v2 as schemas
 import json
+from typing import IO, Any, Dict, List, Union
+
+import spyctl.api as api
+import spyctl.config.configs as cfg
+import spyctl.cli as cli
+import spyctl.schemas_v2 as schemas
+import spyctl.spyctl_lib as lib
 
 
-def handle_validate(file):
-    if file:
+def handle_validate(file: IO, do_api=False):
+    if file and do_api:
+        ctx = cfg.get_current_context()
+        resrc_data = lib.load_file_for_api_test(file)
+        data = {"object": json.dumps(resrc_data)}
+        invalid_message = api.api_validate(*ctx.get_api_data(), data)
+        if not invalid_message:
+            kind = resrc_data[lib.KIND_FIELD]
+            cli.try_log(f"{kind} valid!")
+        else:
+            print(invalid_message)
+    elif file:
         resrc_data = lib.load_resource_file(file, validate_cmd=True)
-    if isinstance(resrc_data, list):
-        cli.try_log("List of objects valid!")
-    else:
-        kind = resrc_data[lib.KIND_FIELD]
-        cli.try_log(f"{kind} valid!")
+        if isinstance(resrc_data, list):
+            cli.try_log("List of objects valid!")
+        else:
+            kind = resrc_data[lib.KIND_FIELD]
+            cli.try_log(f"{kind} valid!")
 
 
 def validate_json(json_data: Union[str, Any]) -> bool:
