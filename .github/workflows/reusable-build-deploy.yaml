@@ -62,6 +62,7 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
+        role-duration-seconds: 3600
         role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE }}
     - name: Set short sha
       id: sha_var
@@ -107,7 +108,7 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
-        role-duration-seconds: 1200
+        role-duration-seconds: 3600
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
     - name: Install Kubectl
       uses: azure/setup-kubectl@v3
