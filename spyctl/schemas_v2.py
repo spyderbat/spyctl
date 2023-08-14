@@ -726,8 +726,16 @@ class UidListModel(BaseModel):
 
 
 class SpyderbatObject(BaseModel):
-    api_version: str = Field(alias=lib.API_FIELD)
+    api_version: Literal[lib.API_VERSION] = Field(  # type: ignore
+        alias=lib.API_FIELD
+    )
     kind: str = Field(alias=lib.KIND_FIELD)
+
+    @validator("kind")
+    def valid_kind(cls, v):
+        if v not in KIND_TO_SCHEMA:
+            raise ValueError(f"Kind '{v}' not in {list(KIND_TO_SCHEMA)}")
+        return v
 
     class Config:
         extra = Extra.allow
