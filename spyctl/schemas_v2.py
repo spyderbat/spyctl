@@ -52,7 +52,7 @@ def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
 
 def valid_context(context_data: Dict, verbose=True):
     try:
-        ContextModel(**context_data)
+        ContextsModel(**context_data)
     except ValidationError as e:
         if verbose:
             lib.try_log(str(e), is_warning=True)
@@ -166,6 +166,21 @@ class GuardianSelectorsModel(BaseModel):
     )
 
 
+class GuardianSpecOptionsModel(BaseModel):
+    disable_processes: Optional[
+        Literal[tuple(lib.DISABLE_PROCS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PROCS_FIELD)
+    disable_connections: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_CONNS_FIELD)
+    disable_private_conns: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PR_CONNS_FIELD)
+    disable_public_conns: Optional[
+        Literal[tuple(lib.DISABLE_CONNS_STRINGS)]  # type: ignore
+    ] = Field(alias=lib.DISABLE_PU_CONNS_FIELD)
+
+
 # Network Models --------------------------------------------------------------
 
 
@@ -224,16 +239,16 @@ class PortsModel(BaseModel):
 
 class IngressNodeModel(BaseModel):
     from_field: List[Union[DnsBlockModel, IpBlockModel]] = Field(
-        alias=lib.FROM_FIELD
+        alias=lib.FROM_FIELD, min_items=1
     )
-    processes: Union[Literal["any"], List[str]] = Field(
-        alias=lib.PROCESSES_FIELD
+    processes: Optional[List[str]] = Field(
+        alias=lib.PROCESSES_FIELD, min_items=1
     )
-    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
+    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD, min_items=1)
 
     @validator("processes")
     def validate_proc_ids(cls, v):
-        if v == "any":
+        if not v:
             return v
         bad = []
         for proc_id in v:
@@ -248,15 +263,17 @@ class IngressNodeModel(BaseModel):
 
 
 class EgressNodeModel(BaseModel):
-    to: List[Union[DnsBlockModel, IpBlockModel]] = Field(alias=lib.TO_FIELD)
-    processes: Union[Literal["any"], List[str]] = Field(
-        alias=lib.PROCESSES_FIELD
+    to: List[Union[DnsBlockModel, IpBlockModel]] = Field(
+        alias=lib.TO_FIELD, min_items=1
     )
-    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD)
+    processes: Optional[List[str]] = Field(
+        alias=lib.PROCESSES_FIELD, min_items=1
+    )
+    ports: List[PortsModel] = Field(alias=lib.PORTS_FIELD, min_items=1)
 
     @validator("processes")
     def validate_proc_ids(cls, v):
-        if v == "any":
+        if not v:
             return v
         bad = []
         for proc_id in v:
@@ -299,41 +316,6 @@ class ProcessNodeModel(SimpleProcessNodeModel):
             raise ValueError(f"Duplicate id '{v}' detected.")
         add_proc_id(v)
         return v
-
-
-# Ignore Rules Models ---------------------------------------------------------
-
-
-class IgnoreProcessRulesModel(BaseModel):
-    ignore_process_rules: Union[
-        Literal[tuple(lib.IGNORE_PROCS_STRINGS)],  # type: ignore
-        List[Union[str, SimpleProcessNodeModel]],
-    ] = Field(alias=lib.IGNORE_PROCS_FIELD)
-
-    @validator("ignore_process_rules")
-    def validate_rules(cls, v):
-        rv = v
-        if isinstance(v, str) and v not in lib.IGNORE_PROCS_STRINGS:
-            raise ValueError(
-                f"Incorrect value '{v}' is not in"
-                f" {lib.IGNORE_PROCS_STRINGS}"
-            )
-        else:
-            for value in v:
-                if isinstance(value, str):
-                    if value not in lib.IGNORE_PROCS_STRINGS:
-                        raise ValueError(
-                            f"Incorrect value '{value}' is not in"
-                            f" {lib.IGNORE_PROCS_STRINGS}"
-                        )
-                    rv = value
-        return rv
-
-
-class IgnoreConnectionRulesModel(BaseModel):
-    ignore_connection_rules: Literal[
-        tuple(lib.IGNORE_CONN_STRINGS)  # type: ignore
-    ] = Field(alias=lib.IGNORE_CONNS_FIELD)
 
 
 # Actions Models --------------------------------------------------------------
@@ -445,8 +427,13 @@ class GuardianFingerprintGroupMetadataModel(BaseModel):
 # Spec Models -----------------------------------------------------------------
 
 
-class GuardianPolicySpecModel(GuardianSelectorsModel):
+class GuardianPolicySpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        alias=lib.POL_MODE_FIELD
+    )
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
     response: GuardianResponseModel = Field(alias=lib.RESPONSE_FIELD)
@@ -455,9 +442,14 @@ class GuardianPolicySpecModel(GuardianSelectorsModel):
         extra = Extra.forbid
 
 
-class GuardianBaselineSpecModel(GuardianSelectorsModel):
+class GuardianBaselineSpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 # Top-level Models ------------------------------------------------------------
@@ -619,6 +611,9 @@ class AllowedFlagsModel(BaseModel):
 
 class SuppressionPolicySpecModel(SuppressionPolicySelectorsModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+    mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
+        alias=lib.POL_MODE_FIELD
+    )
     allowed_flags: List[AllowedFlagsModel] = Field(
         alias=lib.ALLOWED_FLAGS_FIELD
     )
@@ -731,8 +726,16 @@ class UidListModel(BaseModel):
 
 
 class SpyderbatObject(BaseModel):
-    api_version: str = Field(alias=lib.API_FIELD)
+    api_version: Literal[lib.API_VERSION] = Field(  # type: ignore
+        alias=lib.API_FIELD
+    )
     kind: str = Field(alias=lib.KIND_FIELD)
+
+    @validator("kind")
+    def valid_kind(cls, v):
+        if v not in KIND_TO_SCHEMA:
+            raise ValueError(f"Kind '{v}' not in {list(KIND_TO_SCHEMA)}")
+        return v
 
     class Config:
         extra = Extra.allow

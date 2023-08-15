@@ -11,7 +11,7 @@ import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.secrets as s
 import spyctl.spyctl_lib as lib
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 
 APP_NAME = "spyctl"
 APP_DIR = f".{APP_NAME}"

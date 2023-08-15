@@ -494,9 +494,30 @@ def create():
     " generated automatically",
     metavar="",
 )
-def create_baseline(filename, output, name):
+@click.option(
+    "-d",
+    "--disable-processes",
+    "disable_procs",
+    type=click.Choice(lib.DISABLE_PROCS_STRINGS),
+    metavar="",
+    hidden=False,
+    help="Disable processes detections for this policy. Disabling all "
+    "processes detections effectively turns this into a network policy.",
+)
+@click.option(
+    "-D",
+    "--disable-connections",
+    "disable_conns",
+    type=click.Choice(lib.DISABLE_CONN_OPTIONS_STRINGS),
+    metavar="",
+    help="Disable detections for all, public, or private connections.",
+    hidden=False,
+)
+def create_baseline(filename, output, name, disable_procs, disable_conns):
     """Create a Baseline from a file, outputted to stdout"""
-    c.handle_create_baseline(filename, output, name)
+    c.handle_create_baseline(
+        filename, output, name, disable_procs, disable_conns
+    )
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
@@ -525,27 +546,36 @@ def create_baseline(filename, output, name):
     metavar="",
 )
 @click.option(
-    "-I",
-    "--ignore-procs",
-    type=lib.ListDictParam(),
-    multiple=True,
+    "-d",
+    "--disable-processes",
+    "disable_procs",
+    type=click.Choice(lib.DISABLE_PROCS_STRINGS),
     metavar="",
-    default=[],
-    hidden=True,
-    help="Optional processes to ignore. This option may be used multiple times"
-    " (ex. '-I name=foo -I name=bar,exe=/foo/bar'). Fields listed together"
-    " will be AND'ed together, multiple uses of the option will be OR'ed. You"
-    " can also specify ignoring all processes with '-I all'. Wildcarding is"
-    " also available",
+    hidden=False,
+    help="Disable processes detections for this policy. Disabling all "
+    "processes detections effectively turns this into a network policy.",
 )
 @click.option(
-    "-C",
-    "--ignore-conns",
-    type=click.Choice(lib.IGNORE_CONN_STRINGS),
+    "-D",
+    "--disable-connections",
+    "disable_conns",
+    type=click.Choice(lib.DISABLE_CONN_OPTIONS_STRINGS),
     metavar="",
-    help="Ignore connections during policy enforcement and don't build them"
-    " into the policy.",
-    hidden=True,
+    help="Disable detections for all, public, or private connections.",
+    hidden=False,
+)
+@click.option(
+    "-m",
+    "--mode",
+    type=click.Choice(lib.POL_MODES),
+    default=lib.POL_MODE_AUDIT,
+    metavar="",
+    help="This determines what the policy should do when applied and enabled."
+    " Default is audit mode. Audit mode will generate log messages when a"
+    " violation occurs and when it would have taken an action, but it will not"
+    " actually take an action or generate a violation flag. Enforce mode"
+    " will take actions, generate flags, and also generate audit events.",
+    hidden=False,
 )
 @click.option(
     "-a",
@@ -557,13 +587,13 @@ def create_baseline(filename, output, name):
 )
 @lib.colorization_option
 def create_policy(
-    filename, output, name, colorize, ignore_procs, ignore_conns, api
+    filename, output, name, colorize, mode, disable_procs, disable_conns, api
 ):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
     c.handle_create_guardian_policy(
-        filename, output, name, ignore_procs, ignore_conns, api
+        filename, output, name, mode, disable_procs, disable_conns, api
     )
 
 
@@ -653,6 +683,19 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
     metavar="",
 )
 @click.option(
+    "-m",
+    "--mode",
+    type=click.Choice(lib.POL_MODES),
+    default=lib.POL_MODE_AUDIT,
+    metavar="",
+    help="This determines what the policy should do when applied and enabled."
+    " Default is audit mode. Audit mode will generate log messages when a"
+    " an object matches the policy and would be suppressed, but it will not"
+    " suppress the object. Enforce mode actually suppress the object if it"
+    " matches the policy.",
+    hidden=False,
+)
+@click.option(
     f"--{lib.SUP_POL_CMD_USERS}",
     help="Scope the policy to these users. This option will overwrite"
     f" any auto-generated {lib.USERS_FIELD} values generated"
@@ -671,7 +714,7 @@ class SuppressionPolicyCommand(lib.ArgumentParametersCommand):
 @lib.tmp_context_options
 @lib.colorization_option
 def create_suppression_policy(
-    type, id, include_users, output, name, colorize, api, **selectors
+    type, id, include_users, output, name, colorize, mode, api, **selectors
 ):
     """Create a Suppression Policy object from a file, outputted to stdout"""
     if not colorize:
@@ -685,7 +728,7 @@ def create_suppression_policy(
     if org_uid and api_key and api_url:
         cfgs.use_temp_secret_and_context(org_uid, api_key, api_url)
     c.handle_create_suppression_policy(
-        type, id, include_users, output, name, api, **selectors
+        type, id, include_users, output, mode, name, api, **selectors
     )
 
 
@@ -1669,6 +1712,20 @@ def update():
 )
 def update_response_actions(backup_file=None):
     u.handle_update_response_actions(backup_file)
+
+
+@update.command("policy-modes", cls=lib.CustomCommand)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-b",
+    "--backup-file",
+    "backup_file",
+    help="location to place policy backups",
+    required=True,
+    type=click.Path(exists=True, writable=True, file_okay=False),
+)
+def update_policy_modes(backup_file=None):
+    u.handle_update_policy_modes(backup_file)
 
 
 # ----------------------------------------------------------------- #

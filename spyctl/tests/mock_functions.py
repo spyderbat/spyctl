@@ -372,6 +372,7 @@ def mock_get_policies(api_url, api_key, org_uid, params=None):
                     "tier": "frontend",
                 }
             },
+            "mode": "audit",
             "namespaceSelector": {
                 "matchLabels": {"kubernetes.io/metadata.name": "test"}
             },

@@ -27,3 +27,11 @@ jobs:
       deployment: prod
       environment: prod_api
     secrets: inherit
+
+  deu-prod-build:
+    if: github.base_ref == 'production_api'
+    uses: ./.github/workflows/reusable-build-dry-run.yaml
+    with:
+      deployment: deu-prod
+      environment: deu_prod_api
+    secrets: inherit

@@ -49,11 +49,21 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
     - name: Configure AWS credentials
+      if: ${{ inputs.environment == 'integration_api' }}
       uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: ${{ secrets.AWS_REGION }}
+    - name: Configure AWS credentials
+      if: ${{ inputs.environment != 'integration_api' }}
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        role-duration-seconds: 3600
+        role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE }}
     - name: Set short sha
       id: sha_var
       run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
@@ -97,8 +107,8 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
-        role-duration-seconds: 1200
+        aws-region: ${{ secrets.AWS_REGION }}
+        role-duration-seconds: 3600
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
     - name: Install Kubectl
       uses: azure/setup-kubectl@v3

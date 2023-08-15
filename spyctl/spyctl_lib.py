@@ -594,31 +594,42 @@ POL_TYPE_TRACE = "trace"
 SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
 GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
+POL_MODE_ENFORCE = "enforce"
+POL_MODE_AUDIT = "audit"
+POL_MODES = [POL_MODE_ENFORCE, POL_MODE_AUDIT]
+POL_MODE_FIELD = "mode"
 ENABLED_FIELD = "enabled"
-IGNORE_PROCS_FIELD = "ignoreProcesses"
-IGNORE_PROCS_ALL = "all"
-IGNORE_PROCS_STRINGS = [IGNORE_PROCS_ALL]
-IGNORE_CONNS_ALL = "all"
-IGNORE_CONNS_INGRESS = "all-ingress"
-IGNORE_CONNS_EGRESS = "all-egress"
-IGNORE_CONNS_PRIVATE = "private"
-IGNORE_CONNS_PRIVATE_E = "private-egress"
-IGNORE_CONNS_PRIVATE_I = "private-ingress"
-IGNORE_CONNS_PUBLIC = "public"
-IGNORE_CONNS_PUBLIC_E = "public-egress"
-IGNORE_CONNS_PUBLIC_I = "public-ingress"
-IGNORE_CONN_STRINGS = [
-    IGNORE_CONNS_ALL,
-    IGNORE_CONNS_EGRESS,
-    IGNORE_CONNS_INGRESS,
-    IGNORE_CONNS_PRIVATE,
-    IGNORE_CONNS_PRIVATE_E,
-    IGNORE_CONNS_PRIVATE_I,
-    IGNORE_CONNS_PUBLIC,
-    IGNORE_CONNS_PUBLIC_E,
-    IGNORE_CONNS_PUBLIC_I,
+DISABLE_PROCS_FIELD = "disableProcesses"
+DISABLE_PROCS_ALL = "all"
+DISABLE_PROCS_STRINGS = [DISABLE_PROCS_ALL]
+DISABLE_CONNS_ALL = "all"
+DISABLE_CONNS_INGRESS = "ingress"
+DISABLE_CONNS_EGRESS = "egress"
+DISABLE_CONNS_PRIVATE = "private"
+DISABLE_CONNS_PRIVATE_E = "private-egress"
+DISABLE_CONNS_PRIVATE_I = "private-ingress"
+DISABLE_CONNS_PUBLIC = "public"
+DISABLE_CONNS_PUBLIC_E = "public-egress"
+DISABLE_CONNS_PUBLIC_I = "public-ingress"
+DISABLE_CONNS_STRINGS = [
+    DISABLE_CONNS_ALL,
+    DISABLE_CONNS_EGRESS,
+    DISABLE_CONNS_INGRESS,
 ]
-IGNORE_CONNS_FIELD = "ignoreConnections"
+DISABLE_CONN_OPTIONS_STRINGS = [
+    DISABLE_CONNS_ALL,
+    DISABLE_CONNS_EGRESS,
+    DISABLE_CONNS_INGRESS,
+    DISABLE_CONNS_PRIVATE,
+    DISABLE_CONNS_PRIVATE_E,
+    DISABLE_CONNS_PRIVATE_I,
+    DISABLE_CONNS_PUBLIC,
+    DISABLE_CONNS_PUBLIC_E,
+    DISABLE_CONNS_PUBLIC_I,
+]
+DISABLE_CONNS_FIELD = "disableConnections"
+DISABLE_PR_CONNS_FIELD = "disablePrivateConnections"
+DISABLE_PU_CONNS_FIELD = "disablePublicConnections"
 METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"
@@ -1772,3 +1783,15 @@ def load_file_for_api_test(file: IO):
         except Exception:
             err_exit("Unable to load resource file.")
     return resrc_data
+
+
+def is_private_dns(hostname: str) -> bool:
+    if hostname.endswith(".local"):
+        return True
+    return False
+
+
+def is_public_dns(hostname: str) -> bool:
+    if not is_private_dns(hostname):
+        return True
+    return False

@@ -12,7 +12,7 @@ import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.resources.api_filters.fingerprints as f_api_filt
 import spyctl.spyctl_lib as lib
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 import spyctl.resources.resources_lib as r_lib
 
 POLICIES = None

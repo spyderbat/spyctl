@@ -68,6 +68,7 @@ def trace_suppression_policy(
 class CreateGuardianPolicyInput:
     name: str = ""
     input_objs: List[Dict] = field(default_factory=list())
+    mode: str = lib.POL_MODE_AUDIT
     org_uid: str = ""
     api_key: str = ""
     api_url: str = ""
@@ -85,7 +86,7 @@ def guardian_policy(
         i.org_uid, i.api_key, i.api_url
     )
     pol = spyctl_create.create_guardian_policy_from_json(
-        i.name, i.input_objs, spyctl_ctx
+        i.name, i.mode, i.input_objs, spyctl_ctx
     )
     output = CreateGuardianPolicyOutput(policy=json.dumps(pol))
     return output
