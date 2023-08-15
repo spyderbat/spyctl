@@ -695,8 +695,8 @@ CHILDREN_FIELD = "children"
 LISTENING_SOCKETS = "listeningSockets"
 
 # Container
-CONTAINER_NAME_FIELD = "name"
-CONTAINER_ID_FIELD = "id"
+CONTAINER_NAME_FIELD = "containerName"
+CONTAINER_ID_FIELD = "containerID"
 CONTAINER_AGE = "age"
 CONTAINER_IMAGE_NAME = "image-name"
 
