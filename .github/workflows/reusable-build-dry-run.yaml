@@ -1,0 +1,139 @@
+name: Reusable Build Dry-Run Workflow
+
+on:
+  workflow_call:
+    inputs:
+      deployment:
+        required: true
+        description: name of the spyderbat deployment (integration, staging, prod, etc)
+        type: string
+      environment:
+        type: string
+        description: name of the github environment
+        required: true
+
+jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Set up Python 11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    - name: Copy spyctl
+      id: make-directories
+      run: |
+        # Move spyctl code to the right directory
+        echo mkdir ./spyctl_api/build
+        mkdir ./spyctl_api/build
+        mkdir ./spyctl_api/build/spyctl
+        cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+    - name: Install dependencies
+      run: |
+        cd ./spyctl_api
+        python -m pip install --upgrade pip
+        python -m pip install pytest
+        python -m pip install -r ./requirements.txt
+    - name: Test with pytest
+      run: |
+        pytest ./spyctl_api
+  build-dry-run:
+    name: Docker Build Dry-Run
+    runs-on: [self-hosted, ARM64]
+    environment: ${{ inputs.environment }}
+    needs: run-tests
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Configure AWS credentials
+      if: ${{ inputs.environment == 'integration_api' }}
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - name: Configure AWS credentials
+      if: ${{ inputs.environment != 'integration_api' }}
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        role-duration-seconds: 3600
+        role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE }}
+    - name: Set short sha
+      id: sha_var
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Copy spyctl
+      id: make-directories
+      run: |
+        # Move spyctl code to the right directory
+        echo mkdir ./spyctl_api/build
+        mkdir ./spyctl_api/build
+        mkdir ./spyctl_api/build/spyctl
+        cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+    - name: Build, Tag & Push Img to ECR
+      id: build-image
+      env:
+        ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
+        IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
+      run: |
+        # Build docker container and push it to ECR
+        cd ./spyctl_api
+        echo build -t spyctl-api .
+        docker build -t spyctl-api .
+        echo "Tagging Image"
+        echo docker tag spyctl-api:$IMAGE_TAG $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag spyctl-api:latest $ECR_REPOSITORY:$IMAGE_TAG
+        echo "Pushing image to ECR..."
+        echo docker push $ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REPOSITORY:$IMAGE_TAG
+  install-dry-run:
+    name: Install Helm Chart (Dry Run)
+    runs-on: [self-hosted, ARM64]
+    needs: [run-tests, build-dry-run]
+    environment: ${{ inputs.environment }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        role-duration-seconds: 3600
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+    - name: Install Kubectl
+      uses: azure/setup-kubectl@v3
+      id: install
+    - name: Update Kube Config
+      run: aws eks update-kubeconfig --name ${{ secrets.CLUSTER_NAME }}
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: "v3.12.2" # default is latest (stable)
+      id: install-helm
+    - name: Set short sha
+      id: sha_var
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    - name: Run helm upgrade
+      env:
+        ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
+        IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
+      run: |
+        echo "Dry-Run Upgrading helm spyctl image $IMAGE_TAG"
+        helm upgrade --dry-run -i spyctl-api-svc ./spyctl_api/spyctl-api-svc --force \
+          --set image.repository=${{ secrets.REPO_NAME }} \
+          --set image.tag=$IMAGE_TAG \
+          --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.SPYCTL_SVC_ACCOUNT_ROLE_ARN }} \
+          --set deployment=${{ inputs.deployment }} \
+          --set ingress.hosts[0].host=spyctl-api.${{ inputs.deployment }}.local \
+          --set	ingress.hosts[0].paths[0].path="/" \
+          --set ingress.hosts[0].paths[0].pathType="ImplementationSpecific"

@@ -1,0 +1,10 @@
+version: "3.11"
+
+services:
+  spyctl_test_api:
+    image: spyctl_test_api:latest
+    hostname: spyctl_test_api
+    ports:
+      - "80:80"
+    expose:
+      - "80"

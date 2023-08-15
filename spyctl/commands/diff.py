@@ -24,7 +24,17 @@ def handle_diff(
     et,
     latest,
     merge_network=True,
+    do_api=False,
 ):
+    if do_api:
+        ctx = cfgs.get_current_context()
+        if not filename_target or not with_file:
+            cli.err_exit("api test only with local files")
+        r_data = lib.load_file_for_api_test(filename_target[0])
+        w_data = lib.load_file_for_api_test(with_file)
+        diff_data = api.api_diff(*ctx.get_api_data(), r_data, w_data)
+        cli.show(diff_data, lib.OUTPUT_RAW)
+        return
     global POLICIES
     if not POLICIES and (with_policy or policy_target):
         ctx = cfgs.get_current_context()
@@ -129,6 +139,7 @@ def handle_diff(
                     lib.METADATA_UID_FIELD
                 )
                 target_name = f"applied policy '{t_name} - {t_uid}'"
+                target_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
                 with_obj = get_with_obj(
                     target,
                     target_name,

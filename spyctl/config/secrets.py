@@ -13,7 +13,7 @@ import spyctl.cli as cli
 import spyctl.config.configs as cfgs
 import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
-import spyctl.schemas as schemas
+import spyctl.schemas_v2 as schemas
 
 SECRET_KIND = lib.SECRET_KIND
 

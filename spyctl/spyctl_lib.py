@@ -40,6 +40,7 @@ COLORIZE_OUTPUT = True
 APP_NAME = "spyctl"
 WARNING_MSG = "is_warning"
 WARNING_COLOR = "\x1b[38;5;203m"
+NOTICE_COLOR = "\x1b[38;5;75m"
 ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
@@ -51,12 +52,14 @@ USE_LOG_VARS = False
 
 
 def disable_colorization():
-    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END, ADD_COLOR, SUB_COLOR
+    global COLORIZE_OUTPUT, WARNING_COLOR, COLOR_END
+    global ADD_COLOR, SUB_COLOR, NOTICE_COLOR
     COLORIZE_OUTPUT = False
     WARNING_COLOR = ""
     COLOR_END = ""
     SUB_COLOR = ""
     ADD_COLOR = ""
+    NOTICE_COLOR = ""
 
 
 def flush_log_var() -> str:
@@ -228,6 +231,9 @@ DEL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
 ]
+DESC_RESOURCES: List[str] = [
+    POLICIES_RESOURCE.name,
+]
 GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
@@ -296,6 +302,19 @@ class DelResourcesParam(click.ParamType):
         ]
 
 
+class DescribeResourcesParam(click.ParamType):
+    name = "del_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in DESC_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
 class GetResourcesParam(click.ParamType):
     name = "get_resources"
 
@@ -348,6 +367,28 @@ class ListParam(click.ParamType):
             rv = value.split(" ")
         for i, v in enumerate(rv):
             rv[i] = v.strip(" ")
+        return rv
+
+
+class ListDictParam(click.ParamType):
+    def convert(
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Any:
+        rv = []
+        rv_dict = {}
+        if "," in value:
+            args_list = value.split(",")
+        for v in args_list:
+            if "=" in v:
+                key, val = v.split("=")[:2]
+                rv_dict[key] = val
+            else:
+                rv.append(v)
+        if rv_dict:
+            rv.append(rv_dict)
         return rv
 
 
@@ -553,7 +594,42 @@ POL_TYPE_TRACE = "trace"
 SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
 GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
+POL_MODE_ENFORCE = "enforce"
+POL_MODE_AUDIT = "audit"
+POL_MODES = [POL_MODE_ENFORCE, POL_MODE_AUDIT]
+POL_MODE_FIELD = "mode"
 ENABLED_FIELD = "enabled"
+DISABLE_PROCS_FIELD = "disableProcesses"
+DISABLE_PROCS_ALL = "all"
+DISABLE_PROCS_STRINGS = [DISABLE_PROCS_ALL]
+DISABLE_CONNS_ALL = "all"
+DISABLE_CONNS_INGRESS = "ingress"
+DISABLE_CONNS_EGRESS = "egress"
+DISABLE_CONNS_PRIVATE = "private"
+DISABLE_CONNS_PRIVATE_E = "private-egress"
+DISABLE_CONNS_PRIVATE_I = "private-ingress"
+DISABLE_CONNS_PUBLIC = "public"
+DISABLE_CONNS_PUBLIC_E = "public-egress"
+DISABLE_CONNS_PUBLIC_I = "public-ingress"
+DISABLE_CONNS_STRINGS = [
+    DISABLE_CONNS_ALL,
+    DISABLE_CONNS_EGRESS,
+    DISABLE_CONNS_INGRESS,
+]
+DISABLE_CONN_OPTIONS_STRINGS = [
+    DISABLE_CONNS_ALL,
+    DISABLE_CONNS_EGRESS,
+    DISABLE_CONNS_INGRESS,
+    DISABLE_CONNS_PRIVATE,
+    DISABLE_CONNS_PRIVATE_E,
+    DISABLE_CONNS_PRIVATE_I,
+    DISABLE_CONNS_PUBLIC,
+    DISABLE_CONNS_PUBLIC_E,
+    DISABLE_CONNS_PUBLIC_I,
+]
+DISABLE_CONNS_FIELD = "disableConnections"
+DISABLE_PR_CONNS_FIELD = "disablePrivateConnections"
+DISABLE_PU_CONNS_FIELD = "disablePublicConnections"
 METADATA_NAME_FIELD = "name"
 METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"
@@ -619,8 +695,8 @@ CHILDREN_FIELD = "children"
 LISTENING_SOCKETS = "listeningSockets"
 
 # Container
-CONTAINER_NAME_FIELD = "name"
-CONTAINER_ID_FIELD = "id"
+CONTAINER_NAME_FIELD = "containerName"
+CONTAINER_ID_FIELD = "containerID"
 CONTAINER_AGE = "age"
 CONTAINER_IMAGE_NAME = "image-name"
 
@@ -1428,13 +1504,6 @@ def make_uuid():
 
 def err_exit(message: str, exception: Exception = None):
     if API_CALL:
-        if USE_LOG_VARS:
-            global ERR_VAR
-            ERR_VAR.append(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
-        if exception:
-            raise exception
-        elif USE_LOG_VARS:
-            raise Exception()
         raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
@@ -1474,7 +1543,9 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
             try_log(" ".join(e.args))
             sys.exit(0)
         err_exit(" ".join(e.args))
-    except Exception:
+    except Exception as e:
+        if file.name.endswith(".yaml"):
+            err_exit("Error decoding yaml" + " ".join(e.args))
         try:
             name, resrc_data = __load_json_file(file)
         except json.JSONDecodeError as e:
@@ -1695,3 +1766,32 @@ def set_api_call():
 def set_debug():
     global DEBUG
     DEBUG = True
+
+
+def load_file_for_api_test(file: IO):
+    try:
+        _, resrc_data = __load_yaml_file(file)
+    except ValueError as e:
+        err_exit(" ".join(e.args))
+    except Exception:
+        try:
+            _, resrc_data = __load_json_file(file)
+        except json.JSONDecodeError as e:
+            err_exit("Error decoding json" + " ".join(e.args))
+        except ValueError as e:
+            err_exit(" ".join(e.args))
+        except Exception:
+            err_exit("Unable to load resource file.")
+    return resrc_data
+
+
+def is_private_dns(hostname: str) -> bool:
+    if hostname.endswith(".local"):
+        return True
+    return False
+
+
+def is_public_dns(hostname: str) -> bool:
+    if not is_private_dns(hostname):
+        return True
+    return False

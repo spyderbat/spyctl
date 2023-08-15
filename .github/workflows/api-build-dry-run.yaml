@@ -1,0 +1,37 @@
+name: Spyctl API Build & Dry-Run Deploy
+on:
+  pull_request: 
+    branches: [integration_api, staging_api, production_api]
+
+jobs:
+  integration-build:
+    if: github.base_ref == 'integration_api'
+    uses: ./.github/workflows/reusable-build-dry-run.yaml
+    with:
+      deployment: integration
+      environment: integration_api
+    secrets: inherit
+  
+  staging-build:
+    if: github.base_ref == 'staging_api'
+    uses: ./.github/workflows/reusable-build-dry-run.yaml
+    with:
+      deployment: staging
+      environment: staging_api
+    secrets: inherit
+  
+  prod-build:
+    if: github.base_ref == 'production_api'
+    uses: ./.github/workflows/reusable-build-dry-run.yaml
+    with:
+      deployment: prod
+      environment: prod_api
+    secrets: inherit
+
+  deu-prod-build:
+    if: github.base_ref == 'production_api'
+    uses: ./.github/workflows/reusable-build-dry-run.yaml
+    with:
+      deployment: deu-prod
+      environment: deu_prod_api
+    secrets: inherit

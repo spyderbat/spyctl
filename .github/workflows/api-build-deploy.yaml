@@ -1,0 +1,37 @@
+name: Spyctl API Build & Deploy
+on:
+  push: 
+    branches: [integration_api, staging_api, production_api]
+
+jobs:
+  integration-build:
+    if: github.ref_name == 'integration_api'
+    uses: ./.github/workflows/reusable-build-deploy.yaml
+    with:
+      deployment: integration
+      environment: integration_api
+    secrets: inherit
+  
+  staging-build:
+    if: github.ref_name == 'staging_api'
+    uses: ./.github/workflows/reusable-build-deploy.yaml
+    with:
+      deployment: staging
+      environment: staging_api
+    secrets: inherit
+  
+  prod-build:
+    if: github.ref_name == 'production_api'
+    uses: ./.github/workflows/reusable-build-deploy.yaml
+    with:
+      deployment: prod
+      environment: prod_api
+    secrets: inherit
+  
+  deu-prod-build:
+    if: github.ref_name == 'production_api'
+    uses: ./.github/workflows/reusable-build-deploy.yaml
+    with:
+      deployment: deu-prod
+      environment: deu_prod_api
+    secrets: inherit

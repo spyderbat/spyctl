@@ -11,8 +11,8 @@ def bad_request(msg: str = None):
 
 
 def internal_server_error(msg: str = None):
-    traceback.print_exc()
-    detail = "Internal Server Error."
+    s = traceback.format_exc()
+    detail = "Internal Server Error." + s + "\n"
     if msg:
         detail += f" {msg}"
-    raise HTTPException(500, detail=detail)
+    raise ValueError(detail)

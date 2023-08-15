@@ -32,7 +32,10 @@ TIMEOUT_MSG = "A timeout occurred during the API request. "
 
 
 def get(url, key, params=None, raise_notfound=False):
-    headers = {"Authorization": f"Bearer {key}"}
+    if key:
+        headers = {"Authorization": f"Bearer {key}"}
+    else:
+        headers = None
     try:
         r = requests.get(url, headers=headers, timeout=TIMEOUT, params=params)
     except requests.exceptions.Timeout as e:
@@ -50,9 +53,11 @@ def get(url, key, params=None, raise_notfound=False):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
@@ -75,9 +80,11 @@ def post(url, data, key, raise_notfound=False):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
@@ -98,9 +105,11 @@ def put(url, data, key):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
@@ -121,9 +130,11 @@ def delete(url, key):
             context_uid = r.headers["x-context-uid"]
         else:
             context_uid = "No context uid found."
-        cli.err_exit(
-            f"{r.status_code}, {r.reason}\n\tContext UID: {context_uid}"
-        )
+        msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
+        if r.text:
+            msg.append(f"{r.text}")
+        msg = "\n".join(msg)
+        cli.err_exit(msg)
     return r
 
 
@@ -878,3 +889,86 @@ def __log_interrupt_partial():
 def __log_interrupt():
     cli.try_log("\nRequest aborted, no partial results.. exiting.")
     exit(0)
+
+
+def get_pypi_version():
+    url = "https://pypi.org/pypi/spyctl/json"
+    try:
+        resp = get(url, key=None, raise_notfound=True)
+        version = resp.json().get("info", {}).get("version")
+        if not version:
+            # cli.try_log("Unable to parse latest pypi version")
+            return None
+        return version
+    except ValueError:
+        # cli.try_log("Unable to reach version API")
+        pass
+
+
+# Spyctl api test functions
+
+
+def api_create_guardian_policy(
+    api_url, api_key, org_uid, name, mode, data: Dict
+) -> str:
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/guardianpolicy/build/"
+    data = {"input_objects": json.dumps([data]), "mode": mode}
+    if name:
+        data["name"] = name
+    resp = post(url, data, api_key)
+    policy = resp.json()["policy"]
+    return policy
+
+
+def api_create_suppression_policy(
+    api_url,
+    api_key,
+    org_uid,
+    name,
+    type,
+    scope_to_users,
+    object_uid,
+    **selectors,
+) -> str:
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/suppressionpolicy/build/"
+    data = {"type": type}
+
+    def dash(key: str) -> str:
+        return key.replace("_", "-")
+
+    processed_selectors = {dash(k): v for k, v in selectors.items()}
+    if name:
+        data["name"] = name
+    if scope_to_users:
+        data["scope_to_users"] = scope_to_users
+    if object_uid:
+        data["object_uid"] = object_uid
+    if processed_selectors:
+        data["selectors"] = processed_selectors
+    print(data)
+    resp = post(url, data, api_key)
+    policy = resp.json()["policy"]
+    return policy
+
+
+def api_merge(api_url, api_key, org_uid, obj, m_objs):
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/merge/"
+    data = {"merge_objects": json.dumps([m_objs]), "object": json.dumps(obj)}
+    resp = post(url, data, api_key)
+    merged_object = resp.json()["merged_object"]
+    return merged_object
+
+
+def api_diff(api_url, api_key, org_uid, obj, d_objs):
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/diff/"
+    data = {"diff_objects": json.dumps([d_objs]), "object": json.dumps(obj)}
+    resp = post(url, data, api_key)
+    diff_data = resp.json()["diff_data"]
+    return diff_data
+
+
+def api_validate(api_url, api_key, org_uid, data: Dict) -> str:
+    url = f"{api_url}/api/v1/org/{org_uid}/spyctl/validate/"
+    resp = post(url, data, api_key)
+    invalid_msg = resp.json()["invalid_message"]
+    return invalid_msg

@@ -48,21 +48,13 @@ def trace_suppression_policy(
     spyctl_ctx = app_lib.generate_spyctl_context(
         i.org_uid, i.api_key, i.api_url
     )
-    try:
-        pol = spyctl_create.create_trace_suppression_policy(
-            i.obj_uid,
-            i.auto_generate_user_scope,
-            i.name,
-            ctx=spyctl_ctx,
-            **i.selectors,
-        )
-    except HTTPException as e:
-        raise e
-    except Exception:
-        msg = app_lib.flush_spyctl_log_messages()
-        raise HTTPException(
-            status_code=500, detail=f"Internal Server Error. {msg}"
-        )
+    pol = spyctl_create.create_trace_suppression_policy(
+        i.obj_uid,
+        i.auto_generate_user_scope,
+        i.name,
+        ctx=spyctl_ctx,
+        **i.selectors,
+    )
     output = CreateSuppressionPolicyOutput(json.dumps(pol.as_dict()))
     return output
 
@@ -76,6 +68,7 @@ def trace_suppression_policy(
 class CreateGuardianPolicyInput:
     name: str = ""
     input_objs: List[Dict] = field(default_factory=list())
+    mode: str = lib.POL_MODE_AUDIT
     org_uid: str = ""
     api_key: str = ""
     api_url: str = ""
@@ -92,16 +85,8 @@ def guardian_policy(
     spyctl_ctx = app_lib.generate_spyctl_context(
         i.org_uid, i.api_key, i.api_url
     )
-    try:
-        pol = spyctl_create.create_guardian_policy_from_json(
-            i.name, i.input_objs, spyctl_ctx
-        )
-    except HTTPException as e:
-        raise e
-    except Exception:
-        msg = app_lib.flush_spyctl_log_messages()
-        raise HTTPException(
-            status_code=500, detail=f"Internal Server Error. {msg}"
-        )
+    pol = spyctl_create.create_guardian_policy_from_json(
+        i.name, i.mode, i.input_objs, spyctl_ctx
+    )
     output = CreateGuardianPolicyOutput(policy=json.dumps(pol))
     return output
