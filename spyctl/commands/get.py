@@ -277,7 +277,6 @@ def handle_get_fingerprints(
             fprint_type=filters.get(lib.TYPE_FIELD),
             pipeline=pipeline,
         )
-        orig_fprints = filt.filter_fingerprints(orig_fprints, **filters)
     # Build fingerprint groups
     if policy_coverage:
         fprint_groups, coverage_percentage = __calc_policy_coverage(
