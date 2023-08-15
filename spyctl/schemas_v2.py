@@ -589,7 +589,7 @@ class SuppressionPolicyMetadataModel(BaseModel):
     type: Literal[tuple(lib.SUPPRESSION_POL_TYPES)] = Field(  # type: ignore
         alias=lib.METADATA_TYPE_FIELD
     )
-    create_time: Optional[Union[int, float]] = Field(
+    create_time: Optional[Union[int, float, str]] = Field(
         alias=lib.METADATA_CREATE_TIME
     )
     first_timestamp: Optional[Union[int, float]] = Field(
