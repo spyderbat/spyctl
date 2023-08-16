@@ -1354,12 +1354,15 @@ def get(
 @click.option(
     "--timestamps",
     is_flag=True,
-    help="Lines of recent log file to display. Defaults to -1.",
+    help="Include timestamps on each line in the log output.",
     metavar="",
     default=False,
     type=click.INT,
 )
 def logs(resource, name_or_id, follow, st, et, tail, timestamps):
+    """Print the logs for a specified resource. Default behavior is to
+    print out the logs for the last 24 hours.
+    """
     pass
 
 
