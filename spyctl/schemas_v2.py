@@ -148,7 +148,6 @@ class ProcessSelectorModel(BaseModel):
 
     @root_validator(skip_on_failure=True)
     def ensure_one_field(cls, values: Dict):
-        print(values)
         set_count = 0
         for v in values.values():
             if v is not None:
