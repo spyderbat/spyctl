@@ -1547,7 +1547,7 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
         err_exit(" ".join(e.args))
     except Exception as e:
         if file.name.endswith(".yaml"):
-            err_exit("Error decoding yaml" + " ".join(e.args))
+            err_exit("Error decoding yaml" + str(e.args))
         try:
             name, resrc_data = __load_json_file(file)
         except json.JSONDecodeError as e:

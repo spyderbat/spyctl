@@ -210,6 +210,9 @@ class ActionSelectorsModel(BaseModel):
         alias=lib.PROCESS_SELECTOR_FIELD
     )
 
+    class Config:
+        extra = Extra.forbid
+
 
 class GuardianSpecOptionsModel(BaseModel):
     disable_processes: Optional[
@@ -366,19 +369,48 @@ class ProcessNodeModel(SimpleProcessNodeModel):
 # Actions Models --------------------------------------------------------------
 
 
+class SharedDefaultActionFieldsModel(BaseModel):
+    enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
 class SharedActionFieldsModel(ActionSelectorsModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
 
+    @root_validator(pre=True)
+    def validate_has_selector(cls, fields: Dict):
+        count = 0
+        for key, value in fields.items():
+            if key.endswith("Selector"):
+                count += 1
+        if count == 0:
+            raise ValueError(
+                "At least one selector required for non-default actions."
+            )
+        return fields
 
-class MakeRedflagModel(SharedActionFieldsModel):
+    class Config:
+        extra = Extra.forbid
+
+
+class DefaultMakeRedflagModel(SharedDefaultActionFieldsModel):
     content: Optional[str] = Field(alias=lib.FLAG_CONTENT, max_length=350)
     impact: Optional[str] = Field(alias=lib.FLAG_IMPACT, max_length=100)
     severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(  # type: ignore
         alias=lib.FLAG_SEVERITY
     )
 
+    class Config:
+        extra = Extra.forbid
 
-class MakeOpsflagModel(SharedActionFieldsModel):
+
+class MakeRedflagModel(SharedActionFieldsModel, DefaultMakeRedflagModel):
+    pass
+
+
+class DefaultMakeOpsflagModel(BaseModel):
     content: Optional[str] = Field(alias=lib.FLAG_CONTENT, max_length=350)
     description: Optional[str] = Field(
         alias=lib.FLAG_DESCRIPTION, max_length=350
@@ -387,14 +419,59 @@ class MakeOpsflagModel(SharedActionFieldsModel):
         alias=lib.FLAG_SEVERITY
     )
 
+    class Config:
+        extra = Extra.forbid
 
-class WebhookActionModel(SharedActionFieldsModel):
+
+class MakeOpsflagModel(SharedActionFieldsModel, DefaultMakeOpsflagModel):
+    pass
+
+
+class DefaultWebhookActionModel(BaseModel):
     url_destination: str = Field(
         alias=lib.URL_DESTINATION_FIELD, max_length=2048
     )
     template: Literal[tuple(lib.ALLOWED_TEMPLATES)] = Field(  # type: ignore
         alias=lib.TEMPLATE_FIELD
     )
+
+
+class WebhookActionModel(SharedActionFieldsModel, DefaultWebhookActionModel):
+    pass
+
+
+class DefaultActionsModel(BaseModel):
+    make_redflag: Optional[DefaultMakeRedflagModel] = Field(
+        alias=lib.ACTION_MAKE_REDFLAG
+    )
+    make_opsflag: Optional[DefaultMakeOpsflagModel] = Field(
+        alias=lib.ACTION_MAKE_OPSFLAG
+    )
+    webhook: Optional[DefaultWebhookActionModel] = Field(
+        alias=lib.ACTION_WEBHOOK
+    )
+    agent_kill_pod: Optional[SharedDefaultActionFieldsModel] = Field(
+        alias=lib.ACTION_KILL_POD
+    )
+    agent_kill_proc: Optional[SharedDefaultActionFieldsModel] = Field(
+        alias=lib.ACTION_KILL_PROC
+    )
+    agent_kill_proc_group: Optional[SharedDefaultActionFieldsModel] = Field(
+        alias=lib.ACTION_KILL_PROC_GRP
+    )
+
+    @root_validator(pre=True)
+    def validate_only_one_action(cls, values: Dict):
+        actions_count = len(values)
+        if actions_count > 1:
+            raise ValueError(
+                "Detected multiple action definitions in one action. Each"
+                " action definition must be a separate entry in the list."
+            )
+        return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 class ResponseActionsModel(BaseModel):
@@ -415,20 +492,22 @@ class ResponseActionsModel(BaseModel):
         alias=lib.ACTION_KILL_PROC_GRP
     )
 
-    @root_validator(skip_on_failure=True)
+    @root_validator(pre=True)
     def validate_only_one_action(cls, values: Dict):
-        actions_count = len([action for action in values.values() if action])
-        if actions_count == 0:
-            raise ValueError("No valid action detected")
+        actions_count = len(values)
         if actions_count > 1:
             raise ValueError(
-                "Detected multiple action definitions in one action."
+                "Detected multiple action definitions in one action. Each"
+                " action definition must be a separate entry in the list."
             )
         return values
 
+    class Config:
+        extra = Extra.forbid
+
 
 class GuardianResponseModel(BaseModel):
-    default_field: List[ResponseActionsModel] = Field(
+    default_field: List[DefaultActionsModel] = Field(
         alias=lib.RESP_DEFAULT_FIELD
     )
     response_field: List[ResponseActionsModel] = Field(
