@@ -148,7 +148,12 @@ class ProcessSelectorModel(BaseModel):
 
     @root_validator(skip_on_failure=True)
     def ensure_one_field(cls, values: Dict):
-        if len(values) == 0:
+        print(values)
+        set_count = 0
+        for v in values.values():
+            if v is not None:
+                set_count += 1
+        if len(set_count) == 0:
             raise ValueError("At least one key, value pair expected")
         return values
 
@@ -382,13 +387,18 @@ class SharedActionFieldsModel(ActionSelectorsModel):
     @root_validator(pre=True)
     def validate_has_selector(cls, fields: Dict):
         count = 0
+        values_count = 0
         for key, value in fields.items():
             if key.endswith("Selector"):
                 count += 1
+            if value:
+                values_count += 1
         if count == 0:
             raise ValueError(
                 "At least one selector required for non-default actions."
             )
+        if values_count != count:
+            raise ValueError("All selectors must have values.")
         return fields
 
     class Config:
