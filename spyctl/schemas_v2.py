@@ -75,6 +75,9 @@ __PROC_IDS = {}
 class MatchLabelsModel(BaseModel):
     match_labels: Dict[str, str] = Field(alias=lib.MATCH_LABELS_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class ContainerSelectorModel(BaseModel):
     image: Optional[str] = Field(alias=lib.IMAGE_FIELD)
@@ -84,18 +87,26 @@ class ContainerSelectorModel(BaseModel):
 
     @root_validator(skip_on_failure=True)
     def ensure_one_field(cls, values: Dict):
-        if not any(value for value in values.values()):
-            # TODO fill out error
+        if not any([value for value in values.values()]):
             raise ValueError("")
         return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 class ServiceSelectorModel(BaseModel):
     cgroup: str = Field(alias=lib.CGROUP_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class MachineSelectorModel(BaseModel):
     hostname: str = Field(alias=lib.HOSTNAME_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class NamespaceSelectorModel(MatchLabelsModel):
@@ -112,6 +123,9 @@ class TraceSelectorModel(BaseModel):
         alias=lib.TRIGGER_ANCESTORS_FIELD
     )
 
+    class Config:
+        extra = Extra.forbid
+
 
 class UserSelectorModel(BaseModel):
     users: Optional[List[str]] = Field(alias=lib.USERS_FIELD)
@@ -121,6 +135,25 @@ class UserSelectorModel(BaseModel):
     non_interactive_users: Optional[List[str]] = Field(
         alias=lib.NON_INTERACTIVE_USERS_FIELD
     )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class ProcessSelectorModel(BaseModel):
+    name: Optional[List[str]] = Field(alias=lib.NAME_FIELD, min_items=1)
+    exe: Optional[List[str]] = Field(alias=lib.EXE_FIELD, min_items=1)
+    euser: Optional[List[str]] = Field(alias=lib.EUSER_FIELD, min_items=1)
+    interactive: Optional[bool] = Field(alias=lib.INTERACTIVE_FIELD)
+
+    @root_validator(skip_on_failure=True)
+    def ensure_one_field(cls, values: Dict):
+        if len(values) == 0:
+            raise ValueError("At least one key, value pair expected")
+        return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 # -----------------------------------------------------------------------------
@@ -163,6 +196,18 @@ class GuardianSelectorsModel(BaseModel):
     )
     pod_selector: Optional[PodSelectorModel] = Field(
         alias=lib.POD_SELECTOR_FIELD
+    )
+
+
+class ActionSelectorsModel(BaseModel):
+    namespace_selector: Optional[NamespaceSelectorModel] = Field(
+        alias=lib.NAMESPACE_SELECTOR_FIELD
+    )
+    pod_selector: Optional[PodSelectorModel] = Field(
+        alias=lib.POD_SELECTOR_FIELD
+    )
+    process_selector: Optional[ProcessSelectorModel] = Field(
+        alias=lib.PROCESS_SELECTOR_FIELD
     )
 
 
@@ -321,7 +366,7 @@ class ProcessNodeModel(SimpleProcessNodeModel):
 # Actions Models --------------------------------------------------------------
 
 
-class SharedActionFieldsModel(GuardianSelectorsModel):
+class SharedActionFieldsModel(ActionSelectorsModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
 
 
