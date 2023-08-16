@@ -1310,6 +1310,60 @@ def get(
 
 
 # ----------------------------------------------------------------- #
+#                          Get Subcommand                           #
+# ----------------------------------------------------------------- #
+
+
+@main.command("logs", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.GetResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--follow",
+    is_flag=True,
+    metavar="",
+    default=False,
+    help="Specify if the logs should be streamed",
+)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Get logs since this time. Default is 24 hours ago.",
+    metavar="",
+    default="24h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query. Default is now.",
+    metavar="",
+    default=time.time(),
+    type=lib.time_inp,
+)
+@click.option(
+    "--tail",
+    help="Lines of recent log file to display. Defaults to -1.",
+    metavar="",
+    default=-1,
+    type=click.INT,
+)
+@click.option(
+    "--timestamps",
+    is_flag=True,
+    help="Lines of recent log file to display. Defaults to -1.",
+    metavar="",
+    default=False,
+    type=click.INT,
+)
+def logs(resource, name_or_id, follow, st, et, tail, timestamps):
+    pass
+
+
+# ----------------------------------------------------------------- #
 #                         Merge Subcommand                          #
 # ----------------------------------------------------------------- #
 
@@ -1549,7 +1603,7 @@ def merge(
 
 
 # ----------------------------------------------------------------- #
-#                        ShowSchema Subcommand                          #
+#                      ShowSchema Subcommand                        #
 # ----------------------------------------------------------------- #
 
 

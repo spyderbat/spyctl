@@ -165,7 +165,7 @@ def time_blocks(
 
 
 def threadpool_progress_bar_time_blocks(
-    args_per_thread: List[List],
+    args_per_thread: List[str],
     time,
     function: Callable,
     max_time_range=MAX_TIME_RANGE_SECS,
@@ -262,6 +262,83 @@ def get_filtered_data(
     if source:
         data["src_uid"] = source
     return post(url, data, api_key, raise_notfound)
+
+
+def get_audit_events(
+    api_url, api_key, org_uid, time, src_uid, msg_type=None
+) -> List[Dict]:
+    audit_events = []
+    if msg_type:
+        schema = (
+            f"{lib.EVENT_AUDIT_PREFIX}:"
+            f"{lib.EVENT_AUDIT_SUBTYPE_MAP[msg_type]}"
+        )
+    else:
+        schema = lib.EVENT_AUDIT_PREFIX
+    for resp in threadpool_progress_bar_time_blocks(
+        [src_uid],
+        time,
+        lambda uid, time_tup: get_filtered_data(
+            api_url,
+            api_key,
+            org_uid,
+            uid,
+            "audit",
+            schema,
+            time_tup,
+            pipeline=None,
+        ),
+    ):
+        for event_json in resp.iter_lines():
+            event = json.loads(event_json)
+            audit_events.append(event)
+    return audit_events
+
+
+def get_audit_events_tail(
+    api_url,
+    api_key,
+    org_uid,
+    time,
+    src_uid,
+    tail: int,
+    msg_type=None,
+) -> List[Dict]:
+    audit_events = get_audit_events(
+        api_url, api_key, org_uid, time, src_uid, msg_type
+    )
+    if tail > 0:
+        return audit_events[-tail:]
+    if tail == 0:
+        return []
+    else:
+        return audit_events
+
+
+def get_audit_events_follow(
+    api_url,
+    api_key,
+    org_uid,
+    time,
+    src_uid,
+    tail: int = -1,
+    msg_type=None,
+    iterator=None,
+) -> Tuple[List[Dict], str]:
+    audit_events = get_audit_events_tail(
+        api_url, api_key, org_uid, time, src_uid, tail, msg_type
+    )
+    if not audit_events:
+        return [], iterator
+    new_iterator = encode_audit_iterator(audit_events[-1])
+
+
+def encode_audit_iterator(event: Dict):
+    pass
+
+
+def decode_audit_iterator(event: Dict):
+    pass
 
 
 def get_orgs(api_url, api_key) -> List[Tuple]:
