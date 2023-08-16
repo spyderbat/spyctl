@@ -329,6 +329,19 @@ class GetResourcesParam(click.ParamType):
         ]
 
 
+class LogsResourcesParam(click.ParamType):
+    name = "logs_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in LOGS_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
 class SuppressionPolTypeParam(click.ParamType):
     name = "get_resources"
 

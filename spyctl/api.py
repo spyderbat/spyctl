@@ -292,6 +292,7 @@ def get_audit_events(
         for event_json in resp.iter_lines():
             event = json.loads(event_json)
             audit_events.append(event)
+    audit_events.sort(key=lambda event: event["time"])
     return audit_events
 
 
@@ -301,7 +302,7 @@ def get_audit_events_tail(
     org_uid,
     time,
     src_uid,
-    tail: int,
+    tail: int = -1,  # -1 means all events
     msg_type=None,
 ) -> List[Dict]:
     audit_events = get_audit_events(
@@ -313,32 +314,6 @@ def get_audit_events_tail(
         return []
     else:
         return audit_events
-
-
-def get_audit_events_follow(
-    api_url,
-    api_key,
-    org_uid,
-    time,
-    src_uid,
-    tail: int = -1,
-    msg_type=None,
-    iterator=None,
-) -> Tuple[List[Dict], str]:
-    audit_events = get_audit_events_tail(
-        api_url, api_key, org_uid, time, src_uid, tail, msg_type
-    )
-    if not audit_events:
-        return [], iterator
-    new_iterator = encode_audit_iterator(audit_events[-1])
-
-
-def encode_audit_iterator(event: Dict):
-    pass
-
-
-def decode_audit_iterator(event: Dict):
-    pass
 
 
 def get_orgs(api_url, api_key) -> List[Tuple]:
