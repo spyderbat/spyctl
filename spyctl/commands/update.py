@@ -61,6 +61,11 @@ def handle_update_policy_modes(backup_dir: Optional[str]):
         )
         if mode not in lib.POL_MODES:
             mode = lib.POL_MODE_ENFORCE
+        lib.try_log(
+            f"Setting mode for policy"
+            f" '{policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]}' to"
+            f" '{mode}'"
+        )
         pol_data[lib.SPEC_FIELD][lib.POL_MODE_FIELD] = mode
         pol_data = p.Policy(pol_data).as_dict()
         apply.handle_apply_policy(pol_data)
@@ -87,5 +92,10 @@ def handle_update_policy_modes(backup_dir: Optional[str]):
         )
         if mode not in lib.POL_MODES:
             mode = lib.POL_MODE_ENFORCE
+        lib.try_log(
+            f"Setting mode for suppression policy"
+            f" '{policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]}' to"
+            f" '{mode}'"
+        )
         policy[lib.SPEC_FIELD][lib.POL_MODE_FIELD] = mode
         apply.handle_apply_suppression_policy(policy)

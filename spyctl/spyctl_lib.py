@@ -563,6 +563,7 @@ DNS_SELECTOR_FIELD = "dnsSelector"
 MACHINE_SELECTOR_FIELD = "machineSelector"
 NAMESPACE_SELECTOR_FIELD = "namespaceSelector"
 POD_SELECTOR_FIELD = "podSelector"
+PROCESS_SELECTOR_FIELD = "processSelector"
 SVC_SELECTOR_FIELD = "serviceSelector"
 TRACE_SELECTOR_FIELD = "traceSelector"
 USER_SELECTOR_FIELD = "userSelector"
@@ -646,6 +647,7 @@ LATEST_TIMESTAMP_FIELD = "latestTimestamp"
 TRIGGER_CLASS_FIELD = "triggerClass"
 TRIGGER_ANCESTORS_FIELD = "triggerAncestors"
 USERS_FIELD = "users"
+INTERACTIVE_FIELD = "interactive"
 INTERACTIVE_USERS_FIELD = "interactiveUsers"
 NON_INTERACTIVE_USERS_FIELD = "nonInteractiveUsers"
 ALLOWED_FLAGS_FIELD = "allowedFlags"
@@ -1545,7 +1547,7 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
         err_exit(" ".join(e.args))
     except Exception as e:
         if file.name.endswith(".yaml"):
-            err_exit("Error decoding yaml" + " ".join(e.args))
+            err_exit("Error decoding yaml" + str(e.args))
         try:
             name, resrc_data = __load_json_file(file)
         except json.JSONDecodeError as e:
