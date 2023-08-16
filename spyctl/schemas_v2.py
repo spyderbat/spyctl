@@ -75,6 +75,9 @@ __PROC_IDS = {}
 class MatchLabelsModel(BaseModel):
     match_labels: Dict[str, str] = Field(alias=lib.MATCH_LABELS_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class ContainerSelectorModel(BaseModel):
     image: Optional[str] = Field(alias=lib.IMAGE_FIELD)
@@ -84,18 +87,26 @@ class ContainerSelectorModel(BaseModel):
 
     @root_validator(skip_on_failure=True)
     def ensure_one_field(cls, values: Dict):
-        if not any(value for value in values.values()):
-            # TODO fill out error
+        if not any([value for value in values.values()]):
             raise ValueError("")
         return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 class ServiceSelectorModel(BaseModel):
     cgroup: str = Field(alias=lib.CGROUP_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class MachineSelectorModel(BaseModel):
     hostname: str = Field(alias=lib.HOSTNAME_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class NamespaceSelectorModel(MatchLabelsModel):
@@ -112,6 +123,9 @@ class TraceSelectorModel(BaseModel):
         alias=lib.TRIGGER_ANCESTORS_FIELD
     )
 
+    class Config:
+        extra = Extra.forbid
+
 
 class UserSelectorModel(BaseModel):
     users: Optional[List[str]] = Field(alias=lib.USERS_FIELD)
@@ -121,6 +135,29 @@ class UserSelectorModel(BaseModel):
     non_interactive_users: Optional[List[str]] = Field(
         alias=lib.NON_INTERACTIVE_USERS_FIELD
     )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class ProcessSelectorModel(BaseModel):
+    name: Optional[List[str]] = Field(alias=lib.NAME_FIELD, min_items=1)
+    exe: Optional[List[str]] = Field(alias=lib.EXE_FIELD, min_items=1)
+    euser: Optional[List[str]] = Field(alias=lib.EUSER_FIELD, min_items=1)
+    interactive: Optional[bool] = Field(alias=lib.INTERACTIVE_FIELD)
+
+    @root_validator(skip_on_failure=True)
+    def ensure_one_field(cls, values: Dict):
+        set_count = 0
+        for v in values.values():
+            if v is not None:
+                set_count += 1
+        if len(set_count) == 0:
+            raise ValueError("At least one key, value pair expected")
+        return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 # -----------------------------------------------------------------------------
@@ -164,6 +201,21 @@ class GuardianSelectorsModel(BaseModel):
     pod_selector: Optional[PodSelectorModel] = Field(
         alias=lib.POD_SELECTOR_FIELD
     )
+
+
+class ActionSelectorsModel(BaseModel):
+    namespace_selector: Optional[NamespaceSelectorModel] = Field(
+        alias=lib.NAMESPACE_SELECTOR_FIELD
+    )
+    pod_selector: Optional[PodSelectorModel] = Field(
+        alias=lib.POD_SELECTOR_FIELD
+    )
+    process_selector: Optional[ProcessSelectorModel] = Field(
+        alias=lib.PROCESS_SELECTOR_FIELD
+    )
+
+    class Config:
+        extra = Extra.forbid
 
 
 class GuardianSpecOptionsModel(BaseModel):
@@ -321,19 +373,53 @@ class ProcessNodeModel(SimpleProcessNodeModel):
 # Actions Models --------------------------------------------------------------
 
 
-class SharedActionFieldsModel(GuardianSelectorsModel):
+class SharedDefaultActionFieldsModel(BaseModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
 
+    class Config:
+        extra = Extra.forbid
 
-class MakeRedflagModel(SharedActionFieldsModel):
+
+class SharedActionFieldsModel(ActionSelectorsModel):
+    enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+
+    @root_validator(pre=True)
+    def validate_has_selector(cls, fields: Dict):
+        count = 0
+        values_count = 0
+        for key, value in fields.items():
+            if key.endswith("Selector"):
+                count += 1
+            if value:
+                values_count += 1
+        if count == 0:
+            raise ValueError(
+                "At least one selector required for non-default actions."
+            )
+        if values_count != count:
+            raise ValueError("All selectors must have values.")
+        return fields
+
+    class Config:
+        extra = Extra.forbid
+
+
+class DefaultMakeRedflagModel(SharedDefaultActionFieldsModel):
     content: Optional[str] = Field(alias=lib.FLAG_CONTENT, max_length=350)
     impact: Optional[str] = Field(alias=lib.FLAG_IMPACT, max_length=100)
     severity: Literal[tuple(lib.ALLOWED_SEVERITIES)] = Field(  # type: ignore
         alias=lib.FLAG_SEVERITY
     )
 
+    class Config:
+        extra = Extra.forbid
 
-class MakeOpsflagModel(SharedActionFieldsModel):
+
+class MakeRedflagModel(SharedActionFieldsModel, DefaultMakeRedflagModel):
+    pass
+
+
+class DefaultMakeOpsflagModel(BaseModel):
     content: Optional[str] = Field(alias=lib.FLAG_CONTENT, max_length=350)
     description: Optional[str] = Field(
         alias=lib.FLAG_DESCRIPTION, max_length=350
@@ -342,14 +428,59 @@ class MakeOpsflagModel(SharedActionFieldsModel):
         alias=lib.FLAG_SEVERITY
     )
 
+    class Config:
+        extra = Extra.forbid
 
-class WebhookActionModel(SharedActionFieldsModel):
+
+class MakeOpsflagModel(SharedActionFieldsModel, DefaultMakeOpsflagModel):
+    pass
+
+
+class DefaultWebhookActionModel(BaseModel):
     url_destination: str = Field(
         alias=lib.URL_DESTINATION_FIELD, max_length=2048
     )
     template: Literal[tuple(lib.ALLOWED_TEMPLATES)] = Field(  # type: ignore
         alias=lib.TEMPLATE_FIELD
     )
+
+
+class WebhookActionModel(SharedActionFieldsModel, DefaultWebhookActionModel):
+    pass
+
+
+class DefaultActionsModel(BaseModel):
+    make_redflag: Optional[DefaultMakeRedflagModel] = Field(
+        alias=lib.ACTION_MAKE_REDFLAG
+    )
+    make_opsflag: Optional[DefaultMakeOpsflagModel] = Field(
+        alias=lib.ACTION_MAKE_OPSFLAG
+    )
+    webhook: Optional[DefaultWebhookActionModel] = Field(
+        alias=lib.ACTION_WEBHOOK
+    )
+    agent_kill_pod: Optional[SharedDefaultActionFieldsModel] = Field(
+        alias=lib.ACTION_KILL_POD
+    )
+    agent_kill_proc: Optional[SharedDefaultActionFieldsModel] = Field(
+        alias=lib.ACTION_KILL_PROC
+    )
+    agent_kill_proc_group: Optional[SharedDefaultActionFieldsModel] = Field(
+        alias=lib.ACTION_KILL_PROC_GRP
+    )
+
+    @root_validator(pre=True)
+    def validate_only_one_action(cls, values: Dict):
+        actions_count = len(values)
+        if actions_count > 1:
+            raise ValueError(
+                "Detected multiple action definitions in one action. Each"
+                " action definition must be a separate entry in the list."
+            )
+        return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 class ResponseActionsModel(BaseModel):
@@ -370,20 +501,22 @@ class ResponseActionsModel(BaseModel):
         alias=lib.ACTION_KILL_PROC_GRP
     )
 
-    @root_validator(skip_on_failure=True)
+    @root_validator(pre=True)
     def validate_only_one_action(cls, values: Dict):
-        actions_count = len([action for action in values.values() if action])
-        if actions_count == 0:
-            raise ValueError("No valid action detected")
+        actions_count = len(values)
         if actions_count > 1:
             raise ValueError(
-                "Detected multiple action definitions in one action."
+                "Detected multiple action definitions in one action. Each"
+                " action definition must be a separate entry in the list."
             )
         return values
 
+    class Config:
+        extra = Extra.forbid
+
 
 class GuardianResponseModel(BaseModel):
-    default_field: List[ResponseActionsModel] = Field(
+    default_field: List[DefaultActionsModel] = Field(
         alias=lib.RESP_DEFAULT_FIELD
     )
     response_field: List[ResponseActionsModel] = Field(
