@@ -22,6 +22,7 @@ import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
+from spyctl.commands.logs import handle_logs
 
 MAIN_EPILOG = (
     "\b\n"
@@ -1310,7 +1311,7 @@ def get(
 
 
 # ----------------------------------------------------------------- #
-#                          Get Subcommand                           #
+#                         Logs Subcommand                           #
 # ----------------------------------------------------------------- #
 
 
@@ -1357,13 +1358,43 @@ def get(
     help="Include timestamps on each line in the log output.",
     metavar="",
     default=False,
-    type=click.INT,
 )
-def logs(resource, name_or_id, follow, st, et, tail, timestamps):
+@click.option(
+    "--full",
+    is_flag=True,
+    help="Show the full log, not just the description.",
+    metavar="",
+)
+@click.option(
+    "--since-iterator",
+    help="Retrieve all logs since the provided iterator.",
+    metavar="",
+)
+def logs(
+    resource,
+    name_or_id,
+    follow,
+    st,
+    et,
+    tail,
+    timestamps,
+    full,
+    since_iterator,
+):
     """Print the logs for a specified resource. Default behavior is to
     print out the logs for the last 24 hours.
     """
-    pass
+    handle_logs(
+        resource,
+        name_or_id,
+        follow,
+        st,
+        et,
+        tail,
+        timestamps,
+        full,
+        since_iterator,
+    )
 
 
 # ----------------------------------------------------------------- #
