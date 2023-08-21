@@ -206,6 +206,17 @@ UID_LIST_RESOURCE = Aliases(
     ["uid-list", "uid-lists", "uid", "uids-list"], "uid-list", "uid-lists"
 )
 
+AGENT_RESOURCE = Aliases(
+    [
+        "agents",
+        "agent",
+        "a",
+        "agen"
+    ],
+    "agents",
+    "agent",
+)
+
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
 CONFIG_ALIAS = Aliases(
     ["config", "configs", "conf", "cfg", "configuration", "configurations"],

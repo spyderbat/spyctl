@@ -19,6 +19,7 @@ import spyctl.resources.connections as spyctl_conns
 import spyctl.resources.spydertraces as spyctl_spytrace
 import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.suppression_policies as s_pol
+import spyctl.resources.agents as spyctl_agents
 import spyctl.spyctl_lib as lib
 import time
 
@@ -91,8 +92,35 @@ def handle_get(
     #     handle_get_trace_summaries(name_or_id, st, et, output, **filters)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_get_suppression_policies(name_or_id, st, et, output, **filters)
+    elif resource == lib.AGENT_RESOURCE:
+        handle_get_agents(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
+
+def handle_get_agents(name_or_id, st, et, output, **filters:Dict):
+    ctx = cfg.get_current_context()
+    agents = api.get_agents(*ctx.get_api_data())
+    agents = filt.filter_agents(*ctx.get_api_data())
+    output_agents = []
+    for agent in agents:
+        output_agents.append(
+            {
+                "schema": agents["schema"],
+                "status" : agents["status"],
+                "hostname": agents["hostname"],
+            },
+        )
+    if name_or_id:
+        output_agents = filt.filter_obj(
+            output_agents, ["name", "uid"], name_or_id
+        )
+    if output != lib.OUTPUT_DEFAULT:
+        output_clusters = spyctl_agents.agents_output(output_agents)
+    cli.show(
+        output_agents,
+        output,
+        {lib.OUTPUT_DEFAULT: spyctl_agents.agents_output},
+    )
 
 
 def handle_get_clusters(name_or_id, output: str, **filters: Dict):

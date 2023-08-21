@@ -424,6 +424,19 @@ def match_filters(
     return False
 
 
+
+def filter_agents(
+    agents: List[Dict],
+    namespaces_data=None,
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    return agents
+
 def get_field_value(
     field: Union[str, List[str]], obj: Dict
 ) -> Optional[Union[str, Iterable]]:

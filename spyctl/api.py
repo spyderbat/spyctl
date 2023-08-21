@@ -881,6 +881,19 @@ def get_containers(api_url, api_key, org_uid, muids, time):
             __log_interrupt()
     return list(containers.values())
 
+def get_agents(api_url, api_key, org_uid, muids, time):
+    agents = {}
+    try:
+        for agent in get_source_data(
+            api_url, api_key, org_uid, muids, "model_agent", time   
+        ):
+          id = agent["schema"]
+    except KeyboardInterrupt:
+        if agents:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(agents.values())
 
 def __log_interrupt_partial():
     cli.try_log("\nRequest aborted, partial results retrieved.")
