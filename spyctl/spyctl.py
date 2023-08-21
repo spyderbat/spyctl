@@ -1005,6 +1005,9 @@ class GetCommand(lib.ArgumentParametersCommand):
             ],
         },
         {
+            "resource": [lib.AGENT_RESOURCE],
+        },
+        {
             "resource": [lib.FINGERPRINTS_RESOURCE],
             "args": [
                 click.option(
@@ -1248,6 +1251,7 @@ def get(
     - Processes
     - RedFlags
     - Spydertraces
+    - Agents
 
     \b
     Other resources come from databases where time ranges are not applicable:
