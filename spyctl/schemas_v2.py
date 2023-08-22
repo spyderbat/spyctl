@@ -152,7 +152,7 @@ class ProcessSelectorModel(BaseModel):
         for v in values.values():
             if v is not None:
                 set_count += 1
-        if len(set_count) == 0:
+        if set_count == 0:
             raise ValueError("At least one key, value pair expected")
         return values
 

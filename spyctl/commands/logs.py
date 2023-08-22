@@ -149,12 +149,15 @@ def encode_audit_iterator(time: float, id: str):
 
 def decode_audit_iterator(iterator: str):
     try:
-        b = b64url_d(iterator + "==")
-    except binascii.Error:
         try:
-            b = b64url_d(iterator + "=")
+            b = b64url_d(iterator + "==")
         except binascii.Error:
-            b = b64url_d(iterator)
-    iterator_str = b.decode("ascii")
-    time, id = iterator_str.split("|")
+            try:
+                b = b64url_d(iterator + "=")
+            except binascii.Error:
+                b = b64url_d(iterator)
+        iterator_str = b.decode("ascii")
+        time, id = iterator_str.split("|")
+    except Exception:
+        cli.err_exit("Unable to parse iterator")
     return float(time), id
