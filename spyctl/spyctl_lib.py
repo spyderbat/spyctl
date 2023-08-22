@@ -253,6 +253,7 @@ GET_RESOURCES: List[str] = [
     CONTAINER_RESOURCE.name_plural,
     SPYDERTRACE_RESOURCE.name_plural,
 ]
+LOGS_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
     POLICIES_RESOURCE.name,
@@ -324,6 +325,19 @@ class GetResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in GET_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class LogsResourcesParam(click.ParamType):
+    name = "logs_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in LOGS_RESOURCES
             if resrc_name.startswith(incomplete)
         ]
 
@@ -448,6 +462,13 @@ class FileList(click.File):
 SCHEMA_FIELD = "schema"
 EVENT_REDFLAG_PREFIX = "event_redflag"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
+EVENT_AUDIT_PREFIX = "event_audit"
+EVENT_AUDIT_SUBTYPE_MAP = {
+    "deviation": "guardian_deviation",
+    "action": "guardian_action",
+    "redflag": "guardian_redflag",
+    "opsflag": "guardian_opsflag",
+}
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
 MODEL_FINGERPRINT_SUBTYPE_MAP = {
