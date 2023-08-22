@@ -75,7 +75,7 @@ def handle_matching_policies(policy: Dict, matching_policies: Dict[str, Dict]):
     for uid, m_policy in matching_policies.items():
         merged = m.merge_resource(ret_pol, "", m_policy)
         if merged:
-            ret_pol = merged
+            ret_pol = merged.get_obj_data()
     ret_pol[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
     return sp.TraceSuppressionPolicy(ret_pol)
 

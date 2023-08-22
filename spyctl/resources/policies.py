@@ -189,7 +189,7 @@ def create_policy(
         )
     except InvalidPolicyError as e:
         cli.err_exit(f"Unable to create policy. {' '.join(e.args)}")
-    # Validate the policy
+    # Validate the policy.
     rv = policy.as_dict()
     if not schemas.valid_object(rv):
         cli.err_exit("Created policy failed validation.")

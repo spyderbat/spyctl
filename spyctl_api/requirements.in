@@ -1,4 +1,5 @@
 fastapi
 uvicorn[standard]
 httpx>=0.9.36
+certifi>=2023.7.22
 -e file:./build/spyctl
