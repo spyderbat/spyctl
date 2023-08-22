@@ -28,6 +28,8 @@ def handle_logs(
         handle_policy_logs(
             name_or_id, follow, st, et, tail, timestamps, full, since_iterator
         )
+    else:
+        cli.err_exit(f"The 'logs' command is not supported for '{resource}'")
 
 
 def handle_policy_logs(
