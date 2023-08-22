@@ -253,6 +253,7 @@ GET_RESOURCES: List[str] = [
     CONTAINER_RESOURCE.name_plural,
     SPYDERTRACE_RESOURCE.name_plural,
 ]
+LOGS_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
     POLICIES_RESOURCE.name,
@@ -324,6 +325,19 @@ class GetResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in GET_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class LogsResourcesParam(click.ParamType):
+    name = "logs_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in LOGS_RESOURCES
             if resrc_name.startswith(incomplete)
         ]
 
@@ -448,6 +462,13 @@ class FileList(click.File):
 SCHEMA_FIELD = "schema"
 EVENT_REDFLAG_PREFIX = "event_redflag"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
+EVENT_AUDIT_PREFIX = "event_audit"
+EVENT_AUDIT_SUBTYPE_MAP = {
+    "deviation": "guardian_deviation",
+    "action": "guardian_action",
+    "redflag": "guardian_redflag",
+    "opsflag": "guardian_opsflag",
+}
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
 MODEL_FINGERPRINT_SUBTYPE_MAP = {
@@ -563,6 +584,7 @@ DNS_SELECTOR_FIELD = "dnsSelector"
 MACHINE_SELECTOR_FIELD = "machineSelector"
 NAMESPACE_SELECTOR_FIELD = "namespaceSelector"
 POD_SELECTOR_FIELD = "podSelector"
+PROCESS_SELECTOR_FIELD = "processSelector"
 SVC_SELECTOR_FIELD = "serviceSelector"
 TRACE_SELECTOR_FIELD = "traceSelector"
 USER_SELECTOR_FIELD = "userSelector"
@@ -646,6 +668,7 @@ LATEST_TIMESTAMP_FIELD = "latestTimestamp"
 TRIGGER_CLASS_FIELD = "triggerClass"
 TRIGGER_ANCESTORS_FIELD = "triggerAncestors"
 USERS_FIELD = "users"
+INTERACTIVE_FIELD = "interactive"
 INTERACTIVE_USERS_FIELD = "interactiveUsers"
 NON_INTERACTIVE_USERS_FIELD = "nonInteractiveUsers"
 ALLOWED_FLAGS_FIELD = "allowedFlags"
@@ -1545,7 +1568,7 @@ def load_resource_file(file: Union[str, IO], validate_cmd: bool = False):
         err_exit(" ".join(e.args))
     except Exception as e:
         if file.name.endswith(".yaml"):
-            err_exit("Error decoding yaml" + " ".join(e.args))
+            err_exit("Error decoding yaml" + str(e.args))
         try:
             name, resrc_data = __load_json_file(file)
         except json.JSONDecodeError as e:
