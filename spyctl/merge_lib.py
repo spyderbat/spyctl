@@ -1475,6 +1475,15 @@ USER_SELECTOR_MERGE_SCHEMA = MergeSchema(
         lib.NON_INTERACTIVE_USERS_FIELD: string_list_merge,
     },
 )
+PROCESS_SELECTOR_MERGE_SCHEMA = MergeSchema(
+    USER_SELECTOR_FIELD,
+    merge_functions={
+        lib.NAME_FIELD: string_list_merge,
+        lib.EXE_FIELD: string_list_merge,
+        lib.EUSER_FIELD: string_list_merge,
+        lib.INTERACTIVE_FIELD: keep_base_value_merge,
+    },
+)
 SPEC_MERGE_SCHEMA = MergeSchema(
     SPEC_FIELD,
     sub_schemas={
