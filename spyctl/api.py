@@ -794,6 +794,39 @@ def get_source_data(api_url, api_key, org_uid, muids, schema, time):
             yield json.loads(json_obj)
 
 
+# def get_agent_source_data(api_url, api_key, org_uid, muid, schema, time):
+    # for resp in threadpool_progress_bar_time_blocks(
+    #     muid,
+    #     time,
+    #     lambda muid, time_block: get_filtered_data(
+    #         api_url,
+    #         api_key,
+    #         org_uid,
+    #         muid,
+    #         "agent_status",
+    #         schema,
+    #         time_block,
+    #     ),
+    # ):
+    #     for json_obj in resp.iter_lines():
+    #         yield json.loads(json_obj)
+
+
+def get_agent_source_data(api_url, api_key, org_uid, time):
+    url = f"{api_url}/api/v1/source/query/"
+    data = {
+        "start_time": time[0],
+        "end_time": time[1],
+        "org_uid": org_uid,
+        "data_type": "agent_status",
+        "pipeline":[{"latest_model":{}}],
+        "src_uid": "global:"+org_uid
+    }
+    agents_data = post(url, data, api_key)
+    return agents_data
+    
+
+
 def get_processes(api_url, api_key, org_uid, muids, time):
     processes = {}
     try:
@@ -881,19 +914,31 @@ def get_containers(api_url, api_key, org_uid, muids, time):
             __log_interrupt()
     return list(containers.values())
 
-def get_agents(api_url, api_key, org_uid, muids, time):
+
+def get_agents(api_url, api_key, org_uid, time):
     agents = {}
     try:
-        for agent in get_source_data(
-            api_url, api_key, org_uid, muids, "model_agent", time   
+        for agent in get_agent_source_data(
+            api_url, api_key, org_uid, time   
         ):
-          id = agent["schema"]
+        #    print(agent) b'{"agent_arch":"x86_64","agent_version":"v1.1.81","boot_time":"Tue, 22..
+        #   agent_string = agent_bytes.decode("utf-8")
+        #    agents = json.loads(agent)
+           status = agent["status"]
+           schema = agent["schema"]
+           if status not in agent:
+                status = "unknown"
+           elif schema not in agent:
+                schema = "unknown" 
     except KeyboardInterrupt:
         if agents:
             __log_interrupt_partial()
         else:
             __log_interrupt()
-    return list(agents.values())
+    agents_Data = agents.append(status)
+    return(list(agents.values()))
+
+
 
 def __log_interrupt_partial():
     cli.try_log("\nRequest aborted, partial results retrieved.")

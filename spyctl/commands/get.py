@@ -1,11 +1,13 @@
 from typing import Dict, List, IO, Tuple
 
+
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
 import spyctl.filter_resource as filt
 import spyctl.resources.clusters as spyctl_clusts
 import spyctl.resources.fingerprints as spyctl_fprints
+
 import spyctl.resources.api_filters.fingerprints as f_api_filt
 import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.deployments as spyctl_deployments
@@ -19,7 +21,7 @@ import spyctl.resources.connections as spyctl_conns
 import spyctl.resources.spydertraces as spyctl_spytrace
 import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.suppression_policies as s_pol
-import spyctl.resources.agents as spyctl_agents
+import spyctl.resources.agents as spy_agents
 import spyctl.spyctl_lib as lib
 import time
 
@@ -72,6 +74,8 @@ def handle_get(
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.NODES_RESOURCE:
         handle_get_nodes(name_or_id, st, et, output, **filters)
+    elif resource == lib.AGENT_RESOURCE:
+        handle_get_agents(name_or_id, st, et, output, **filters)
     elif resource == lib.PODS_RESOURCE:
         handle_get_pods(name_or_id, st, et, output, **filters)
     elif resource == lib.REDFLAGS_RESOURCE:
@@ -92,35 +96,8 @@ def handle_get(
     #     handle_get_trace_summaries(name_or_id, st, et, output, **filters)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_get_suppression_policies(name_or_id, st, et, output, **filters)
-    elif resource == lib.AGENT_RESOURCE:
-        handle_get_agents(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
-
-def handle_get_agents(name_or_id, st, et, output, **filters:Dict):
-    ctx = cfg.get_current_context()
-    agents = api.get_agents(*ctx.get_api_data())
-    agents = filt.filter_agents(*ctx.get_api_data())
-    output_agents = []
-    for agent in agents:
-        output_agents.append(
-            {
-                "schema": agents["schema"],
-                "status" : agents["status"],
-                "hostname": agents["hostname"],
-            },
-        )
-    if name_or_id:
-        output_agents = filt.filter_obj(
-            output_agents, ["name", "uid"], name_or_id
-        )
-    if output != lib.OUTPUT_DEFAULT:
-        output_clusters = spyctl_agents.agents_output(output_agents)
-    cli.show(
-        output_agents,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_agents.agents_output},
-    )
 
 
 def handle_get_clusters(name_or_id, output: str, **filters: Dict):
@@ -152,6 +129,30 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
         {lib.OUTPUT_DEFAULT: spyctl_clusts.clusters_summary_output},
     )
 
+def handle_get_agents(name_or_id, st, et, output, **filters:Dict):
+    ctx = cfg.get_current_context()
+    agents = api.get_agents(*ctx.get_api_data(), time=(st, et))
+    agents = filt.filter_agents(agents, **filters)
+    output_agents = []
+    for agent in agents:
+        output_agents.append(
+            {
+                "schema": agent["schema"],
+                "status" : agent["status"],
+            },
+        )
+    # if name_or_id:
+    #     output_agents = filt.filter_obj(
+    #         output_agents, ["name", "uid"], name_or_id
+    # )
+    if output != lib.OUTPUT_DEFAULT:
+        agents = spy_agents.agents_output(agents)
+        # agents = spy_agents.agent_summary_output
+    cli.show(
+        agents,
+        output,
+        {lib.OUTPUT_DEFAULT: spy_agents.agent_summary_output},
+    )
 
 def handle_get_deployments(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()

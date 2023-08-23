@@ -711,6 +711,10 @@ CONTAINER_ID_FIELD = "containerID"
 CONTAINER_AGE = "age"
 CONTAINER_IMAGE_NAME = "image-name"
 
+# Agents
+AGENT_SCHEMA = "schema"
+AGENT_STATUS ="status"
+
 # Network
 CIDR_FIELD = "cidr"
 EGRESS_FIELD = "egress"

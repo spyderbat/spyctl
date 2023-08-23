@@ -7,7 +7,6 @@ import yaml
 from pathlib import Path
 from pydoc import pipepager, pager
 import re
-
 import spyctl.spyctl_lib as lib
 
 yaml.Dumper.ignore_aliases = lambda *args: True
