@@ -129,7 +129,8 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
         {lib.OUTPUT_DEFAULT: spyctl_clusts.clusters_summary_output},
     )
 
-def handle_get_agents(name_or_id, st, et, output, **filters:Dict):
+
+def handle_get_agents(name_or_id, st, et, output, **filters: Dict):
     ctx = cfg.get_current_context()
     agents = api.get_agents(*ctx.get_api_data(), time=(st, et))
     agents = filt.filter_agents(agents, **filters)
@@ -137,22 +138,23 @@ def handle_get_agents(name_or_id, st, et, output, **filters:Dict):
     for agent in agents:
         output_agents.append(
             {
-                "schema": agent["schema"],
-                "status" : agent["status"],
+                "status": agent["status"],
+                "hostname": agent["hostname"],
+                "id": agent["id"]
             },
         )
-    # if name_or_id:
-    #     output_agents = filt.filter_obj(
-    #         output_agents, ["name", "uid"], name_or_id
-    # )
-    if output != lib.OUTPUT_DEFAULT:
-        agents = spy_agents.agents_output(agents)
-        # agents = spy_agents.agent_summary_output
-    cli.show(
-        agents,
-        output,
-        {lib.OUTPUT_DEFAULT: spy_agents.agent_summary_output},
+    if name_or_id:
+        output_agents = filt.filter_obj(
+            output_agents, ["name", "uid"], name_or_id
     )
+        if output != lib.OUTPUT_DEFAULT:
+            agents = spy_agents.agents_output(agents)
+        cli.show(
+          agents,
+          output,
+          {lib.OUTPUT_DEFAULT: spy_agents.agent_summary_output},
+        )
+
 
 def handle_get_deployments(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()

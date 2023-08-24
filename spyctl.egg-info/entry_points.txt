@@ -1,0 +1,2 @@
+[console_scripts]
+spyctl = spyctl.spyctl:main

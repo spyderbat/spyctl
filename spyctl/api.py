@@ -138,9 +138,7 @@ def delete(url, key):
     return r
 
 
-def time_blocks(
-    time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS
-) -> List[Tuple]:
+def time_blocks(time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS) -> List[Tuple]:
     """Takes a time tuple (start, end) in epoch time and converts
     it to smaller chunks if necessary.
 
@@ -237,10 +235,7 @@ def get_object_by_id(
             "query_from": 0,
             "query_size": 1,
         }
-    url = (
-        f"{api_url}/api/v1/source/query/"
-        "?ui_tag=SearchLoadAllSchemaTypesInOneQuery"
-    )
+    url = f"{api_url}/api/v1/source/query/" "?ui_tag=SearchLoadAllSchemaTypesInOneQuery"
     return post(url, data, api_key)
 
 
@@ -396,8 +391,7 @@ def get_machines(api_url, api_key, org_uid) -> List[Dict]:
     for machine in machines.values():
         if (
             zulu.Zulu.parse(machine["last_data"]) >= AUTO_HIDE_TIME
-            or zulu.Zulu.parse(machine["last_stored_chunk_end_time"])
-            >= AUTO_HIDE_TIME
+            or zulu.Zulu.parse(machine["last_stored_chunk_end_time"]) >= AUTO_HIDE_TIME
         ) and "runtime_details" in machine:
             rv.append(machine)
     return rv
@@ -450,9 +444,7 @@ def get_clusters(api_url, api_key, org_uid):
     return clusters
 
 
-def get_k8s_data(
-    api_url, api_key, org_uid, clus_uid, stream, schema_key, time
-):
+def get_k8s_data(api_url, api_key, org_uid, clus_uid, stream, schema_key, time):
     src = clus_uid + "_" + stream if stream else clus_uid
     url = f"{api_url}/api/v1/org/{org_uid}/data/"
     url += f"?src={src}&st={time[0]}&et={time[1]}&dt=k8s"
@@ -468,9 +460,7 @@ def get_k8s_data(
             raise_notfound=bool(stream),
         )
     except ValueError:
-        return get_k8s_data(
-            api_url, api_key, org_uid, clus_uid, "", schema_key, time
-        )
+        return get_k8s_data(api_url, api_key, org_uid, clus_uid, "", schema_key, time)
     for k8s_json in resp.iter_lines():
         yield json.loads(k8s_json)
 
@@ -503,10 +493,7 @@ def get_deployments(api_url, api_key, org_uid, clusters, time):
             for deployment in deploy_list:
                 uid = deployment["id"]
                 version = deployment["version"]
-                if (
-                    uid not in deployments
-                    or version > deployments[uid]["version"]
-                ):
+                if uid not in deployments or version > deployments[uid]["version"]:
                     deployments[uid] = deployment
     except KeyboardInterrupt:
         if deployments:
@@ -755,9 +742,7 @@ def get_fingerprints(
                 if id not in fingerprints:
                     fingerprints[id] = fprint
                 else:
-                    old_fp_version = fingerprints[id][lib.METADATA_FIELD][
-                        "version"
-                    ]
+                    old_fp_version = fingerprints[id][lib.METADATA_FIELD]["version"]
                     if version > old_fp_version:
                         fingerprints[id] = fprint
     except KeyboardInterrupt:
@@ -797,9 +782,7 @@ def get_trace_summaries(api_url, api_key, org_uid, muids, time):
                 if id not in fingerprints:
                     fingerprints[id] = fprint
                 else:
-                    old_fp_version = fingerprints[id][lib.METADATA_FIELD][
-                        "version"
-                    ]
+                    old_fp_version = fingerprints[id][lib.METADATA_FIELD]["version"]
                     if version > old_fp_version:
                         fingerprints[id] = fprint
     except KeyboardInterrupt:
@@ -827,9 +810,7 @@ def get_policies(api_url, api_key, org_uid, params=None):
                 uid = pol["uid"]
                 policy = json.loads(pol["policy"])
                 policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
-                    "valid_from"
-                ]
+                policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol["valid_from"]
                 policies.append(policy)
     return policies
 
@@ -883,37 +864,23 @@ def get_source_data(api_url, api_key, org_uid, muids, schema, time):
             yield json.loads(json_obj)
 
 
-# def get_agent_source_data(api_url, api_key, org_uid, muid, schema, time):
-    # for resp in threadpool_progress_bar_time_blocks(
-    #     muid,
-    #     time,
-    #     lambda muid, time_block: get_filtered_data(
-    #         api_url,
-    #         api_key,
-    #         org_uid,
-    #         muid,
-    #         "agent_status",
-    #         schema,
-    #         time_block,
-    #     ),
-    # ):
-    #     for json_obj in resp.iter_lines():
-    #         yield json.loads(json_obj)
-
-
-def get_agent_source_data(api_url, api_key, org_uid, time):
-    url = f"{api_url}/api/v1/source/query/"
-    data = {
-        "start_time": time[0],
-        "end_time": time[1],
-        "org_uid": org_uid,
-        "data_type": "agent_status",
-        "pipeline":[{"latest_model":{}}],
-        "src_uid": "global:"+org_uid
-    }
-    agents_data = post(url, data, api_key)
-    return agents_data
-    
+def get_agent_source_data(api_url, api_key, org_uid, schema, time):
+    source_uid = "global:" + org_uid
+    for resp in threadpool_progress_bar_time_blocks(
+        [source_uid],
+        time,
+        lambda source, time_block: get_filtered_data(
+            api_url,
+            api_key,
+            org_uid,
+            source,
+            "agent_status",
+            schema,
+            time_block,
+        ),
+    ):
+        for json_obj in resp.iter_lines():
+            yield json.loads(json_obj)
 
 
 def get_processes(api_url, api_key, org_uid, muids, time):
@@ -1006,27 +973,24 @@ def get_containers(api_url, api_key, org_uid, muids, time):
 
 def get_agents(api_url, api_key, org_uid, time):
     agents = {}
-    try:
+    try: 
         for agent in get_agent_source_data(
-            api_url, api_key, org_uid, time   
+            api_url, api_key, org_uid, "model_agent::1.0.0", time
         ):
-        #    print(agent) b'{"agent_arch":"x86_64","agent_version":"v1.1.81","boot_time":"Tue, 22..
-        #   agent_string = agent_bytes.decode("utf-8")
-        #    agents = json.loads(agent)
-           status = agent["status"]
-           schema = agent["schema"]
-           if status not in agent:
-                status = "unknown"
-           elif schema not in agent:
-                schema = "unknown" 
+            version = agent["agent_version"]         
+            id = agent["id"]
+            if id not in agent:
+                agent[id] = agent
+            else:
+                old_version = agent[id]["agent_version"]
+                if version > old_version:
+                    agent[id] = agent
     except KeyboardInterrupt:
         if agents:
             __log_interrupt_partial()
         else:
             __log_interrupt()
-    agents_Data = agents.append(status)
-    return(list(agents.values()))
-
+    return list(agents.values())
 
 
 def __log_interrupt_partial():

@@ -423,8 +423,6 @@ def match_filters(
                     pass
     return False
 
-
-
 def filter_agents(
     agents: List[Dict],
     namespaces_data=None,

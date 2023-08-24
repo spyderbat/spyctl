@@ -736,7 +736,9 @@ CONTAINER_IMAGE_NAME = "image-name"
 
 # Agents
 AGENT_SCHEMA = "schema"
-AGENT_STATUS ="status"
+AGENT_STATUS = "status"
+AGENT_HOSTNAME = "hostname"
+AGENT_ID = "ID"
 
 # Network
 CIDR_FIELD = "cidr"
