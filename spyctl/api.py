@@ -165,16 +165,22 @@ def time_blocks(
 
 
 def threadpool_progress_bar_time_blocks(
-    args_per_thread: List[List],
+    args_per_thread: List[str],
     time,
     function: Callable,
     max_time_range=MAX_TIME_RANGE_SECS,
+    disable_pbar=False,
 ):
     t_blocks = time_blocks(time, max_time_range)
     args_per_thread = [
         [arg, t_block] for arg in args_per_thread for t_block in t_blocks
     ]
-    pbar = tqdm.tqdm(total=len(args_per_thread), leave=False, file=sys.stderr)
+    pbar = tqdm.tqdm(
+        total=len(args_per_thread),
+        leave=False,
+        file=sys.stderr,
+        disable=disable_pbar,
+    )
     threads = []
     with ThreadPoolExecutor() as executor:
         for args in args_per_thread:
@@ -248,20 +254,103 @@ def get_filtered_data(
     time,
     raise_notfound=False,
     pipeline=None,
+    url=None,
 ):
-    url = f"{api_url}/api/v1/source/query/"
+    if not url:
+        url = f"{api_url}/api/v1/source/query/"
     data = {
         "start_time": time[0],
         "end_time": time[1],
-        "org_uid": org_uid,
         "data_type": datatype,
         "pipeline": [{"filter": {"schema": schema}}, {"latest_model": {}}],
     }
+    if org_uid:
+        data["org_uid"] = org_uid
     if pipeline:
         data["pipeline"] = pipeline
     if source:
         data["src_uid"] = source
     return post(url, data, api_key, raise_notfound)
+
+
+def get_audit_events(
+    api_url,
+    api_key,
+    org_uid,
+    time,
+    src_uid,
+    msg_type=None,
+    since_id=None,
+    disable_pbar: bool = False,
+) -> List[Dict]:
+    audit_events = []
+    if msg_type:
+        schema = (
+            f"{lib.EVENT_AUDIT_PREFIX}:"
+            f"{lib.EVENT_AUDIT_SUBTYPE_MAP[msg_type]}"
+        )
+    else:
+        schema = lib.EVENT_AUDIT_PREFIX
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/logs"
+    for resp in threadpool_progress_bar_time_blocks(
+        [src_uid],
+        time,
+        lambda uid, time_tup: get_filtered_data(
+            api_url,
+            api_key,
+            org_uid,
+            uid,
+            "audit",
+            schema,
+            time_tup,
+            pipeline=None,
+            url=url,
+        ),
+        disable_pbar=disable_pbar,
+    ):
+        for event_json in resp.iter_lines():
+            event = json.loads(event_json)
+            audit_events.append(event)
+    audit_events.sort(key=lambda event: event["time"])
+    if since_id:
+        for i, rec in enumerate(audit_events):
+            if rec["id"] == since_id:
+                if len(audit_events) > i + 1:
+                    ind = i + 1
+                    audit_events = audit_events[ind:]
+                    break
+                else:
+                    return []
+    return audit_events
+
+
+def get_audit_events_tail(
+    api_url,
+    api_key,
+    org_uid,
+    time,
+    src_uid,
+    tail: int = -1,  # -1 means all events
+    msg_type=None,
+    since_id: str = None,
+    disable_pbar: bool = False,
+) -> List[Dict]:
+    audit_events = get_audit_events(
+        api_url,
+        api_key,
+        org_uid,
+        time,
+        src_uid,
+        msg_type,
+        since_id,
+        disable_pbar=disable_pbar,
+    )
+    if tail > 0:
+        return audit_events[-tail:]
+    if tail == 0:
+        return []
+    else:
+        return audit_events
 
 
 def get_orgs(api_url, api_key) -> List[Tuple]:

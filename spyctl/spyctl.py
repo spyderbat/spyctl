@@ -22,6 +22,7 @@ import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
+from spyctl.commands.logs import handle_logs
 
 MAIN_EPILOG = (
     "\b\n"
@@ -1314,6 +1315,93 @@ def get(
 
 
 # ----------------------------------------------------------------- #
+#                         Logs Subcommand                           #
+# ----------------------------------------------------------------- #
+
+
+@main.command("logs", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.LogsResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--follow",
+    is_flag=True,
+    metavar="",
+    default=False,
+    help="Specify if the logs should be streamed",
+)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Get logs since this time. Default is 24 hours ago.",
+    metavar="",
+    default="24h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query. Default is now.",
+    metavar="",
+    default=time.time(),
+    type=lib.time_inp,
+)
+@click.option(
+    "--tail",
+    help="Lines of recent log file to display. Defaults to -1.",
+    metavar="",
+    default=-1,
+    type=click.INT,
+)
+@click.option(
+    "--timestamps",
+    is_flag=True,
+    help="Include timestamps on each line in the log output.",
+    metavar="",
+    default=False,
+)
+@click.option(
+    "--full",
+    is_flag=True,
+    help="Show the full log, not just the description.",
+    metavar="",
+)
+@click.option(
+    "--since-iterator",
+    help="Retrieve all logs since the provided iterator.",
+    metavar="",
+)
+def logs(
+    resource,
+    name_or_id,
+    follow,
+    st,
+    et,
+    tail,
+    timestamps,
+    full,
+    since_iterator,
+):
+    """Print the logs for a specified resource. Default behavior is to
+    print out the logs for the last 24 hours.
+    """
+    handle_logs(
+        resource,
+        name_or_id,
+        follow,
+        st,
+        et,
+        tail,
+        timestamps,
+        full,
+        since_iterator,
+    )
+
+
+# ----------------------------------------------------------------- #
 #                         Merge Subcommand                          #
 # ----------------------------------------------------------------- #
 
@@ -1553,7 +1641,7 @@ def merge(
 
 
 # ----------------------------------------------------------------- #
-#                        ShowSchema Subcommand                          #
+#                      ShowSchema Subcommand                        #
 # ----------------------------------------------------------------- #
 
 
