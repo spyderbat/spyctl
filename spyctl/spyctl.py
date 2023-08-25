@@ -1013,7 +1013,15 @@ class GetCommand(lib.ArgumentParametersCommand):
                     help="Outputs the usage metrics for 1 or more agents to"
                     " a specified csv file.",
                     type=click.File(mode="w"),
-                )
+                ),
+                click.option(
+                    "--health-only",
+                    help="This flag returns the agents list, but doesn't query"
+                    " metrics (Faster). You will still see the"
+                    " agent's health.",
+                    default=False,
+                    is_flag=True,
+                ),
             ],
         },
         {

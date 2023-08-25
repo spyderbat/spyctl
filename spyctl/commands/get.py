@@ -129,8 +129,16 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
     )
 
 
-def handle_get_agents(name_or_id, st, et, output, src: str, **filters: Dict):
+def handle_get_agents(
+    name_or_id,
+    st,
+    et,
+    output,
+    src: str,
+    **filters: Dict,
+):
     metrics_csv_file: IO = filters.pop("metrics_csv", None)
+    include_latest_metrics = not filters.pop("health_only", False)
     ctx = cfg.get_current_context()
     pipeline = a_api_filt.generate_pipeline(
         name_or_id, None, True, filters=filters
@@ -147,16 +155,23 @@ def handle_get_agents(name_or_id, st, et, output, src: str, **filters: Dict):
     if output == lib.OUTPUT_WIDE:
         agents = spy_agents.agents_output_wide(agents, source_data)
     else:
+        if output != lib.OUTPUT_DEFAULT:
+            agents = spy_agents.agents_output(agents)
+        else:
+            output = lib.OUTPUT_RAW
+            agents = spy_agents.agent_summary_output(
+                agents, include_latest_metrics
+            )
         cli.show(
             agents,
             output,
-            {lib.OUTPUT_DEFAULT: spy_agents.agent_summary_output},
+            {},
         )
 
 
 def handle_agent_metrics_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
     ctx = cfg.get_current_context()
-    cli.try_log("Retrieving statistics records.")
+    cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
     sources = [agent["muid"] for agent in agents]
     pipeline = a_api_filt.generate_metrics_pipeline()
