@@ -1023,7 +1023,13 @@ def get_agents(
 
 
 def get_agent_metrics(
-    api_url, api_key, org_uid, sources: List[str], time, pipeline=None
+    api_url,
+    api_key,
+    org_uid,
+    sources: List[str],
+    time,
+    pipeline=None,
+    disable_pbar=False,
 ):
     try:
         for resp in threadpool_progress_bar_time_blocks(
@@ -1039,9 +1045,45 @@ def get_agent_metrics(
                 time_tup,
                 pipeline=pipeline,
             ),
+            disable_pbar=disable_pbar,
         ):
             for json_obj in resp.iter_lines():
                 metrics_record = json.loads(json_obj)
+                yield metrics_record
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
+def get_latest_agent_metrics(
+    api_url,
+    api_key,
+    org_uid,
+    args: List[Tuple[str, Tuple]],  # list (source_uid, (st, et))
+    pipeline=None,
+):
+    try:
+        for resp in threadpool_progress_bar(
+            args,
+            lambda source, time_tup: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                source,
+                "agent_status",
+                "event_agentmetrics",
+                time_tup,
+                pipeline=pipeline,
+            ),
+            unpack_args=True,
+        ):
+            latest_time = 0
+            for json_obj in reversed(list(resp.iter_lines())):
+                metrics_record = json.loads(json_obj)
+                time = metrics_record["time"]
+                if time <= latest_time:
+                    break
+                else:
+                    latest_time = time
                 yield metrics_record
     except KeyboardInterrupt:
         __log_interrupt()
