@@ -1,29 +1,28 @@
-from typing import Dict, List, IO, Tuple
-
+import time
+from typing import IO, Dict, List, Tuple
 
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
 import spyctl.filter_resource as filt
-import spyctl.resources.clusters as spyctl_clusts
-import spyctl.resources.fingerprints as spyctl_fprints
-
+import spyctl.resources.agents as spy_agents
+import spyctl.resources.api_filters.agents as a_api_filt
 import spyctl.resources.api_filters.fingerprints as f_api_filt
-import spyctl.resources.machines as spyctl_machines
+import spyctl.resources.clusters as spyctl_clusts
+import spyctl.resources.connections as spyctl_conns
+import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.deployments as spyctl_deployments
-import spyctl.resources.namespaces as spyctl_names
-import spyctl.resources.pods as spyctl_pods
-import spyctl.resources.nodes as spyctl_nodes
+import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.flags as spyctl_flags
+import spyctl.resources.machines as spyctl_machines
+import spyctl.resources.namespaces as spyctl_names
+import spyctl.resources.nodes as spyctl_nodes
+import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
-import spyctl.resources.connections as spyctl_conns
 import spyctl.resources.spydertraces as spyctl_spytrace
-import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.suppression_policies as s_pol
-import spyctl.resources.agents as spy_agents
 import spyctl.spyctl_lib as lib
-import time
 
 ALL = "all"
 not_time_based = [
@@ -75,7 +74,7 @@ def handle_get(
     elif resource == lib.NODES_RESOURCE:
         handle_get_nodes(name_or_id, st, et, output, **filters)
     elif resource == lib.AGENT_RESOURCE:
-        handle_get_agents(name_or_id, st, et, output, **filters)
+        handle_get_agents(name_or_id, st, et, output, src, **filters)
     elif resource == lib.PODS_RESOURCE:
         handle_get_pods(name_or_id, st, et, output, **filters)
     elif resource == lib.REDFLAGS_RESOURCE:
@@ -130,29 +129,42 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
     )
 
 
-def handle_get_agents(name_or_id, st, et, output, **filters: Dict):
+def handle_get_agents(name_or_id, st, et, output, src: str, **filters: Dict):
+    metrics_csv_file: IO = filters.pop("metrics_csv", None)
     ctx = cfg.get_current_context()
-    agents = api.get_agents(*ctx.get_api_data(), time=(st, et))
-    agents = filt.filter_agents(agents, **filters)
-    output_agents = []
-    for agent in agents:
-        output_agents.append(
-            {
-                "status": agent["status"],
-                "hostname": agent["hostname"],
-                "id": agent["id"]
-            },
-        )
-    if name_or_id:
-        output_agents = filt.filter_obj(
-            output_agents, ["name", "uid"], name_or_id
+    pipeline = a_api_filt.generate_pipeline(
+        name_or_id, None, True, filters=filters
     )
+    agents = api.get_agents(
+        *ctx.get_api_data(), [src], time=(st, et), pipeline=pipeline
+    )
+    agents = filt.filter_agents(agents, **filters)
+    if metrics_csv_file:
+        handle_agent_metrics_csv(agents, st, et, metrics_csv_file)
+    else:
         if output != lib.OUTPUT_DEFAULT:
             agents = spy_agents.agents_output(agents)
         cli.show(
-          agents,
-          output,
-          {lib.OUTPUT_DEFAULT: spy_agents.agent_summary_output},
+            agents,
+            output,
+            {lib.OUTPUT_DEFAULT: spy_agents.agent_summary_output},
+        )
+
+
+def handle_agent_metrics_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
+    ctx = cfg.get_current_context()
+    cli.try_log("Retrieving statistics records.")
+    agent_map = spy_agents.metrics_ref_map(agents)
+    sources = [agent["muid"] for agent in agents]
+    pipeline = a_api_filt.generate_metrics_pipeline()
+    metrics_csv_file.write(spy_agents.metrics_header())
+    for metrics_record in api.get_agent_metrics(
+        *ctx.get_api_data(), sources, (st, et), pipeline
+    ):
+        metrics_csv_file.write(
+            spy_agents.metrics_line(
+                metrics_record, agent_map.get(metrics_record["ref"])
+            )
         )
 
 

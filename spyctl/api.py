@@ -138,7 +138,9 @@ def delete(url, key):
     return r
 
 
-def time_blocks(time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS) -> List[Tuple]:
+def time_blocks(
+    time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS
+) -> List[Tuple]:
     """Takes a time tuple (start, end) in epoch time and converts
     it to smaller chunks if necessary.
 
@@ -168,7 +170,24 @@ def threadpool_progress_bar_time_blocks(
     function: Callable,
     max_time_range=MAX_TIME_RANGE_SECS,
     disable_pbar=False,
-):
+) -> str:
+    """This function runs a multi-threaded task such as making multiple API
+    requests simultaneously. By default it shows a progress bar. This is a
+    specialized function for the Spyderbat API because it will break up
+    api-requests into time blocks of a maximum size if necessary. The
+    Spyderbat API doesn't like queries spanning over 24 hours so we break them
+    into smaller chunks.
+
+    Args:
+        args_per_thread (List[str]): The args to pass to each thread example: list of source uids.
+        time (Tuple[float, float]): A tuple containing the start and end time of the task
+        function (Callable): The function that each thread will perform
+        max_time_range (_type_, optional): The maximum size of a time block. Defaults to MAX_TIME_RANGE_SECS.
+        disable_pbar (bool, optional): Disable the progress bar. Defaults to False.
+
+    Yields:
+        Iterator[any]: The return value from the thread task.
+    """
     t_blocks = time_blocks(time, max_time_range)
     args_per_thread = [
         [arg, t_block] for arg in args_per_thread for t_block in t_blocks
@@ -235,7 +254,10 @@ def get_object_by_id(
             "query_from": 0,
             "query_size": 1,
         }
-    url = f"{api_url}/api/v1/source/query/" "?ui_tag=SearchLoadAllSchemaTypesInOneQuery"
+    url = (
+        f"{api_url}/api/v1/source/query/"
+        "?ui_tag=SearchLoadAllSchemaTypesInOneQuery"
+    )
     return post(url, data, api_key)
 
 
@@ -391,7 +413,8 @@ def get_machines(api_url, api_key, org_uid) -> List[Dict]:
     for machine in machines.values():
         if (
             zulu.Zulu.parse(machine["last_data"]) >= AUTO_HIDE_TIME
-            or zulu.Zulu.parse(machine["last_stored_chunk_end_time"]) >= AUTO_HIDE_TIME
+            or zulu.Zulu.parse(machine["last_stored_chunk_end_time"])
+            >= AUTO_HIDE_TIME
         ) and "runtime_details" in machine:
             rv.append(machine)
     return rv
@@ -444,7 +467,9 @@ def get_clusters(api_url, api_key, org_uid):
     return clusters
 
 
-def get_k8s_data(api_url, api_key, org_uid, clus_uid, stream, schema_key, time):
+def get_k8s_data(
+    api_url, api_key, org_uid, clus_uid, stream, schema_key, time
+):
     src = clus_uid + "_" + stream if stream else clus_uid
     url = f"{api_url}/api/v1/org/{org_uid}/data/"
     url += f"?src={src}&st={time[0]}&et={time[1]}&dt=k8s"
@@ -460,7 +485,9 @@ def get_k8s_data(api_url, api_key, org_uid, clus_uid, stream, schema_key, time):
             raise_notfound=bool(stream),
         )
     except ValueError:
-        return get_k8s_data(api_url, api_key, org_uid, clus_uid, "", schema_key, time)
+        return get_k8s_data(
+            api_url, api_key, org_uid, clus_uid, "", schema_key, time
+        )
     for k8s_json in resp.iter_lines():
         yield json.loads(k8s_json)
 
@@ -493,7 +520,10 @@ def get_deployments(api_url, api_key, org_uid, clusters, time):
             for deployment in deploy_list:
                 uid = deployment["id"]
                 version = deployment["version"]
-                if uid not in deployments or version > deployments[uid]["version"]:
+                if (
+                    uid not in deployments
+                    or version > deployments[uid]["version"]
+                ):
                     deployments[uid] = deployment
     except KeyboardInterrupt:
         if deployments:
@@ -742,7 +772,9 @@ def get_fingerprints(
                 if id not in fingerprints:
                     fingerprints[id] = fprint
                 else:
-                    old_fp_version = fingerprints[id][lib.METADATA_FIELD]["version"]
+                    old_fp_version = fingerprints[id][lib.METADATA_FIELD][
+                        "version"
+                    ]
                     if version > old_fp_version:
                         fingerprints[id] = fprint
     except KeyboardInterrupt:
@@ -782,7 +814,9 @@ def get_trace_summaries(api_url, api_key, org_uid, muids, time):
                 if id not in fingerprints:
                     fingerprints[id] = fprint
                 else:
-                    old_fp_version = fingerprints[id][lib.METADATA_FIELD]["version"]
+                    old_fp_version = fingerprints[id][lib.METADATA_FIELD][
+                        "version"
+                    ]
                     if version > old_fp_version:
                         fingerprints[id] = fprint
     except KeyboardInterrupt:
@@ -810,7 +844,9 @@ def get_policies(api_url, api_key, org_uid, params=None):
                 uid = pol["uid"]
                 policy = json.loads(pol["policy"])
                 policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol["valid_from"]
+                policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
+                    "valid_from"
+                ]
                 policies.append(policy)
     return policies
 
@@ -856,25 +892,6 @@ def get_source_data(api_url, api_key, org_uid, muids, schema, time):
             org_uid,
             muid,
             "spydergraph",
-            schema,
-            time_block,
-        ),
-    ):
-        for json_obj in resp.iter_lines():
-            yield json.loads(json_obj)
-
-
-def get_agent_source_data(api_url, api_key, org_uid, schema, time):
-    source_uid = "global:" + org_uid
-    for resp in threadpool_progress_bar_time_blocks(
-        [source_uid],
-        time,
-        lambda source, time_block: get_filtered_data(
-            api_url,
-            api_key,
-            org_uid,
-            source,
-            "agent_status",
             schema,
             time_block,
         ),
@@ -971,26 +988,66 @@ def get_containers(api_url, api_key, org_uid, muids, time):
     return list(containers.values())
 
 
-def get_agents(api_url, api_key, org_uid, time):
+def get_agents(
+    api_url, api_key, org_uid, sources: List[str], time, pipeline=None
+):
     agents = {}
-    try: 
-        for agent in get_agent_source_data(
-            api_url, api_key, org_uid, "model_agent::1.0.0", time
+    try:
+        for resp in threadpool_progress_bar_time_blocks(
+            sources,
+            time,
+            lambda source, time_tup: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                source,
+                "agent_status",
+                "model_agent",
+                time_tup,
+                pipeline=pipeline,
+            ),
         ):
-            version = agent["agent_version"]         
-            id = agent["id"]
-            if id not in agent:
-                agent[id] = agent
-            else:
-                old_version = agent[id]["agent_version"]
-                if version > old_version:
-                    agent[id] = agent
+            for json_obj in resp.iter_lines():
+                agent = json.loads(json_obj)
+                version = agent["agent_version"]
+                id = agent["id"]
+                if id not in agent:
+                    agents[id] = agent
+                else:
+                    old_version = agent[id]["agent_version"]
+                    if version > old_version:
+                        agents[id] = agent
     except KeyboardInterrupt:
         if agents:
             __log_interrupt_partial()
         else:
             __log_interrupt()
     return list(agents.values())
+
+
+def get_agent_metrics(
+    api_url, api_key, org_uid, sources: List[str], time, pipeline=None
+):
+    try:
+        for resp in threadpool_progress_bar_time_blocks(
+            sources,
+            time,
+            lambda source, time_tup: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                source,
+                "agent_status",
+                "event_agentmetrics",
+                time_tup,
+                pipeline=pipeline,
+            ),
+        ):
+            for json_obj in resp.iter_lines():
+                metrics_record = json.loads(json_obj)
+                yield metrics_record
+    except KeyboardInterrupt:
+        __log_interrupt()
 
 
 def __log_interrupt_partial():

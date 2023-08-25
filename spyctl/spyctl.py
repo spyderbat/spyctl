@@ -1007,6 +1007,14 @@ class GetCommand(lib.ArgumentParametersCommand):
         },
         {
             "resource": [lib.AGENT_RESOURCE],
+            "args": [
+                click.option(
+                    "--metrics-csv",
+                    help="Outputs the usage metrics for 1 or more agents to"
+                    " a specified csv file.",
+                    type=click.File(mode="w"),
+                )
+            ],
         },
         {
             "resource": [lib.FINGERPRINTS_RESOURCE],

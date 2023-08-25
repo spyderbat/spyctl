@@ -207,14 +207,9 @@ UID_LIST_RESOURCE = Aliases(
 )
 
 AGENT_RESOURCE = Aliases(
-    [
-        "agents",
-        "agent",
-        "a",
-        "agen"
-    ],
-    "agents",
+    ["agents", "agent", "ag"],
     "agent",
+    "agents",
 )
 
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
@@ -246,6 +241,7 @@ DESC_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
 ]
 GET_RESOURCES: List[str] = [
+    AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
@@ -480,6 +476,8 @@ EVENT_AUDIT_SUBTYPE_MAP = {
     "redflag": "guardian_redflag",
     "opsflag": "guardian_opsflag",
 }
+EVENT_AGENT_METRICS_PREFIX = "event_agentmetrics"
+MODEL_AGENT_SCHEMA_PREFIX = "model_agent"
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
 MODEL_FINGERPRINT_SUBTYPE_MAP = {
@@ -735,10 +733,32 @@ CONTAINER_AGE = "age"
 CONTAINER_IMAGE_NAME = "image-name"
 
 # Agents
-AGENT_SCHEMA = "schema"
+AGENT_HEALTH_CRIT = "Critical"
+AGENT_HEALTH_DEL = "Deleted"
+AGENT_HEALTH_ERR = "Error"
+AGENT_HEALTH_NORM = "Normal"
+AGENT_HEALTH_OFFLINE = "Offline"
+AGENT_HEALTH_RESTARTED = "Restarted"
+AGENT_HEALTH_RESTARTING = "Restarting"
+AGENT_HEALTH_STARTED = "Started"
+AGENT_HEALTH_STARTING = "Starting"
+AGENT_HEALTH_WARN = "Warning"
+HEALTH_PRIORITY = {
+    AGENT_HEALTH_CRIT: 20,
+    AGENT_HEALTH_ERR: 30,
+    AGENT_HEALTH_WARN: 40,
+    AGENT_HEALTH_NORM: 50,
+    AGENT_HEALTH_OFFLINE: 10,
+    AGENT_HEALTH_RESTARTED: 70,
+    AGENT_HEALTH_RESTARTING: 60,
+    AGENT_HEALTH_STARTED: 90,
+    AGENT_HEALTH_STARTING: 80,
+    AGENT_HEALTH_DEL: 100,
+}
 AGENT_STATUS = "status"
 AGENT_HOSTNAME = "hostname"
-AGENT_ID = "ID"
+AGENT_ID = "id"
+AGENT_BAT_STATUSES = "bat_statuses"
 
 # Network
 CIDR_FIELD = "cidr"

@@ -146,6 +146,7 @@ spyctl/resources/processes.py
 spyctl/resources/resources_lib.py
 spyctl/resources/spydertraces.py
 spyctl/resources/suppression_policies.py
+spyctl/resources/api_filters/agents.py
 spyctl/resources/api_filters/fingerprints.py
 spyctl/resources/api_filters/uid_list.py
 spyctl/tests/__init__.py

@@ -19,6 +19,14 @@ def generate_pipeline(
     return pipeline_items
 
 
+def generate_metrics_pipeline():
+    pipeline_items = []
+    schema = lib.EVENT_AGENT_METRICS_PREFIX
+    pipeline_items.append(generate_fprint_api_filters(None, schema))
+    pipeline_items.append({"latest_model": {}})
+    return pipeline_items
+
+
 def generate_fprint_api_filters(name_or_uid, schema, **filters) -> Dict:
     and_items = [{"schema": schema}]
     if name_or_uid:
