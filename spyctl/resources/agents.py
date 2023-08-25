@@ -36,6 +36,25 @@ def agents_output(agents: List[Dict]) -> Dict:
         return []
 
 
+def agents_output_wide(agents: List[Dict]) -> str:
+    header = [
+        "NAME",
+        "ID",
+        "HEALTH",
+        "CLUSTER",
+        "ACTIVE BATS",
+        "AGENT VERSION",
+        "LAST SEEN",
+    ]
+    data = []
+    for agent in agents:
+        version = agent["agent_version"]
+        last_seen = agent["last_seen"]
+        data.append(agent_summary_data(agent), version, last_seen)
+    data.sort(key=lambda line: (calc_health_priority(line[2]), line[0]))
+    return tabulate(data, header, tablefmt="plain")
+
+
 def calc_active_bats(agent: Dict):
     bat_statuses = agent.get(lib.AGENT_BAT_STATUSES, {})
     total = len(bat_statuses)

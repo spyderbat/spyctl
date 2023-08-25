@@ -141,9 +141,11 @@ def handle_get_agents(name_or_id, st, et, output, src: str, **filters: Dict):
     agents = filt.filter_agents(agents, **filters)
     if metrics_csv_file:
         handle_agent_metrics_csv(agents, st, et, metrics_csv_file)
+    elif output != lib.OUTPUT_DEFAULT:
+        agents = spy_agents.agents_output(agents)
+    elif output == lib.OUTPUT_WIDE:
+        agents = spy_agents.agents_output_wide(agents)
     else:
-        if output != lib.OUTPUT_DEFAULT:
-            agents = spy_agents.agents_output(agents)
         cli.show(
             agents,
             output,
@@ -624,7 +626,6 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
 
     if output == lib.OUTPUT_WIDE:
         spydertraces = spyctl_spytrace.spydertraces_output_wide(spydertraces)
-
     else:
         cli.show(
             spydertraces,
