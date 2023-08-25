@@ -1,6 +1,6 @@
 import time
 from typing import IO, Dict, List, Tuple
-
+import json
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
@@ -139,12 +139,13 @@ def handle_get_agents(name_or_id, st, et, output, src: str, **filters: Dict):
         *ctx.get_api_data(), [src], time=(st, et), pipeline=pipeline
     )
     agents = filt.filter_agents(agents, **filters)
+    source_data = api.get_agents_source(*ctx.get_api_data())
     if metrics_csv_file:
         handle_agent_metrics_csv(agents, st, et, metrics_csv_file)
-    elif output != lib.OUTPUT_DEFAULT:
+    if output != lib.OUTPUT_DEFAULT and output != lib.OUTPUT_WIDE:
         agents = spy_agents.agents_output(agents)
-    elif output == lib.OUTPUT_WIDE:
-        agents = spy_agents.agents_output_wide(agents)
+    if output == lib.OUTPUT_WIDE:
+        agents = spy_agents.agents_output_wide(agents, source_data)
     else:
         cli.show(
             agents,

@@ -1,7 +1,11 @@
 from typing import Dict, List
-
+import zulu
 from tabulate import tabulate
 import spyctl.spyctl_lib as lib
+
+
+def time(epoch):
+    return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
 
 
 def agent_summary_output(agents: List[Dict]) -> str:
@@ -36,8 +40,31 @@ def agents_output(agents: List[Dict]) -> Dict:
         return []
 
 
-def agents_output_wide(agents: List[Dict]) -> str:
-    header = [
+def agent_output_wide_data(agents: Dict, source_data: List[Dict]) -> List:
+    active_bats = calc_active_bats(agents)
+    matching_data = []
+    muid = agents["muid"]
+    for item in source_data:
+        if muid == item["uid"]:
+            rv = [
+                agents["hostname"],
+                agents["id"],
+                agents["status"],
+                agents.get("cluster_name", lib.NOT_AVAILABLE),
+                active_bats,
+                agents["agent_version"],
+                time(agents["last_seen"]),
+                item["last_data"],
+                agents["muid"],
+                item["cloud_type"],
+                item["cloud_region"],
+            ]
+            matching_data.append(rv)
+    return matching_data
+
+
+def agents_output_wide(agents: List[Dict], source_data: List[Dict]) -> None:
+    header1 = [
         "NAME",
         "ID",
         "HEALTH",
@@ -45,14 +72,16 @@ def agents_output_wide(agents: List[Dict]) -> str:
         "ACTIVE BATS",
         "AGENT VERSION",
         "LAST SEEN",
+        "LAST DATA",
+        "MUID",
+        "CLOUD TYPE",
+        "CLOUD REGION",
     ]
     data = []
     for agent in agents:
-        version = agent["agent_version"]
-        last_seen = agent["last_seen"]
-        data.append(agent_summary_data(agent), version, last_seen)
+        data.extend(agent_output_wide_data(agent, source_data))
     data.sort(key=lambda line: (calc_health_priority(line[2]), line[0]))
-    return tabulate(data, header, tablefmt="plain")
+    print(tabulate(data, header1, tablefmt="plain"))
 
 
 def calc_active_bats(agent: Dict):
