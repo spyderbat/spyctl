@@ -1,19 +1,41 @@
-from typing import Dict, List
+import time
+from typing import Dict, List, Tuple
 
 from tabulate import tabulate
+
+import spyctl.cli as cli
+import spyctl.resources.api_filters.agents as a_api_filt
 import spyctl.spyctl_lib as lib
+import spyctl.api as api
+import spyctl.config.configs as cfg
 
 
-def agent_summary_output(agents: List[Dict]) -> str:
+def agent_summary_output(
+    agents: List[Dict], include_latest_metrics: bool
+) -> str:
     header = ["NAME", "ID", "HEALTH", "CLUSTER", "ACTIVE BATS"]
     data = []
+    if include_latest_metrics:
+        header.extend(
+            [
+                "BANDWIDTH_1_MIN",
+                "MEM_P_1_MIN",
+                "CPU_P_1_MIN",
+                "LATEST_METRICS_TIME",
+            ]
+        )
+        latest_metrics = retrieve_latest_metrics(agents)
+    else:
+        latest_metrics = None
     for agent in agents:
-        data.append(agent_summary_data(agent))
+        data.append(agent_summary_data(agent, latest_metrics))
     data.sort(key=lambda line: (calc_health_priority(line[2]), line[0]))
     return tabulate(data, header, tablefmt="plain")
 
 
-def agent_summary_data(agent: Dict) -> List:
+def agent_summary_data(
+    agent: Dict, latest_metrics: Tuple[str, str, str] = None
+) -> List:
     active_bats = calc_active_bats(agent)
     rv = [
         agent["hostname"],
@@ -22,6 +44,8 @@ def agent_summary_data(agent: Dict) -> List:
         agent.get("cluster_name", lib.NOT_AVAILABLE),
         active_bats,
     ]
+    if latest_metrics:
+        rv.extend(latest_metrics[agent["id"]])
     return rv
 
 
@@ -48,6 +72,74 @@ def calc_active_bats(agent: Dict):
 
 def calc_health_priority(status):
     return lib.HEALTH_PRIORITY.get(status, 0)
+
+
+VALID_METRICS_STATUSES = {
+    lib.AGENT_HEALTH_CRIT,
+    lib.AGENT_HEALTH_ERR,
+    lib.AGENT_HEALTH_WARN,
+    lib.AGENT_HEALTH_NORM,
+}
+
+LATEST_METRICS_NOT_AVAILABLE = (
+    lib.NOT_AVAILABLE,
+    lib.NOT_AVAILABLE,
+    lib.NOT_AVAILABLE,
+    lib.NOT_AVAILABLE,
+)
+
+
+def retrieve_latest_metrics(agents: List[Dict]) -> Dict[str, Tuple]:
+    ctx = cfg.get_current_context()
+    cli.try_log("Retrieving latest metrics for each agent.")
+    rv = {}  # agent_uid -> tuple of latest metrics
+    args = []
+    pipeline = a_api_filt.generate_metrics_pipeline()
+    # Build st, et for each agent
+    latest_metrics_records = {}
+    for agent in agents:
+        # Default value is metrics not available
+        rv[agent["id"]] = LATEST_METRICS_NOT_AVAILABLE
+        if agent["status"] not in VALID_METRICS_STATUSES:
+            continue
+        source = agent["muid"]
+        st = agent["time"] - 60
+        et = max(time.time(), st + 120)
+        t_blocks = api.time_blocks((st, et), api.MAX_TIME_RANGE_SECS)
+        args.extend([(source, t_block) for t_block in t_blocks])
+    agents_map = metrics_ref_map(agents)
+    # Retrieve the latest metrics record for each agent
+    for metrics_record in api.get_latest_agent_metrics(
+        *ctx.get_api_data(), args, pipeline
+    ):
+        ref = metrics_record["ref"]
+        if ref not in latest_metrics_records:
+            latest_metrics_records[ref] = metrics_record
+        else:
+            old_time = latest_metrics_records[ref]["time"]
+            new_time = metrics_record["time"]
+            if new_time > old_time:
+                latest_metrics_records[ref] = metrics_record
+    # Build the metrics fields for output
+    for ref_uid, metric_record in latest_metrics_records.items():
+        agent = agents_map.get(ref_uid)
+        if agent:
+            agent_id = agent["id"]
+            rv[agent_id] = __calc_latest_metrics(agent, metric_record)
+    return rv
+
+
+def __calc_latest_metrics(agent: Dict, metrics_record: Dict):
+    kBps = str(round(metrics_record["bandwidth_1min_Bps"] / 1000, 1)) + "-kBps"
+    total_mem = agent["total_mem_B"]
+    mem_p = (
+        str(
+            round((metrics_record["mem_1min_B"]["agent"] / total_mem * 100), 2)
+        )
+        + "%"
+    )
+    cpu_p = str(round(metrics_record["cpu_1min_P"]["agent"] * 100, 2)) + "%"
+    return (kBps, mem_p, cpu_p, lib.epoch_to_zulu(metrics_record["time"]))
 
 
 def metrics_ref_map(agents: List[Dict]) -> Dict[str, Dict]:
