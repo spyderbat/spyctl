@@ -1035,19 +1035,16 @@ def get_agents(
         ):
             for json_obj in resp.iter_lines():
                 agent = json.loads(json_obj)
-                version = agent["agent_version"]
+                version = agent["version"]
                 id = agent["id"]
-                if id not in agent:
+                if id not in agents:
                     agents[id] = agent
                 else:
-                    old_version = agent[id]["agent_version"]
+                    old_version = agents[id]["version"]
                     if version > old_version:
                         agents[id] = agent
     except KeyboardInterrupt:
-        if agents:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     return list(agents.values())
 
 
