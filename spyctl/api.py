@@ -170,7 +170,24 @@ def threadpool_progress_bar_time_blocks(
     function: Callable,
     max_time_range=MAX_TIME_RANGE_SECS,
     disable_pbar=False,
-):
+) -> str:
+    """This function runs a multi-threaded task such as making multiple API
+    requests simultaneously. By default it shows a progress bar. This is a
+    specialized function for the Spyderbat API because it will break up
+    api-requests into time blocks of a maximum size if necessary. The
+    Spyderbat API doesn't like queries spanning over 24 hours so we break them
+    into smaller chunks.
+
+    Args:
+        args_per_thread (List[str]): The args to pass to each thread example: list of source uids.
+        time (Tuple[float, float]): A tuple containing the start and end time of the task
+        function (Callable): The function that each thread will perform
+        max_time_range (_type_, optional): The maximum size of a time block. Defaults to MAX_TIME_RANGE_SECS.
+        disable_pbar (bool, optional): Disable the progress bar. Defaults to False.
+
+    Yields:
+        Iterator[any]: The return value from the thread task.
+    """
     t_blocks = time_blocks(time, max_time_range)
     args_per_thread = [
         [arg, t_block] for arg in args_per_thread for t_block in t_blocks
@@ -969,6 +986,68 @@ def get_containers(api_url, api_key, org_uid, muids, time):
         else:
             __log_interrupt()
     return list(containers.values())
+
+
+def get_agents(
+    api_url, api_key, org_uid, sources: List[str], time, pipeline=None
+):
+    agents = {}
+    try:
+        for resp in threadpool_progress_bar_time_blocks(
+            sources,
+            time,
+            lambda source, time_tup: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                source,
+                "agent_status",
+                "model_agent",
+                time_tup,
+                pipeline=pipeline,
+            ),
+        ):
+            for json_obj in resp.iter_lines():
+                agent = json.loads(json_obj)
+                version = agent["agent_version"]
+                id = agent["id"]
+                if id not in agent:
+                    agents[id] = agent
+                else:
+                    old_version = agent[id]["agent_version"]
+                    if version > old_version:
+                        agents[id] = agent
+    except KeyboardInterrupt:
+        if agents:
+            __log_interrupt_partial()
+        else:
+            __log_interrupt()
+    return list(agents.values())
+
+
+def get_agent_metrics(
+    api_url, api_key, org_uid, sources: List[str], time, pipeline=None
+):
+    try:
+        for resp in threadpool_progress_bar_time_blocks(
+            sources,
+            time,
+            lambda source, time_tup: get_filtered_data(
+                api_url,
+                api_key,
+                org_uid,
+                source,
+                "agent_status",
+                "event_agentmetrics",
+                time_tup,
+                pipeline=pipeline,
+            ),
+        ):
+            for json_obj in resp.iter_lines():
+                metrics_record = json.loads(json_obj)
+                yield metrics_record
+    except KeyboardInterrupt:
+        __log_interrupt()
 
 
 def __log_interrupt_partial():

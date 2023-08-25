@@ -1006,6 +1006,17 @@ class GetCommand(lib.ArgumentParametersCommand):
             ],
         },
         {
+            "resource": [lib.AGENT_RESOURCE],
+            "args": [
+                click.option(
+                    "--metrics-csv",
+                    help="Outputs the usage metrics for 1 or more agents to"
+                    " a specified csv file.",
+                    type=click.File(mode="w"),
+                )
+            ],
+        },
+        {
             "resource": [lib.FINGERPRINTS_RESOURCE],
             "args": [
                 click.option(
@@ -1249,6 +1260,7 @@ def get(
     - Processes
     - RedFlags
     - Spydertraces
+    - Agents
 
     \b
     Other resources come from databases where time ranges are not applicable:
