@@ -79,7 +79,8 @@ def agent_output_wide_data(
         agent.get("cluster_name") or lib.NOT_AVAILABLE,
     ]
     muid = agent["muid"]
-    if source := source_data.get(muid):
+    source = source_data.get(muid)
+    if source:
         rv.extend(
             [
                 source["last_data"],
