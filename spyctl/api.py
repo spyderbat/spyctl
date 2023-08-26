@@ -370,6 +370,33 @@ def get_audit_events_tail(
         return audit_events
 
 
+def get_sources_data_for_agents(api_url, api_key, org_uid) -> Dict:
+    rv = {}
+    url = f"{api_url}/api/v1/org/{org_uid}/source/"
+    sources = get(url, api_key).json()
+    for source in sources:
+        source_uid = source["uid"]  # muid
+        if "runtime_details" not in source:
+            rv[source_uid] = {
+                "uid": source["uid"],
+                "cloud_region": lib.NOT_AVAILABLE,
+                "cloud_type": lib.NOT_AVAILABLE,
+                "last_data": source["last_data"],
+            }
+        else:
+            rv[source_uid] = {
+                "uid": source["uid"],
+                "cloud_region": source["runtime_details"].get(
+                    "cloud_region", lib.NOT_AVAILABLE
+                ),
+                "cloud_type": source["runtime_details"].get(
+                    "cloud_type", lib.NOT_AVAILABLE
+                ),
+                "last_data": source["last_data"],
+            }
+    return rv
+
+
 def get_orgs(api_url, api_key) -> List[Tuple]:
     org_uids = []
     org_names = []

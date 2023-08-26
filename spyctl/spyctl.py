@@ -1009,16 +1009,30 @@ class GetCommand(lib.ArgumentParametersCommand):
             "resource": [lib.AGENT_RESOURCE],
             "args": [
                 click.option(
-                    "--metrics-csv",
+                    "--usage-csv",
                     help="Outputs the usage metrics for 1 or more agents to"
                     " a specified csv file.",
                     type=click.File(mode="w"),
                 ),
                 click.option(
+                    "--usage-json",
+                    help="Outputs the usage metrics for 1 or more agents to"
+                    " stdout in json format.",
+                    is_flag=True,
+                    default=False,
+                ),
+                click.option(
+                    "--raw-metrics-json",
+                    help="Outputs the raw metrics records for 1 or more agents"
+                    " to stdout in json format.",
+                    is_flag=True,
+                    default=False,
+                ),
+                click.option(
                     "--health-only",
                     help="This flag returns the agents list, but doesn't query"
-                    " metrics (Faster). You will still see the"
-                    " agent's health.",
+                    " metrics (Faster) in the '-o wide' output. You will still"
+                    " see the agent's health.",
                     default=False,
                     is_flag=True,
                 ),
