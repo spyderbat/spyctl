@@ -1,6 +1,5 @@
 import time
 from typing import IO, Dict, List, Tuple
-import json
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
@@ -137,31 +136,51 @@ def handle_get_agents(
     src: str,
     **filters: Dict,
 ):
-    metrics_csv_file: IO = filters.pop("metrics_csv", None)
-    include_latest_metrics = not filters.pop("health_only", False)
     ctx = cfg.get_current_context()
+    usage_csv_file: IO = filters.pop("usage_csv", None)
+    usage_json: bool = filters.pop("usage_json", None)
+    raw_metrics_json: bool = filters.pop("raw_metrics_json", False)
+    include_latest_metrics = not filters.pop("health_only", False)
     pipeline = a_api_filt.generate_pipeline(
         name_or_id, None, True, filters=filters
     )
-    agents = api.get_agents(
-        *ctx.get_api_data(), [src], time=(st, et), pipeline=pipeline
-    )
-    agents = filt.filter_agents(agents, **filters)
-    source_data = api.get_agents_source(*ctx.get_api_data())
-    if metrics_csv_file:
-        handle_agent_metrics_csv(agents, st, et, metrics_csv_file)
-    if output != lib.OUTPUT_DEFAULT and output != lib.OUTPUT_WIDE:
-        agents = spy_agents.agents_output(agents)
-    if output == lib.OUTPUT_WIDE:
-        agents = spy_agents.agents_output_wide(agents, source_data)
+    if usage_csv_file:
+        agent_st = __st_at_least_2hrs(st)
+        agents = api.get_agents(
+            *ctx.get_api_data(), [src], time=(agent_st, et), pipeline=pipeline
+        )
+        # We're only outputting the metrics data to a csv file
+        handle_agent_usage_csv(agents, st, et, usage_csv_file)
+    elif usage_json:
+        agent_st = __st_at_least_2hrs(st)
+        agents = api.get_agents(
+            *ctx.get_api_data(), [src], time=(agent_st, et), pipeline=pipeline
+        )
+        handle_agent_usage_json(agents, st, et)
+    elif raw_metrics_json:
+        agent_st = __st_at_least_2hrs(st)
+        agents = api.get_agents(
+            *ctx.get_api_data(), [src], time=(agent_st, et), pipeline=pipeline
+        )
+        handle_agent_metrics_json(agents, st, et)
     else:
-        if output != lib.OUTPUT_DEFAULT:
-            agents = spy_agents.agents_output(agents)
-        else:
+        # Normal path for output
+        agents = api.get_agents(
+            *ctx.get_api_data(), [src], time=(st, et), pipeline=pipeline
+        )
+        agents = filt.filter_agents(agents, **filters)
+        if output == lib.OUTPUT_DEFAULT:
             output = lib.OUTPUT_RAW
-            agents = spy_agents.agent_summary_output(
-                agents, include_latest_metrics
+            agents = spy_agents.agent_summary_output(agents)
+        elif output == lib.OUTPUT_WIDE:
+            cli.try_log("Retrieving source data for agent(s).")
+            sources_data = api.get_sources_data_for_agents(*ctx.get_api_data())
+            output = lib.OUTPUT_RAW
+            agents = spy_agents.agents_output_wide(
+                agents, sources_data, include_latest_metrics
             )
+        else:
+            agents = spy_agents.agents_output(agents)
         cli.show(
             agents,
             output,
@@ -169,7 +188,15 @@ def handle_get_agents(
         )
 
 
-def handle_agent_metrics_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
+def __st_at_least_2hrs(st: float):
+    two_hours_secs = 60 * 60 * 2
+    now = time.time()
+    if now - st < two_hours_secs:
+        return now - two_hours_secs
+    return st
+
+
+def handle_agent_usage_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
     ctx = cfg.get_current_context()
     cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
@@ -180,10 +207,38 @@ def handle_agent_metrics_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
         *ctx.get_api_data(), sources, (st, et), pipeline
     ):
         metrics_csv_file.write(
-            spy_agents.metrics_line(
+            spy_agents.usage_line(
                 metrics_record, agent_map.get(metrics_record["ref"])
             )
         )
+
+
+def handle_agent_usage_json(agents: List[Dict], st, et):
+    ctx = cfg.get_current_context()
+    cli.try_log("Retrieving metrics records.")
+    agent_map = spy_agents.metrics_ref_map(agents)
+    sources = [agent["muid"] for agent in agents]
+    pipeline = a_api_filt.generate_metrics_pipeline()
+    for metrics_record in api.get_agent_metrics(
+        *ctx.get_api_data(), sources, (st, et), pipeline
+    ):
+        cli.show(
+            spy_agents.usage_dict(
+                metrics_record, agent_map.get(metrics_record["ref"])
+            ),
+            lib.OUTPUT_JSON,
+        )
+
+
+def handle_agent_metrics_json(agents: List[Dict], st, et):
+    ctx = cfg.get_current_context()
+    cli.try_log("Retrieving metrics records.")
+    sources = [agent["muid"] for agent in agents]
+    pipeline = a_api_filt.generate_metrics_pipeline()
+    for metrics_record in api.get_agent_metrics(
+        *ctx.get_api_data(), sources, (st, et), pipeline
+    ):
+        cli.show(metrics_record, lib.OUTPUT_JSON)
 
 
 def handle_get_deployments(name_or_id, st, et, output, **filters):
@@ -605,9 +660,6 @@ def calculate_has_matching_fprints(
 def handle_get_processes(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     machines = api.get_machines(*ctx.get_api_data())
-    clusters = None
-    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
-        clusters = api.get_clusters(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
     processes = api.get_processes(*ctx.get_api_data(), muids, (st, et))
@@ -626,9 +678,6 @@ def handle_get_processes(name_or_id, st, et, output, **filters):
 def handle_get_spydertraces(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     machines = api.get_machines(*ctx.get_api_data())
-    clusters = None
-    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
-        clusters = api.get_clusters(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
     spydertraces = api.get_spydertraces(*ctx.get_api_data(), muids, (st, et))
@@ -653,9 +702,6 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
 def handle_get_containers(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     machines = api.get_machines(*ctx.get_api_data())
-    clusters = None
-    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
-        clusters = api.get_clusters(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
     containers = api.get_containers(*ctx.get_api_data(), muids, (st, et))
@@ -674,9 +720,6 @@ def handle_get_containers(name_or_id, st, et, output, **filters):
 def handle_get_connections(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     machines = api.get_machines(*ctx.get_api_data())
-    clusters = None
-    if cfg.CLUSTER_FIELD in filters or cfg.CLUSTER_FIELD in ctx.get_filters():
-        clusters = api.get_clusters(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
     connections = api.get_connections(*ctx.get_api_data(), muids, (st, et))
