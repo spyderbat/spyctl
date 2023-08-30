@@ -983,6 +983,32 @@ class GetCommand(lib.ArgumentParametersCommand):
     argument_name = "resource"
     argument_value_parameters = [
         {
+            "resource": [
+                lib.AGENT_RESOURCE,
+                lib.CONNECTIONS_RESOURCE,
+                lib.CONTAINER_RESOURCE,
+                lib.DEPLOYMENTS_RESOURCE,
+                lib.FINGERPRINTS_RESOURCE,
+                lib.MACHINES_RESOURCE,
+                lib.NODES_RESOURCE,
+                lib.NODES_RESOURCE,
+                lib.OPSFLAGS_RESOURCE,
+                lib.PODS_RESOURCE,
+                lib.PROCESSES_RESOURCE,
+                lib.REDFLAGS_RESOURCE,
+                lib.SPYDERTRACE_RESOURCE,
+            ],
+            "args": [
+                click.option(
+                    "--last-model",
+                    help="Use additional memory when outputting json or yaml"
+                    " to ensure only the latest version of each model is"
+                    " returned.",
+                    is_flag=True,
+                ),
+            ],
+        },
+        {
             "resource": [lib.REDFLAGS_RESOURCE, lib.OPSFLAGS_RESOURCE],
             "args": [
                 click.option(
@@ -1041,6 +1067,15 @@ class GetCommand(lib.ArgumentParametersCommand):
         {
             "resource": [lib.FINGERPRINTS_RESOURCE],
             "args": [
+                click.option(
+                    "-l",
+                    "--latest",
+                    help="Starting time of the query is set to the"
+                    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
+                    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
+                    " --start-time. [Requires '--filename' option to be set]",
+                    is_flag=True,
+                ),
                 click.option(
                     "-f",
                     "--filename",
@@ -1220,15 +1255,6 @@ class GetCommand(lib.ArgumentParametersCommand):
     ),
 )
 @click.option(
-    "-l",
-    "--latest",
-    help="Starting time of the query is set to the"
-    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
-    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
-    " --start-time. [Requires '--filename' option to be set]",
-    is_flag=True,
-)
-@click.option(
     "-E",
     "--exact",
     "--exact-match",
@@ -1251,6 +1277,11 @@ class GetCommand(lib.ArgumentParametersCommand):
     help="End time of the query. Default is now.",
     default=time.time(),
     type=lib.time_inp,
+)
+@click.option(
+    "--ndjson",
+    help="If output is 'json' this outputs the json records on their own line",
+    is_flag=True,
 )
 def get(
     resource,

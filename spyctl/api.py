@@ -950,6 +950,16 @@ def get_processes(api_url, api_key, org_uid, muids, time):
 
 
 def get_connections(api_url, api_key, org_uid, muids, time):
+    try:
+        for connection in get_source_data(
+            api_url, api_key, org_uid, muids, "model_connection", time
+        ):
+            yield connection
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
+def get_connections_last_model(api_url, api_key, org_uid, muids, time):
     connections = {}
     try:
         for connection in get_source_data(

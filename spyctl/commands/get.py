@@ -1,5 +1,7 @@
+import json
 import time
 from typing import IO, Dict, List, Tuple
+
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
@@ -30,10 +32,14 @@ not_time_based = [
     lib.CLUSTERS_RESOURCE,
 ]
 
+LAST_MODEL = False
+NDJSON = False
+
 
 def handle_get(
     resource, name_or_id, st, et, file, latest, exact, output, **filters
 ):
+    global LAST_MODEL, NDJSON
     resrc_plural = lib.get_plural_name_from_alias(resource)
     if resrc_plural and resrc_plural not in not_time_based:
         cli.try_log(
@@ -56,6 +62,8 @@ def handle_get(
             filters[lib.MACHINES_FIELD] = muids
     # Craft filters by cluster
     cluids = get_cluids_scope(**filters)
+    LAST_MODEL = filters.pop("last_model", False)
+    NDJSON = filters.pop("ndjson", False)
     if cluids:
         filters[lib.CLUSTER_FIELD] = cluids
     if resource == lib.CLUSTERS_RESOURCE:
@@ -722,25 +730,40 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
     machines = api.get_machines(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
-    connections = api.get_connections(*ctx.get_api_data(), muids, (st, et))
-    connections = filt.filter_processes(connections, **filters)
-    if name_or_id:
-        connections = filt.filter_obj(
-            connections, ["proc_name", "id"], name_or_id
+    if (
+        not LAST_MODEL
+        and output == lib.OUTPUT_JSON
+        or output == lib.OUTPUT_YAML
+    ):
+        for connection in api.get_connections(
+            *ctx.get_api_data(), muids, (st, et)
+        ):
+            if output == lib.OUTPUT_JSON and NDJSON:
+                cli.show(json.dumps(connection), lib.OUTPUT_RAW)
+            else:
+                cli.show(connection, output)
+    else:
+        connections = api.get_connections_last_model(
+            *ctx.get_api_data(), muids, (st, et)
         )
-    if output != lib.OUTPUT_DEFAULT:
-        connections = spyctl_conns.connections_output(connections)
+        connections = filt.filter_connections(connections, **filters)
+        if name_or_id:
+            connections = filt.filter_obj(
+                connections, ["proc_name", "id"], name_or_id
+            )
+        if output != lib.OUTPUT_DEFAULT:
+            connections = spyctl_conns.connections_output(connections)
 
-    def summary_output(x):
-        return spyctl_conns.connections_output_summary(
-            x, filters.get("ignore_ips", False)
+        def summary_output(x):
+            return spyctl_conns.connections_output_summary(
+                x, filters.get("ignore_ips", False)
+            )
+
+        cli.show(
+            connections,
+            output,
+            {lib.OUTPUT_DEFAULT: summary_output},
         )
-
-    cli.show(
-        connections,
-        output,
-        {lib.OUTPUT_DEFAULT: summary_output},
-    )
 
 
 # ---- Helper Functions ------
