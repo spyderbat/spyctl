@@ -376,6 +376,8 @@ For example:
 
     $ spyctl get policies -o yaml pol:CB1fSLq4wpkFG5kWsQ2r > python_srv_policy.yaml
 
+Then edit the file:
+
 .. code-block:: console
 
     $ vim python_srv_policy.yaml
