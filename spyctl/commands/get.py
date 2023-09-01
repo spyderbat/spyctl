@@ -712,17 +712,20 @@ def handle_get_containers(name_or_id, st, et, output, **filters):
     machines = api.get_machines(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
-    containers = api.get_containers(*ctx.get_api_data(), muids, (st, et))
-    containers = filt.filter_containers(containers, **filters)
-    if name_or_id:
-        containers = filt.filter_obj(containers, ["name", "id"], name_or_id)
-    if output != lib.OUTPUT_DEFAULT:
-        containers = spyctl_cont.container_output(containers)
-    cli.show(
-        containers,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_cont.container_summary_output},
-    )
+    if LAST_MODEL:
+        containers = api.get_containers(*ctx.get_api_data(), muids, (st, et))
+        containers = filt.filter_containers(containers, **filters)
+        if name_or_id:
+            containers = filt.filter_obj(containers, ["name", "id"], name_or_id)
+        if output != lib.OUTPUT_DEFAULT:
+            containers = spyctl_cont.container_output(containers)
+        cli.show(
+            containers,
+            output,
+            {lib.OUTPUT_DEFAULT: spyctl_cont.container_summary_output},
+        )
+    else:
+
 
 
 def handle_get_connections(name_or_id, st, et, output, **filters):
@@ -740,6 +743,8 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
             connections = filt.filter_obj(
                 connections, ["proc_name", "id"], name_or_id
             )
+        if output == lib.OUTPUT_DEFAULT:
+            summary = spyctl_conns.connections_output_summary(connections, ignore_ips)
         if output != lib.OUTPUT_DEFAULT:
             connections = spyctl_conns.connections_output(connections)
 
