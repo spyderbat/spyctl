@@ -28,7 +28,7 @@ within the ``spec``.
 Creating a Policy
 =================
 
-|policies| can be created from a |baseline| or from a |fprint_grp|. In the
+|policies| can be created from a |baseline| or directly from a |fprint_grp|. In the
 :ref:`Basics Tutorial<Baselining_Workflow>` we downloaded a |fprint_grp|, created a
 |baseline| and learned how to generalize and stabilize the |baseline|. We were left
 with a file called ``python_srv_merged_baseline.yaml``. We now want to turn this |baseline|
@@ -38,60 +38,42 @@ To do so, issue the following command:
 
 .. code-block:: console
 
-    $ spyctl create policy --from-file FILENAME > policy.yaml
+    $ spyctl create policy --from-file FILENAME --name NAME_FOR_POLICY --mode MODE > policy.yaml
 
 For example:
 
 .. code-block:: console
 
-    $ spyctl create policy --from-file python_srv_merged_baseline.yaml > python_srv_policy.yaml
+    $ spyctl create policy --from-file python_srv_merged_baseline.yaml --name webserver_policy --mode audit > python_srv_policy.yaml
 
 .. note:: 
     Running this command does not make any changes to your Spyderbat Environment. It is not until
     you have |applied| a |policy|, that enforcement takes effect.
 
 The |policy| file we just created ``python_srv_policy.yaml`` now has a new ``kind`` "SpyderbatPolicy"
-and a ``response`` field in its ``spec``:
+and both a ``mode`` and a ``response`` field in its ``spec``:
 
 .. code-block:: yaml
 
+  spec:
+    ...
+    mode: audit
+    ...
     response:
       default:
       - makeRedFlag:
           severity: high
       actions: []
 
-If necessary, update the name in the |policy|'s metadata field.
-
-.. code-block:: console
-
-    $ vim python_srv_policy.yaml
-
-For the example |policy| we will change the name from:
-
-.. code-block:: yaml
-
-    apiVersion: spyderbat/v1
-    kind: SpyderbatPolicy
-    metadata:
-      name: webserver_baseline
-    ...
-
-To:
-
-.. code-block:: yaml
-
-    apiVersion: spyderbat/v1
-    kind: SpyderbatPolicy
-    metadata:
-      name: webserver_policy
-    ...
+.. note:: 
+    |policies| are created in ``audit`` mode by default. If you apply a |policy| in ``audit`` mode it will not take response actions,
+    but will log the activity it would have taken. You can use the command ``spyctl logs policy POLICY_UID`` to monitor those log.
 
 Adding Response Actions
 ------------------------------
 
 When a new |policy| is created it will have a ``default`` |actions| list, and an empty list of ``actions``.
-The ``default`` |actions| are taken when a policy is violated and no |actions| in the ``actions`` list are taken. 
+The ``default`` |actions| are taken when a policy is violated and no |actions| of the same type in the ``actions`` list are taken. 
 
 .. code-block:: yaml
 
@@ -302,14 +284,14 @@ issue the command:
 .. code-block:: console
 
     $ spyctl get policies
-    UID                   NAME              STATUS     TYPE       CREATE_TIME
-    CB1fSLq4wpkFG5kWsQ2r  webserver_policy  Enforcing  container  2023-01-06T22:54:28Z
+    UID                       NAME              STATUS     TYPE       CREATE_TIME
+    pol:CB1fSLq4wpkFG5kWsQ2r  webserver_policy  Auditing   container  2023-01-06T22:54:28Z
 
 To view the |policy| you just applied, issue the command:
 
 .. code-block:: console
 
-    $ spyctl get policies -o yaml CB1fSLq4wpkFG5kWsQ2r
+    $ spyctl get policies -o yaml pol:CB1fSLq4wpkFG5kWsQ2r
 
 
 The |policy| will look something like this:
@@ -321,12 +303,13 @@ The |policy| will look something like this:
     metadata:
       name: webserver_policy
       type: container
-      uid: CB1fSLq4wpkFG5kWsQ2r
+      uid: pol:CB1fSLq4wpkFG5kWsQ2r
       creationTimestamp: 1673477668
       latestTimestamp: 1670001133
     spec:
       containerSelector:
         image: "python_webserver:*"
+      mode: audit
       processPolicy:
       - name: sh
         exe:
@@ -373,6 +356,73 @@ The |policy| will look something like this:
               matchLabels:
                 env: dev
 
+
+Changing a Policy's Mode
+========================
+
+Once you are comfortable with the |policy| in ``audit`` mode you can change it to ``enforce`` mode.
+To change the |policy| to ``enforce`` mode you must edit the yaml.
+
+Retrieve the |policy| from the Spyderbat backend and save it to a file. It is important to perform this
+step because the ``uid`` in the ``metadata`` field is supplied by the backend which is required when applying an update.
+
+.. code-block:: console
+
+    $ spyctl get policies -o yaml POLICY_UID > policy.yaml
+  
+For example:
+
+.. code-block:: console
+
+    $ spyctl get policies -o yaml pol:CB1fSLq4wpkFG5kWsQ2r > python_srv_policy.yaml
+
+Then edit the file:
+
+.. code-block:: console
+
+    $ vim python_srv_policy.yaml
+
+For the example |policy| we will change the mode from:
+
+.. code-block:: yaml
+
+    apiVersion: spyderbat/v1
+    kind: SpyderbatPolicy
+    metadata:
+      ...
+    spec:
+      ...
+      mode: audit
+      ...
+
+To:
+
+.. code-block:: yaml
+
+    apiVersion: spyderbat/v1
+    kind: SpyderbatPolicy
+    metadata:
+      ...
+    spec:
+      ...
+      mode: enforce
+      ...
+
+Then apply the update:
+
+.. code-block:: console
+
+    $ spyctl apply -f python_srv_policy.yaml
+    Successfully updated policy pol:CB1fSLq4wpkFG5kWsQ2r
+
+You should now see the following when issuing the ``get`` command:
+
+.. code-block:: console
+
+    $ spyctl get policies pol:CB1fSLq4wpkFG5kWsQ2r
+    UID                       NAME              STATUS     TYPE       CREATE_TIME
+    pol:CB1fSLq4wpkFG5kWsQ2r  webserver_policy  Enforcing  container  2023-01-06T22:54:28Z
+
 Disabling and Re-enabling a Policy
 ==================================
 
@@ -389,7 +439,7 @@ For example:
 
 .. code-block:: console
 
-    $ spyctl get policies -o yaml CB1fSLq4wpkFG5kWsQ2r > python_srv_policy.yaml
+    $ spyctl get policies -o yaml pol:CB1fSLq4wpkFG5kWsQ2r > python_srv_policy.yaml
 
 2. Edit the file and add ``enabled: False`` to the ``spec``
 
@@ -421,15 +471,15 @@ In the ``spec`` it will look something like this:
 .. code-block:: console
 
     $ spyctl apply -f python_srv_policy.yaml
-    Successfully updated policy CB1fSLq4wpkFG5kWsQ2r
+    Successfully updated policy pol:CB1fSLq4wpkFG5kWsQ2r
 
 4. To see that the |policy| is indeed disabled, issue the command:
 
 .. code-block:: console
 
-    $ spyctl get policies CB1fSLq4wpkFG5kWsQ2r
-    UID                   NAME              STATUS    TYPE       CREATE_TIME
-    CB1fSLq4wpkFG5kWsQ2r  webserver_policy  Disabled  container  2023-01-06T22:54:28Z
+    $ spyctl get policies pol:CB1fSLq4wpkFG5kWsQ2r
+    UID                       NAME              STATUS    TYPE       CREATE_TIME
+    pol:CB1fSLq4wpkFG5kWsQ2r  webserver_policy  Disabled  container  2023-01-06T22:54:28Z
 
 To re-enable a |policy| you just can simply remove the ``enabled`` field in the ``spec`` or change
 *False* to *True* and then ``apply`` the |policy| file again.
@@ -438,9 +488,9 @@ To see that the action was successful, issue the ``get`` command again:
 
 .. code-block:: console
 
-    $ spyctl get policies CB1fSLq4wpkFG5kWsQ2r
-    UID                   NAME              STATUS      TYPE       CREATE_TIME
-    CB1fSLq4wpkFG5kWsQ2r  webserver_policy  Enforcing   container  2023-01-06T22:54:28Z
+    $ spyctl get policies pol:CB1fSLq4wpkFG5kWsQ2r
+    UID                       NAME              STATUS      TYPE       CREATE_TIME
+    pol:CB1fSLq4wpkFG5kWsQ2r  webserver_policy  Enforcing   container  2023-01-06T22:54:28Z
 
 Deleting a Policy
 =================
@@ -456,8 +506,8 @@ For example:
 
 .. code-block:: console
 
-    $ spyctl delete policy CB1fSLq4wpkFG5kWsQ2r
-    Successfully deleted policy CB1fSLq4wpkFG5kWsQ2r
+    $ spyctl delete policy pol:CB1fSLq4wpkFG5kWsQ2r
+    Successfully deleted policy pol:CB1fSLq4wpkFG5kWsQ2r
 
 What's Next
 ===========
