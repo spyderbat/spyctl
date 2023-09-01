@@ -1252,6 +1252,11 @@ class GetCommand(lib.ArgumentParametersCommand):
     default=time.time(),
     type=lib.time_inp,
 )
+@click.option(
+    "--ndjson",
+    help="If output is 'json' this outputs each json record on its own line",
+    is_flag=True,
+)
 def get(
     resource,
     st,

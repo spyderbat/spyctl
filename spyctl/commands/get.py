@@ -1,5 +1,7 @@
+import json
 import time
 from typing import IO, Dict, List, Tuple
+
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
@@ -30,10 +32,13 @@ not_time_based = [
     lib.CLUSTERS_RESOURCE,
 ]
 
+NDJSON = False
+
 
 def handle_get(
     resource, name_or_id, st, et, file, latest, exact, output, **filters
 ):
+    global NDJSON
     resrc_plural = lib.get_plural_name_from_alias(resource)
     if resrc_plural and resrc_plural not in not_time_based:
         cli.try_log(
@@ -47,6 +52,7 @@ def handle_get(
         name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
     ctx = cfg.get_current_context()
     src = ctx.global_source
+    NDJSON = filters.pop("ndjson", False)
     # Craft filters by machine if applicable
     muids = get_muids_scope(**filters)
     if muids:
@@ -220,14 +226,17 @@ def handle_agent_usage_json(agents: List[Dict], st, et):
     sources = [agent["muid"] for agent in agents]
     pipeline = a_api_filt.generate_metrics_pipeline()
     for metrics_record in api.get_agent_metrics(
-        *ctx.get_api_data(), sources, (st, et), pipeline
+        *ctx.get_api_data(), sources, (st, et), pipeline, lib.is_redirected()
     ):
-        cli.show(
-            spy_agents.usage_dict(
-                metrics_record, agent_map.get(metrics_record["ref"])
-            ),
-            lib.OUTPUT_JSON,
-        )
+        if NDJSON:
+            cli.show(json.dumps(metrics_record), lib.OUTPUT_RAW)
+        else:
+            cli.show(
+                spy_agents.usage_dict(
+                    metrics_record, agent_map.get(metrics_record["ref"])
+                ),
+                lib.OUTPUT_JSON,
+            )
 
 
 def handle_agent_metrics_json(agents: List[Dict], st, et):
@@ -236,7 +245,7 @@ def handle_agent_metrics_json(agents: List[Dict], st, et):
     sources = [agent["muid"] for agent in agents]
     pipeline = a_api_filt.generate_metrics_pipeline()
     for metrics_record in api.get_agent_metrics(
-        *ctx.get_api_data(), sources, (st, et), pipeline
+        *ctx.get_api_data(), sources, (st, et), pipeline, lib.is_redirected()
     ):
         cli.show(metrics_record, lib.OUTPUT_JSON)
 
