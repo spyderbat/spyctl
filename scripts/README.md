@@ -8,5 +8,5 @@
 This directory contains various programs and scripts that use data fetched by
 spyctl for specific purposes.  
 
-Look at the header of each program/script for a description of what tehe
+Look at the header of each program/script for a description of what the
 script does.
