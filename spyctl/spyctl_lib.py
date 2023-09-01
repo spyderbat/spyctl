@@ -1855,3 +1855,7 @@ def is_public_dns(hostname: str) -> bool:
     if not is_private_dns(hostname):
         return True
     return False
+
+
+def is_redirected() -> bool:
+    return os.fstat(0) == os.fstat(1)
