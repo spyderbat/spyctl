@@ -1,12 +1,23 @@
-from typing import Dict, List
+import ipaddress
+from typing import Dict, List, Tuple
 
+import zulu
 from tabulate import tabulate
 
+import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
-import zulu
-import ipaddress
+import spyctl.api as api
 
 NOT_AVAILABLE = lib.NOT_AVAILABLE
+
+SUMMARY_HEADERS = [
+    "DESTINATION_IP",
+    # "DESTINATION_PORT",
+    "DIRECTION",
+    "PROCESS_NAME",
+    "COUNT",
+    "LATEST_TIMESTAMP",
+]
 
 
 class ConnectionGroup:
@@ -17,7 +28,7 @@ class ConnectionGroup:
         self.ip = None
 
     def add_conn(self, conn: Dict):
-        self.__update_latest_timestamp(conn.get("create_time"))
+        self.__update_latest_timestamp(conn.get("time"))
         if self.ref_conn is None:
             self.ref_conn = conn
         self.count += 1
@@ -57,15 +68,36 @@ class ConnectionGroup:
         return rv
 
 
+def conn_stream_summary_output(
+    ctx: cfg.Context,
+    muids: List[str],
+    time: Tuple[float, float],
+    ignore_ips=False,
+) -> str:
+    groups: Dict[str, ConnectionGroup] = {}
+    for conn in api.get_connections(*ctx.get_api_data(), muids, time):
+        key = _key(conn, ignore_ips)
+        if key not in groups:
+            groups[key] = ConnectionGroup()
+        groups[key].add_conn(conn)
+    data = []
+    for group in groups.values():
+        data.append(group.summary_data(ignore_ips))
+    sort_key = (
+        (lambda x: [x[0], x[1]])
+        if ignore_ips
+        else (lambda x: [x[1], x[0], x[2]])
+    )
+    output = tabulate(
+        sorted(data, key=sort_key),
+        headers=SUMMARY_HEADERS,
+        tablefmt="plain",
+    )
+    return output + "\n"
+
+
 def connections_output_summary(conns: List[Dict], ignore_ips=False) -> str:
-    headers = [
-        "DESTINATION_IP",
-        # "DESTINATION_PORT",
-        "DIRECTION",
-        "PROCESS_NAME",
-        "COUNT",
-        "LATEST_TIMESTAMP",
-    ]
+    headers = SUMMARY_HEADERS
     if ignore_ips:
         headers = headers[1:]
     groups = {}

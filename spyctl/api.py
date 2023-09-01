@@ -553,10 +553,7 @@ def get_deployments(api_url, api_key, org_uid, clusters, time):
                 ):
                     deployments[uid] = deployment
     except KeyboardInterrupt:
-        if deployments:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     rv = [d for d in deployments.values() if d["status"] == "active"]
     return rv
 
@@ -588,10 +585,7 @@ def get_namespaces(api_url, api_key, org_uid, clusters, time):
         ):
             namespaces[uid].update(ns_list)
     except KeyboardInterrupt:
-        if namespaces:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     rv = []
     for uid, ns_list in namespaces.items():
         rv.append(
@@ -624,10 +618,7 @@ def get_nodes(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
                     if version > old_version:
                         nodes[id] = node
     except KeyboardInterrupt:
-        if nodes:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     rv = list(nodes.values())
     return rv
 
@@ -665,10 +656,7 @@ def get_pods(api_url, api_key, org_uid, clusters, time) -> List[Dict]:
                     if version > old_version:
                         pods[id] = pod
     except KeyboardInterrupt:
-        if pods:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     rv = list(pods.values())
     return rv
 
@@ -713,10 +701,7 @@ def get_redflags(api_url, api_key, org_uid, time):
                     if version > old_version:
                         flags[id] = flag
     except KeyboardInterrupt:
-        if flags:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     rv = list(flags.values())
     print(rv[0])
     return list(flags.values())
@@ -749,10 +734,7 @@ def get_opsflags(api_url, api_key, org_uid, time):
                     if version > old_version:
                         flags[id] = flag
     except KeyboardInterrupt:
-        if flags:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     rv = list(flags.values())
     return rv
 
@@ -805,10 +787,7 @@ def get_fingerprints(
                     if version > old_fp_version:
                         fingerprints[id] = fprint
     except KeyboardInterrupt:
-        if fingerprints:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     rv = list(fingerprints.values())
     return rv
 
@@ -847,10 +826,7 @@ def get_trace_summaries(api_url, api_key, org_uid, muids, time):
                     if version > old_fp_version:
                         fingerprints[id] = fprint
     except KeyboardInterrupt:
-        if fingerprints:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     return list(fingerprints.values())
 
 
@@ -942,10 +918,26 @@ def get_processes(api_url, api_key, org_uid, muids, time):
                 if version > old_version:
                     processes[id] = process
     except KeyboardInterrupt:
-        if processes:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
+    return list(processes.values())
+
+
+def get_processes_last_model(api_url, api_key, org_uid, muids, time):
+    processes = {}
+    try:
+        for process in get_source_data(
+            api_url, api_key, org_uid, muids, "model_process", time
+        ):
+            id = process["id"]
+            version = process["version"]
+            if id not in processes:
+                processes[id] = process
+            else:
+                old_version = processes[id]["version"]
+                if version > old_version:
+                    processes[id] = process
+    except KeyboardInterrupt:
+        __log_interrupt()
     return list(processes.values())
 
 
@@ -974,10 +966,7 @@ def get_connections_last_model(api_url, api_key, org_uid, muids, time):
                 if version > old_version:
                     connections[id] = connection
     except KeyboardInterrupt:
-        if connections:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     return list(connections.values())
 
 
@@ -996,10 +985,7 @@ def get_spydertraces(api_url, api_key, org_uid, muids, time):
                 if version > old_version:
                     spydertraces[id] = spydertrace
     except KeyboardInterrupt:
-        if spydertraces:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     return list(spydertraces.values())
 
 
@@ -1018,10 +1004,7 @@ def get_containers(api_url, api_key, org_uid, muids, time):
                 if version > old_version:
                     containers[id] = container
     except KeyboardInterrupt:
-        if containers:
-            __log_interrupt_partial()
-        else:
-            __log_interrupt()
+        __log_interrupt()
     return list(containers.values())
 
 

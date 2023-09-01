@@ -727,22 +727,11 @@ def handle_get_containers(name_or_id, st, et, output, **filters):
 
 def handle_get_connections(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
+    ignore_ips = filters.pop("ignore_ips", False)
     machines = api.get_machines(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
-    if (
-        not LAST_MODEL
-        and output == lib.OUTPUT_JSON
-        or output == lib.OUTPUT_YAML
-    ):
-        for connection in api.get_connections(
-            *ctx.get_api_data(), muids, (st, et)
-        ):
-            if output == lib.OUTPUT_JSON and NDJSON:
-                cli.show(json.dumps(connection), lib.OUTPUT_RAW)
-            else:
-                cli.show(connection, output)
-    else:
+    if LAST_MODEL:
         connections = api.get_connections_last_model(
             *ctx.get_api_data(), muids, (st, et)
         )
@@ -764,6 +753,20 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
             output,
             {lib.OUTPUT_DEFAULT: summary_output},
         )
+    else:
+        if output == lib.OUTPUT_DEFAULT:
+            summary = spyctl_conns.conn_stream_summary_output(
+                ctx, muids, (st, et), ignore_ips
+            )
+            cli.show(summary, lib.OUTPUT_RAW)
+        else:
+            for connection in api.get_connections(
+                *ctx.get_api_data(), muids, (st, et)
+            ):
+                if output == lib.OUTPUT_JSON and NDJSON:
+                    cli.show(json.dumps(connection), lib.OUTPUT_RAW)
+                else:
+                    cli.show(connection, output)
 
 
 # ---- Helper Functions ------
