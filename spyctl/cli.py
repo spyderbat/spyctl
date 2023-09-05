@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import json
 import os
 import sys
@@ -83,6 +84,7 @@ def show(
     alternative_outputs: Dict[str, Callable] = {},
     dest=lib.OUTPUT_DEST_STDOUT,
     output_fn=None,
+    ndjson=False,
 ):
     """Display or save python object
 
@@ -96,6 +98,8 @@ def show(
             lib.OUTPUT_DEST_STDOUT.
         output_fn (str, optional): Filename if outputting to a file.
             Defaults to None.
+        ndjson (bool, optional): If output is json, output the json on a
+            single line. Defaults to False
     """
     out_data = None
     if output == lib.OUTPUT_YAML:
@@ -103,7 +107,16 @@ def show(
         if output_fn:
             output_fn += ".yaml"
     elif output == lib.OUTPUT_JSON:
-        out_data = json.dumps(obj, sort_keys=False, indent=2)
+        if ndjson:
+            if _seq_but_not_str(obj):
+                out_data = []
+                for item in obj:
+                    out_data.append(json.dumps(item))
+                out_data = "\n".join(out_data)
+            else:
+                out_data = json.dumps(obj)
+        else:
+            out_data = json.dumps(obj, sort_keys=False, indent=2)
         if output_fn:
             output_fn += ".json"
     elif output == lib.OUTPUT_RAW:
@@ -213,3 +226,9 @@ ANSI_ESCAPE = re.compile(
 def strip_color(text: str):
     rv = ANSI_ESCAPE.sub("", text)
     return rv
+
+
+def _seq_but_not_str(obj):
+    return isinstance(obj, Sequence) and not isinstance(
+        obj, (str, bytes, bytearray)
+    )
