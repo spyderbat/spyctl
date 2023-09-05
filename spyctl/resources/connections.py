@@ -73,6 +73,7 @@ def conn_stream_summary_output(
     muids: List[str],
     time: Tuple[float, float],
     ignore_ips=False,
+    limit_mem=False,
 ) -> str:
     groups: Dict[str, ConnectionGroup] = {}
     for conn in api.get_connections(*ctx.get_api_data(), muids, time):

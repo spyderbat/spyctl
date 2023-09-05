@@ -1280,7 +1280,7 @@ class GetCommand(lib.ArgumentParametersCommand):
 )
 @click.option(
     "--ndjson",
-    help="If output is 'json' this outputs the json records on their own line",
+    help="If output is 'json' this outputs each json record on its own line",
     is_flag=True,
 )
 def get(

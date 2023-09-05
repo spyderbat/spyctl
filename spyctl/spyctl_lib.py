@@ -484,6 +484,8 @@ MODEL_FINGERPRINT_SUBTYPE_MAP = {
     "container": "container",
     "linux-service": "linux_svc",
 }
+MODEL_CONNECTION_PREFIX = "model_connection"
+MODEL_PROCESS_PREFIX = "model_process"
 
 # Datatypes for searching via API
 DATATYPE_SPYDERGRAPH = "spydergraph"
@@ -717,6 +719,12 @@ UIDS_FIELD = "uniqueIdentifiers"
 
 # Any Object
 VERSION_FIELD = "version"
+
+# Connections
+PROC_NAME_FIELD = "proc_name"
+CONN_ID = "id"
+REMOTE_HOSTNAME_FIELD = "remote_hostname"
+PROTOCOL_FIELD = "proto"
 
 # Processes
 NAME_FIELD = "name"
@@ -1855,3 +1863,7 @@ def is_public_dns(hostname: str) -> bool:
     if not is_private_dns(hostname):
         return True
     return False
+
+
+def is_redirected() -> bool:
+    return os.fstat(0) == os.fstat(1)

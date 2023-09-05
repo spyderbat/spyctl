@@ -1,7 +1,7 @@
 import json
 import time
 import sys
-from typing import Dict, List, Tuple, Callable
+from typing import Dict, List, Tuple, Callable, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 
@@ -11,6 +11,7 @@ import zulu
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
+from spyctl.cache_dict import CacheDict
 
 # Get policy parameters
 GET_POL_TYPE = "type"
@@ -138,6 +139,99 @@ def delete(url, key):
     return r
 
 
+DEFAULT_CACHE_DICT_LEN = 10000
+
+
+def retrieve_data(
+    api_url: str,
+    api_key: str,
+    org_uid: str,
+    sources: Union[str, List[str]],
+    datatype: str,
+    schema: str,
+    time: Tuple[float, float],
+    raise_notfound=False,
+    pipeline=None,
+    url="api/v1/source/query/",
+    disable_pbar=False,
+    limit_mem=True,
+    disable_pbar_on_first=False,
+):
+    """This is the defacto data retrieval function. Most queries that don't
+    target the SQL db can be executed with this function. It enforces limited
+    memory usage unless told otherwise, shows a progress bar unless told
+    otherwise, and yields records one at a time.
+
+    Args:
+        api_url (str): Top-most part of the API url -- from context
+        api_key (str): Key to access the API -- from context
+        org_uid (str): Org to get data from -- from context
+        source (str, List[str]): The uid(s) that the data are tied to
+        datatype (str): The data stream to look for the data in
+        schema (str): A prefix of the schema for the desired objects (ex. model_connection, model_process)
+        time (Tuple[float, float]): A tuple with (starting time, ending time)
+        raise_notfound (bool, optional): Error to raise if the API throws an error. Defaults to False.
+        pipeline (_type_, optional): Filtering done by the api. Defaults to None.
+        url (_type_, optional): Alternative url path (ex. f"{api_url}/{url}"). Defaults to "api/v1/source/query/".
+        disable_pbar (bool, optional): Does not show the progress bar if set to True. Defaults to False.
+        limit_mem (bool, optional): Limits the memory usage on the Latest Model calculation. If True we may return duplicate objects. Defaults to True.
+        disable_pbar_on_first (bool, optional): Closes and clears the progress bar after first item is returned. Defaults to False.
+
+    Yields:
+        Iterator[dict]: An iterator over retrieved objects.
+    """
+
+    progress_bar_tracker: List[tqdm.tqdm] = []
+
+    def yield_on_del(_, value):
+        if disable_pbar_on_first:
+            progress_bar_tracker[0].close()
+        yield value
+
+    cache_len = DEFAULT_CACHE_DICT_LEN if limit_mem else None
+    data = CacheDict(cache_len=cache_len, on_del=yield_on_del)
+
+    def new_version(id: str, obj: dict) -> bool:
+        new_v = obj.get("version")
+        if not new_v:
+            return True
+        old_obj: Dict = data.get(id)
+        if not old_obj:
+            return True
+        old_v = old_obj.get("version")
+        if not old_v:
+            return True
+        return new_v > old_v
+
+    if isinstance(sources, str):
+        sources = [sources]
+
+    for resp in threadpool_progress_bar_time_blocks(
+        sources,
+        time,
+        lambda src_uid, time_tup: get_filtered_data(
+            api_url,
+            api_key,
+            org_uid,
+            src_uid,
+            datatype,
+            schema,
+            time_tup,
+            raise_notfound,
+            pipeline,
+            url,
+        ),
+        disable_pbar=disable_pbar,
+        pbar_tracker=progress_bar_tracker,
+    ):
+        for json_obj in resp.iter_lines():
+            obj = json.loads(json_obj)
+            id = obj["id"]
+            if new_version(id, obj):
+                data[id] = obj
+    data.flush()
+
+
 def time_blocks(
     time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS
 ) -> List[Tuple]:
@@ -170,6 +264,7 @@ def threadpool_progress_bar_time_blocks(
     function: Callable,
     max_time_range=MAX_TIME_RANGE_SECS,
     disable_pbar=False,
+    pbar_tracker: List = [],
 ) -> str:
     """This function runs a multi-threaded task such as making multiple API
     requests simultaneously. By default it shows a progress bar. This is a
@@ -184,6 +279,7 @@ def threadpool_progress_bar_time_blocks(
         function (Callable): The function that each thread will perform
         max_time_range (_type_, optional): The maximum size of a time block. Defaults to MAX_TIME_RANGE_SECS.
         disable_pbar (bool, optional): Disable the progress bar. Defaults to False.
+        pbar_tracker (list): A list that allows calling functions to control the pbar.
 
     Yields:
         Iterator[any]: The return value from the thread task.
@@ -198,6 +294,8 @@ def threadpool_progress_bar_time_blocks(
         file=sys.stderr,
         disable=disable_pbar,
     )
+    pbar_tracker.clear()
+    pbar_tracker.append(pbar)
     threads = []
     with ThreadPoolExecutor() as executor:
         for args in args_per_thread:
@@ -271,10 +369,9 @@ def get_filtered_data(
     time,
     raise_notfound=False,
     pipeline=None,
-    url=None,
+    url="api/v1/source/query/",
 ):
-    if not url:
-        url = f"{api_url}/api/v1/source/query/"
+    url = f"{api_url}/{url}"
     data = {
         "start_time": time[0],
         "end_time": time[1],
@@ -885,7 +982,9 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     return resp
 
 
-def get_source_data(api_url, api_key, org_uid, muids, schema, time):
+def get_source_data(
+    api_url, api_key, org_uid, muids, schema, time, pipeline=None
+):
     for resp in threadpool_progress_bar_time_blocks(
         muids,
         time,
@@ -897,6 +996,7 @@ def get_source_data(api_url, api_key, org_uid, muids, schema, time):
             "spydergraph",
             schema,
             time_block,
+            pipeline=pipeline,
         ),
     ):
         for json_obj in resp.iter_lines():
@@ -922,7 +1022,7 @@ def get_processes(api_url, api_key, org_uid, muids, time):
     return list(processes.values())
 
 
-def get_processes_last_model(api_url, api_key, org_uid, muids, time):
+def get_processes_latest_model(api_url, api_key, org_uid, muids, time):
     processes = {}
     try:
         for process in get_source_data(
@@ -941,33 +1041,34 @@ def get_processes_last_model(api_url, api_key, org_uid, muids, time):
     return list(processes.values())
 
 
-def get_connections(api_url, api_key, org_uid, muids, time):
+def get_connections(
+    api_url,
+    api_key,
+    org_uid,
+    muids,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
     try:
-        for connection in get_source_data(
-            api_url, api_key, org_uid, muids, "model_connection", time
+        datatype = lib.DATATYPE_SPYDERGRAPH
+        schema = lib.MODEL_CONNECTION_PREFIX
+        for connection in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            muids,
+            datatype,
+            schema,
+            time,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
         ):
             yield connection
     except KeyboardInterrupt:
         __log_interrupt()
-
-
-def get_connections_last_model(api_url, api_key, org_uid, muids, time):
-    connections = {}
-    try:
-        for connection in get_source_data(
-            api_url, api_key, org_uid, muids, "model_connection", time
-        ):
-            id = connection[lib.ID_FIELD]
-            version = connection[lib.VERSION_FIELD]
-            if id not in connections:
-                connections[id] = connection
-            else:
-                old_version = connections[id][lib.VERSION_FIELD]
-                if version > old_version:
-                    connections[id] = connection
-    except KeyboardInterrupt:
-        __log_interrupt()
-    return list(connections.values())
 
 
 def get_spydertraces(api_url, api_key, org_uid, muids, time):

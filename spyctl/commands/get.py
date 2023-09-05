@@ -7,8 +7,7 @@ import spyctl.cli as cli
 import spyctl.config.configs as cfg
 import spyctl.filter_resource as filt
 import spyctl.resources.agents as spy_agents
-import spyctl.resources.api_filters.agents as a_api_filt
-import spyctl.resources.api_filters.fingerprints as f_api_filt
+import spyctl.resources.api_filters as _af
 import spyctl.resources.clusters as spyctl_clusts
 import spyctl.resources.connections as spyctl_conns
 import spyctl.resources.containers as spyctl_cont
@@ -32,14 +31,14 @@ not_time_based = [
     lib.CLUSTERS_RESOURCE,
 ]
 
-LAST_MODEL = False
+LIMIT_MEM = True
 NDJSON = False
 
 
 def handle_get(
     resource, name_or_id, st, et, file, latest, exact, output, **filters
 ):
-    global LAST_MODEL, NDJSON
+    global LIMIT_MEM, NDJSON
     resrc_plural = lib.get_plural_name_from_alias(resource)
     if resrc_plural and resrc_plural not in not_time_based:
         cli.try_log(
@@ -53,6 +52,7 @@ def handle_get(
         name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
     ctx = cfg.get_current_context()
     src = ctx.global_source
+    NDJSON = filters.pop("ndjson", False)
     # Craft filters by machine if applicable
     muids = get_muids_scope(**filters)
     if muids:
@@ -62,7 +62,8 @@ def handle_get(
             filters[lib.MACHINES_FIELD] = muids
     # Craft filters by cluster
     cluids = get_cluids_scope(**filters)
-    LAST_MODEL = filters.pop("last_model", False)
+    # If latest_model is true we won't limit memory usage
+    LIMIT_MEM = not filters.pop("latest_model", False)
     NDJSON = filters.pop("ndjson", False)
     if cluids:
         filters[lib.CLUSTER_FIELD] = cluids
@@ -149,7 +150,7 @@ def handle_get_agents(
     usage_json: bool = filters.pop("usage_json", None)
     raw_metrics_json: bool = filters.pop("raw_metrics_json", False)
     include_latest_metrics = not filters.pop("health_only", False)
-    pipeline = a_api_filt.generate_pipeline(
+    pipeline = _af.Agents.generate_pipeline(
         name_or_id, None, True, filters=filters
     )
     if usage_csv_file:
@@ -209,7 +210,7 @@ def handle_agent_usage_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
     cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
     sources = [agent["muid"] for agent in agents]
-    pipeline = a_api_filt.generate_metrics_pipeline()
+    pipeline = _af.Agents.generate_metrics_pipeline()
     metrics_csv_file.write(spy_agents.metrics_header())
     for metrics_record in api.get_agent_metrics(
         *ctx.get_api_data(), sources, (st, et), pipeline
@@ -226,25 +227,36 @@ def handle_agent_usage_json(agents: List[Dict], st, et):
     cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
     sources = [agent["muid"] for agent in agents]
-    pipeline = a_api_filt.generate_metrics_pipeline()
+    pipeline = _af.Agents.generate_metrics_pipeline()
     for metrics_record in api.get_agent_metrics(
-        *ctx.get_api_data(), sources, (st, et), pipeline
+        *ctx.get_api_data(),
+        sources,
+        (st, et),
+        pipeline,
+        not lib.is_redirected(),
     ):
-        cli.show(
-            spy_agents.usage_dict(
-                metrics_record, agent_map.get(metrics_record["ref"])
-            ),
-            lib.OUTPUT_JSON,
-        )
+        if NDJSON:
+            cli.show(json.dumps(metrics_record), lib.OUTPUT_RAW)
+        else:
+            cli.show(
+                spy_agents.usage_dict(
+                    metrics_record, agent_map.get(metrics_record["ref"])
+                ),
+                lib.OUTPUT_JSON,
+            )
 
 
 def handle_agent_metrics_json(agents: List[Dict], st, et):
     ctx = cfg.get_current_context()
     cli.try_log("Retrieving metrics records.")
     sources = [agent["muid"] for agent in agents]
-    pipeline = a_api_filt.generate_metrics_pipeline()
+    pipeline = _af.Agents.generate_metrics_pipeline()
     for metrics_record in api.get_agent_metrics(
-        *ctx.get_api_data(), sources, (st, et), pipeline
+        *ctx.get_api_data(),
+        sources,
+        (st, et),
+        pipeline,
+        not lib.is_redirected(),
     ):
         cli.show(metrics_record, lib.OUTPUT_JSON)
 
@@ -391,7 +403,7 @@ def handle_get_fingerprints(
             name_or_id, pol_names_or_uids, latest, st, et, src, **filters
         )
     else:
-        pipeline = f_api_filt.generate_pipeline(
+        pipeline = _af.Fingerprints.generate_pipeline(
             name_or_id, filters.get(lib.TYPE_FIELD), filters=filters
         )
         orig_fprints = api.get_fingerprints(
@@ -451,7 +463,7 @@ def __get_fingerprints_matching_files_scope(
         filters = lib.selectors_to_filters(resrc_data)
         st = __get_latest_timestamp(resrc_data)
         et = time.time()
-    pipeline = f_api_filt.generate_pipeline(
+    pipeline = _af.Fingerprints.generate_pipeline(
         name_or_id, filters.get(lib.TYPE_FIELD), filters=filters
     )
     orig_fprints = api.get_fingerprints(
@@ -500,7 +512,7 @@ def __get_fingerprints_matching_policies_scope(
         filters = lib.selectors_to_filters(policies[0])
         st = __get_latest_timestamp(policies[0])
         et = time.time()
-    pipeline = f_api_filt.generate_pipeline(
+    pipeline = _af.Fingerprints.generate_pipeline(
         name_or_id, filters.get(lib.TYPE_FIELD), filters=filters
     )
     orig_fprints = api.get_fingerprints(
@@ -712,11 +724,13 @@ def handle_get_containers(name_or_id, st, et, output, **filters):
     machines = api.get_machines(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
-    if LAST_MODEL:
+    if LIMIT_MEM:
         containers = api.get_containers(*ctx.get_api_data(), muids, (st, et))
         containers = filt.filter_containers(containers, **filters)
         if name_or_id:
-            containers = filt.filter_obj(containers, ["name", "id"], name_or_id)
+            containers = filt.filter_obj(
+                containers, ["name", "id"], name_or_id
+            )
         if output != lib.OUTPUT_DEFAULT:
             containers = spyctl_cont.container_output(containers)
         cli.show(
@@ -725,7 +739,7 @@ def handle_get_containers(name_or_id, st, et, output, **filters):
             {lib.OUTPUT_DEFAULT: spyctl_cont.container_summary_output},
         )
     else:
-
+        pass
 
 
 def handle_get_connections(name_or_id, st, et, output, **filters):
@@ -734,44 +748,22 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
     machines = api.get_machines(*ctx.get_api_data())
     machines = filt.filter_machines(machines, **filters)
     muids = [m["uid"] for m in machines]
-    if LAST_MODEL:
-        connections = api.get_connections_last_model(
-            *ctx.get_api_data(), muids, (st, et)
+    pipeline = _af.Connections.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_conns.conn_stream_summary_output(
+            ctx, muids, (st, et), ignore_ips, LIMIT_MEM
         )
-        connections = filt.filter_connections(connections, **filters)
-        if name_or_id:
-            connections = filt.filter_obj(
-                connections, ["proc_name", "id"], name_or_id
-            )
-        if output == lib.OUTPUT_DEFAULT:
-            summary = spyctl_conns.connections_output_summary(connections, ignore_ips)
-        if output != lib.OUTPUT_DEFAULT:
-            connections = spyctl_conns.connections_output(connections)
-
-        def summary_output(x):
-            return spyctl_conns.connections_output_summary(
-                x, filters.get("ignore_ips", False)
-            )
-
-        cli.show(
-            connections,
-            output,
-            {lib.OUTPUT_DEFAULT: summary_output},
-        )
+        cli.show(summary, lib.OUTPUT_RAW)
     else:
-        if output == lib.OUTPUT_DEFAULT:
-            summary = spyctl_conns.conn_stream_summary_output(
-                ctx, muids, (st, et), ignore_ips
-            )
-            cli.show(summary, lib.OUTPUT_RAW)
-        else:
-            for connection in api.get_connections(
-                *ctx.get_api_data(), muids, (st, et)
-            ):
-                if output == lib.OUTPUT_JSON and NDJSON:
-                    cli.show(json.dumps(connection), lib.OUTPUT_RAW)
-                else:
-                    cli.show(connection, output)
+        for connection in api.get_connections(
+            *ctx.get_api_data(),
+            muids,
+            (st, et),
+            pipeline=pipeline,
+            limit_mem=LIMIT_MEM,
+            disable_pbar_on_first=not lib.is_redirected(),
+        ):
+            cli.show(connection, output, ndjson=NDJSON)
 
 
 # ---- Helper Functions ------
