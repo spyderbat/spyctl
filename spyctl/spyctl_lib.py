@@ -746,6 +746,8 @@ PROC_NAME_FIELD = "proc_name"
 CONN_ID = "id"
 REMOTE_HOSTNAME_FIELD = "remote_hostname"
 PROTOCOL_FIELD = "proto"
+REMOTE_PORT = "remote_port"
+LOCAL_PORT = "local_port"
 
 # Deployments
 REPLICAS_FIELD = "replicas"

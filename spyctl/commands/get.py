@@ -52,10 +52,6 @@ def handle_get(
 
     if resource == lib.AGENT_RESOURCE:
         handle_get_agents(name_or_id, st, et, output, **filters)
-    elif resource == lib.FINGERPRINTS_RESOURCE:
-        handle_get_fingerprints(
-            name_or_id, st, et, output, file, latest, **filters
-        )
     elif resource == lib.CLUSTERS_RESOURCE:
         handle_get_clusters(name_or_id, output, **filters)
     elif resource == lib.CONNECTIONS_RESOURCE:
@@ -64,6 +60,10 @@ def handle_get(
         handle_get_containers(name_or_id, st, et, output, **filters)
     elif resource == lib.DEPLOYMENTS_RESOURCE:
         handle_get_deployments(name_or_id, st, et, output, **filters)
+    elif resource == lib.FINGERPRINTS_RESOURCE:
+        handle_get_fingerprints(
+            name_or_id, st, et, output, file, latest, **filters
+        )
     elif resource == lib.MACHINES_RESOURCE:
         handle_get_machines(name_or_id, st, et, output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
@@ -216,7 +216,7 @@ def handle_get_containers(name_or_id, st, et, output, **filters):
     sources, filters = _af.Containers.build_sources_and_filters(**filters)
     pipeline = _af.Containers.generate_pipeline(name_or_id, filters=filters)
     if output == lib.OUTPUT_DEFAULT:
-        summary = spyctl_cont.cont_stream_summary_output(
+        summary = spyctl_cont.cont_summary_output(
             ctx, sources, (st, et), pipeline, LIMIT_MEM
         )
         cli.show(summary, lib.OUTPUT_RAW)
@@ -672,7 +672,7 @@ def handle_agent_metrics_json(agents: List[Dict], st, et):
         pipeline,
         not lib.is_redirected(),
     ):
-        cli.show(metrics_record, lib.OUTPUT_JSON)
+        cli.show(metrics_record, lib.OUTPUT_JSON, ndjson=NDJSON)
 
 
 def handle_agent_usage_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
@@ -705,15 +705,13 @@ def handle_agent_usage_json(agents: List[Dict], st, et):
         pipeline,
         not lib.is_redirected(),
     ):
-        if NDJSON:
-            cli.show(json.dumps(metrics_record), lib.OUTPUT_RAW)
-        else:
-            cli.show(
-                spy_agents.usage_dict(
-                    metrics_record, agent_map.get(metrics_record["ref"])
-                ),
-                lib.OUTPUT_JSON,
-            )
+        cli.show(
+            spy_agents.usage_dict(
+                metrics_record, agent_map.get(metrics_record["ref"])
+            ),
+            lib.OUTPUT_JSON,
+            ndjson=NDJSON,
+        )
 
 
 # ----------------------------------------------------------------- #

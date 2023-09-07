@@ -1,6 +1,6 @@
 import json
 import sys
-from typing import Dict, List, Tuple, Callable, Union, Generator
+from typing import Dict, List, Tuple, Callable, Union, Generator, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -29,6 +29,11 @@ MAX_TIME_RANGE_SECS = 43200  # 12 hours
 NAMESPACES_MAX_RANGE_SECS = 2000
 TIMEOUT_MSG = "A timeout occurred during the API request. "
 
+
+class NotFoundException(ValueError):
+    pass
+
+
 # ----------------------------------------------------------------- #
 #                           API Primitives                          #
 # ----------------------------------------------------------------- #
@@ -50,7 +55,7 @@ def get(url, key, params=None, raise_notfound=False):
             f"\n\tstatus: {r.status_code}"
         )
     if r.status_code == 404 and raise_notfound:
-        raise ValueError
+        raise NotFoundException()
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]
@@ -77,7 +82,7 @@ def post(url, data, key, raise_notfound=False):
             f"\n\tstatus: {r.status_code}"
         )
     if r.status_code == 404 and raise_notfound:
-        raise ValueError
+        raise NotFoundException()
     if r.status_code != 200:
         if "x-context-uid" in r.headers:
             context_uid = r.headers["x-context-uid"]
@@ -218,7 +223,7 @@ def retrieve_data(
             (ex. model_connection, model_process)
         time (Tuple[float, float]): A tuple with (starting time, ending time)
         raise_notfound (bool, optional): Error to raise if the API throws an
-            error. Defaults to False.
+            404 error. Defaults to False.
         pipeline (_type_, optional): Filtering done by the api.
             Defaults to None.
         url (_type_, optional): Alternative url path (ex. f"{api_url}/{url}").
@@ -279,6 +284,8 @@ def retrieve_data(
         disable_pbar=disable_pbar,
         pbar_tracker=progress_bar_tracker,
     ):
+        if not resp:
+            continue
         for json_obj in resp.iter_lines():
             obj = json.loads(json_obj)
             id = obj["id"]
@@ -301,7 +308,7 @@ def get_filtered_data(
     raise_notfound=False,
     pipeline=None,
     url="api/v1/source/query/",
-):
+) -> Optional[requests.Response]:
     """This function formats and makes a post request following the
     "source query" format. If a pipeline is not provided, this function will
     craft a basic one.
@@ -338,7 +345,10 @@ def get_filtered_data(
         data["pipeline"] = pipeline
     if source:
         data["src_uid"] = source
-    return post(url, data, api_key, raise_notfound)
+    try:
+        return post(url, data, api_key, raise_notfound)
+    except NotFoundException:
+        return None
 
 
 def threadpool_progress_bar_time_blocks(
@@ -605,6 +615,7 @@ def get_containers(
             datatype,
             schema,
             time,
+            raise_notfound=True,
             pipeline=pipeline,
             limit_mem=limit_mem,
             disable_pbar_on_first=disable_pbar_on_first,
@@ -635,6 +646,7 @@ def get_deployments(
             datatype,
             schema,
             time,
+            raise_notfound=True,
             pipeline=pipeline,
             limit_mem=limit_mem,
             disable_pbar_on_first=disable_pbar_on_first,
@@ -737,6 +749,7 @@ def get_namespaces(
                 datatype,
                 schema,
                 time,
+                raise_notfound=True,
                 pipeline=pipeline,
                 limit_mem=False,
                 disable_pbar_on_first=disable_pbar_on_first,
@@ -772,6 +785,7 @@ def get_nodes(
             datatype,
             schema,
             time,
+            raise_notfound=True,
             pipeline=pipeline,
             limit_mem=limit_mem,
             disable_pbar_on_first=disable_pbar_on_first,
@@ -832,6 +846,7 @@ def get_pods(
             datatype,
             schema,
             time,
+            raise_notfound=True,
             pipeline=pipeline,
             limit_mem=limit_mem,
             disable_pbar_on_first=disable_pbar_on_first,
@@ -1232,7 +1247,7 @@ def __make_spyctl_internal_namespace_obj(
         lib.SPEC_FIELD: {lib.NOT_AVAILABLE: lib.NOT_AVAILABLE},
         lib.STATUS_FIELD: {"phase": "Active"},
         "cluster_uid": cluster_model[lib.ID_FIELD],
-        "cluster_name": cluster_model["cluster_name"],
+        "cluster_name": cluster_model.get("name"),
     }
     return rv
 

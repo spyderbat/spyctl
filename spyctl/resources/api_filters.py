@@ -63,7 +63,9 @@ class API_Filter:
                 property = cls.build_property(key)
                 if not property:
                     continue
-                if "*" in value or "?" in value:
+                if isinstance(value, int) or isinstance(value, float):
+                    and_items.append({"property": property, "equals": value})
+                elif "*" in value or "?" in value:
                     value = lib.simple_glob_to_regex(value)
                     and_items.append({"property": property, "re_match": value})
                 else:
@@ -148,19 +150,19 @@ class API_Filter:
             else:
                 muids = cls.__get_filtered_muids(**filters)
                 cls.__pop_muid_filters(ctx_filters, filters)
-            sources = muids
+                sources = muids
         return sources
 
     @classmethod
     def __get_filters(cls, ctx_filters: Dict, **filters):
-        filters = {}
+        rv_filters = {}
         for key, value in ctx_filters.items():
             if key in cls.property_map:
-                filters[key] = value
+                rv_filters[key] = value
         for key, value in filters.items():
             if key in cls.property_map:
-                filters[key] == value
-        return filters
+                rv_filters[key] = value
+        return rv_filters
 
     @staticmethod
     def __get_filtered_cluids(**filters) -> List[str]:
@@ -239,7 +241,7 @@ class Agents(API_Filter):
 
 
 class AgentMetrics(API_Filter):
-    property_map = {}
+    property_map = {lib.ID_FIELD: lib.ID_FIELD}
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_MUID
 
@@ -260,6 +262,8 @@ class Connections(API_Filter):
         lib.REMOTE_HOSTNAME_FIELD: lib.REMOTE_HOSTNAME_FIELD,
         lib.PROTOCOL_FIELD: "proto",
         lib.STATUS_FIELD: lib.STATUS_FIELD,
+        lib.LOCAL_PORT: lib.LOCAL_PORT,
+        lib.REMOTE_PORT: lib.REMOTE_PORT,
     }
     name_or_uid_props = [
         lib.CONN_ID,
@@ -362,7 +366,7 @@ class Fingerprints(API_Filter):
 
 
 class Machines(API_Filter):
-    property_map = {}
+    property_map = {lib.ID_FIELD: lib.ID_FIELD}
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_MUID
 
@@ -377,7 +381,7 @@ class Machines(API_Filter):
 
 
 class Namespaces(API_Filter):
-    property_map = {}
+    property_map = {lib.ID_FIELD: lib.ID_FIELD}
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
 
@@ -394,8 +398,11 @@ class Namespaces(API_Filter):
 
 
 class Nodes(API_Filter):
-    property_map = {}
-    name_or_uid_props = [lib.ID_FIELD]
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.METADATA_NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",  # noqa: E501
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
 
     @classmethod
@@ -409,7 +416,7 @@ class Nodes(API_Filter):
 
 
 class OpsFlags(API_Filter):
-    property_map = {}
+    property_map = {lib.ID_FIELD: lib.ID_FIELD}
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_MUID
 
@@ -424,8 +431,12 @@ class OpsFlags(API_Filter):
 
 
 class Pods(API_Filter):
-    property_map = {}
-    name_or_uid_props = [lib.ID_FIELD]
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.METADATA_NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",  # noqa: E501
+        lib.NAMESPACE_FIELD: "metadata.namespace",
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
     source_type = SOURCE_TYPE_CLUID_POCO
 
     @classmethod
@@ -445,6 +456,7 @@ class Processes(API_Filter):
         "user": "euser",
         lib.CGROUP_FIELD: lib.CGROUP_FIELD,
         lib.EXE_FIELD: lib.EXE_FIELD,
+        lib.NAME_FIELD: lib.NAME_FIELD,
     }
     name_or_uid_prop_names = [
         lib.NAME_FIELD,
@@ -463,7 +475,7 @@ class Processes(API_Filter):
 
 
 class RedFlags(API_Filter):
-    property_map = {}
+    property_map = {lib.ID_FIELD: lib.ID_FIELD}
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_MUID
 
@@ -479,6 +491,7 @@ class RedFlags(API_Filter):
 
 class Spydertraces(API_Filter):
     property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
         lib.MACHINES_FIELD: "muid",
         lib.POD_FIELD: "pod_uid",
         lib.CLUSTER_FIELD: "cluster_uid",
@@ -489,6 +502,8 @@ class Spydertraces(API_Filter):
         lib.BE_SCORE: lib.BE_SCORE,
         lib.BE_SUPPRESSED: lib.BE_SUPPRESSED,
         lib.STATUS_FIELD: lib.STATUS_FIELD,
+        lib.BE_ROOT_PROC_NAME: lib.BE_ROOT_PROC_NAME,
+        lib.BE_TRIGGER_NAME: lib.BE_TRIGGER_NAME,
     }
     name_or_uid_prop_names = [
         lib.BE_ROOT_PROC_NAME,
@@ -508,7 +523,7 @@ class Spydertraces(API_Filter):
 
 
 class SpydertraceSummaries(API_Filter):
-    property_map = {}
+    property_map = {lib.ID_FIELD: lib.ID_FIELD}
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_MUID
 

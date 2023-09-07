@@ -1132,6 +1132,18 @@ class GetCommand(lib.ArgumentParametersCommand):
                     help="Ignores differing ips in the table output."
                     " Off by default.",
                 ),
+                click.option(
+                    "--remote-port",
+                    lib.REMOTE_PORT,
+                    help="The port number on the remote side of the connection.",
+                    type=click.INT,
+                ),
+                click.option(
+                    "--local-port",
+                    lib.LOCAL_PORT,
+                    help="The port number on the local side of the connection.",
+                    type=click.INT,
+                ),
             ],
         },
         {

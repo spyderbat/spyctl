@@ -34,6 +34,6 @@ def __namespace_data(namespace: Dict) -> List:
         meta[lib.METADATA_NAME_FIELD],
         "Active",
         lib.calc_age(lib.to_timestamp(meta[lib.METADATA_CREATE_TIME])),
-        namespace["cluster_name"],
+        namespace["cluster_name"] or namespace["cluster_uid"],
     ]
     return rv

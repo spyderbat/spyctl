@@ -10,11 +10,11 @@ SUMMARY_HEADERs = [
     "NAME",
     "READY",
     "LAST_STATUS_SEEN",
+    "LAST_SEEN",
     "RESTARTS",
     "AGE",
     "NAMESPACE",
     "CLUSTER",
-    "ACTIVE",
 ]
 
 
@@ -31,11 +31,11 @@ def pods_output_summary(
     ):
         data.append(__pod_summary_data(pod))
     output = tabulate(
-        sorted(data, key=lambda x: [x[6], x[5], x[7], x[0]]),
+        sorted(data, key=lambda x: [x[7], x[6], x[0]]),
         headers=SUMMARY_HEADERs,
         tablefmt="plain",
     )
-    return output + "\n"
+    return output
 
 
 def __pod_summary_data(pod: Dict) -> List:
@@ -48,11 +48,11 @@ def __pod_summary_data(pod: Dict) -> List:
         meta[lib.METADATA_NAME_FIELD],
         ready,
         k8s_status[lib.BE_PHASE],
+        lib.epoch_to_zulu(pod["time"]),
         restarts,
         lib.calc_age(lib.to_timestamp(meta[lib.METADATA_CREATE_TIME])),
         meta[lib.NAMESPACE_FIELD],
         pod.get("cluster_name") or pod.get("cluster_uid"),
-        pod["status"] == "active",
     ]
     return rv
 
