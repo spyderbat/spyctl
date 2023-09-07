@@ -626,14 +626,11 @@ def handle_get_fingerprints(
     # Output in desired format
     if output == lib.OUTPUT_DEFAULT:
         if policy_coverage:
-            if policy_coverage:
-                summary = spyctl_fprints.fprint_grp_output_summary(
-                    fprint_groups, True, coverage_percentage
-                )
-            else:
-                summary = spyctl_fprints.fprint_grp_output_summary(
-                    fprint_groups
-                )
+            summary = spyctl_fprints.fprint_grp_output_summary(
+                fprint_groups, True, coverage_percentage
+            )
+        else:
+            summary = spyctl_fprints.fprint_grp_output_summary(fprint_groups)
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
         if policy_coverage:
