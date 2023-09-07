@@ -1000,7 +1000,7 @@ class GetCommand(lib.ArgumentParametersCommand):
             ],
             "args": [
                 click.option(
-                    "--last-model",
+                    "--latest_model",
                     help="Use additional memory when outputting json or yaml"
                     " to ensure only the latest version of each model is"
                     " returned.",

@@ -1,10 +1,12 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
-import spyctl.spyctl_lib as lib
 from tabulate import tabulate
-import zulu
 
-NOT_AVAILABLE = lib.NOT_AVAILABLE
+import spyctl.api as api
+import spyctl.config.configs as cfg
+import spyctl.spyctl_lib as lib
+
+SUMMARY_HEADERS = ["IMAGE", "IMAGE_ID", "STATUS", "AGE"]
 
 
 def container_output(cont: List[Dict]) -> Dict:
@@ -19,40 +21,35 @@ def container_output(cont: List[Dict]) -> Dict:
         return {}
 
 
-def calc_age(time_float):
-    creation_timestamp = zulu.parse(time_float)
-    age_delta = zulu.now() - creation_timestamp
-    if age_delta.days > 0:
-        age = f"{age_delta.days}d"
-        return age
-    elif age_delta.seconds >= 3600:
-        age = f"{age_delta.seconds // 3600}h"
-        return age
-    elif age_delta.seconds < 3600:
-        age = f"{age_delta.seconds//60}m"
-        return age
-
-
-def container_summary_output(containers: List[Dict]) -> str:
+def cont_stream_summary_output(
+    ctx: cfg.Context,
+    muids: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+    limit_mem=False,
+):
     data = []
-    for c in containers:
-        if c["status"] == "closed":
-            age = "N/A"
-        else:
-            age = calc_age(c["valid_from"])
-        data.append(
-            [
-                c["image"],
-                c["status"],
-                c["id"],
-                age,
-            ]
-        )
-    data.sort(key=lambda x: (x[0], x[1]))
-    print(
-        tabulate(
-            data,
-            headers=["IMAGE", "STATUS", "UID", "AGE"],
-            tablefmt="simple",
-        )
+    for container in api.get_containers(
+        *ctx.get_api_data(),
+        muids,
+        time,
+        pipeline=pipeline,
+        limit_mem=limit_mem,
+    ):
+        data.append(cont_summary_data(container))
+    data.sort(key=lambda x: (x[0], x[1], x[2], x[3]))
+    rv = tabulate(
+        data,
+        headers=SUMMARY_HEADERS,
+        tablefmt="simple",
     )
+    return rv
+
+
+def cont_summary_data(container: Dict) -> List[str]:
+    return [
+        container[lib.BE_CONTAINER_IMAGE],
+        container[lib.BE_CONTAINER_IMAGE_ID],
+        container[lib.STATUS_FIELD],
+        lib.calc_age(container[lib.VALID_FROM_FIELD]),
+    ]

@@ -54,7 +54,10 @@ class CacheDict(OrderedDict):
 
     def __getitem__(self, key):
         val = super().__getitem__(key)
-        super().move_to_end(key)
+        try:
+            super().move_to_end(key)
+        except KeyError:
+            pass
         return val
 
     def contract(self, delta):

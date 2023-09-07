@@ -1,87 +1,74 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from tabulate import tabulate
 
+import spyctl.api as api
+import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
-import zulu
 
-pod_status = {}
+SUMMARY_HEADERs = [
+    "NAME",
+    "READY",
+    "LAST_STATUS_SEEN",
+    "RESTARTS",
+    "AGE",
+    "NAMESPACE",
+    "CLUSTER",
+    "ACTIVE",
+]
 
 
-def pods_output_summary(pods: List[Dict]) -> str:
-    global pod_status
-    pod_status = {}
-    headers = [
-        "NAME",
-        "UID",
-        "CLUSTER",
-        "READY",
-        "LAST_STATUS_SEEN",
-        "AGE",
-        "LAST_SEEN_BY_SPYDERBAT",
-        "SPYDERBAT_STATUS",
-    ]
+def pods_output_summary(
+    ctx: cfg.Context,
+    clusters: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+    limit_mem=False,
+) -> str:
     data = []
-    for pod in pods:
-        phase = pod["k8s_status"]["phase"]
-        if phase == "Running":
-            pod_status[pod["id"]] = "1/1"
-        elif phase in {"Pending", "Failed"}:
-            pod_status[pod["id"]] = "0/1"
-        else:
-            pod_status[pod["id"]] = "N/A"
-    for pod in pods:
-        data.append(pod_summary_data(pod))
+    for pod in api.get_pods(
+        *ctx.get_api_data(), clusters, time, pipeline, limit_mem
+    ):
+        data.append(__pod_summary_data(pod))
     output = tabulate(
-        sorted(data, key=lambda x: [x[2], x[7], x[0], _to_timestamp(x[6])]),
-        headers=headers,
+        sorted(data, key=lambda x: [x[6], x[5], x[7], x[0]]),
+        headers=SUMMARY_HEADERs,
         tablefmt="plain",
     )
     return output + "\n"
 
 
-def _to_timestamp(zulu_str):
-    return zulu.Zulu.parse(zulu_str).timestamp()
-
-
-def pod_summary_data(pod: Dict) -> List:
-    creation_timestamp = zulu.parse(
-        pod[lib.METADATA_FIELD]["creationTimestamp"]
-    )
-    cluster = pod.get("cluster_name") or pod.get("cluster_uid")
-    if not cluster:
-        cluster = "N/A"
+def __pod_summary_data(pod: Dict) -> List:
+    k8s_status = pod[lib.BE_K8S_STATUS]
+    container_statuses = k8s_status.get(lib.CONTAINER_STATUSES_FIELD, {})
+    ready = __get_ready_count(container_statuses)
+    restarts = __calc_restarts(container_statuses)
+    meta = pod[lib.METADATA_FIELD]
     rv = [
-        pod[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
-        pod["id"],
-        cluster,
-        pod_status[pod["id"]],
-        pod["k8s_status"]["phase"],
-        f"{(zulu.now() - creation_timestamp).days}d",
-        lib.epoch_to_zulu(pod["time"]),
-        pod["status"],
+        meta[lib.METADATA_NAME_FIELD],
+        ready,
+        k8s_status[lib.BE_PHASE],
+        restarts,
+        lib.calc_age(lib.to_timestamp(meta[lib.METADATA_CREATE_TIME])),
+        meta[lib.NAMESPACE_FIELD],
+        pod.get("cluster_name") or pod.get("cluster_uid"),
+        pod["status"] == "active",
     ]
     return rv
 
 
-def pods_output(pods: List[Dict]) -> Dict:
-    if len(pods) == 1:
-        return pods[0]
-    elif len(pods) > 1:
-        return {
-            lib.API_FIELD: lib.API_VERSION,
-            lib.ITEMS_FIELD: pods,
-        }
-    else:
-        return {}
+def __get_ready_count(container_statuses: Dict):
+    count = 0
+    ready_count = 0
+    for cont in container_statuses:
+        count += 1
+        if cont.get("ready", False):
+            ready_count += 1
+    return f"{ready_count}/{count}"
 
 
-def pod_output(pod: Dict) -> Dict:
-    rv = {
-        lib.API_FIELD: "v1",
-        lib.KIND_FIELD: pod[lib.KIND_FIELD],
-        lib.METADATA_FIELD: pod[lib.METADATA_FIELD],
-        lib.SPEC_FIELD: pod[lib.SPEC_FIELD],
-        lib.STATUS_FIELD: pod["k8s_status"],
-    }
-    return rv
+def __calc_restarts(container_statuses: Dict):
+    count = 0
+    for cont in container_statuses:
+        count += cont.get("restartCount", 0)
+    return count

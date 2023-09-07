@@ -22,14 +22,16 @@ import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
 import spyctl.resources.spydertraces as spyctl_spytrace
 import spyctl.resources.suppression_policies as s_pol
+import spyctl.resources.sources as spyctl_src
 import spyctl.spyctl_lib as lib
 
 ALL = "all"
 not_time_based = [
-    lib.MACHINES_RESOURCE,
+    lib.SOURCES_RESOURCE,
     lib.POLICIES_RESOURCE,
     lib.CLUSTERS_RESOURCE,
 ]
+resource_with_global_src = [lib.AGENT_RESOURCE, lib.FINGERPRINTS_RESOURCE]
 
 LIMIT_MEM = True
 NDJSON = False
@@ -39,102 +41,95 @@ def handle_get(
     resource, name_or_id, st, et, file, latest, exact, output, **filters
 ):
     global LIMIT_MEM, NDJSON
-    resrc_plural = lib.get_plural_name_from_alias(resource)
-    if resrc_plural and resrc_plural not in not_time_based:
-        cli.try_log(
-            f"Getting {resrc_plural} from {lib.epoch_to_zulu(st)} to"
-            f" {lib.epoch_to_zulu(et)}"
-        )
-    elif resrc_plural:
-        cli.try_log(f"Getting {resrc_plural}")
-    if name_or_id and not exact:
-        name_or_id = name_or_id + "*" if name_or_id[-1] != "*" else name_or_id
-        name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
-    ctx = cfg.get_current_context()
-    src = ctx.global_source
-    NDJSON = filters.pop("ndjson", False)
-    # Craft filters by machine if applicable
-    muids = get_muids_scope(**filters)
-    if muids:
-        if len(muids) == 1:
-            src = muids[0]
-        else:
-            filters[lib.MACHINES_FIELD] = muids
-    # Craft filters by cluster
-    cluids = get_cluids_scope(**filters)
     # If latest_model is true we won't limit memory usage
     LIMIT_MEM = not filters.pop("latest_model", False)
     NDJSON = filters.pop("ndjson", False)
-    if cluids:
-        filters[lib.CLUSTER_FIELD] = cluids
-    if resource == lib.CLUSTERS_RESOURCE:
-        handle_get_clusters(name_or_id, output, **filters)
+
+    __output_time_log(resource, st, et)
+    if name_or_id and not exact:
+        name_or_id = name_or_id + "*" if name_or_id[-1] != "*" else name_or_id
+        name_or_id = "*" + name_or_id if name_or_id[0] != "*" else name_or_id
+
+    if resource == lib.AGENT_RESOURCE:
+        handle_get_agents(name_or_id, st, et, output, **filters)
     elif resource == lib.FINGERPRINTS_RESOURCE:
         handle_get_fingerprints(
-            name_or_id, st, et, output, file, latest, src, **filters
+            name_or_id, st, et, output, file, latest, **filters
         )
-    elif resource == lib.MACHINES_RESOURCE:
-        handle_get_machines(name_or_id, output, **filters)
+    elif resource == lib.CLUSTERS_RESOURCE:
+        handle_get_clusters(name_or_id, output, **filters)
+    elif resource == lib.CONNECTIONS_RESOURCE:
+        handle_get_connections(name_or_id, st, et, output, **filters)
+    elif resource == lib.CONTAINER_RESOURCE:
+        handle_get_containers(name_or_id, st, et, output, **filters)
     elif resource == lib.DEPLOYMENTS_RESOURCE:
         handle_get_deployments(name_or_id, st, et, output, **filters)
+    elif resource == lib.MACHINES_RESOURCE:
+        handle_get_machines(name_or_id, st, et, output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.NODES_RESOURCE:
         handle_get_nodes(name_or_id, st, et, output, **filters)
-    elif resource == lib.AGENT_RESOURCE:
-        handle_get_agents(name_or_id, st, et, output, src, **filters)
-    elif resource == lib.PODS_RESOURCE:
-        handle_get_pods(name_or_id, st, et, output, **filters)
-    elif resource == lib.REDFLAGS_RESOURCE:
-        handle_get_redflags(name_or_id, st, et, output, **filters)
     elif resource == lib.OPSFLAGS_RESOURCE:
         handle_get_opsflags(name_or_id, st, et, output, **filters)
+    elif resource == lib.PODS_RESOURCE:
+        handle_get_pods(name_or_id, st, et, output, **filters)
     elif resource == lib.POLICIES_RESOURCE:
         handle_get_policies(name_or_id, output, file, st, et, **filters)
     elif resource == lib.PROCESSES_RESOURCE:
         handle_get_processes(name_or_id, st, et, output, **filters)
-    elif resource == lib.CONNECTIONS_RESOURCE:
-        handle_get_connections(name_or_id, st, et, output, **filters)
+    elif resource == lib.REDFLAGS_RESOURCE:
+        handle_get_redflags(name_or_id, st, et, output, **filters)
+    elif resource == lib.SOURCES_RESOURCE:
+        handle_get_sources(name_or_id, output, **filters)
     elif resource == lib.SPYDERTRACE_RESOURCE:
         handle_get_spydertraces(name_or_id, st, et, output, **filters)
-    elif resource == lib.CONTAINER_RESOURCE:
-        handle_get_containers(name_or_id, st, et, output, **filters)
-    # elif resource == lib.SPYDERTRACE_SUMMARY_RESOURCE:
-    #     handle_get_trace_summaries(name_or_id, st, et, output, **filters)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_get_suppression_policies(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
 
+# ----------------------------------------------------------------- #
+#                        SQL-Based Resources                        #
+# ----------------------------------------------------------------- #
+
+
 def handle_get_clusters(name_or_id, output: str, **filters: Dict):
     ctx = cfg.get_current_context()
     clusters = api.get_clusters(*ctx.get_api_data())
     clusters = filt.filter_clusters(clusters, **filters)
-    output_clusters = []
-    for cluster in clusters:
-        output_clusters.append(
-            {
-                "name": cluster["name"],
-                "uid": cluster["uid"],
-                "cluster_details": {
-                    "first_seen": cluster["valid_from"],
-                    "last_data": cluster["last_data"],
-                    "cluster_id": cluster["cluster_details"]["cluster_uid"],
-                },
-            }
-        )
     if name_or_id:
-        output_clusters = filt.filter_obj(
-            output_clusters, ["name", "uid"], name_or_id
-        )
-    if output != lib.OUTPUT_DEFAULT:
-        output_clusters = spyctl_clusts.clusters_output(output_clusters)
-    cli.show(
-        output_clusters,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_clusts.clusters_summary_output},
-    )
+        clusters = filt.filter_obj(clusters, ["name", "uid"], name_or_id)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_clusts.clusters_summary_output(clusters)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for cluster in clusters:
+            cli.show(cluster, output, ndjson=NDJSON)
+
+
+def handle_get_sources(name_or_id, output: str, **filters: Dict):
+    ctx = cfg.get_current_context()
+    sources = api.get_sources(*ctx.get_api_data())
+    sources = filt.filter_sources(sources, **filters)
+    if name_or_id:
+        sources = filt.filter_obj(sources, ["name", "uid"], name_or_id)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_src.sources_summary_output(sources)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for source in sources:
+            cli.show(source, output, ndjson=NDJSON)
+
+
+# ----------------------------------------------------------------- #
+#                       Source-Based Resources                      #
+# ----------------------------------------------------------------- #
 
 
 def handle_get_agents(
@@ -142,7 +137,6 @@ def handle_get_agents(
     st,
     et,
     output,
-    src: str,
     **filters: Dict,
 ):
     ctx = cfg.get_current_context()
@@ -150,59 +144,535 @@ def handle_get_agents(
     usage_json: bool = filters.pop("usage_json", None)
     raw_metrics_json: bool = filters.pop("raw_metrics_json", False)
     include_latest_metrics = not filters.pop("health_only", False)
+    sources, filters = _af.Agents.build_sources_and_filters(**filters)
     pipeline = _af.Agents.generate_pipeline(
         name_or_id, None, True, filters=filters
     )
     if usage_csv_file:
         agent_st = __st_at_least_2hrs(st)
-        agents = api.get_agents(
-            *ctx.get_api_data(), [src], time=(agent_st, et), pipeline=pipeline
+        agents = list(
+            api.get_agents(
+                *ctx.get_api_data(),
+                sources,
+                time=(agent_st, et),
+                pipeline=pipeline,
+                limit_mem=LIMIT_MEM,
+            )
         )
         # We're only outputting the metrics data to a csv file
         handle_agent_usage_csv(agents, st, et, usage_csv_file)
     elif usage_json:
         agent_st = __st_at_least_2hrs(st)
-        agents = api.get_agents(
-            *ctx.get_api_data(), [src], time=(agent_st, et), pipeline=pipeline
+        agents = list(
+            api.get_agents(
+                *ctx.get_api_data(),
+                sources,
+                time=(agent_st, et),
+                pipeline=pipeline,
+                limit_mem=LIMIT_MEM,
+            )
         )
         handle_agent_usage_json(agents, st, et)
     elif raw_metrics_json:
         agent_st = __st_at_least_2hrs(st)
-        agents = api.get_agents(
-            *ctx.get_api_data(), [src], time=(agent_st, et), pipeline=pipeline
+        agents = list(
+            api.get_agents(
+                *ctx.get_api_data(),
+                sources,
+                time=(agent_st, et),
+                pipeline=pipeline,
+                limit_mem=LIMIT_MEM,
+            )
         )
         handle_agent_metrics_json(agents, st, et)
     else:
         # Normal path for output
-        agents = api.get_agents(
-            *ctx.get_api_data(), [src], time=(st, et), pipeline=pipeline
+        agents = list(
+            api.get_agents(
+                *ctx.get_api_data(),
+                sources,
+                time=(st, et),
+                pipeline=pipeline,
+                limit_mem=LIMIT_MEM,
+            )
         )
-        agents = filt.filter_agents(agents, **filters)
         if output == lib.OUTPUT_DEFAULT:
-            output = lib.OUTPUT_RAW
-            agents = spy_agents.agent_summary_output(agents)
+            summary = spy_agents.agent_summary_output(agents)
+            cli.show(summary, lib.OUTPUT_RAW)
         elif output == lib.OUTPUT_WIDE:
             cli.try_log("Retrieving source data for agent(s).")
             sources_data = api.get_sources_data_for_agents(*ctx.get_api_data())
-            output = lib.OUTPUT_RAW
-            agents = spy_agents.agents_output_wide(
+            summary = spy_agents.agents_output_wide(
                 agents, sources_data, include_latest_metrics
             )
+            cli.show(summary, lib.OUTPUT_RAW)
         else:
-            agents = spy_agents.agents_output(agents)
+            for agent in agents:
+                cli.show(agent, output, ndjson=NDJSON)
+
+
+def handle_get_containers(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Containers.build_sources_and_filters(**filters)
+    pipeline = _af.Containers.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_cont.cont_stream_summary_output(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for container in api.get_containers(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline=pipeline,
+            limit_mem=LIMIT_MEM,
+            disable_pbar_on_first=not lib.is_redirected(),
+        ):
+            cli.show(container, output, ndjson=NDJSON)
+
+
+def handle_get_connections(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    ignore_ips = filters.pop("ignore_ips", False)
+    sources, filters = _af.Connections.build_sources_and_filters(**filters)
+    pipeline = _af.Connections.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_conns.conn_summary_output(
+            ctx,
+            sources,
+            (st, et),
+            ignore_ips,
+            pipeline=pipeline,
+            limit_mem=LIMIT_MEM,
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for connection in api.get_connections(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline=pipeline,
+            limit_mem=LIMIT_MEM,
+            disable_pbar_on_first=not lib.is_redirected(),
+        ):
+            cli.show(connection, output, ndjson=NDJSON)
+
+
+def handle_get_deployments(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Deployments.build_sources_and_filters(**filters)
+    pipeline = _af.Deployments.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_deployments.deployments_stream_summary_output(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for deployment in api.get_deployments(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(deployment, output, ndjson=NDJSON)
+
+
+def handle_get_machines(name_or_id, st, et, output: str, **filters: Dict):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Machines.build_sources_and_filters(**filters)
+    pipeline = _af.Machines.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_machines.machines_summary_output(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for machine in api.get_machines(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(machine, output, ndjson=NDJSON)
+
+
+def handle_get_namespaces(name, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Namespaces.build_sources_and_filters(**filters)
+    pipeline = _af.Namespaces.generate_pipeline(name, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_names.namespace_summary_output(
+            ctx, sources, (st, et), pipeline
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for namespace in api.get_namespaces(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            lib.is_redirected(),
+        ):
+            cli.show(namespace, output, ndjson=NDJSON)
+
+
+def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Nodes.build_sources_and_filters(**filters)
+    pipeline = _af.Nodes.generate_pipeline(
+        name_or_id,
+    )
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_nodes.nodes_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported
+    else:
+        for node in api.get_nodes(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(node, output, ndjson=NDJSON)
+
+
+def handle_get_opsflags(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.OpsFlags.build_sources_and_filters(**filters)
+    pipeline = _af.OpsFlags.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_flags.flags_output_summary(
+            ctx,
+            lib.EVENT_OPSFLAG_PREFIX,
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for flag in api.get_opsflags(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(flag, output, ndjson=NDJSON)
+
+
+def handle_get_pods(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Pods.build_sources_and_filters(**filters)
+    pipeline = _af.Pods.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_pods.pods_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for pod in api.get_pods(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(pod, output, ndjson=NDJSON)
+
+
+def handle_get_processes(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Processes.build_sources_and_filters(**filters)
+    pipeline = _af.Processes.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_procs.processes_stream_output_summary(
+            ctx, sources, time, pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for process in api.get_processes(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(process, output, ndjson=NDJSON)
+
+
+def handle_get_redflags(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.RedFlags.build_sources_and_filters(**filters)
+    pipeline = _af.RedFlags.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_flags.flags_output_summary(
+            ctx,
+            lib.EVENT_REDFLAG_PREFIX,
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for flag in api.get_redflags(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(flag, output, ndjson=NDJSON)
+
+
+def handle_get_spydertraces(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Spydertraces.build_sources_and_filters(**filters)
+    pipeline = _af.Spydertraces.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_spytrace.spydertraces_stream_summary_output(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        summary = spyctl_spytrace.spydertraces_stream_output_wide(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        for spydertrace in api.get_spydertraces(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(spydertrace, output, ndjson=NDJSON)
+
+
+# ----------------------------------------------------------------- #
+#                Policy Workflow SQL-Based Resources                #
+# ----------------------------------------------------------------- #
+
+
+def handle_get_policies(name_or_id, output, files, st, et, **filters):
+    has_matching = filters.pop("has_matching", False)
+    file_output = filters.pop("output_to_file", False)
+    ctx = cfg.get_current_context()
+    if files:
+        policies = []
+        for file in files:
+            resource_data = lib.load_resource_file(file)
+            kind = resource_data.get(lib.KIND_FIELD)
+            if kind != lib.POL_KIND:
+                cli.try_log(
+                    f"Input file {file.name} is not a policy.. skipping",
+                    is_warning=True,
+                )
+                continue
+            policies.append(resource_data)
+    else:
+        policies = api.get_policies(*ctx.get_api_data())
+    policies = filt.filter_policies(policies, **filters)
+    if name_or_id:
+        policies = filt.filter_obj(
+            policies,
+            [
+                [lib.METADATA_FIELD, lib.NAME_FIELD],
+                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+            ],
+            name_or_id,
+        )
+    if file_output:
+        for policy in policies:
+            out_fn = lib.find_resource_filename(policy, "policy_output")
+            if output != lib.OUTPUT_JSON:
+                output = lib.OUTPUT_YAML
+            out_fn = lib.unique_fn(out_fn, output)
+            cli.show(
+                policy, output, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn
+            )
+    else:
+        if has_matching:
+            policies, no_match_pols = __calculate_has_matching_fprints(
+                policies, st, et
+            )
+        else:
+            no_match_pols = []
+        if output != lib.OUTPUT_DEFAULT:
+            policies = spyctl_policies.policies_output(
+                policies + no_match_pols
+            )
+        else:
+            policies = spyctl_policies.policies_summary_output(
+                policies, has_matching, no_match_pols
+            )
+            output = lib.OUTPUT_RAW
         cli.show(
-            agents,
+            policies,
             output,
-            {},
         )
 
 
-def __st_at_least_2hrs(st: float):
-    two_hours_secs = 60 * 60 * 2
-    now = time.time()
-    if now - st < two_hours_secs:
-        return now - two_hours_secs
-    return st
+def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    policies = api.get_policies(
+        *ctx.get_api_data(),
+        params={lib.METADATA_TYPE_FIELD: lib.POL_TYPE_TRACE},
+    )
+    policies = filt.filter_policies(policies, **filters)
+    if name_or_id:
+        policies = filt.filter_obj(
+            policies,
+            [
+                [lib.METADATA_FIELD, lib.NAME_FIELD],
+                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+            ],
+            name_or_id,
+        )
+    if output != lib.OUTPUT_DEFAULT:
+        policies = s_pol.s_policies_output(policies)
+    else:
+        policies = s_pol.s_policies_summary_output(policies)
+        output = lib.OUTPUT_RAW
+    cli.show(policies, output)
+
+
+# ----------------------------------------------------------------- #
+#               Policy Workflow Source-Based Resources              #
+# ----------------------------------------------------------------- #
+
+
+def handle_get_fingerprints(
+    name_or_id, st, et, output, files: List[IO], latest, **filters
+):
+    # TODO Support Fingerprints taking full advantage of the new
+    # way we stream API results.
+    ctx = cfg.get_current_context()
+    # Pop any extra options
+    pol_names_or_uids = filters.pop(lib.POLICY_UID_FIELD, None)
+    policy_coverage = filters.pop("policy_coverage", False)
+    raw = filters.pop("raw_data", False)
+    # Retrieve fingerprints and filter based on desired scope
+    if files:
+        orig_fprints = __get_fingerprints_matching_files_scope(
+            name_or_id, files, latest, st, et, **filters
+        )
+    elif pol_names_or_uids:
+        orig_fprints = __get_fingerprints_matching_policies_scope(
+            name_or_id, pol_names_or_uids, latest, st, et, **filters
+        )
+    else:
+        fprint_type = filters.get(lib.TYPE_FIELD)
+        sources, filters = _af.Fingerprints.build_sources_and_filters(
+            **filters
+        )
+        pipeline = _af.Fingerprints.generate_pipeline(
+            name_or_id, fprint_type, filters=filters
+        )
+        orig_fprints = list(
+            api.get_fingerprints(
+                *ctx.get_api_data(),
+                sources,
+                (st, et),
+                fprint_type=filters.get(lib.TYPE_FIELD),
+                pipeline=pipeline,
+                limit_mem=LIMIT_MEM,
+            )
+        )
+    # Build fingerprint groups
+    if policy_coverage:
+        fprint_groups, coverage_percentage = __calc_policy_coverage(
+            orig_fprints
+        )
+    elif raw and (output == lib.OUTPUT_YAML or output == lib.OUTPUT_JSON):
+        fprint_groups = orig_fprints
+    else:
+        fprint_groups = spyctl_fprints.make_fingerprint_groups(orig_fprints)
+    # Output in desired format
+    if output == lib.OUTPUT_DEFAULT:
+        if policy_coverage:
+            if policy_coverage:
+                summary = spyctl_fprints.fprint_grp_output_summary(
+                    fprint_groups, True, coverage_percentage
+                )
+            else:
+                summary = spyctl_fprints.fprint_grp_output_summary(
+                    fprint_groups
+                )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        if policy_coverage:
+            summary = spyctl_fprints.fprint_grp_output_wide(
+                fprint_groups, True, coverage_percentage
+            )
+        else:
+            summary = spyctl_fprints.fprint_grp_output_wide(fprint_groups)
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        if not raw:
+            tmp_grps = []
+            for grps in fprint_groups:
+                tmp_grps.extend(grps)
+            fprint_groups = spyctl_fprints.fprint_groups_output(tmp_grps)
+            cli.show(fprint_groups, output, ndjson=NDJSON)
+        else:
+            for fingerprint in fprint_groups:
+                cli.show(fingerprint, output, ndjson=NDJSON)
+
+
+# ----------------------------------------------------------------- #
+#                         Alternative Outputs                       #
+# ----------------------------------------------------------------- #
+
+
+def handle_agent_metrics_json(agents: List[Dict], st, et):
+    ctx = cfg.get_current_context()
+    cli.try_log("Retrieving metrics records.")
+    sources = [agent["muid"] for agent in agents]
+    pipeline = _af.Agents.generate_metrics_pipeline()
+    for metrics_record in api.get_agent_metrics(
+        *ctx.get_api_data(),
+        sources,
+        (st, et),
+        pipeline,
+        not lib.is_redirected(),
+    ):
+        cli.show(metrics_record, lib.OUTPUT_JSON)
 
 
 def handle_agent_usage_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
@@ -246,211 +716,89 @@ def handle_agent_usage_json(agents: List[Dict], st, et):
             )
 
 
-def handle_agent_metrics_json(agents: List[Dict], st, et):
+# ----------------------------------------------------------------- #
+#                          Helper Functions                         #
+# ----------------------------------------------------------------- #
+
+
+def __calculate_has_matching_fprints(
+    policies: List[Dict], st, et
+) -> Tuple[List[Dict], List[Dict]]:
+    has_matching = []
+    no_matching = []
     ctx = cfg.get_current_context()
-    cli.try_log("Retrieving metrics records.")
-    sources = [agent["muid"] for agent in agents]
-    pipeline = _af.Agents.generate_metrics_pipeline()
-    for metrics_record in api.get_agent_metrics(
-        *ctx.get_api_data(),
-        sources,
-        (st, et),
-        pipeline,
-        not lib.is_redirected(),
-    ):
-        cli.show(metrics_record, lib.OUTPUT_JSON)
-
-
-def handle_get_deployments(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    clusters = api.get_clusters(*ctx.get_api_data())
-    clusters = filt.filter_clusters(clusters, **filters)
-    deployments = api.get_deployments(*ctx.get_api_data(), clusters, (st, et))
-    deployments = filt.filter_deployments(deployments, **filters)
-    if name_or_id:
-        deployments = filt.filter_obj(
-            deployments, [[lib.METADATA_FIELD, "name"]], name_or_id
-        )
-    if output != lib.OUTPUT_DEFAULT:
-        deployments = spyctl_deployments.deployments_output(deployments)
-    cli.show(
-        deployments,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_deployments.deployments_summary_output},
-    )
-
-
-def handle_get_namespaces(name, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    clusters = api.get_clusters(*ctx.get_api_data())
-    clusters = filt.filter_clusters(clusters, **filters)
-    namespaces = api.get_namespaces(*ctx.get_api_data(), clusters, (st, et))
-    namespaces = filt.filter_namespaces(
-        namespaces, clusters_data=clusters, **filters
-    )
-    if name:
-        namespaces = filt.filter_obj(namespaces, ["namespaces"], name)
-    if output != lib.OUTPUT_DEFAULT:
-        namespaces = spyctl_names.namespaces_output(namespaces)
-    cli.show(
-        namespaces,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_names.namespace_summary_output},
-    )
-
-
-def handle_get_machines(name_or_id, output: str, **filters: Dict):
-    ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(machines, **filters)
-    if name_or_id:
-        machines = filt.filter_obj(machines, ["name", "uid"], name_or_id)
-    if output != lib.OUTPUT_DEFAULT:
-        machines = spyctl_machines.machines_output(machines)
-    cli.show(
-        machines,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_machines.machines_summary_output},
-    )
-
-
-def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):
-    ctx = cfg.get_current_context()
-    clusters = api.get_clusters(*ctx.get_api_data())
-    clusters = filt.filter_clusters(clusters, **filters)
-    nodes = api.get_nodes(*ctx.get_api_data(), clusters, (st, et))
-    nodes = filt.filter_nodes(nodes, **filters)
-    if name_or_id:
-        nodes = filt.filter_obj(
-            nodes,
-            [[lib.METADATA_FIELD, lib.METADATA_NAME_FIELD], lib.ID_FIELD],
-            name_or_id,
-        )
-    if output != lib.OUTPUT_DEFAULT:
-        nodes = spyctl_nodes.nodes_output(nodes)
-    cli.show(
-        nodes,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_nodes.nodes_output_summary},
-    )
-
-
-def handle_get_pods(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    clusters = api.get_clusters(*ctx.get_api_data())
-    clusters = filt.filter_clusters(clusters, **filters)
-    pods = api.get_pods(*ctx.get_api_data(), clusters, (st, et))
-    pods = filt.filter_pods(pods)
-    if name_or_id:
-        pods = filt.filter_obj(
-            pods,
-            [[lib.METADATA_FIELD, lib.METADATA_NAME_FIELD], lib.ID_FIELD],
-            name_or_id,
-        )
-    if output != lib.OUTPUT_DEFAULT:
-        pods = spyctl_pods.pods_output(pods)
-    cli.show(
-        pods,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_pods.pods_output_summary},
-    )
-
-
-def handle_get_redflags(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    flags = api.get_redflags(*ctx.get_api_data(), (st, et))
-    flags = filt.filter_redflags(flags, **filters)
-    if name_or_id:
-        flags = filt.filter_obj(flags, ["short_name", "id"], name_or_id)
-    if output != lib.OUTPUT_DEFAULT:
-        flags = spyctl_flags.flags_output(flags)
-    cli.show(
-        flags,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_flags.flags_output_summary},
-    )
-
-
-def handle_get_opsflags(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    flags = api.get_opsflags(*ctx.get_api_data(), (st, et))
-    flags = filt.filter_opsflags(flags, **filters)
-    if name_or_id:
-        flags = filt.filter_obj(flags, ["short_name", "id"], name_or_id)
-    if output != lib.OUTPUT_DEFAULT:
-        flags = spyctl_flags.flags_output(flags)
-    cli.show(
-        flags,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_flags.flags_output_summary},
-    )
-
-
-def handle_get_fingerprints(
-    name_or_id, st, et, output, files: List[IO], latest, src, **filters
-):
-    ctx = cfg.get_current_context()
-    # Pop any extra options
-    pol_names_or_uids = filters.pop(lib.POLICY_UID_FIELD, None)
-    policy_coverage = filters.pop("policy_coverage", False)
-    # Retrieve fingerprints and filter based on desired scope
-    if files:
-        orig_fprints = __get_fingerprints_matching_files_scope(
-            name_or_id, files, latest, st, et, src, **filters
-        )
-    elif pol_names_or_uids:
-        orig_fprints = __get_fingerprints_matching_policies_scope(
-            name_or_id, pol_names_or_uids, latest, st, et, src, **filters
-        )
-    else:
-        pipeline = _af.Fingerprints.generate_pipeline(
-            name_or_id, filters.get(lib.TYPE_FIELD), filters=filters
-        )
-        orig_fprints = api.get_fingerprints(
+    sources, filters = _af.Fingerprints.build_sources_and_filters()
+    pipeline = _af.Fingerprints.generate_pipeline(filters=filters)
+    fingerprints = list(
+        api.get_fingerprints(
             *ctx.get_api_data(),
-            [src],
+            sources,
             (st, et),
-            fprint_type=filters.get(lib.TYPE_FIELD),
             pipeline=pipeline,
+            limit_mem=LIMIT_MEM,
         )
-    # Build fingerprint groups
-    if policy_coverage:
-        fprint_groups, coverage_percentage = __calc_policy_coverage(
-            orig_fprints
-        )
-    else:
-        fprint_groups = spyctl_fprints.make_fingerprint_groups(orig_fprints)
-    # Output in desired format
-    if output != lib.OUTPUT_DEFAULT and output != lib.OUTPUT_WIDE:
-        tmp_grps = []
-        for grps in fprint_groups:
-            tmp_grps.extend(grps)
-        fprint_groups = spyctl_fprints.fprint_groups_output(tmp_grps)
-    else:
-        if output == lib.OUTPUT_DEFAULT:
-            if policy_coverage:
-                fprint_groups = spyctl_fprints.fprint_grp_output_summary(
-                    fprint_groups, True, coverage_percentage
-                )
-            else:
-                fprint_groups = spyctl_fprints.fprint_grp_output_summary(
-                    fprint_groups
-                )
+    )
+    for policy in policies:
+        filters = lib.selectors_to_filters(policy)
+        if filt.filter_fingerprints(
+            fingerprints,
+            use_context_filters=False,
+            suppress_warning=True,
+            **filters,
+        ):
+            has_matching.append(policy)
         else:
-            if policy_coverage:
-                fprint_groups = spyctl_fprints.fprint_grp_output_wide(
-                    fprint_groups, True, coverage_percentage
-                )
-            else:
-                fprint_groups = spyctl_fprints.fprint_grp_output_wide(
-                    fprint_groups
-                )
-        output = lib.OUTPUT_RAW
-    cli.show(fprint_groups, output)
+            no_matching.append(policy)
+    return has_matching, no_matching
+
+
+def __calc_policy_coverage(
+    fingerprints: List[Dict], policies: List[Dict] = None
+) -> Tuple[List[Dict], float]:
+    """Calculates policy coverage from a list of fingerprints
+
+    Args:
+        fingerprints (List[Dict]): List of fingerprints to calculate the
+            coverage of
+        policies (List[Dict], optional): List of policies to calculate
+            coverage with. Defaults to None. If None, will download applied
+            policies from the Spyderbat Backend.
+
+    Returns:
+        Tuple[List[Dict], float]: (List of uncovered fingerprints, coverage
+            percentage)
+    """
+    ctx = cfg.get_current_context()
+    if policies is None:
+        policies = api.get_policies(*ctx.get_api_data())
+    orig_fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
+    total = 0
+    for groups in orig_fprint_groups:
+        total += len(groups)
+    if total == 0:
+        cli.err_exit("No fingerprints to calculate coverage of.")
+    uncovered_fprints = fingerprints
+    for policy in policies:
+        filters = lib.selectors_to_filters(policy)
+        uncovered_fprints = filt.filter_fingerprints(
+            uncovered_fprints,
+            use_context_filters=False,
+            suppress_warning=True,
+            not_matching=True,
+            **filters,
+        )
+    uncovered_fprint_groups = spyctl_fprints.make_fingerprint_groups(
+        uncovered_fprints
+    )
+    uncovered_tot = 0
+    for groups in uncovered_fprint_groups:
+        uncovered_tot += len(groups)
+    coverage = 1 - (uncovered_tot / total)
+    return uncovered_fprint_groups, coverage
 
 
 def __get_fingerprints_matching_files_scope(
-    name_or_id, files, latest, st, et, src, **filters
+    name_or_id, files, latest, st, et, **filters
 ) -> List[Dict]:
     ctx = cfg.get_current_context()
     if latest and len(files) > 1:
@@ -463,15 +811,20 @@ def __get_fingerprints_matching_files_scope(
         filters = lib.selectors_to_filters(resrc_data)
         st = __get_latest_timestamp(resrc_data)
         et = time.time()
+    fprint_type = filters.get(lib.TYPE_FIELD)
+    sources, filters = _af.Fingerprints.build_sources_and_filters(**filters)
     pipeline = _af.Fingerprints.generate_pipeline(
-        name_or_id, filters.get(lib.TYPE_FIELD), filters=filters
+        name_or_id, fprint_type, filters=filters
     )
-    orig_fprints = api.get_fingerprints(
-        *ctx.get_api_data(),
-        [src],
-        (st, et),
-        fprint_type=filters.get(lib.TYPE_FIELD),
-        pipeline=pipeline,
+    orig_fprints = list(
+        api.get_fingerprints(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            fprint_type=filters.get(lib.TYPE_FIELD),
+            pipeline=pipeline,
+            limit_mem=LIMIT_MEM,
+        )
     )
     rv = []
     for file in files:
@@ -496,7 +849,7 @@ def __get_fingerprints_matching_files_scope(
 
 
 def __get_fingerprints_matching_policies_scope(
-    name_or_id, pol_names_or_uids, latest, st, et, src, **filters
+    name_or_id, pol_names_or_uids, latest, st, et, **filters
 ) -> List[Dict]:
     if pol_names_or_uids:
         policies = __get_policies_from_option(pol_names_or_uids)
@@ -512,15 +865,20 @@ def __get_fingerprints_matching_policies_scope(
         filters = lib.selectors_to_filters(policies[0])
         st = __get_latest_timestamp(policies[0])
         et = time.time()
+    fprint_type = filters.get(lib.TYPE_FIELD)
+    sources, filters = _af.Fingerprints.build_sources_and_filters(**filters)
     pipeline = _af.Fingerprints.generate_pipeline(
-        name_or_id, filters.get(lib.TYPE_FIELD), filters=filters
+        name_or_id, fprint_type, filters=filters
     )
-    orig_fprints = api.get_fingerprints(
-        *ctx.get_api_data(),
-        [src],
-        (st, et),
-        fprint_type=filters.get(lib.TYPE_FIELD),
-        pipeline=pipeline,
+    orig_fprints = list(
+        api.get_fingerprints(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            fprint_type=filters.get(lib.TYPE_FIELD),
+            pipeline=pipeline,
+            limit_mem=LIMIT_MEM,
+        )
     )
     rv = []
     for policy in policies:
@@ -536,261 +894,6 @@ def __get_fingerprints_matching_policies_scope(
     if not rv:
         cli.try_log("No fingerprints matched policies scope.")
     return rv
-
-
-def handle_get_trace_summaries(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(machines, **filters)
-    muids = [m["uid"] for m in machines]
-    orig_fprints = api.get_trace_summaries(
-        *ctx.get_api_data(),
-        muids,
-        (st, et),
-    )
-    orig_fprints = filt.filter_fingerprints(orig_fprints, **filters)
-    cli.show(orig_fprints, lib.OUTPUT_JSON)
-
-
-def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    policies = api.get_policies(
-        *ctx.get_api_data(),
-        params={lib.METADATA_TYPE_FIELD: lib.POL_TYPE_TRACE},
-    )
-    policies = filt.filter_policies(policies, **filters)
-    if name_or_id:
-        policies = filt.filter_obj(
-            policies,
-            [
-                [lib.METADATA_FIELD, lib.NAME_FIELD],
-                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-            ],
-            name_or_id,
-        )
-    if output != lib.OUTPUT_DEFAULT:
-        policies = s_pol.s_policies_output(policies)
-    else:
-        policies = s_pol.s_policies_summary_output(policies)
-        output = lib.OUTPUT_RAW
-    cli.show(policies, output)
-
-
-def get_fingerprints_matching_policies(
-    orig_fprints, policies: List[Dict]
-) -> List[Dict]:
-    rv = []
-    for policy in policies:
-        filters = lib.selectors_to_filters(policy)
-        rv.extend(
-            filt.filter_fingerprints(
-                orig_fprints,
-                use_context_filters=False,
-                suppress_warning=True,
-                **filters,
-            )
-        )
-    if not rv:
-        cli.try_log("No fingerprints matched input files")
-    return rv
-
-
-def handle_get_policies(name_or_id, output, files, st, et, **filters):
-    has_matching = filters.pop("has_matching", False)
-    file_output = filters.pop("output_to_file", False)
-    ctx = cfg.get_current_context()
-    if files:
-        policies = []
-        for file in files:
-            resource_data = lib.load_resource_file(file)
-            kind = resource_data.get(lib.KIND_FIELD)
-            if kind != lib.POL_KIND:
-                cli.try_log(
-                    f"Input file {file.name} is not a policy.. skipping",
-                    is_warning=True,
-                )
-                continue
-            policies.append(resource_data)
-    else:
-        policies = api.get_policies(*ctx.get_api_data())
-    policies = filt.filter_policies(policies, **filters)
-    if name_or_id:
-        policies = filt.filter_obj(
-            policies,
-            [
-                [lib.METADATA_FIELD, lib.NAME_FIELD],
-                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-            ],
-            name_or_id,
-        )
-    if file_output:
-        for policy in policies:
-            out_fn = lib.find_resource_filename(policy, "policy_output")
-            if output != lib.OUTPUT_JSON:
-                output = lib.OUTPUT_YAML
-            out_fn = lib.unique_fn(out_fn, output)
-            cli.show(
-                policy, output, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn
-            )
-    else:
-        if has_matching:
-            policies, no_match_pols = calculate_has_matching_fprints(
-                policies, st, et
-            )
-        else:
-            no_match_pols = []
-        if output != lib.OUTPUT_DEFAULT:
-            policies = spyctl_policies.policies_output(
-                policies + no_match_pols
-            )
-        else:
-            policies = spyctl_policies.policies_summary_output(
-                policies, has_matching, no_match_pols
-            )
-            output = lib.OUTPUT_RAW
-        cli.show(
-            policies,
-            output,
-        )
-
-
-def calculate_has_matching_fprints(
-    policies: List[Dict], st, et
-) -> Tuple[List[Dict], List[Dict]]:
-    has_matching = []
-    no_matching = []
-    ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    muids = [m["uid"] for m in machines]
-    fingerprints = api.get_fingerprints(*ctx.get_api_data(), muids, (st, et))
-    for policy in policies:
-        filters = lib.selectors_to_filters(policy)
-        if filt.filter_fingerprints(
-            fingerprints,
-            use_context_filters=False,
-            suppress_warning=True,
-            **filters,
-        ):
-            has_matching.append(policy)
-        else:
-            no_matching.append(policy)
-    return has_matching, no_matching
-
-
-def handle_get_processes(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(machines, **filters)
-    muids = [m["uid"] for m in machines]
-    processes = api.get_processes(*ctx.get_api_data(), muids, (st, et))
-    processes = filt.filter_processes(processes, **filters)
-    if name_or_id:
-        processes = filt.filter_obj(processes, ["name", "id"], name_or_id)
-    if output != lib.OUTPUT_DEFAULT:
-        processes = spyctl_procs.processes_output(processes)
-    cli.show(
-        processes,
-        output,
-        {lib.OUTPUT_DEFAULT: spyctl_procs.processes_output_summary},
-    )
-
-
-def handle_get_spydertraces(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(machines, **filters)
-    muids = [m["uid"] for m in machines]
-    spydertraces = api.get_spydertraces(*ctx.get_api_data(), muids, (st, et))
-    spydertraces = filt.filter_spydertraces(spydertraces, **filters)
-    if name_or_id:
-        spydertraces = filt.filter_obj(
-            spydertraces, ["name", "id"], name_or_id
-        )
-    if output != lib.OUTPUT_DEFAULT and output != lib.OUTPUT_WIDE:
-        spydertraces = spyctl_spytrace.spydertraces_output(spydertraces)
-
-    if output == lib.OUTPUT_WIDE:
-        spydertraces = spyctl_spytrace.spydertraces_output_wide(spydertraces)
-    else:
-        cli.show(
-            spydertraces,
-            output,
-            {lib.OUTPUT_DEFAULT: spyctl_spytrace.spydertraces_summary_output},
-        )
-
-
-def handle_get_containers(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(machines, **filters)
-    muids = [m["uid"] for m in machines]
-    if LIMIT_MEM:
-        containers = api.get_containers(*ctx.get_api_data(), muids, (st, et))
-        containers = filt.filter_containers(containers, **filters)
-        if name_or_id:
-            containers = filt.filter_obj(
-                containers, ["name", "id"], name_or_id
-            )
-        if output != lib.OUTPUT_DEFAULT:
-            containers = spyctl_cont.container_output(containers)
-        cli.show(
-            containers,
-            output,
-            {lib.OUTPUT_DEFAULT: spyctl_cont.container_summary_output},
-        )
-    else:
-        pass
-
-
-def handle_get_connections(name_or_id, st, et, output, **filters):
-    ctx = cfg.get_current_context()
-    ignore_ips = filters.pop("ignore_ips", False)
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(machines, **filters)
-    muids = [m["uid"] for m in machines]
-    pipeline = _af.Connections.generate_pipeline(name_or_id, filters=filters)
-    if output == lib.OUTPUT_DEFAULT:
-        summary = spyctl_conns.conn_stream_summary_output(
-            ctx, muids, (st, et), ignore_ips, LIMIT_MEM
-        )
-        cli.show(summary, lib.OUTPUT_RAW)
-    else:
-        for connection in api.get_connections(
-            *ctx.get_api_data(),
-            muids,
-            (st, et),
-            pipeline=pipeline,
-            limit_mem=LIMIT_MEM,
-            disable_pbar_on_first=not lib.is_redirected(),
-        ):
-            cli.show(connection, output, ndjson=NDJSON)
-
-
-# ---- Helper Functions ------
-
-
-def get_muids_scope(**filters):
-    ctx = cfg.get_current_context()
-    machines_filters = filters.pop(lib.MACHINES_FIELD, None)
-    ctx_machines_filters = ctx.get_filters().get(lib.MACHINES_FIELD)
-    if not machines_filters and not ctx_machines_filters:
-        return
-    machines = api.get_machines(*ctx.get_api_data())
-    machines = filt.filter_machines(machines, **filters)
-    muids = [m["uid"] for m in machines]
-    return muids
-
-
-def get_cluids_scope(**filters):
-    ctx = cfg.get_current_context()
-    clusters_filters = filters.pop(lib.CLUSTER_FIELD, None)
-    ctx_clusters_filters = ctx.get_filters().get(lib.CLUSTER_FIELD)
-    if not clusters_filters and not ctx_clusters_filters:
-        return
-    clusters = api.get_clusters(*ctx.get_api_data())
-    clusters = filt.filter_clusters(clusters, **filters)
-    cluids = [c["uid"] for c in clusters]
-    return cluids
 
 
 def __get_latest_timestamp(obj: Dict):
@@ -840,46 +943,24 @@ def __get_policies_from_option(pol_names_or_uids: List[str]) -> List[Dict]:
     return rv
 
 
-def __calc_policy_coverage(
-    fingerprints: List[Dict], policies: List[Dict] = None
-) -> Tuple[List[Dict], float]:
-    """Calculates policy coverage from a list of fingerprints
-
-    Args:
-        fingerprints (List[Dict]): List of fingerprints to calculate the
-            coverage of
-        policies (List[Dict], optional): List of policies to calculate
-            coverage with. Defaults to None. If None, will download applied
-            policies from the Spyderbat Backend.
-
-    Returns:
-        Tuple[List[Dict], float]: (List of uncovered fingerprints, coverage
-            percentage)
-    """
-    ctx = cfg.get_current_context()
-    if policies is None:
-        policies = api.get_policies(*ctx.get_api_data())
-    orig_fprint_groups = spyctl_fprints.make_fingerprint_groups(fingerprints)
-    total = 0
-    for groups in orig_fprint_groups:
-        total += len(groups)
-    if total == 0:
-        cli.err_exit("No fingerprints to calculate coverage of.")
-    uncovered_fprints = fingerprints
-    for policy in policies:
-        filters = lib.selectors_to_filters(policy)
-        uncovered_fprints = filt.filter_fingerprints(
-            uncovered_fprints,
-            use_context_filters=False,
-            suppress_warning=True,
-            not_matching=True,
-            **filters,
+def __output_time_log(resource, st, et):
+    resrc_plural = lib.get_plural_name_from_alias(resource)
+    if resrc_plural and resrc_plural not in not_time_based:
+        cli.try_log(
+            f"Getting {resrc_plural} from {lib.epoch_to_zulu(st)} to"
+            f" {lib.epoch_to_zulu(et)}"
         )
-    uncovered_fprint_groups = spyctl_fprints.make_fingerprint_groups(
-        uncovered_fprints
-    )
-    uncovered_tot = 0
-    for groups in uncovered_fprint_groups:
-        uncovered_tot += len(groups)
-    coverage = 1 - (uncovered_tot / total)
-    return uncovered_fprint_groups, coverage
+    elif resrc_plural:
+        cli.try_log(f"Getting {resrc_plural}")
+
+
+def __st_at_least_2hrs(st: float):
+    two_hours_secs = 60 * 60 * 2
+    now = time.time()
+    if now - st < two_hours_secs:
+        return now - two_hours_secs
+    return st
+
+
+def __wide_not_supported():
+    cli.try_log("The 'wide' output is not yet supported for this resource")

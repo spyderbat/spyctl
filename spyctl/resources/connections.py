@@ -68,15 +68,22 @@ class ConnectionGroup:
         return rv
 
 
-def conn_stream_summary_output(
+def conn_summary_output(
     ctx: cfg.Context,
     muids: List[str],
     time: Tuple[float, float],
     ignore_ips=False,
+    pipeline=None,
     limit_mem=False,
 ) -> str:
     groups: Dict[str, ConnectionGroup] = {}
-    for conn in api.get_connections(*ctx.get_api_data(), muids, time):
+    for conn in api.get_connections(
+        *ctx.get_api_data(),
+        muids,
+        time,
+        limit_mem=limit_mem,
+        pipeline=pipeline,
+    ):
         key = _key(conn, ignore_ips)
         if key not in groups:
             groups[key] = ConnectionGroup()
@@ -94,33 +101,7 @@ def conn_stream_summary_output(
         headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
-    return output + "\n"
-
-
-def connections_output_summary(conns: List[Dict], ignore_ips=False) -> str:
-    headers = SUMMARY_HEADERS
-    if ignore_ips:
-        headers = headers[1:]
-    groups = {}
-    for conn in conns:
-        key = _key(conn, ignore_ips)
-        if key not in groups:
-            groups[key] = ConnectionGroup()
-        groups[key].add_conn(conn)
-    data = []
-    for group in groups.values():
-        data.append(group.summary_data(ignore_ips))
-    sort_key = (
-        (lambda x: [x[0], x[1]])
-        if ignore_ips
-        else (lambda x: [x[1], x[0], x[2]])
-    )
-    output = tabulate(
-        sorted(data, key=sort_key),
-        headers=headers,
-        tablefmt="plain",
-    )
-    return output + "\n"
+    return output
 
 
 def _key(connection: Dict, ignore_ips):

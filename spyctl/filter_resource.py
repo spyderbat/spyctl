@@ -88,8 +88,8 @@ def filter_spydertraces(
     return spydertraces_data
 
 
-def filter_machines(
-    machines_data: List[Dict],
+def filter_sources(
+    sources_data: List[Dict],
     use_context_filters=True,
     **filters,
 ):
@@ -98,10 +98,10 @@ def filter_machines(
             data, MACHINES_TGT_FIELDS, filt
         ),
     }
-    machines_data = use_filters(
-        machines_data, filter_set, filters, use_context_filters
+    sources_data = use_filters(
+        sources_data, filter_set, filters, use_context_filters
     )
-    return machines_data
+    return sources_data
 
 
 def filter_nodes(
