@@ -1120,6 +1120,12 @@ class GetCommand(lib.ArgumentParametersCommand):
                     ),
                     help="The type of fingerprint to return.",
                 ),
+                click.option(
+                    "--raw-data",
+                    is_flag=True,
+                    help="When outputting to yaml or json, this outputs the"
+                    " raw fingerprint data, instead of the fingerprint groups",
+                ),
             ],
         },
         {

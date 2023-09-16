@@ -44,7 +44,7 @@ def spydertraces_stream_summary_output(
     return tabulate(
         data,
         headers=SUMMARY_HEADERS,
-        tablefmt="simple",
+        tablefmt="plain",
     )
 
 

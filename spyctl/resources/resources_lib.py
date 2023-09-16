@@ -36,8 +36,10 @@ def __handle_uid_list_input(data: Dict, ctx: cfg.Context = None):
         data[lib.METADATA_FIELD][lib.METADATA_END_TIME_FIELD],
     )
     src = ctx.global_source
-    fprints = api.get_fingerprints(
-        *ctx.get_api_data(), [src], time, pipeline=pipeline
+    fprints = list(
+        api.get_fingerprints(
+            *ctx.get_api_data(), [src], time, pipeline=pipeline
+        )
     )
     return fprints
 

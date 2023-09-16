@@ -117,6 +117,11 @@ CONNECTIONS_RESOURCE = Aliases(
     "connection",
     "connections",
 )
+CONNECTION_BUN_RESOURCE = Aliases(
+    ["connection-bundle", "connection-bundles", "conn_bun", "conn_buns", "cb"],
+    "connection-bundle",
+    "connection-bundles",
+)
 DEPLOYMENTS_RESOURCE = Aliases(
     ["deployments", "deployment", "deploys", "deploy"],
     "deployment",
@@ -244,6 +249,7 @@ GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
+    CONNECTION_BUN_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
     DEPLOYMENTS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
@@ -740,6 +746,7 @@ VALID_FROM_FIELD = "valid_from"
 # K8s Objects
 BE_K8S_STATUS = "k8s_status"
 BE_PHASE = "phase"
+BE_KUID_FIELD = "kuid"
 
 # Connections
 PROC_NAME_FIELD = "proc_name"
@@ -748,6 +755,13 @@ REMOTE_HOSTNAME_FIELD = "remote_hostname"
 PROTOCOL_FIELD = "proto"
 REMOTE_PORT = "remote_port"
 LOCAL_PORT = "local_port"
+
+# Connection Bundles
+CLIENT_IP = "client_ip"
+CLIENT_DNS = "client_dns"
+SERVER_IP = "server_ip"
+SERVER_DNS = "server_dns"
+SERVER_PORT = "server_port"
 
 # Deployments
 REPLICAS_FIELD = "replicas"

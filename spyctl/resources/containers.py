@@ -32,7 +32,7 @@ class ContainerGroup:
             self.image = cont["image"]
             self.image_id = cont["image_id"]
             self.namespace = cont.get("pod_namespace")
-            self.cluster = cont.get("cluster_name") or cont.get("cluster_uid")
+            self.cluster = cont.get("clustername") or cont.get("cluster_uid")
 
     def summary_data(self) -> List[str]:
         rv = [
@@ -76,11 +76,11 @@ def cont_summary_output(
     data = []
     for group in cont_groups.values():
         data.append(group.summary_data())
-    data.sort(key=lambda x: (x[0], x[1], x[5], x[4]))
+    data.sort(key=lambda x: (x[5], x[0], x[1], x[4]))
     rv = tabulate(
         data,
         headers=SUMMARY_HEADERS,
-        tablefmt="simple",
+        tablefmt="plain",
     )
     return rv
 

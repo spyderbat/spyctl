@@ -591,6 +591,36 @@ def get_connections(
         __log_interrupt()
 
 
+def get_connection_bundles(
+    api_url,
+    api_key,
+    org_uid,
+    sources,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
+    try:
+        datatype = lib.DATATYPE_SPYDERGRAPH
+        schema = lib.MODEL_CONN_BUN_PREFIX
+        for conn_bun in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            sources,
+            datatype,
+            schema,
+            time,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield conn_bun
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
 def get_containers(
     api_url,
     api_key,

@@ -5,26 +5,34 @@ from tabulate import tabulate
 import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
 import spyctl.api as api
+import spyctl.resources.api_filters as _af
+import spyctl.filter_resource as filt
 
 SUMMARY_HEADERS = ["NAME", "LAST_SEEN_STATUS", "AGE", "CLUSTER"]
 
 
 def namespace_summary_output(
+    name_or_uid: str,
     ctx: cfg.Context,
     clusters: List[str],
     time: Tuple[float, float],
     pipeline=None,
 ) -> str:
     data = []
+    field_names = _af.Namespaces.get_name_or_uid_fields()
     for namespace in api.get_namespaces(
         *ctx.get_api_data(), clusters, time, pipeline
     ):
-        data.append(__namespace_data(namespace))
+        ns = [namespace]
+        if name_or_uid:
+            ns = filt.filter_obj(ns, field_names, name_or_uid)
+        if ns:
+            data.append(__namespace_data(namespace))
     data.sort(key=lambda x: (x[3], x[0]))
     return tabulate(
         data,
         headers=SUMMARY_HEADERS,
-        tablefmt="simple",
+        tablefmt="plain",
     )
 
 

@@ -19,9 +19,53 @@ SOURCE_TYPE_MUID = "muid"
 SOURCE_TYPE_POL = "pol"
 
 
+def get_filtered_cluids(**filters) -> List[str]:
+    ctx = cfg.get_current_context()
+    clusters = api.get_clusters(*ctx.get_api_data())
+    clusters = filt.filter_clusters(clusters, **filters)
+    cluids = [c["uid"] for c in clusters]
+    return cluids
+
+
+def get_filtered_muids(**filters) -> List[str]:
+    ctx = cfg.get_current_context()
+    sources = api.get_sources(*ctx.get_api_data())
+    sources = filt.filter_sources(sources, **filters)
+    muids = [s["uid"] for s in sources]
+    return muids
+
+
+def get_filtered_pol_uids(**filters) -> List[str]:
+    ctx = cfg.get_current_context()
+    policies = api.get_policies(*ctx.get_api_data())
+    policy_filters = filters.get(lib.POLICIES_FIELD)
+    if policy_filters:
+        policies = [
+            p
+            for p in filt.filter_obj(
+                policies,
+                [
+                    [lib.METADATA_FIELD, lib.METADATA_NAME_FIELD],
+                    [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+                ],
+                policy_filters,
+            )
+        ]
+    policy_uids = [
+        p[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] for p in policies
+    ]
+    return policy_uids
+
+
 class API_Filter:
-    property_map = {}
-    name_or_uid_props: []
+    property_map = (
+        {}
+    )  # property -> field name on object (. notation for nested fields)
+    name_or_uid_props: []  # properties in the property_map that are related to name_or_id filtering
+    values_helper = {
+        lib.CLUSTER_FIELD: get_filtered_cluids,
+        lib.MACHINE_SELECTOR_FIELD: get_filtered_muids,
+    }  # property -> callable that takes the filter value and turns it into something more useable. Ex. cluster name to cluster uid
     source_type = SOURCE_TYPE_MUID
     alternate_source_type = None
 
@@ -31,14 +75,14 @@ class API_Filter:
     ) -> List:
         pipeline_items = []
         pipeline_items.append(
-            cls.generate_fprint_api_filters(schema, name_or_uid, **filters)
+            cls.__generate_fprint_api_filters(schema, name_or_uid, **filters)
         )
         if latest_model:
             pipeline_items.append({"latest_model": {}})
         return pipeline_items
 
     @classmethod
-    def generate_fprint_api_filters(
+    def __generate_fprint_api_filters(
         cls,
         schema,
         name_or_uid: Union[str, List],
@@ -47,20 +91,20 @@ class API_Filter:
         and_items = [{"schema": schema}]
         if name_or_uid:
             and_items.append(
-                cls.build_or_block(
+                cls.__build_or_block(
                     cls.name_or_uid_props,
                     [name_or_uid],
                 )
             )
         for key, values in filters.items():
             if isinstance(values, list) and len(values) > 1:
-                and_items.append(cls.build_or_block([key], values))
+                and_items.append(cls.__build_or_block([key], values))
             else:
                 if isinstance(values, list):
                     value = values[0]
                 else:
                     value = values
-                property = cls.build_property(key)
+                property = cls.__build_property(key)
                 if not property:
                     continue
                 if isinstance(value, int) or isinstance(value, float):
@@ -77,7 +121,7 @@ class API_Filter:
         return rv
 
     @classmethod
-    def build_or_block(cls, keys: List[str], values: List[str]):
+    def __build_or_block(cls, keys: List[str], values: List[str]):
         or_items = []
         for key in keys:
             for value in values:
@@ -85,21 +129,21 @@ class API_Filter:
                     value = lib.simple_glob_to_regex(value)
                     or_items.append(
                         {
-                            "property": cls.build_property(key),
+                            "property": cls.__build_property(key),
                             "re_match": value,
                         }
                     )
                 else:
                     or_items.append(
                         {
-                            "property": cls.build_property(key),
+                            "property": cls.__build_property(key),
                             "equals": value,
                         }
                     )
         return {"or": or_items}
 
     @classmethod
-    def build_property(cls, key: str):
+    def __build_property(cls, key: str):
         return cls.property_map[key]
 
     @classmethod
@@ -120,35 +164,35 @@ class API_Filter:
                 lib.MACHINES_FIELD in ctx_filters
                 or lib.MACHINES_FIELD in filters
             ):
-                muids = cls.__get_filtered_muids(**filters)
+                muids = get_filtered_muids(**filters)
                 cls.__pop_muid_filters(ctx_filters, filters)
                 if muids:
                     sources = muids
         elif cls.source_type == SOURCE_TYPE_CLUID:
-            cluids = cls.__get_filtered_cluids(**filters)
+            cluids = get_filtered_cluids(**filters)
             cls.__pop_cluid_filters(ctx_filters, filters)
             sources = cluids
         elif cls.source_type == SOURCE_TYPE_CLUID_BASE:
-            cluids = cls.__get_filtered_cluids(**filters)
+            cluids = get_filtered_cluids(**filters)
             cls.__pop_cluid_filters(ctx_filters, filters)
             sources = [cluid + "_base" for cluid in cluids]
         elif cls.source_type == SOURCE_TYPE_CLUID_POCO:
-            cluids = cls.__get_filtered_cluids(**filters)
+            cluids = get_filtered_cluids(**filters)
             cls.__pop_cluid_filters(ctx_filters, filters)
             sources = [cluid + "_poco" for cluid in cluids]
         elif cls.source_type == SOURCE_TYPE_POL:
-            pol_uids = cls.__get_filtered_pol_uids(**filters)
+            pol_uids = get_filtered_pol_uids(**filters)
             sources = pol_uids
         else:  # muids is the default
             if cls.alternate_source_type == SOURCE_TYPE_CLUID_POCO and (
                 lib.CLUSTER_FIELD in ctx_filters
                 or lib.CLUSTER_FIELD in filters
             ):
-                cluids = cls.__get_filtered_cluids(**filters)
+                cluids = get_filtered_cluids(**filters)
                 cls.__pop_cluid_filters(ctx_filters, filters)
                 sources = [cluid + "_poco" for cluid in cluids]
             else:
-                muids = cls.__get_filtered_muids(**filters)
+                muids = get_filtered_muids(**filters)
                 cls.__pop_muid_filters(ctx_filters, filters)
                 sources = muids
         return sources
@@ -162,45 +206,11 @@ class API_Filter:
         for key, value in filters.items():
             if key in cls.property_map:
                 rv_filters[key] = value
+        for key, value in rv_filters.items():
+            if key in cls.values_helper:
+                value = cls.values_helper[key](**{key: value})
+                rv_filters[key] = value
         return rv_filters
-
-    @staticmethod
-    def __get_filtered_cluids(**filters) -> List[str]:
-        ctx = cfg.get_current_context()
-        clusters = api.get_clusters(*ctx.get_api_data())
-        clusters = filt.filter_clusters(clusters, **filters)
-        cluids = [c["uid"] for c in clusters]
-        return cluids
-
-    @staticmethod
-    def __get_filtered_muids(**filters) -> List[str]:
-        ctx = cfg.get_current_context()
-        sources = api.get_sources(*ctx.get_api_data())
-        sources = filt.filter_sources(sources, **filters)
-        muids = [s["uid"] for s in sources]
-        return muids
-
-    @staticmethod
-    def __get_filtered_pol_uids(**filters) -> List[str]:
-        ctx = cfg.get_current_context()
-        policies = api.get_policies(*ctx.get_api_data())
-        policy_filters = filters.get(lib.POLICIES_FIELD)
-        if policy_filters:
-            policies = [
-                p
-                for p in filt.filter_obj(
-                    policies,
-                    [
-                        [lib.METADATA_FIELD, lib.METADATA_NAME_FIELD],
-                        [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-                    ],
-                    policy_filters,
-                )
-            ]
-        policy_uids = [
-            p[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] for p in policies
-        ]
-        return policy_uids
 
     @staticmethod
     def __pop_cluid_filters(ctx_filters: Dict, cmdline_filters: Dict):
@@ -257,7 +267,7 @@ class AgentMetrics(API_Filter):
 
 class Connections(API_Filter):
     property_map = {
-        lib.CONN_ID: lib.CONN_ID,
+        lib.ID_FIELD: lib.ID_FIELD,
         lib.PROC_NAME_FIELD: lib.PROC_NAME_FIELD,
         lib.REMOTE_HOSTNAME_FIELD: lib.REMOTE_HOSTNAME_FIELD,
         lib.PROTOCOL_FIELD: "proto",
@@ -266,11 +276,34 @@ class Connections(API_Filter):
         lib.REMOTE_PORT: lib.REMOTE_PORT,
     }
     name_or_uid_props = [
-        lib.CONN_ID,
+        lib.ID_FIELD,
         lib.REMOTE_HOSTNAME_FIELD,
         lib.PROC_NAME_FIELD,
     ]
     source_type = SOURCE_TYPE_MUID
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_CONNECTION_PREFIX
+        return super(Connections, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
+class ConnectionBundles(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.PROTOCOL_FIELD: "proto",
+        lib.CLIENT_PORT: lib.CLIENT_PORT,
+        lib.SERVER_PORT: lib.SERVER_PORT,
+    }
+    name_or_uid_props = [
+        lib.ID_FIELD,
+    ]
+    source_type = SOURCE_TYPE_MUID
+    # TODO: add alternate_source_type = SOURCE_TYPE_CLUID_CONNS
 
     @classmethod
     def generate_pipeline(
@@ -290,6 +323,7 @@ class Containers(API_Filter):
         lib.CONTAINER_NAME_FIELD: lib.BE_CONTAINER_NAME,
         lib.IMAGEID_FIELD: lib.BE_CONTAINER_IMAGE_ID,
         lib.STATUS_FIELD: lib.STATUS_FIELD,
+        lib.NAMESPACE_FIELD: "pod_namespace",
     }
     name_or_uid_prop_names = [
         lib.ID_FIELD,
@@ -312,8 +346,13 @@ class Containers(API_Filter):
 
 
 class Deployments(API_Filter):
-    property_map = {}
-    name_or_uid_props = [lib.ID_FIELD]
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
 
     @classmethod
@@ -331,20 +370,21 @@ class Fingerprints(API_Filter):
         lib.MACHINES_FIELD: "muid",
         lib.POD_FIELD: "pod_uid",
         lib.CLUSTER_FIELD: "cluster_uid",
-        lib.NAMESPACE_FIELD: "metadata.namespace",
+        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
         lib.CGROUP_FIELD: "cgroup",
         lib.IMAGE_FIELD: "image",
         lib.IMAGEID_FIELD: "image_id",
         lib.CONTAINER_ID_FIELD: "container_id",
         lib.CONTAINER_NAME_FIELD: "container_name",
         lib.STATUS_FIELD: lib.STATUS_FIELD,
+        lib.ID_FIELD: lib.ID_FIELD,
     }
     source_type = SOURCE_TYPE_GLOBAL
     alternate_source_type = SOURCE_TYPE_MUID
 
     name_or_uid_props = [
-        lib.BE_CONTAINER_IMAGE,
-        lib.BE_CONTAINER_IMAGE_ID,
+        lib.IMAGE_FIELD,
+        lib.IMAGEID_FIELD,
         lib.CGROUP_FIELD,
         lib.ID_FIELD,
     ]
@@ -381,28 +421,41 @@ class Machines(API_Filter):
 
 
 class Namespaces(API_Filter):
-    property_map = {lib.ID_FIELD: lib.ID_FIELD}
-    name_or_uid_props = [lib.ID_FIELD]
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_UID_FIELD}",
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+    }
+    # Namespaces aren't filtered by name at the API Level
+    name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
 
     @classmethod
-    def generate_pipeline(
-        cls, name_or_uid=None, latest_model=True, filters={}
-    ) -> List:
+    def generate_pipeline(cls, latest_model=True, filters={}) -> List:
         # Namespace objects don't exist in spyderbat's backend. Clusters
         # track the metadata of namespaces though.
         schema = lib.MODEL_CLUSTER_PREFIX
         return super(Namespaces, cls).generate_pipeline(
-            schema, name_or_uid, latest_model, filters
+            schema, None, latest_model, filters
         )
+
+    @classmethod
+    def get_name_or_uid_fields(cls):
+        rv = []
+        for prop in cls.name_or_uid_props:
+            rv.append(cls.property_map[prop])
+        return rv
 
 
 class Nodes(API_Filter):
     property_map = {
         lib.ID_FIELD: lib.ID_FIELD,
-        lib.METADATA_NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",  # noqa: E501
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
     }
-    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
 
     @classmethod
@@ -433,8 +486,9 @@ class OpsFlags(API_Filter):
 class Pods(API_Filter):
     property_map = {
         lib.ID_FIELD: lib.ID_FIELD,
-        lib.METADATA_NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",  # noqa: E501
-        lib.NAMESPACE_FIELD: "metadata.namespace",
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
     }
     name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
     source_type = SOURCE_TYPE_CLUID_POCO
@@ -475,8 +529,12 @@ class Processes(API_Filter):
 
 
 class RedFlags(API_Filter):
-    property_map = {lib.ID_FIELD: lib.ID_FIELD}
-    name_or_uid_props = [lib.ID_FIELD]
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        "short_name": "short_name",
+        lib.CLUSTER_FIELD: "cluster_uid",
+    }
+    name_or_uid_props = [lib.ID_FIELD, "short_name"]
     source_type = SOURCE_TYPE_MUID
 
     @classmethod

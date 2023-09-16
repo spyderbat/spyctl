@@ -302,17 +302,21 @@ def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
         if muids:
             filters[lib.MACHINES_FIELD] = muids
         pipeline = _af.Fingerprints.generate_pipeline(filters=filters)
-        fingerprints = api.get_fingerprints(
-            *ctx.get_api_data(),
-            [ctx.global_source],
-            time=(st, et),
-            pipeline=pipeline,
+        fingerprints = list(
+            api.get_fingerprints(
+                *ctx.get_api_data(),
+                [ctx.global_source],
+                time=(st, et),
+                pipeline=pipeline,
+            )
         )
     else:
-        fingerprints = api.get_fingerprints(
-            *ctx.get_api_data(),
-            [ctx.global_source],
-            time=(st, et),
+        fingerprints = list(
+            api.get_fingerprints(
+                *ctx.get_api_data(),
+                [ctx.global_source],
+                time=(st, et),
+            )
         )
     FINGERPRINTS = fingerprints
     return fingerprints

@@ -1,4 +1,3 @@
-import json
 import time
 from typing import IO, Dict, List, Tuple
 
@@ -10,6 +9,7 @@ import spyctl.resources.agents as spy_agents
 import spyctl.resources.api_filters as _af
 import spyctl.resources.clusters as spyctl_clusts
 import spyctl.resources.connections as spyctl_conns
+import spyctl.resources.connection_bundles as spyctl_cb
 import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.deployments as spyctl_deployments
 import spyctl.resources.fingerprints as spyctl_fprints
@@ -56,6 +56,8 @@ def handle_get(
         handle_get_clusters(name_or_id, output, **filters)
     elif resource == lib.CONNECTIONS_RESOURCE:
         handle_get_connections(name_or_id, st, et, output, **filters)
+    elif resource == lib.CONNECTION_BUN_RESOURCE:
+        handle_get_conn_buns(name_or_id, st, et, output, **filters)
     elif resource == lib.CONTAINER_RESOURCE:
         handle_get_containers(name_or_id, st, et, output, **filters)
     elif resource == lib.DEPLOYMENTS_RESOURCE:
@@ -263,6 +265,33 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
             cli.show(connection, output, ndjson=NDJSON)
 
 
+def handle_get_conn_buns(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.ConnectionBundles.build_sources_and_filters(
+        **filters
+    )
+    pipeline = _af.ConnectionBundles.generate_pipeline(
+        name_or_id, st, et, output, filters
+    )
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_cb.conn_bun_summary_output(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for conn_bun in api.get_connection_bundles(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            lib.is_redirected(),
+        ):
+            cli.show(conn_bun, output, ndjson=NDJSON)
+
+
 def handle_get_deployments(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     sources, filters = _af.Deployments.build_sources_and_filters(**filters)
@@ -309,13 +338,14 @@ def handle_get_machines(name_or_id, st, et, output: str, **filters: Dict):
             cli.show(machine, output, ndjson=NDJSON)
 
 
-def handle_get_namespaces(name, st, et, output, **filters):
+def handle_get_namespaces(name_or_uid, st, et, output, **filters):
     ctx = cfg.get_current_context()
     sources, filters = _af.Namespaces.build_sources_and_filters(**filters)
-    pipeline = _af.Namespaces.generate_pipeline(name, filters=filters)
+    pipeline = _af.Namespaces.generate_pipeline(name_or_uid, filters=filters)
+    field_names = _af.Namespaces.get_name_or_uid_fields()
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_names.namespace_summary_output(
-            ctx, sources, (st, et), pipeline
+            name_or_uid, ctx, sources, (st, et), pipeline
         )
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
@@ -328,7 +358,11 @@ def handle_get_namespaces(name, st, et, output, **filters):
             pipeline,
             lib.is_redirected(),
         ):
-            cli.show(namespace, output, ndjson=NDJSON)
+            ns = [namespace]
+            if name_or_uid:
+                ns = filt.filter_obj(ns, field_names, name_or_uid)
+            if ns:
+                cli.show(namespace, output, ndjson=NDJSON)
 
 
 def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):

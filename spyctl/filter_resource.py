@@ -442,14 +442,10 @@ def get_field_value(
 ) -> Optional[Union[str, Iterable]]:
     value = obj
     if isinstance(field, str):
-        key = field
+        field = field.split(".")
+    keys = field
+    for key in keys:
         value = value.get(key)
         if value is None:
             return None
-    else:
-        keys = field
-        for key in keys:
-            value = value.get(key)
-            if value is None:
-                return None
     return value
