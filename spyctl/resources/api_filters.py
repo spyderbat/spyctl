@@ -540,7 +540,7 @@ class Processes(API_Filter):
         cls, name_or_uid=None, latest_model=True, filters={}
     ) -> List:
         schema = lib.MODEL_PROCESS_PREFIX
-        return super(Containers, cls).generate_pipeline(
+        return super(Processes, cls).generate_pipeline(
             schema, name_or_uid, latest_model, filters
         )
 
@@ -593,7 +593,7 @@ class Spydertraces(API_Filter):
         cls, name_or_uid=None, latest_model=True, filters={}
     ) -> List:
         schema = lib.MODEL_SPYDERTRACE_PREFIX
-        return super(Containers, cls).generate_pipeline(
+        return super(Spydertraces, cls).generate_pipeline(
             schema, name_or_uid, latest_model, filters
         )
 
