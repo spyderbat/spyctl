@@ -19,10 +19,10 @@ SUMMARY_HEADERS = [
 
 def deployment_summary_data(deployment: Dict) -> List:
     k8s_status = deployment[lib.BE_K8S_STATUS]
-    replicas = k8s_status[lib.REPLICAS_FIELD]
-    available_replicas = k8s_status[lib.AVAILABLE_REPLICAS_FIELD]
-    ready_replicas = k8s_status[lib.READY_REPLICAS_FIELD]
-    updated_replicas = k8s_status[lib.UPDATED_REPLICAS_FIELD]
+    replicas = k8s_status.get(lib.REPLICAS_FIELD, "0")
+    available_replicas = k8s_status.get(lib.AVAILABLE_REPLICAS_FIELD, "0")
+    ready_replicas = k8s_status.get(lib.READY_REPLICAS_FIELD, "0")
+    updated_replicas = k8s_status.get(lib.UPDATED_REPLICAS_FIELD, "0")
     meta = deployment[lib.METADATA_FIELD]
     rv = [
         meta["name"],

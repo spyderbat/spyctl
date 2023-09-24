@@ -447,7 +447,7 @@ def handle_get_processes(name_or_id, st, et, output, **filters):
     pipeline = _af.Processes.generate_pipeline(name_or_id, filters=filters)
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_procs.processes_stream_output_summary(
-            ctx, sources, time, pipeline, LIMIT_MEM
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
         )
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
