@@ -95,7 +95,7 @@ def flags_output_summary(
         headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
-    return output + "\n"
+    return output
 
 
 def _severity_index(severity):

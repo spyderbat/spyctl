@@ -13,7 +13,16 @@ import spyctl.spyctl_lib as lib
 # Source types
 SOURCE_TYPE_CLUID = "cluid"
 SOURCE_TYPE_CLUID_BASE = "cluid_base"
+SOURCE_TYPE_CLUID_CBUN = "cluid_cbun"
 SOURCE_TYPE_CLUID_POCO = "cluid_poco"
+SOURCE_TYPE_CLUID_FLAG = "cluid_flag"
+CLUSTER_SOURCES = [
+    SOURCE_TYPE_CLUID,
+    SOURCE_TYPE_CLUID_BASE,
+    SOURCE_TYPE_CLUID_CBUN,
+    SOURCE_TYPE_CLUID_FLAG,
+    SOURCE_TYPE_CLUID_POCO,
+]
 SOURCE_TYPE_GLOBAL = "global"
 SOURCE_TYPE_MUID = "muid"
 SOURCE_TYPE_POL = "pol"
@@ -150,12 +159,12 @@ class API_Filter:
     def build_sources_and_filters(cls, **filters) -> Tuple[List[str], Dict]:
         ctx = cfg.get_current_context()
         ctx_filters = deepcopy(ctx.get_filters())
-        sources = cls.__get_sources(ctx_filters, **filters)
-        filters = cls.__get_filters(ctx_filters, **filters)
+        sources = cls.__get_sources(ctx_filters, filters)
+        filters = cls.__get_filters(ctx_filters, filters)
         return sources, filters
 
     @classmethod
-    def __get_sources(cls, ctx_filters: Dict, **filters):
+    def __get_sources(cls, ctx_filters: Dict, filters: Dict):
         ctx = cfg.get_current_context()
         sources = []
         if cls.source_type == SOURCE_TYPE_GLOBAL:
@@ -184,13 +193,20 @@ class API_Filter:
             pol_uids = get_filtered_pol_uids(**filters)
             sources = pol_uids
         else:  # muids is the default
-            if cls.alternate_source_type == SOURCE_TYPE_CLUID_POCO and (
+            if cls.alternate_source_type in CLUSTER_SOURCES and (
                 lib.CLUSTER_FIELD in ctx_filters
                 or lib.CLUSTER_FIELD in filters
             ):
                 cluids = get_filtered_cluids(**filters)
                 cls.__pop_cluid_filters(ctx_filters, filters)
-                sources = [cluid + "_poco" for cluid in cluids]
+                if cls.alternate_source_type == SOURCE_TYPE_CLUID_CBUN:
+                    sources = [cluid + "_cbun" for cluid in cluids]
+                elif cls.alternate_source_type == SOURCE_TYPE_CLUID_FLAG:
+                    sources = [cluid + "_flag" for cluid in cluids]
+                elif cls.alternate_source_type == SOURCE_TYPE_CLUID_POCO:
+                    sources = [cluid + "_poco" for cluid in cluids]
+                else:
+                    sources = cluids
             else:
                 muids = get_filtered_muids(**filters)
                 cls.__pop_muid_filters(ctx_filters, filters)
@@ -198,7 +214,7 @@ class API_Filter:
         return sources
 
     @classmethod
-    def __get_filters(cls, ctx_filters: Dict, **filters):
+    def __get_filters(cls, ctx_filters: Dict, filters: Dict):
         rv_filters = {}
         for key, value in ctx_filters.items():
             if key in cls.property_map:
@@ -303,14 +319,14 @@ class ConnectionBundles(API_Filter):
         lib.ID_FIELD,
     ]
     source_type = SOURCE_TYPE_MUID
-    # TODO: add alternate_source_type = SOURCE_TYPE_CLUID_CONNS
+    alternate_source_type = SOURCE_TYPE_CLUID_CBUN
 
     @classmethod
     def generate_pipeline(
         cls, name_or_uid=None, latest_model=True, filters={}
     ) -> List:
-        schema = lib.MODEL_CONNECTION_PREFIX
-        return super(Connections, cls).generate_pipeline(
+        schema = lib.MODEL_CONN_BUN_PREFIX
+        return super(ConnectionBundles, cls).generate_pipeline(
             schema, name_or_uid, latest_model, filters
         )
 
@@ -472,6 +488,7 @@ class OpsFlags(API_Filter):
     property_map = {lib.ID_FIELD: lib.ID_FIELD}
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_MUID
+    alternate_source_type = SOURCE_TYPE_CLUID_FLAG
 
     @classmethod
     def generate_pipeline(
@@ -536,6 +553,7 @@ class RedFlags(API_Filter):
     }
     name_or_uid_props = [lib.ID_FIELD, "short_name"]
     source_type = SOURCE_TYPE_MUID
+    alternate_source_type = SOURCE_TYPE_CLUID_FLAG
 
     @classmethod
     def generate_pipeline(

@@ -602,7 +602,10 @@ def get_connection_bundles(
     disable_pbar_on_first: bool = False,
 ):
     try:
-        datatype = lib.DATATYPE_SPYDERGRAPH
+        if sources and sources[0].startswith("clus:"):
+            datatype = lib.DATATYPE_K8S
+        else:
+            datatype = lib.DATATYPE_SPYDERGRAPH
         schema = lib.MODEL_CONN_BUN_PREFIX
         for conn_bun in retrieve_data(
             api_url,
@@ -829,20 +832,23 @@ def get_opsflags(
     api_url,
     api_key,
     org_uid,
-    muids,
+    sources,
     time,
     pipeline=None,
     limit_mem: bool = False,
     disable_pbar_on_first: bool = False,
 ) -> Generator[Dict, None, None]:
     try:
-        datatype = lib.DATATYPE_REDFLAGS
+        if sources and sources[0].startswith("clus:"):
+            datatype = lib.DATATYPE_K8S
+        else:
+            datatype = lib.DATATYPE_REDFLAGS
         schema = lib.EVENT_OPSFLAG_PREFIX
         for opsflag in retrieve_data(
             api_url,
             api_key,
             org_uid,
-            muids,
+            sources,
             datatype,
             schema,
             time,
@@ -920,20 +926,23 @@ def get_redflags(
     api_url,
     api_key,
     org_uid,
-    muids,
+    sources,
     time,
     pipeline=None,
     limit_mem: bool = False,
     disable_pbar_on_first: bool = False,
 ) -> Generator[Dict, None, None]:
     try:
-        datatype = lib.DATATYPE_REDFLAGS
+        if sources and sources[0].startswith("clus:"):
+            datatype = lib.DATATYPE_K8S
+        else:
+            datatype = lib.DATATYPE_REDFLAGS
         schema = lib.EVENT_REDFLAG_PREFIX
         for redflag in retrieve_data(
             api_url,
             api_key,
             org_uid,
-            muids,
+            sources,
             datatype,
             schema,
             time,

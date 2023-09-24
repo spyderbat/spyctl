@@ -271,7 +271,7 @@ def handle_get_conn_buns(name_or_id, st, et, output, **filters):
         **filters
     )
     pipeline = _af.ConnectionBundles.generate_pipeline(
-        name_or_id, st, et, output, filters
+        name_or_id, filters=filters
     )
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_cb.conn_bun_summary_output(
@@ -287,7 +287,7 @@ def handle_get_conn_buns(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(conn_bun, output, ndjson=NDJSON)
 
@@ -310,7 +310,7 @@ def handle_get_deployments(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(deployment, output, ndjson=NDJSON)
 
@@ -333,7 +333,7 @@ def handle_get_machines(name_or_id, st, et, output: str, **filters: Dict):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(machine, output, ndjson=NDJSON)
 
@@ -356,7 +356,7 @@ def handle_get_namespaces(name_or_uid, st, et, output, **filters):
             sources,
             (st, et),
             pipeline,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             ns = [namespace]
             if name_or_uid:
@@ -385,7 +385,7 @@ def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(node, output, ndjson=NDJSON)
 
@@ -413,7 +413,7 @@ def handle_get_opsflags(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(flag, output, ndjson=NDJSON)
 
@@ -436,7 +436,7 @@ def handle_get_pods(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(pod, output, ndjson=NDJSON)
 
@@ -459,7 +459,7 @@ def handle_get_processes(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(process, output, ndjson=NDJSON)
 
@@ -487,7 +487,7 @@ def handle_get_redflags(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(flag, output, ndjson=NDJSON)
 
@@ -513,7 +513,7 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            lib.is_redirected(),
+            not lib.is_redirected(),
         ):
             cli.show(spydertrace, output, ndjson=NDJSON)
 

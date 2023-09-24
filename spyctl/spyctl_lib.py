@@ -491,6 +491,7 @@ EVENT_AUDIT_SUBTYPE_MAP = {
 MODEL_AGENT_SCHEMA_PREFIX = "model_agent"
 MODEL_CLUSTER_PREFIX = "model_k8s_cluster"
 MODEL_CONNECTION_PREFIX = "model_connection"
+MODEL_CONN_BUN_PREFIX = "model_bundled_connection"
 MODEL_CONTAINER_PREFIX = "model_container"
 MODEL_DEPLOYMENT_PREFIX = "model_k8s_deployment"
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
@@ -758,10 +759,12 @@ LOCAL_PORT = "local_port"
 
 # Connection Bundles
 CLIENT_IP = "client_ip"
-CLIENT_DNS = "client_dns"
+CLIENT_DNS = "client_dns_name"
+CLIENT_PORT = "client_port"
 SERVER_IP = "server_ip"
-SERVER_DNS = "server_dns"
+SERVER_DNS = "server_dns_name"
 SERVER_PORT = "server_port"
+NUM_CONNECTIONS = "num_connections"
 
 # Deployments
 REPLICAS_FIELD = "replicas"

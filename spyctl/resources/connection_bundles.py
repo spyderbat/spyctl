@@ -9,7 +9,9 @@ import spyctl.api as api
 SUMMARY_HEADERS = [
     "SERVER",
     "CLIENT",
-    "SERVER_PORT" "CONNECTIONS" "LATEST_TIMESTAMP",
+    "SERVER_PORT",
+    "CONNECTIONS",
+    "LATEST_TIMESTAMP",
 ]
 
 
@@ -46,13 +48,19 @@ class ConnBunGroup:
 
     def summary_data(self) -> List[str]:
         rv = [
-            self.server_dns or self.server_ip,
-            self.client_dns or self.client_ip,
+            self.__dns_summary(self.server_dns) or self.server_ip,
+            self.__dns_summary(self.client_dns) or self.client_ip,
             self.server_port,
             self.conn_count,
             lib.epoch_to_zulu(self.latest_timestamp),
         ]
         return rv
+
+    def __dns_summary(self, dns_name: str) -> str:
+        if not dns_name:
+            return None
+        names = dns_name.split(",")
+        return names[0]
 
 
 def conn_bun_summary_output(
@@ -72,8 +80,8 @@ def conn_bun_summary_output(
         groups[key].add_conn_bun(conn_bun)
     data = []
     for group in groups.values():
-        data.append(group.summary_data)
-    data.sort(key=lambda x: [x[0], x[2]])
+        data.append(group.summary_data())
+    data.sort(key=lambda x: (x[0], x[2]))
     output = tabulate(
         data,
         headers=SUMMARY_HEADERS,
