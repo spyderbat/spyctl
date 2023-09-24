@@ -983,6 +983,32 @@ class GetCommand(lib.ArgumentParametersCommand):
     argument_name = "resource"
     argument_value_parameters = [
         {
+            "resource": [
+                lib.AGENT_RESOURCE,
+                lib.CONNECTIONS_RESOURCE,
+                lib.CONTAINER_RESOURCE,
+                lib.DEPLOYMENTS_RESOURCE,
+                lib.FINGERPRINTS_RESOURCE,
+                lib.MACHINES_RESOURCE,
+                lib.NODES_RESOURCE,
+                lib.NODES_RESOURCE,
+                lib.OPSFLAGS_RESOURCE,
+                lib.PODS_RESOURCE,
+                lib.PROCESSES_RESOURCE,
+                lib.REDFLAGS_RESOURCE,
+                lib.SPYDERTRACE_RESOURCE,
+            ],
+            "args": [
+                click.option(
+                    "--latest_model",
+                    help="Use additional memory when outputting json or yaml"
+                    " to ensure only the latest version of each model is"
+                    " returned.",
+                    is_flag=True,
+                ),
+            ],
+        },
+        {
             "resource": [lib.REDFLAGS_RESOURCE, lib.OPSFLAGS_RESOURCE],
             "args": [
                 click.option(
@@ -1042,6 +1068,15 @@ class GetCommand(lib.ArgumentParametersCommand):
             "resource": [lib.FINGERPRINTS_RESOURCE],
             "args": [
                 click.option(
+                    "-l",
+                    "--latest",
+                    help="Starting time of the query is set to the"
+                    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
+                    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
+                    " --start-time. [Requires '--filename' option to be set]",
+                    is_flag=True,
+                ),
+                click.option(
                     "-f",
                     "--filename",
                     help="Input file to create filters from. Used if you want"
@@ -1085,6 +1120,12 @@ class GetCommand(lib.ArgumentParametersCommand):
                     ),
                     help="The type of fingerprint to return.",
                 ),
+                click.option(
+                    "--raw-data",
+                    is_flag=True,
+                    help="When outputting to yaml or json, this outputs the"
+                    " raw fingerprint data, instead of the fingerprint groups",
+                ),
             ],
         },
         {
@@ -1096,6 +1137,18 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Ignores differing ips in the table output."
                     " Off by default.",
+                ),
+                click.option(
+                    "--remote-port",
+                    lib.REMOTE_PORT,
+                    help="The port number on the remote side of the connection.",
+                    type=click.INT,
+                ),
+                click.option(
+                    "--local-port",
+                    lib.LOCAL_PORT,
+                    help="The port number on the local side of the connection.",
+                    type=click.INT,
                 ),
             ],
         },
@@ -1218,15 +1271,6 @@ class GetCommand(lib.ArgumentParametersCommand):
     type=click.Choice(
         lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
     ),
-)
-@click.option(
-    "-l",
-    "--latest",
-    help="Starting time of the query is set to the"
-    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
-    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
-    " --start-time. [Requires '--filename' option to be set]",
-    is_flag=True,
 )
 @click.option(
     "-E",

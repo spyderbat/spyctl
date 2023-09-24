@@ -10,7 +10,7 @@ import spyctl.merge_lib as m_lib
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
-import spyctl.resources.api_filters.fingerprints as f_api_filt
+import spyctl.resources.api_filters as _af
 import spyctl.spyctl_lib as lib
 import spyctl.schemas_v2 as schemas
 import spyctl.resources.resources_lib as r_lib
@@ -301,18 +301,22 @@ def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
         muids = get.get_muids_scope(**filters)
         if muids:
             filters[lib.MACHINES_FIELD] = muids
-        pipeline = f_api_filt.generate_pipeline(filters=filters)
-        fingerprints = api.get_fingerprints(
-            *ctx.get_api_data(),
-            [ctx.global_source],
-            time=(st, et),
-            pipeline=pipeline,
+        pipeline = _af.Fingerprints.generate_pipeline(filters=filters)
+        fingerprints = list(
+            api.get_fingerprints(
+                *ctx.get_api_data(),
+                [ctx.global_source],
+                time=(st, et),
+                pipeline=pipeline,
+            )
         )
     else:
-        fingerprints = api.get_fingerprints(
-            *ctx.get_api_data(),
-            [ctx.global_source],
-            time=(st, et),
+        fingerprints = list(
+            api.get_fingerprints(
+                *ctx.get_api_data(),
+                [ctx.global_source],
+                time=(st, et),
+            )
         )
     FINGERPRINTS = fingerprints
     return fingerprints

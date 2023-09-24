@@ -1,7 +1,7 @@
 from typing import Dict, List
 import spyctl.spyctl_lib as lib
 import spyctl.api as api
-import spyctl.resources.api_filters.uid_list as filt_uid_list
+import spyctl.resources.api_filters as _af
 import spyctl.config.configs as cfg
 
 
@@ -30,14 +30,16 @@ def __handle_fprint_group_input(data: Dict):
 def __handle_uid_list_input(data: Dict, ctx: cfg.Context = None):
     if not ctx:
         ctx = cfg.get_current_context()
-    pipeline = filt_uid_list.generate_pipeline(data)
+    pipeline = _af.UID_List.generate_pipeline(data)
     time = (
         data[lib.METADATA_FIELD][lib.METADATA_START_TIME_FIELD],
         data[lib.METADATA_FIELD][lib.METADATA_END_TIME_FIELD],
     )
     src = ctx.global_source
-    fprints = api.get_fingerprints(
-        *ctx.get_api_data(), [src], time, pipeline=pipeline
+    fprints = list(
+        api.get_fingerprints(
+            *ctx.get_api_data(), [src], time, pipeline=pipeline
+        )
     )
     return fprints
 

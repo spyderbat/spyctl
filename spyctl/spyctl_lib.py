@@ -77,8 +77,10 @@ def flush_err_var() -> str:
 
 
 # Resource Aliases
-CLUSTERS_RESOURCE = Aliases(
-    ["clusters", "cluster", "clust", "clusts", "clus"], "cluster", "clusters"
+AGENT_RESOURCE = Aliases(
+    ["agents", "agent", "ag"],
+    "agent",
+    "agents",
 )
 BASELINES_RESOURCE = Aliases(
     [
@@ -93,25 +95,38 @@ BASELINES_RESOURCE = Aliases(
     "baseline",
     "baselines",
 )
+CLUSTERS_RESOURCE = Aliases(
+    ["clusters", "cluster", "clust", "clusts", "clus"], "cluster", "clusters"
+)
+CONTAINER_RESOURCE = Aliases(
+    ["container", "containers", "cont" "c"],
+    "container",
+    "containers",
+)
+CONNECTIONS_RESOURCE = Aliases(
+    [
+        "connections",
+        "connection",
+        "connect",
+        "connects",
+        "conn",
+        "conns",
+        "con",
+        "cons",
+    ],
+    "connection",
+    "connections",
+)
+CONNECTION_BUN_RESOURCE = Aliases(
+    ["connection-bundle", "connection-bundles", "conn_bun", "conn_buns", "cb"],
+    "connection-bundle",
+    "connection-bundles",
+)
 DEPLOYMENTS_RESOURCE = Aliases(
     ["deployments", "deployment", "deploys", "deploy"],
     "deployment",
     "deployments",
 )
-NAMESPACES_RESOURCE = Aliases(
-    ["namespaces", "name", "names", "namesp", "namesps", "namespace"],
-    "namespace",
-    "namespaces",
-)
-MACHINES_RESOURCE = Aliases(
-    ["machines", "mach", "machs", "machine"],
-    "machine",
-    "machines",
-)
-NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
-PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
-REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
-OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 FINGERPRINT_GROUP_RESOURCE = Aliases(
     ["fingerprint-group", "fingerprint-groups", "fprint-group", "fg"],
     "fingerprint-group",
@@ -132,6 +147,20 @@ FINGERPRINTS_RESOURCE = Aliases(
     "fingerprint",
     "fingerprints",
 )
+MACHINES_RESOURCE = Aliases(
+    ["machines", "mach", "machs", "machine"],
+    "machine",
+    "machines",
+)
+NAMESPACES_RESOURCE = Aliases(
+    ["namespaces", "name", "names", "namesp", "namesps", "namespace"],
+    "namespace",
+    "namespaces",
+)
+NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
+OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
+PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
+REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
 POLICIES_RESOURCE = Aliases(
     [
         "policies",
@@ -156,24 +185,11 @@ PROCESSES_RESOURCE = Aliases(
     "process",
     "processes",
 )
-CONTAINER_RESOURCE = Aliases(
-    ["container", "containers", "cont" "c"],
-    "container",
-    "containers",
-)
-CONNECTIONS_RESOURCE = Aliases(
-    [
-        "connections",
-        "connection",
-        "connect",
-        "connects",
-        "conn",
-        "conns",
-        "con",
-        "cons",
-    ],
-    "connection",
-    "connections",
+SOURCES_RESOURCE = Aliases(["source", "sources", "src"], "source", "sources")
+SPYDERTRACE_RESOURCE = Aliases(
+    ["spydertrace", "spydertraces", "spyder", "trace", "traces"],
+    "spydertrace",
+    "spydertraces",
 )
 SPYDERTRACE_SUMMARY_RESOURCE = Aliases(
     [
@@ -197,19 +213,8 @@ SUPPRESSION_POLICY_RESOURCE = Aliases(
     "suppression-policy",
     "suppression-policies",
 )
-SPYDERTRACE_RESOURCE = Aliases(
-    ["spydertrace", "spydertraces", "spyder", "trace", "traces"],
-    "spydertrace",
-    "spydertraces",
-)
 UID_LIST_RESOURCE = Aliases(
     ["uid-list", "uid-lists", "uid", "uids-list"], "uid-list", "uid-lists"
-)
-
-AGENT_RESOURCE = Aliases(
-    ["agents", "agent", "ag"],
-    "agent",
-    "agents",
 )
 
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
@@ -244,6 +249,7 @@ GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
+    CONNECTION_BUN_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
     DEPLOYMENTS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
@@ -255,6 +261,7 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
+    SOURCES_RESOURCE.name_plural,
     # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
     SUPPRESSION_POLICY_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
@@ -465,29 +472,46 @@ class FileList(click.File):
         return rv
 
 
-# Spyderbat Schema Prefix'
 SCHEMA_FIELD = "schema"
-EVENT_REDFLAG_PREFIX = "event_redflag"
-EVENT_OPSFLAG_PREFIX = "event_opsflag"
+
+# Spyderbat Event Schema Prefix'
+EVENT_AGENT_METRICS_PREFIX = "event_agentmetrics"
 EVENT_AUDIT_PREFIX = "event_audit"
+EVENT_OPSFLAG_PREFIX = "event_opsflag"
+EVENT_REDFLAG_PREFIX = "event_redflag"
+
 EVENT_AUDIT_SUBTYPE_MAP = {
     "deviation": "guardian_deviation",
     "action": "guardian_action",
     "redflag": "guardian_redflag",
     "opsflag": "guardian_opsflag",
 }
-EVENT_AGENT_METRICS_PREFIX = "event_agentmetrics"
+
+# Spyderbat Model Schema Prefix'
 MODEL_AGENT_SCHEMA_PREFIX = "model_agent"
+MODEL_CLUSTER_PREFIX = "model_k8s_cluster"
+MODEL_CONNECTION_PREFIX = "model_connection"
+MODEL_CONN_BUN_PREFIX = "model_bundled_connection"
+MODEL_CONTAINER_PREFIX = "model_container"
+MODEL_DEPLOYMENT_PREFIX = "model_k8s_deployment"
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
+MODEL_MACHINE_PREFIX = "model_machine"
+MODEL_NODE_PREFIX = "model_k8s_node"
+MODEL_POD_PREFIX = "model_k8s_pod"
+MODEL_PROCESS_PREFIX = "model_process"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
+
 MODEL_FINGERPRINT_SUBTYPE_MAP = {
     "container": "container",
     "linux-service": "linux_svc",
 }
 
 # Datatypes for searching via API
-DATATYPE_SPYDERGRAPH = "spydergraph"
+DATATYPE_AGENTS = "agent_status"
 DATATYPE_FINGERPRINTS = "fingerprints"
+DATATYPE_K8S = "k8s"
+DATATYPE_REDFLAGS = "redflags"
+DATATYPE_SPYDERGRAPH = "spydergraph"
 
 # Resource Kinds
 POL_KIND = "SpyderbatPolicy"
@@ -552,6 +576,7 @@ POD_LABELS_FIELD = "pod-labels"
 MACHINES_FIELD = "machines"
 DEFAULT_API_URL = "https://api.spyderbat.com"
 POLICY_UID_FIELD = "policy"
+POLICIES_FIELD = "policies"
 
 
 # Response Actions
@@ -717,6 +742,42 @@ UIDS_FIELD = "uniqueIdentifiers"
 
 # Any Object
 VERSION_FIELD = "version"
+VALID_FROM_FIELD = "valid_from"
+
+# K8s Objects
+BE_K8S_STATUS = "k8s_status"
+BE_PHASE = "phase"
+BE_KUID_FIELD = "kuid"
+
+# Connections
+PROC_NAME_FIELD = "proc_name"
+CONN_ID = "id"
+REMOTE_HOSTNAME_FIELD = "remote_hostname"
+PROTOCOL_FIELD = "proto"
+REMOTE_PORT = "remote_port"
+LOCAL_PORT = "local_port"
+
+# Connection Bundles
+CLIENT_IP = "client_ip"
+CLIENT_DNS = "client_dns_name"
+CLIENT_PORT = "client_port"
+SERVER_IP = "server_ip"
+SERVER_DNS = "server_dns_name"
+SERVER_PORT = "server_port"
+NUM_CONNECTIONS = "num_connections"
+
+# Deployments
+REPLICAS_FIELD = "replicas"
+AVAILABLE_REPLICAS_FIELD = "availableReplicas"
+READY_REPLICAS_FIELD = "readyReplicas"
+UPDATED_REPLICAS_FIELD = "updatedReplicas"
+
+# Nodes
+NODE_INFO_FIELD = "nodeInfo"
+KUBELET_VERSION_FIELD = "kubeletVersion"
+
+# Pods
+CONTAINER_STATUSES_FIELD = "containerStatuses"
 
 # Processes
 NAME_FIELD = "name"
@@ -731,6 +792,11 @@ CONTAINER_NAME_FIELD = "containerName"
 CONTAINER_ID_FIELD = "containerID"
 CONTAINER_AGE = "age"
 CONTAINER_IMAGE_NAME = "image-name"
+# Backend Container Fields
+BE_CONTAINER_IMAGE = "image"
+BE_CONTAINER_IMAGE_ID = "image_id"
+BE_CONTAINER_NAME = "container_name"
+BE_CONTAINER_ID = "container_id"
 
 # Agents
 AGENT_HEALTH_CRIT = "Critical"
@@ -759,6 +825,18 @@ AGENT_STATUS = "status"
 AGENT_HOSTNAME = "hostname"
 AGENT_ID = "id"
 AGENT_BAT_STATUSES = "bat_statuses"
+
+# Spydertraces
+BE_TRIGGER_NAME = "trigger_short_name"
+BE_SCORE = "score"
+BE_SUPPRESSED = "suppressed"
+BE_ROOT_PROC_NAME = "root_proc_name"
+BE_UNIQUE_FLAG_COUNT = "unique_flag_count"
+BE_OBJECT_COUNT = "object_count"
+BE_PROCESSES = "processes"
+BE_DEPTH = "depth"
+BE_SYSTEMS = "machines"
+BE_CONNECTIONS = "connections"
 
 # Network
 CIDR_FIELD = "cidr"
@@ -1858,4 +1936,18 @@ def is_public_dns(hostname: str) -> bool:
 
 
 def is_redirected() -> bool:
-    return os.fstat(0) == os.fstat(1)
+    return os.fstat(0) != os.fstat(1)
+
+
+def calc_age(time_float: float):
+    creation_timestamp = zulu.parse(time_float)
+    age_delta = zulu.now() - creation_timestamp
+    if age_delta.days > 0:
+        age = f"{age_delta.days}d"
+        return age
+    elif age_delta.seconds >= 3600:
+        age = f"{age_delta.seconds // 3600}h"
+        return age
+    else:
+        age = f"{age_delta.seconds//60}m"
+        return age

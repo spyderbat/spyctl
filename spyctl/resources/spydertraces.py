@@ -1,87 +1,97 @@
-from typing import Dict, List, Optional, Tuple
-import zulu
+from typing import Dict, List, Tuple
 from tabulate import tabulate
 import spyctl.spyctl_lib as lib
+import spyctl.config.configs as cfg
+import spyctl.api as api
 
 
-def spydertraces_output(spytrace: List[Dict]) -> Dict:
-    if len(spytrace) == 1:
-        return spytrace[0]
-    elif len(spytrace) > 1:
-        return {
-            lib.API_FIELD: lib.API_VERSION,
-            lib.ITEMS_FIELD: spytrace,
-        }
-    else:
-        return {}
+SUMMARY_HEADERS = [
+    "TRIGGER_NAME",
+    "ROOT_PROCESS",
+    "UNIQUE_FLAGS",
+    "OBJECTS",
+    "SCORE",
+    "STATUS",
+    "AGE",
+]
+WIDE_HEADERS = [
+    "UID",
+    "TRIGGER_NAME",
+    "ROOT_PROCESS",
+    "UNIQUE_FLAGS",
+    "OBJECTS",
+    "SCORE",
+    "PROCESSES",
+    "DEPTH",
+    "SYSTEMS",
+    "CONNECTIONS",
+    "START_TIME",
+]
 
 
-def time(epoch):
-    return zulu.Zulu.fromtimestamp(epoch).format("YYYY-MM-ddTHH:mm:ss") + "Z"
-
-
-def spydertraces_summary_output(spydertraces: List[Dict]) -> List:
-    table_data = [
-        [
-            d["id"],
-            d["trigger_short_name"],
-            d["root_proc_name"],
-            d["unique_flag_count"],
-            d["object_count"],
-            d["score"],
-            time(d["valid_from"]),
-        ]
-        for d in spydertraces
-    ]
-    print(
-        tabulate(
-            table_data,
-            headers=[
-                "TRIGGER_NAME",
-                "ROOT_PROCESS",
-                "UNIQUE_FLAGS",
-                "OBJECTS",
-                "SCORE",
-                "START_TIME",
-            ],
-            tablefmt="simple",
-        )
+def spydertraces_stream_summary_output(
+    ctx: cfg.Context,
+    muids: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+    limit_mem=False,
+) -> str:
+    data = []
+    for spydertrace in api.get_spydertraces(
+        *ctx.get_api_data(), muids, time, pipeline, limit_mem
+    ):
+        data.append(spydertrace_summary_data(spydertrace))
+    return tabulate(
+        data,
+        headers=SUMMARY_HEADERS,
+        tablefmt="plain",
     )
 
 
-def spydertraces_output_wide(spydertrace: List) -> str:
-    table_data = [
-        [
-            a["id"],
-            a["trigger_short_name"],
-            a["root_proc_name"],
-            a["unique_flag_count"],
-            a["object_count"],
-            a["score"],
-            a["process_count"],
-            a["depth"],
-            a["machines"],
-            a["connection_count"],
-            time(a["valid_from"]),
-        ]
-        for a in spydertrace
+def spydertrace_summary_data(trace: Dict) -> List:
+    rv = [
+        trace[lib.BE_TRIGGER_NAME],
+        trace[lib.BE_ROOT_PROC_NAME],
+        trace[lib.BE_UNIQUE_FLAG_COUNT],
+        trace[lib.BE_OBJECT_COUNT],
+        trace[lib.BE_SCORE],
+        trace[lib.STATUS_FIELD],
+        lib.calc_age(trace[lib.VALID_FROM_FIELD]),
     ]
-    print(
-        tabulate(
-            table_data,
-            headers=[
-                "UID",
-                "TRIGGER_NAME",
-                "ROOT_PROCESS",
-                "UNIQUE_FLAGS",
-                "OBJECTS",
-                "SCORE",
-                "PROCESSES",
-                "DEPTH",
-                "SYSTEMS",
-                "CONNECTIONS",
-                "START_TIME",
-            ],
-            tablefmt="simple",
-        )
+    return rv
+
+
+def spydertraces_stream_output_wide(
+    ctx: cfg.Context,
+    muids: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+    limit_mem=False,
+) -> str:
+    data = []
+    for spydertrace in api.get_spydertraces(
+        *ctx.get_api_data(), muids, time, pipeline, limit_mem
+    ):
+        data.append(spydertraces_wide_data(spydertrace))
+    return tabulate(
+        data,
+        headers=WIDE_HEADERS,
+        tablefmt="simple",
     )
+
+
+def spydertraces_wide_data(trace: Dict) -> List:
+    rv = [
+        trace[lib.ID_FIELD],
+        trace[lib.BE_TRIGGER_NAME],
+        trace[lib.BE_ROOT_PROC_NAME],
+        trace[lib.BE_UNIQUE_FLAG_COUNT],
+        trace[lib.BE_OBJECT_COUNT],
+        trace[lib.BE_SCORE],
+        trace[lib.BE_PROCESSES],
+        trace[lib.BE_DEPTH],
+        trace[lib.BE_SYSTEMS],
+        trace[lib.BE_CONNECTIONS],
+        lib.calc_age(trace["valid_from"]),
+    ]
+    return rv

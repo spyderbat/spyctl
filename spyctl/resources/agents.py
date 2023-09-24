@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 from tabulate import tabulate
 
 import spyctl.cli as cli
-import spyctl.resources.api_filters.agents as a_api_filt
+import spyctl.resources.api_filters as _af
 import spyctl.spyctl_lib as lib
 import spyctl.api as api
 import spyctl.config.configs as cfg
@@ -95,17 +95,6 @@ def agent_output_wide_data(
     return rv
 
 
-def agents_output(agents: List[Dict]) -> Dict:
-    if len(agents) == 1:
-        return agents[0]
-    elif len(agents) > 1:
-        # Sort the records by hostname, then id, then time
-        agents.sort(key=lambda rec: (rec["hostname"], rec["id"], rec["time"]))
-        return agents
-    else:
-        return []
-
-
 def calc_active_bats(agent: Dict):
     bat_statuses = agent.get(lib.AGENT_BAT_STATUSES, {})
     total = len(bat_statuses)
@@ -140,7 +129,7 @@ def retrieve_latest_metrics(agents: List[Dict]) -> Dict[str, Tuple]:
     cli.try_log("Retrieving latest metrics for each agent.")
     rv = {}  # agent_uid -> tuple of latest metrics
     args = []
-    pipeline = a_api_filt.generate_metrics_pipeline()
+    pipeline = _af.Agents.generate_metrics_pipeline()
     # Build st, et for each agent
     latest_metrics_records = {}
     for agent in agents:

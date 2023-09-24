@@ -2,8 +2,8 @@ import json
 
 
 # Mocking API Functionality
-def mock_get_machines(api_url, api_key, org_uid):
-    mock_machine = {
+def mock_get_sources(api_url, api_key, org_uid):
+    mock_source = {
         "uid": "mach:xxxXXxxxX",
         "name": "spyderbat-dev",
         "org_uid": "spyderbatuid",
@@ -41,7 +41,7 @@ def mock_get_machines(api_url, api_key, org_uid):
         "agent_registration_uid": "xxxxxxxxxxxxxxxxxxxxx",
         "agent_type": 0,
     }
-    return [mock_machine]
+    return [mock_source]
 
 
 def mock_get_clusters(api_url, api_key, org_uid):
@@ -69,56 +69,185 @@ def mock_get_clusters(api_url, api_key, org_uid):
     return [mock_cluster]
 
 
-def mock_get_deployments(api_url, api_key, org_uid, clusters, time):
+def mock_get_deployments(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
     mock_deployment = {
         "schema": "model_k8s_deployment::1.0.0",
-        "id": "deployment:xxxxxxxxxxxxxxxxxxxxxx",
+        "id": "deployment:xxxxxxxx:xxxxxxxxx",
         "status": "active",
-        "version": 1689418766,
-        "time": 1689422416.837507,
-        "valid_from": 1689166499.9791923,
-        "expire_at": 1689425999.999999,
+        "version": 1694581060,
+        "time": 1694584863.7841268,
+        "valid_from": 1683042868.1558533,
+        "expire_at": 1694588399.999999,
         "cluster_uid": "clus:xxxxxxxxxxx",
-        "clusterid": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "cluster_name": "",
+        "clusterid": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "cluster_name": "staging-k8s",
         "kind": "Deployment",
         "metadata": {
             "annotations": {
-                "deployment.kubernetes.io/revision": "10",
-                "meta.helm.sh/release-name": "elastic-svc",
+                "deployment.kubernetes.io/revision": "5",
+                "meta.helm.sh/release-name": "test-svc",
                 "meta.helm.sh/release-namespace": "default",
             },
-            "creationTimestamp": "2023-04-12T18:42:08Z",
-            "generation": 10,
+            "creationTimestamp": "2023-04-25T18:19:40Z",
+            "generation": 5,
             "labels": {
-                "app.kubernetes.io/instance": "elastic-svc",
+                "app.kubernetes.io/instance": "test-svc",
                 "app.kubernetes.io/managed-by": "Helm",
+                "app.kubernetes.io/name": "test-svc",
+                "app.kubernetes.io/version": "1.16.0",
+                "helm.sh/chart": "test-svc-0.1.0",
             },
-            "name": "elastic-svc",
+            "name": "test-svc",
             "namespace": "default",
-            "resourceVersion": "34970156",
-            "uid": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "resourceVersion": "55651882",
+            "uid": "xxxxxxx-xxx-xxxx-xxxx-xxxxxxxxxx",
         },
-        "kuid": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "spec": {"replicas": 1},
-        "k8s_status": {},
+        "kuid": "xxxxxxx-xxx-xxxx-xxxx-xxxxxxxxxx",
+        "spec": {
+            "progressDeadlineSeconds": 600,
+            "replicas": 1,
+            "revisionHistoryLimit": 10,
+            "selector": {
+                "matchLabels": {
+                    "app.kubernetes.io/instance": "test-svc",
+                    "app.kubernetes.io/name": "test-svc",
+                }
+            },
+            "strategy": {
+                "rollingUpdate": {"maxSurge": "25%", "maxUnavailable": "25%"},
+                "type": "RollingUpdate",
+            },
+            "template": {
+                "metadata": {
+                    "annotations": {
+                        "kubectl.kubernetes.io/restartedAt": "2023-07-19T13:36:02Z"
+                    },
+                    "creationTimestamp": None,
+                    "labels": {
+                        "app.kubernetes.io/instance": "test-svc",
+                        "app.kubernetes.io/name": "test-svc",
+                    },
+                },
+                "spec": {
+                    "containers": [
+                        {
+                            "command": ["/bin/bash", "-c", "test"],
+                            "image": "test:latest",
+                            "imagePullPolicy": "Always",
+                            "livenessProbe": {
+                                "exec": {"command": ["true"]},
+                                "failureThreshold": 3,
+                                "periodSeconds": 10,
+                                "successThreshold": 1,
+                                "timeoutSeconds": 1,
+                            },
+                            "name": "test",
+                            "readinessProbe": {
+                                "exec": {"command": ["true"]},
+                                "failureThreshold": 3,
+                                "periodSeconds": 10,
+                                "successThreshold": 1,
+                                "timeoutSeconds": 1,
+                            },
+                            "resources": {},
+                            "securityContext": {},
+                            "terminationMessagePath": "/dev/termination-log",
+                            "terminationMessagePolicy": "File",
+                        }
+                    ],
+                    "dnsPolicy": "ClusterFirst",
+                    "restartPolicy": "Always",
+                    "schedulerName": "default-scheduler",
+                    "securityContext": {},
+                    "serviceAccount": "test-svc",
+                    "serviceAccountName": "test-svc",
+                    "terminationGracePeriodSeconds": 30,
+                    "tolerations": [
+                        {
+                            "effect": "NoSchedule",
+                            "key": "dedicated",
+                            "operator": "Equal",
+                            "value": "testGroup",
+                        }
+                    ],
+                },
+            },
+        },
+        "k8s_status": {
+            "availableReplicas": 1,
+            "conditions": [
+                {
+                    "lastTransitionTime": "2023-07-24T21:44:12Z",
+                    "lastUpdateTime": "2023-07-24T21:44:12Z",
+                    "message": "Deployment has minimum availability.",
+                    "reason": "MinimumReplicasAvailable",
+                    "status": "True",
+                    "type": "Available",
+                },
+                {
+                    "lastTransitionTime": "2023-04-25T18:37:39Z",
+                    "lastUpdateTime": "2023-09-11T15:55:56Z",
+                    "message": 'ReplicaSet "test-svc" has successfully progressed.',
+                    "reason": "NewReplicaSetAvailable",
+                    "status": "True",
+                    "type": "Progressing",
+                },
+            ],
+            "observedGeneration": 17,
+            "readyReplicas": 1,
+            "replicas": 1,
+            "updatedReplicas": 1,
+        },
     }
-    return [mock_deployment]
+    yield mock_deployment
 
 
-def mock_get_namespaces(api_url, api_key, org_uid, clusters, time):
+def mock_get_namespaces(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    disable_pbar_on_first: bool = False,
+):
     mock_namespace = {
-        "cluster_name": "mock_cluster",
-        "cluster_uid": "clus:xxxxxxxxxxx",
-        "namespaces": {
-            "default",
-            "mock",
+        "apiVersion": "v1",
+        "kind": "Namespace",
+        "metadata": {
+            "creationTimestamp": "2023-06-20T14:25:40Z",
+            "labels": {"kubernetes.io/metadata.name": "test"},
+            "name": "test",
+            "resourceVersion": "65281414",
+            "uid": "6c2956ff-239e-4068-937d-3390a6ed8575",
         },
+        "spec": {"N/A": "N/A"},
+        "status": {"phase": "Active"},
+        "cluster_uid": "clus:PMx9HGEG_ZE",
+        "cluster_name": "productiondemo",
     }
-    return [mock_namespace]
+    yield mock_namespace
 
 
-def mock_get_nodes(api_url, api_key, org_uid, clusters, time):
+def mock_get_nodes(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
     mock_node = {
         "schema": "model_k8s_node::1.0.0",
         "id": "node:xxxxxxxxxxxxxxxxxxxxxx",
@@ -156,10 +285,19 @@ def mock_get_nodes(api_url, api_key, org_uid, clusters, time):
         },
         "muid": "mach:FomNj5G1TJc",
     }
-    return [mock_node]
+    yield mock_node
 
 
-def mock_get_pods(api_url, api_key, org_uid, clusters, time):
+def mock_get_pods(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
     mock_pod = {
         "schema": "model_k8s_pod::1.0.0",
         "id": "pod:xxxxxxxxxxx:xxxxxxxxxx",
@@ -211,10 +349,19 @@ def mock_get_pods(api_url, api_key, org_uid, clusters, time):
         "node_uid": "node:xxxxxxxxxxx:xxxxxxxxxx",
         "muid": "mach:xxxxxxxxxxx",
     }
-    return [mock_pod]
+    yield mock_pod
 
 
-def mock_get_redflags(api_url, api_key, org_uid, time):
+def mock_get_redflags(
+    api_url,
+    api_key,
+    org_uid,
+    muids,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
     mock_redflag = {
         "id": "event_alert:xxxxxxxxxxx:xxxxxx:xxxxx:curl",
         "schema": "event_redflag:suspicious_command:1.1.0",
@@ -263,10 +410,19 @@ def mock_get_redflags(api_url, api_key, org_uid, time):
         "traces": ["trace:xxxxxxxxxxx:xxxxxxxxxxx:xxxxx:suspicious_command"],
         "traces_suppressed": False,
     }
-    return [mock_redflag]
+    yield mock_redflag
 
 
-def mock_get_opsflags(api_url, api_key, org_uid, time):
+def mock_get_opsflags(
+    api_url,
+    api_key,
+    org_uid,
+    muids,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
     mock_opsflag = {
         "id": "event_alert:xxxxxxxxxxx",
         "schema": "event_opsflag:memoryleak:1.1.0",
@@ -281,11 +437,19 @@ def mock_get_opsflags(api_url, api_key, org_uid, time):
         "linkback": "https://mock.mock",
         "muid": "mach:xxxxxxxxxxx",
     }
-    return [mock_opsflag]
+    yield mock_opsflag
 
 
 def mock_get_fingerprints(
-    api_url, api_key, org_uid, muids, time, fprint_type=None, pipeline=None
+    api_url,
+    api_key,
+    org_uid,
+    sources,
+    time,
+    fprint_type=None,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
 ):
     mock_fingerprint = {
         "expire_at": 1689425999.999999,
@@ -344,7 +508,7 @@ def mock_get_fingerprints(
         "checksum": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "valid_to": 1689423288.2522442,
     }
-    return [mock_fingerprint]
+    yield mock_fingerprint
 
 
 def mock_get_policies(api_url, api_key, org_uid, params=None):
