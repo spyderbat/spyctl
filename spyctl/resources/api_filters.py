@@ -341,12 +341,12 @@ class Containers(API_Filter):
         lib.STATUS_FIELD: lib.STATUS_FIELD,
         lib.NAMESPACE_FIELD: "pod_namespace",
     }
-    name_or_uid_prop_names = [
+    name_or_uid_props = [
         lib.ID_FIELD,
-        lib.BE_CONTAINER_ID,
-        lib.BE_CONTAINER_IMAGE,
-        lib.BE_CONTAINER_NAME,
-        lib.BE_CONTAINER_IMAGE_ID,
+        lib.CONTAINER_ID_FIELD,
+        lib.IMAGE_FIELD,
+        lib.CONTAINER_NAME_FIELD,
+        lib.IMAGEID_FIELD,
     ]
     source_type = SOURCE_TYPE_MUID
     alternate_source_type = SOURCE_TYPE_CLUID_POCO
@@ -529,7 +529,7 @@ class Processes(API_Filter):
         lib.EXE_FIELD: lib.EXE_FIELD,
         lib.NAME_FIELD: lib.NAME_FIELD,
     }
-    name_or_uid_prop_names = [
+    name_or_uid_props = [
         lib.NAME_FIELD,
         lib.ID_FIELD,
     ]
@@ -581,7 +581,7 @@ class Spydertraces(API_Filter):
         lib.BE_ROOT_PROC_NAME: lib.BE_ROOT_PROC_NAME,
         lib.BE_TRIGGER_NAME: lib.BE_TRIGGER_NAME,
     }
-    name_or_uid_prop_names = [
+    name_or_uid_props = [
         lib.BE_ROOT_PROC_NAME,
         lib.BE_TRIGGER_NAME,
         lib.ID_FIELD,
