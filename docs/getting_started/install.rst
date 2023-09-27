@@ -4,8 +4,11 @@
 Installation of Spyctl
 ======================
 
-This part of the documentation covers the installation of Spyctl.
-The first step to using any software package is getting it properly installed.
+Spyctl, an open source CLI tool, empowers you to view and manage resources within your Spyderbat environment. 
+
+The initial step in utilizing any software package is ensuring its correct installation, 
+so let's get started by walking through the installation process for Spyctl.
+
 
 Prerequisites
 =============
