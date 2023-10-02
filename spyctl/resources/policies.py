@@ -1,12 +1,18 @@
 import json
+import sys
+from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, Union
 
+import tqdm
 import zulu
 from tabulate import tabulate
 
+import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
+import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
+import spyctl.resources.api_filters as _af
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.resources_lib as r_lib
 import spyctl.schemas_v2 as schemas
@@ -205,35 +211,92 @@ def policies_output(policies: List[Dict]):
         return {}
 
 
-def policies_summary_output(
-    policies: List[Dict], has_matching=False, no_match_pols=[]
+def matching_fingerprints_summary(
+    ctx: cfg.Context,
+    policies: List[Dict],
+    time: Tuple[float, float],
+    limit_mem,
 ):
+    has_matching = []
+    no_matching = []
+    sources, filters = _af.Fingerprints.build_sources_and_filters()
+    pipeline = _af.Fingerprints.generate_pipeline(filters=filters)
+    fingerprints = list(
+        api.get_fingerprints(
+            *ctx.get_api_data(),
+            sources,
+            time,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+        )
+    )
+    for policy in policies:
+        filters = lib.selectors_to_filters(policy)
+        if filt.filter_fingerprints(
+            fingerprints,
+            use_context_filters=False,
+            suppress_warning=True,
+            **filters,
+        ):
+            has_matching.append(policy)
+        else:
+            no_matching.append(policy)
     output_list = []
     headers = ["UID", "NAME", "STATUS", "TYPE", "CREATE_TIME"]
-    if has_matching:
-        if len(no_match_pols) > 0:
-            output_list.append(
-                "Policies WITH NO matching fingerprints in last query:"
-            )
-            no_match_data = []
-            for pol in no_match_pols:
-                no_match_data.append(policy_summary_data(pol))
-            output_list.append(
-                tabulate(no_match_data, headers, tablefmt="plain")
-            )
-        if len(policies) > 0:
-            output_list.append(
-                "\nPolicies WITH matching fingerprints in last query:"
-            )
+    if len(no_matching) > 0:
+        output_list.append(
+            "Policies WITH NO matching fingerprints in last query:"
+        )
+        no_match_data = []
+        for pol in no_matching:
+            no_match_data.append(policy_summary_data(pol))
+        output_list.append(tabulate(no_match_data, headers, tablefmt="plain"))
+    if len(has_matching) > 0:
+        output_list.append(
+            "\nPolicies WITH matching fingerprints in last query:"
+        )
+        data = []
+        for pol in has_matching:
+            data.append(policy_summary_data(pol))
+        data.sort(key=lambda x: [x[3], x[1]])
+        output_list.append(tabulate(data, headers, tablefmt="plain"))
+    return "\n".join(output_list)
+
+
+def policies_summary_output(
+    policies: List[Dict],
+    time: Tuple[float, float] = None,
+    get_deviations_count: bool = False,
+    suppress_msg=False,
+):
+    output_list = []
+    if get_deviations_count:
+        headers = [
+            "UID",
+            "NAME",
+            "STATUS",
+            "TYPE",
+            "CREATE_TIME",
+            "DEVIATIONS",
+        ]
+    else:
+        headers = ["UID", "NAME", "STATUS", "TYPE", "CREATE_TIME"]
     data = []
+    deviation_counts = {}
+    if get_deviations_count:
+        deviation_counts = get_deviation_counts(policies, time, suppress_msg)
     for policy in policies:
-        data.append(policy_summary_data(policy))
+        data.append(
+            policy_summary_data(policy, deviation_counts, get_deviations_count)
+        )
     data.sort(key=lambda x: [x[3], x[1]])
     output_list.append(tabulate(data, headers, tablefmt="plain"))
     return "\n".join(output_list)
 
 
-def policy_summary_data(policy: Dict):
+def policy_summary_data(
+    policy: Dict, deviations_counts={}, get_deviations_count=False
+):
     uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     status = policy[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
     mode = policy[lib.SPEC_FIELD].get(lib.POL_MODE_FIELD, lib.POL_MODE_ENFORCE)
@@ -266,6 +329,8 @@ def policy_summary_data(policy: Dict):
         policy[lib.METADATA_FIELD][lib.TYPE_FIELD],
         create_time,
     ]
+    if get_deviations_count:
+        rv.append(deviations_counts.get(uid, 0))
     return rv
 
 
@@ -289,3 +354,44 @@ def get_policy_by_uid(
     if not policies:
         return None
     return policies[0]
+
+
+def get_deviation_counts(
+    policies: List[Dict], time: Tuple[float, float], suppress_msg=False
+) -> Dict:
+    if not suppress_msg:
+        cli.try_log(
+            f"Getting policy deviations from {lib.epoch_to_zulu(time[0])} to"
+            f" {lib.epoch_to_zulu(time[1])}"
+        )
+    rv = defaultdict(int)
+    ctx = cfg.get_current_context()
+    policy_uids = [
+        policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+        for policy in policies
+    ]
+    pipeline = _af.Deviations.generate_count_pipeline()
+    for count_obj in api.get_deviations(
+        *ctx.get_api_data(),
+        policy_uids,
+        time,
+        pipeline,
+    ):
+        uid = count_obj["policy_uid"]
+        count = count_obj["count"]
+        rv[uid] += count
+    return rv
+
+
+def filter_policies_by_name_or_uid(policies, name_or_uid):
+    if name_or_uid:
+        policies = filt.filter_obj(
+            policies,
+            [
+                [lib.METADATA_FIELD, lib.NAME_FIELD],
+                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+            ],
+            name_or_uid,
+        )
+    else:
+        return policies

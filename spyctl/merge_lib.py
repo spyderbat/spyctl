@@ -614,6 +614,14 @@ class ProcessNodeList:
     def __add_node(
         self, node_data: Dict, eusers=[], parent=None
     ) -> "ProcessNode":
+        if "policyNode" in node_data:
+            id = node_data["policyNode"]["id"]
+            if id not in BASE_NODE_LIST:
+                raise InvalidMergeError(
+                    f"Deviation process node ID ({id}) is missing in base"
+                    " policy"
+                )
+            node_data = BASE_NODE_LIST[id]
         proc_node = ProcessNode(self, node_data, eusers, parent)
         self.proc_nodes[proc_node.id] = proc_node
         self.proc_name_index.setdefault(proc_node.name, [])

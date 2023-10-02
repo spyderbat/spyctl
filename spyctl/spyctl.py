@@ -1032,6 +1032,18 @@ class GetCommand(lib.ArgumentParametersCommand):
             ],
         },
         {
+            "resource": [lib.DEVIATIONS_RESOURCE],
+            "args": [
+                click.option(
+                    f"--{lib.POLICIES_FIELD}",
+                    "policies",
+                    help="Policies to get deviations from.",
+                    type=lib.ListParam(),
+                    metavar="",
+                ),
+            ],
+        },
+        {
             "resource": [lib.AGENT_RESOURCE],
             "args": [
                 click.option(
@@ -1185,6 +1197,12 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " created from the name in each policy's metadata.",
                     is_flag=True,
                 ),
+                click.option(
+                    "--get-deviations",
+                    help="In the summary output, show deviations count for the"
+                    " provided time window",
+                    is_flag=True,
+                ),
             ],
         },
     ]
@@ -1321,8 +1339,10 @@ def get(
     Some resources are retrieved from from databases where a time range can
     be specified:
     - Connections
+    - Connection Bundles
     - Containers
     - Deployments
+    - Deviations
     - Fingerprints
     - Namespaces
     - Nodes

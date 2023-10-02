@@ -10,6 +10,7 @@ import spyctl.merge_lib as m_lib
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
+import spyctl.resources.deviations as dev
 import spyctl.resources.api_filters as _af
 import spyctl.spyctl_lib as lib
 import spyctl.schemas_v2 as schemas
@@ -17,6 +18,7 @@ import spyctl.resources.resources_lib as r_lib
 
 POLICIES = None
 FINGERPRINTS = None
+DEVIATIONS = None
 MATCHING = "matching"
 ALL = "all"
 
@@ -198,6 +200,7 @@ def get_with_obj(
     et,
     latest,
     dest: str = "",
+    with_fingerprints=False,
 ) -> Optional[Union[Dict, List[Dict], bool]]:
     global FINGERPRINTS
     target_uid = target.get(lib.METADATA_FIELD, {}).get(lib.METADATA_UID_FIELD)
@@ -246,19 +249,11 @@ def get_with_obj(
                 f" '{pol_name} - {pol_uid}'?{apply_disclaimer}"
             ):
                 return False
-    else:
+    elif with_fingerprints or not target.get(lib.METADATA_FIELD, {}).get(
+        lib.METADATA_UID_FIELD
+    ):
         if latest:
-            latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
-                lib.LATEST_TIMESTAMP_FIELD
-            )
-            if latest_timestamp is not None:
-                st = lib.time_inp(latest_timestamp)
-            else:
-                cli.err_exit(
-                    f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided"
-                    f" resource {lib.METADATA_FIELD} field. Defaulting to"
-                    " 24hrs."
-                )
+            st = get_latest_timestamp(target)
             if FINGERPRINTS is not None:
                 cli.try_log("--latest flag set, re-downloading fingerprints..")
                 FINGERPRINTS = None
@@ -275,6 +270,16 @@ def get_with_obj(
         else:
             cli.try_log(f"Filtering fingerprints for {target_name}")
             with_obj = filter_fingerprints(target, FINGERPRINTS)
+    else:
+        if not cli.query_yes_no(
+            f"Merge {target_name} with Deviations from"
+            f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
+            f"{apply_disclaimer}"
+        ):
+            return False
+        st = get_latest_timestamp(target)
+        uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+        with_obj = get_with_deviations(uid, st, et)
     return with_obj
 
 
@@ -291,6 +296,21 @@ def get_target_policy(target_uid) -> Optional[Dict]:
 def load_with_file(with_file: IO) -> Dict:
     rv = lib.load_resource_file(with_file)
     return rv
+
+
+def get_latest_timestamp(target: Dict) -> float:
+    latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
+        lib.LATEST_TIMESTAMP_FIELD
+    )
+    if latest_timestamp is not None:
+        st = lib.time_inp(latest_timestamp)
+    else:
+        cli.err_exit(
+            f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided"
+            f" resource {lib.METADATA_FIELD} field. Defaulting to"
+            " 24hrs."
+        )
+    return st
 
 
 def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
@@ -320,6 +340,11 @@ def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
         )
     FINGERPRINTS = fingerprints
     return fingerprints
+
+
+def get_with_deviations(uid: str, st, et) -> List[Dict]:
+    deviations = dev.get_unique_deviations(uid, st, et)
+    return deviations
 
 
 def filter_fingerprints(target, fingerprints) -> List[Dict]:
@@ -418,6 +443,9 @@ def is_type_mismatch(
     resrc_type = target[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
     with_type = with_obj[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
     with_kind = with_obj.get(lib.KIND_FIELD)
+    target_kind = target.get(lib.KIND_FIELD)
+    if target_kind == lib.POL_KIND and with_kind == lib.DEVIATION_KIND:
+        return True
     if resrc_type != with_type:
         cli.try_log(
             f"Error type mismatch. Trying to {src_cmd} '{target_name}' of type"
