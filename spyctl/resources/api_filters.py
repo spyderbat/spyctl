@@ -443,7 +443,10 @@ class Deviations(API_Filter):
             {
                 "aggregation": {
                     "aggregations": [
-                        {"count": {}, "as": "count"},
+                        {
+                            "uniq_count": {"property": "checksum"},
+                            "as": "counts",
+                        },
                     ],
                     "by": [{"property": "policy_uid"}],
                 },

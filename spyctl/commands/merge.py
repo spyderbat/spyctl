@@ -38,6 +38,8 @@ def handle_merge(
     yes_except: bool = False,
     merge_network: bool = True,
     do_api=False,
+    force_fprints=False,
+    full_diff=False,
 ):
     if do_api:
         ctx = cfgs.get_current_context()
@@ -75,7 +77,14 @@ def handle_merge(
                 )
                 continue
             with_obj = get_with_obj(
-                target, target_name, with_file, with_policy, st, et, latest
+                target,
+                target_name,
+                with_file,
+                with_policy,
+                st,
+                et,
+                latest,
+                with_fingerprints=force_fprints,
             )
             # If we have something to merge, add to actions
             if with_obj:
@@ -83,13 +92,19 @@ def handle_merge(
                     target, target_name, with_obj, merge_network=merge_network
                 )
                 if merged_obj:
-                    handle_output(output, output_dest, merged_obj)
+                    handle_output(
+                        output, output_dest, merged_obj, full_diff=full_diff
+                    )
             elif with_obj is False:
                 continue
             else:
-                cli.try_log(
-                    f"{file.name} has nothing to merge with... skipping."
+                merge_obj = __nothing_to_merge_with(
+                    target_name, target, latest
                 )
+                if merge_obj:
+                    handle_output(
+                        output, output_dest, merge_obj, full_diff=full_diff
+                    )
     elif policy_target:
         if output_to_file:
             output_dest = lib.OUTPUT_DEST_FILE
@@ -110,6 +125,7 @@ def handle_merge(
                     et,
                     latest,
                     output_dest,
+                    with_fingerprints=force_fprints,
                 )
                 # If we have something to merge, add to actions
                 if with_obj:
@@ -120,13 +136,22 @@ def handle_merge(
                         merge_network=merge_network,
                     )
                     if merged_obj:
-                        handle_output(output, output_dest, merged_obj)
+                        handle_output(
+                            output,
+                            output_dest,
+                            merged_obj,
+                            full_diff=full_diff,
+                        )
                 elif with_obj is False:
                     continue
                 else:
-                    cli.try_log(
-                        f"{t_uid} has nothing to merge with..." " skipping."
+                    merge_obj = __nothing_to_merge_with(
+                        target_name, target, latest
                     )
+                    if merge_obj:
+                        handle_output(
+                            output, output_dest, merge_obj, full_diff=full_diff
+                        )
         else:
             targets = {}
             for pol_name_or_uid in policy_target:
@@ -171,6 +196,7 @@ def handle_merge(
                     et,
                     latest,
                     output_dest,
+                    with_fingerprints=force_fprints,
                 )
                 if with_obj:
                     merged_obj = merge_resource(
@@ -180,13 +206,27 @@ def handle_merge(
                         merge_network=merge_network,
                     )
                     if merged_obj:
-                        handle_output(output, output_dest, merged_obj, pager)
+                        handle_output(
+                            output,
+                            output_dest,
+                            merged_obj,
+                            pager,
+                            full_diff=full_diff,
+                        )
                 elif with_obj is False:
                     continue
                 else:
-                    cli.try_log(
-                        f"{t_uid} has nothing to merge with..." " skipping."
+                    merge_obj = __nothing_to_merge_with(
+                        target_name, target, latest
                     )
+                    if merge_obj:
+                        handle_output(
+                            output,
+                            output_dest,
+                            merge_obj,
+                            pager,
+                            full_diff=full_diff,
+                        )
     else:
         cli.err_exit("No target(s) to merge.")
 
@@ -271,13 +311,14 @@ def get_with_obj(
             cli.try_log(f"Filtering fingerprints for {target_name}")
             with_obj = filter_fingerprints(target, FINGERPRINTS)
     else:
+        if latest:
+            st = get_latest_timestamp(target)
         if not cli.query_yes_no(
             f"Merge {target_name} with Deviations from"
             f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
             f"{apply_disclaimer}"
         ):
             return False
-        st = get_latest_timestamp(target)
         uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
         with_obj = get_with_deviations(uid, st, et)
     return with_obj
@@ -366,6 +407,7 @@ def merge_resource(
     src_cmd="merge",
     merge_network=True,
     ctx: cfgs.Context = None,
+    latest=False,
 ) -> Optional[m_lib.MergeObject]:
     if target == with_obj:
         cli.try_log(
@@ -400,10 +442,19 @@ def merge_resource(
             f"Bug found, attempting to {src_cmd} with invalid object"
         )
     if target[lib.SPEC_FIELD] == merge_obj.get_obj_data().get(lib.SPEC_FIELD):
-        cli.try_log(
-            f"{src_cmd} of {target_name} produced no updates to the"
-            f" '{lib.SPEC_FIELD}' field.. skipping"
-        )
+        if latest and src_cmd == "merge":
+            cli.try_log(
+                f"{src_cmd} of {target_name} produced no updates to the"
+                f" '{lib.SPEC_FIELD}'.. updating {lib.LATEST_TIMESTAMP_FIELD}"
+                " field to now."
+            )
+            merge_obj.update_latest_timestamp()
+            return merge_obj
+        else:
+            cli.try_log(
+                f"{src_cmd} of {target_name} produced no updates to the"
+                f" '{lib.SPEC_FIELD}' field.. skipping"
+            )
         if lib.API_CALL:
             return merge_obj
         return None
@@ -445,7 +496,17 @@ def is_type_mismatch(
     with_kind = with_obj.get(lib.KIND_FIELD)
     target_kind = target.get(lib.KIND_FIELD)
     if target_kind == lib.POL_KIND and with_kind == lib.DEVIATION_KIND:
-        return True
+        pol_uid = target[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+        dev_pol_uid = with_obj[lib.METADATA_FIELD]["policy_uid"]
+        if pol_uid != dev_pol_uid:
+            cli.try_log(
+                f"Error uid mismatch. Trying to {src_cmd} '{target_name}' of"
+                f" type '{resrc_type}' with '{with_kind}' but the policy uids"
+                " do not match. Skipping...",
+                is_warning=True,
+            )
+            return True
+        return False
     if resrc_type != with_type:
         cli.try_log(
             f"Error type mismatch. Trying to {src_cmd} '{target_name}' of type"
@@ -462,6 +523,7 @@ def handle_output(
     output_dest: str,
     merge_obj: m_lib.MergeObject,
     pager=False,
+    full_diff=False,
 ):
     data = merge_obj.get_obj_data()
     if output_dest == lib.OUTPUT_DEST_API:
@@ -475,7 +537,7 @@ def handle_output(
             cli.show(data, output_format)
 
 
-def apply_merge(merge_obj: m_lib.MergeObject):
+def apply_merge(merge_obj: m_lib.MergeObject, full_diff=False):
     data = merge_obj.get_obj_data()
     pol_name = lib.get_metadata_name(data)
     pol_uid = data[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
@@ -485,7 +547,9 @@ def apply_merge(merge_obj: m_lib.MergeObject):
         ignore_yes_option=YES_EXCEPT,
     ):
         cli.show(
-            merge_obj.get_diff(), lib.OUTPUT_RAW, dest=lib.OUTPUT_DEST_PAGER
+            merge_obj.get_diff(full_diff),
+            lib.OUTPUT_RAW,
+            dest=lib.OUTPUT_DEST_PAGER,
         )
     if not cli.query_yes_no(
         f"Apply merge changes to '{pol_name}-{pol_uid}'?",
@@ -518,3 +582,22 @@ def save_merge_to_file(merge_obj: m_lib.MergeObject, output_format):
     out_fn = lib.find_resource_filename(data, "merge_output")
     out_fn = lib.unique_fn(out_fn, output_format)
     cli.show(data, output_format, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn)
+
+
+def __nothing_to_merge_with(
+    name: str, target, latest, src_cmd="merge"
+) -> Optional[m_lib.MergeObject]:
+    if latest:
+        cli.try_log(
+            f"{name.capitalize()} has nothing to {src_cmd} with. Updating"
+            f" '{lib.LATEST_TIMESTAMP_FIELD}' field."
+        )
+        merge_object = get_merge_object(
+            target[lib.KIND_FIELD], target, True, src_cmd
+        )
+        merge_object.update_latest_timestamp()
+        return merge_object
+    else:
+        cli.try_log(
+            f"{name.capitalize()} has nothing to {src_cmd} with... skipping."
+        )

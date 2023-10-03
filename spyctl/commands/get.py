@@ -12,6 +12,7 @@ import spyctl.resources.connections as spyctl_conns
 import spyctl.resources.connection_bundles as spyctl_cb
 import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.deployments as spyctl_deployments
+import spyctl.resources.deviations as spyctl_dev
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.machines as spyctl_machines
@@ -318,6 +319,8 @@ def handle_get_deployments(name_or_id, st, et, output, **filters):
 
 
 def handle_get_deviations(name_or_id, st, et, output, **filters):
+    unique = filters.pop("unique", False)
+    items_list = filters.pop("items_list", False)
     ctx = cfg.get_current_context()
     sources, filters = _af.Deviations.build_sources_and_filters(**filters)
     if _af.POLICIES_CACHE:
@@ -339,13 +342,15 @@ def handle_get_deviations(name_or_id, st, et, output, **filters):
     elif output == lib.OUTPUT_WIDE:
         __wide_not_supported()
     else:
-        for deviation in api.get_deviations(
-            *ctx.get_api_data(),
+        for deviation in spyctl_dev.get_deviations_stream(
+            ctx,
             sources,
             (st, et),
             pipeline,
             LIMIT_MEM,
             disable_pbar_on_first=not lib.is_redirected(),
+            unique=unique,
+            items_list=items_list,
         ):
             cli.show(deviation, output, ndjson=NDJSON)
 

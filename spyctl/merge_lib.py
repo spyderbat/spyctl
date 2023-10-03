@@ -1,6 +1,7 @@
 import fnmatch
 import ipaddress as ipaddr
 import re
+import time
 from copy import deepcopy
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -9,8 +10,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import yaml
 
 import spyctl.cli as cli
-import spyctl.spyctl_lib as lib
 import spyctl.schemas_v2 as schemas
+import spyctl.spyctl_lib as lib
 
 SPEC_FIELD = lib.SPEC_FIELD
 CONT_SELECTOR_FIELD = lib.CONT_SELECTOR_FIELD
@@ -124,14 +125,64 @@ class MergeObject:
     def is_valid(self) -> bool:
         return schemas.valid_object(self.obj_data)
 
-    def get_diff(self) -> Optional[str]:
+    def get_diff(self, full_diff=False) -> Optional[str]:
         original_yaml: str = yaml.dump(self.original_obj, sort_keys=False)
         yaml_lines = original_yaml.splitlines()
         diff_all_fields(self.original_obj, self.obj_data, yaml_lines)
-        return "\n".join(yaml_lines)
+        if full_diff:
+            return "\n".join(yaml_lines)
+        else:
+            summary = []
+            in_sum = set()
+            found_spec = False
+
+            def add_line_to_sum(index, sum_line):
+                if index not in in_sum:
+                    if (
+                        index != 0
+                        and index - 1 >= 0
+                        and index - 1 not in in_sum
+                    ):
+                        summary.append("...")
+                    summary.append(sum_line)
+                    in_sum.add(index)
+
+            for i, line in enumerate(yaml_lines):
+                stripped = line.strip()
+                if (
+                    line.startswith(f"{lib.ADD_COLOR}{ADD_START}")
+                    or line.startswith(f"{ADD_START}")
+                    or line.startswith(f"{lib.SUB_COLOR}{SUB_START}")
+                    or line.startswith(f"{SUB_START}")
+                    or not found_spec
+                    or stripped.startswith(lib.PROC_POLICY_FIELD)
+                    or stripped.startswith(lib.NET_POLICY_FIELD)
+                    or stripped.startswith(lib.INGRESS_FIELD)
+                    or stripped.startswith(lib.EGRESS_FIELD)
+                ):
+                    if line.strip().startswith(lib.SPEC_FIELD):
+                        found_spec = True
+                    for x in range(i - 5, i):
+                        if x >= 0:
+                            add_line_to_sum(x, yaml_lines[x])
+                    add_line_to_sum(i, line)
+                    for x in range(i + 1, i + 6):
+                        if x < len(yaml_lines):
+                            add_line_to_sum(x, yaml_lines[x])
+            if max(in_sum) != len(yaml_lines) - 1:
+                summary.append("...")
+            return "\n".join(summary)
 
     def get_obj_data(self):
         return self.obj_data
+
+    def update_latest_timestamp(self, timestamp=None):
+        meta = self.obj_data.get(lib.METADATA_FIELD)
+        if meta and lib.LATEST_TIMESTAMP_FIELD in meta:
+            if timestamp:
+                meta[lib.LATEST_TIMESTAMP_FIELD] = timestamp
+            else:
+                meta[lib.LATEST_TIMESTAMP_FIELD] = time.time()
 
     def __merge_subfields(
         self,
@@ -616,12 +667,23 @@ class ProcessNodeList:
     ) -> "ProcessNode":
         if "policyNode" in node_data:
             id = node_data["policyNode"]["id"]
-            if id not in BASE_NODE_LIST:
+            children = node_data["policyNode"].get(lib.CHILDREN_FIELD)
+            if id not in BASE_NODE_LIST.ids:
                 raise InvalidMergeError(
                     f"Deviation process node ID ({id}) is missing in base"
                     " policy"
                 )
-            node_data = BASE_NODE_LIST[id]
+            node = BASE_NODE_LIST.get_node(id)
+            node_data = node.node.copy()
+            node_data.pop(lib.CHILDREN_FIELD, None)
+            if children:
+                node_data[lib.CHILDREN_FIELD] = children
+            while node.parent:
+                parent = BASE_NODE_LIST.get_node(node.parent)
+                parent_data = parent.node.copy()
+                parent_data[lib.CHILDREN_FIELD] = [node_data]
+                node_data = parent_data
+                node = parent
         proc_node = ProcessNode(self, node_data, eusers, parent)
         self.proc_nodes[proc_node.id] = proc_node
         self.proc_name_index.setdefault(proc_node.name, [])

@@ -1,9 +1,6 @@
 import json
-import sys
-from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Set
 
-import tqdm
 import zulu
 from tabulate import tabulate
 
@@ -27,7 +24,7 @@ POLICY_META_MERGE_SCHEMA = m_lib.MergeSchema(
     lib.METADATA_FIELD,
     merge_functions={
         lib.METADATA_NAME_FIELD: m_lib.keep_base_value_merge,
-        lib.METADATA_TYPE_FIELD: m_lib.all_eq_merge,
+        lib.METADATA_TYPE_FIELD: m_lib.keep_base_value_merge,
         lib.METADATA_UID_FIELD: m_lib.keep_base_value_merge,
         lib.METADATA_CREATE_TIME: m_lib.keep_base_value_merge,
         lib.LATEST_TIMESTAMP_FIELD: m_lib.greatest_value_merge,
@@ -277,7 +274,7 @@ def policies_summary_output(
             "STATUS",
             "TYPE",
             "CREATE_TIME",
-            "DEVIATIONS",
+            "DEVIATIONS_(UNIQ/TOT)",
         ]
     else:
         headers = ["UID", "NAME", "STATUS", "TYPE", "CREATE_TIME"]
@@ -330,7 +327,11 @@ def policy_summary_data(
         create_time,
     ]
     if get_deviations_count:
-        rv.append(deviations_counts.get(uid, 0))
+        counts = deviations_counts.get(uid)
+        if not counts:
+            rv.append("0/0")
+        else:
+            rv.append(f"{len(counts[0])}/{counts[1]}")
     return rv
 
 
@@ -364,13 +365,14 @@ def get_deviation_counts(
             f"Getting policy deviations from {lib.epoch_to_zulu(time[0])} to"
             f" {lib.epoch_to_zulu(time[1])}"
         )
-    rv = defaultdict(int)
+    rv: Dict[str, List[Set, int]] = {}
     ctx = cfg.get_current_context()
     policy_uids = [
         policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
         for policy in policies
     ]
     pipeline = _af.Deviations.generate_count_pipeline()
+    checksums = set()
     for count_obj in api.get_deviations(
         *ctx.get_api_data(),
         policy_uids,
@@ -378,8 +380,11 @@ def get_deviation_counts(
         pipeline,
     ):
         uid = count_obj["policy_uid"]
-        count = count_obj["count"]
-        rv[uid] += count
+        checksums.update(count_obj["counts"])
+        if uid not in rv:
+            rv[uid] = [set(), 0]
+        rv[uid][0].update(count_obj["counts"])
+        rv[uid][1] += sum(count_obj["counts"].values())
     return rv
 
 

@@ -7,6 +7,7 @@ import spyctl.filter_resource as filt
 import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
 import spyctl.commands.merge as merge_cmd
+import spyctl.merge_lib as m_lib
 
 POLICIES = None
 FINGERPRINTS = None
@@ -25,6 +26,8 @@ def handle_diff(
     latest,
     merge_network=True,
     do_api=False,
+    force_fprints=False,
+    full_diff=False,
 ):
     if do_api:
         ctx = cfgs.get_current_context()
@@ -58,11 +61,23 @@ def handle_diff(
                 )
                 continue
             with_obj = get_with_obj(
-                target, target_name, with_file, with_policy, st, et, latest
+                target,
+                target_name,
+                with_file,
+                with_policy,
+                st,
+                et,
+                latest,
+                force_fprints,
             )
             if with_obj:
                 diff_resource(
-                    target, target_name, with_obj, pager, merge_network
+                    target,
+                    target_name,
+                    with_obj,
+                    pager,
+                    merge_network,
+                    full_diff=full_diff,
                 )
             elif with_obj is False:
                 continue
@@ -70,6 +85,9 @@ def handle_diff(
                 cli.try_log(
                     f"{file.name} has nothing to diff with... skipping."
                 )
+                merge_obj = __nothing_to_diff_with(target_name, target, latest)
+                if merge_obj:
+                    handle_output(merge_obj, pager, full_diff=full_diff)
     elif policy_target:
         pager = (
             True
@@ -83,7 +101,6 @@ def handle_diff(
                 t_name = lib.get_metadata_name(target)
                 t_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
                 target_name = f"applied policy '{t_name} - {t_uid}'"
-                target_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
                 with_obj = get_with_obj(
                     target,
                     target_name,
@@ -92,18 +109,25 @@ def handle_diff(
                     st,
                     et,
                     latest,
+                    force_fprints,
                 )
                 if with_obj:
                     diff_resource(
-                        target, target_name, with_obj, pager, merge_network
+                        target,
+                        target_name,
+                        with_obj,
+                        pager,
+                        merge_network,
+                        full_diff=full_diff,
                     )
                 elif with_obj is False:
                     continue
                 else:
-                    cli.try_log(
-                        f"{target_uid} has nothing to diff with..."
-                        " skipping."
+                    merge_obj = __nothing_to_diff_with(
+                        target_name, target, latest
                     )
+                    if merge_obj:
+                        handle_output(merge_obj, pager, full_diff=full_diff)
         else:
             targets = {}
             for pol_name_or_uid in policy_target:
@@ -139,7 +163,6 @@ def handle_diff(
                     lib.METADATA_UID_FIELD
                 )
                 target_name = f"applied policy '{t_name} - {t_uid}'"
-                target_uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
                 with_obj = get_with_obj(
                     target,
                     target_name,
@@ -148,24 +171,38 @@ def handle_diff(
                     st,
                     et,
                     latest,
+                    force_fprints,
                 )
                 if with_obj:
                     diff_resource(
-                        target, target_name, with_obj, pager, merge_network
+                        target,
+                        target_name,
+                        with_obj,
+                        pager,
+                        merge_network,
+                        full_diff=full_diff,
                     )
                 elif with_obj is False:
                     continue
                 else:
-                    cli.try_log(
-                        f"{target_uid} has nothing to diff with..."
-                        " skipping."
+                    merge_obj = __nothing_to_diff_with(
+                        target_name, target, latest
                     )
+                    if merge_obj:
+                        handle_output(merge_obj, pager, full_diff=full_diff)
     else:
         cli.err_exit("No target of the diff.")
 
 
 def get_with_obj(
-    target: Dict, target_name, with_file: IO, with_policy: str, st, et, latest
+    target: Dict,
+    target_name,
+    with_file: IO,
+    with_policy: str,
+    st,
+    et,
+    latest,
+    with_fingerprints=False,
 ) -> Optional[Union[Dict, List[Dict]]]:
     global FINGERPRINTS
     target_uid = target.get(lib.METADATA_FIELD, {}).get(lib.METADATA_UID_FIELD)
@@ -206,7 +243,9 @@ def get_with_obj(
                 f" '{pol_name} - {pol_uid}'?"
             ):
                 return False
-    else:
+    elif with_fingerprints or not target.get(lib.METADATA_FIELD, {}).get(
+        lib.METADATA_UID_FIELD
+    ):
         if latest:
             latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
                 lib.LATEST_TIMESTAMP_FIELD
@@ -234,6 +273,16 @@ def get_with_obj(
         else:
             cli.try_log(f"Filtering fingerprints for {target_name}")
             with_obj = filter_fingerprints(target, FINGERPRINTS)
+    else:
+        if latest:
+            st = merge_cmd.get_latest_timestamp(target)
+        if not cli.query_yes_no(
+            f"Diff {target_name} with Deviations from"
+            f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
+        ):
+            return False
+        uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+        with_obj = merge_cmd.get_with_deviations(uid, st, et)
     return with_obj
 
 
@@ -278,13 +327,38 @@ def diff_resource(
     with_obj: Union[Dict, List[Dict]],
     pager=False,
     merge_network=True,
+    full_diff=False,
 ):
     merged_obj = merge_cmd.merge_resource(
         target, target_name, with_obj, "diff", merge_network
     )
     if merged_obj:
-        diff_data = merged_obj.get_diff()
-        if pager:
-            cli.show(diff_data, lib.OUTPUT_RAW, dest=lib.OUTPUT_DEST_PAGER)
-        else:
-            cli.show(diff_data, lib.OUTPUT_RAW)
+        handle_output(merged_obj, pager, full_diff)
+
+
+def handle_output(merged_obj: m_lib.MergeObject, pager=False, full_diff=False):
+    diff_data = merged_obj.get_diff(full_diff)
+    if pager:
+        cli.show(diff_data, lib.OUTPUT_RAW, dest=lib.OUTPUT_DEST_PAGER)
+    else:
+        cli.show(diff_data, lib.OUTPUT_RAW)
+
+
+def __nothing_to_diff_with(
+    name: str, target, latest, src_cmd="diff"
+) -> Optional[m_lib.MergeObject]:
+    if latest:
+        cli.try_log(
+            f"{name.capitalize()} has nothing to {src_cmd} with. Would"
+            f" update '{lib.LATEST_TIMESTAMP_FIELD}' field on merge."
+        )
+        return
+        merge_object = merge_cmd.get_merge_object(
+            target[lib.KIND_FIELD], target, True, src_cmd
+        )
+        merge_object.update_latest_timestamp()
+        return merge_object
+    else:
+        cli.try_log(
+            f"{name.capitalize()} has nothing to {src_cmd} with... skipping."
+        )
