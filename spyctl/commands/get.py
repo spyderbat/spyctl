@@ -12,6 +12,7 @@ import spyctl.resources.connections as spyctl_conns
 import spyctl.resources.connection_bundles as spyctl_cb
 import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.deployments as spyctl_deployments
+import spyctl.resources.deviations as spyctl_dev
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.machines as spyctl_machines
@@ -62,6 +63,8 @@ def handle_get(
         handle_get_containers(name_or_id, st, et, output, **filters)
     elif resource == lib.DEPLOYMENTS_RESOURCE:
         handle_get_deployments(name_or_id, st, et, output, **filters)
+    elif resource == lib.DEVIATIONS_RESOURCE:
+        handle_get_deviations(name_or_id, st, et, output, **filters)
     elif resource == lib.FINGERPRINTS_RESOURCE:
         handle_get_fingerprints(
             name_or_id, st, et, output, file, latest, **filters
@@ -310,9 +313,46 @@ def handle_get_deployments(name_or_id, st, et, output, **filters):
             (st, et),
             pipeline,
             LIMIT_MEM,
-            not lib.is_redirected(),
+            disable_pbar_on_first=not lib.is_redirected(),
         ):
             cli.show(deployment, output, ndjson=NDJSON)
+
+
+def handle_get_deviations(name_or_id, st, et, output, **filters):
+    unique = filters.pop("unique", False)
+    items_list = filters.pop("items_list", False)
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Deviations.build_sources_and_filters(**filters)
+    if _af.POLICIES_CACHE:
+        policies = _af.POLICIES_CACHE
+    else:
+        policies = api.get_policies(*ctx.get_api_data)
+    sources_set = set(sources)
+    policies = [
+        policy
+        for policy in policies
+        if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] in sources_set
+    ]
+    pipeline = _af.Deviations.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_policies.policies_summary_output(
+            policies, (st, et), get_deviations_count=True, suppress_msg=True
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for deviation in spyctl_dev.get_deviations_stream(
+            ctx,
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            disable_pbar_on_first=not lib.is_redirected(),
+            unique=unique,
+            items_list=items_list,
+        ):
+            cli.show(deviation, output, ndjson=NDJSON)
 
 
 def handle_get_machines(name_or_id, st, et, output: str, **filters: Dict):
@@ -526,6 +566,7 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
 def handle_get_policies(name_or_id, output, files, st, et, **filters):
     has_matching = filters.pop("has_matching", False)
     file_output = filters.pop("output_to_file", False)
+    get_deviations_count = filters.pop("get_deviations", False)
     ctx = cfg.get_current_context()
     if files:
         policies = []
@@ -560,26 +601,25 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
             cli.show(
                 policy, output, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn
             )
-    else:
-        if has_matching:
-            policies, no_match_pols = __calculate_has_matching_fprints(
-                policies, st, et
-            )
-        else:
-            no_match_pols = []
-        if output != lib.OUTPUT_DEFAULT:
-            policies = spyctl_policies.policies_output(
-                policies + no_match_pols
-            )
-        else:
-            policies = spyctl_policies.policies_summary_output(
-                policies, has_matching, no_match_pols
-            )
-            output = lib.OUTPUT_RAW
-        cli.show(
-            policies,
-            output,
+    elif has_matching:
+        policies, no_match_pols = __calculate_has_matching_fprints(
+            policies, st, et
         )
+        summary = spyctl_policies.policies_summary_output(
+            policies, has_matching, no_match_pols
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        if output == lib.OUTPUT_DEFAULT:
+            summary = spyctl_policies.policies_summary_output(
+                policies, (st, et), get_deviations_count
+            )
+            cli.show(summary, lib.OUTPUT_RAW)
+        elif output == lib.OUTPUT_WIDE:
+            __wide_not_supported()
+        else:
+            for policy in policies:
+                cli.show(policy, output, ndjson=NDJSON)
 
 
 def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
@@ -974,6 +1014,8 @@ def __get_policies_from_option(pol_names_or_uids: List[str]) -> List[Dict]:
 
 def __output_time_log(resource, st, et):
     resrc_plural = lib.get_plural_name_from_alias(resource)
+    if resrc_plural == lib.DEVIATIONS_RESOURCE.name_plural:
+        resrc_plural = f"policy {resrc_plural}"
     if resrc_plural and resrc_plural not in not_time_based:
         cli.try_log(
             f"Getting {resrc_plural} from {lib.epoch_to_zulu(st)} to"

@@ -202,6 +202,9 @@ class GuardianSelectorsModel(BaseModel):
         alias=lib.POD_SELECTOR_FIELD
     )
 
+    class Config:
+        extra = Extra.forbid
+
 
 class ActionSelectorsModel(BaseModel):
     namespace_selector: Optional[NamespaceSelectorModel] = Field(
@@ -239,6 +242,9 @@ class GuardianSpecOptionsModel(BaseModel):
 class DnsBlockModel(BaseModel):
     dns_selector: List[str] = Field(alias=lib.DNS_SELECTOR_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class CIDRModel(BaseModel):
     cidr: IPvAnyNetwork = Field(alias=lib.CIDR_FIELD)
@@ -268,9 +274,15 @@ class CIDRModel(BaseModel):
                     )
         return values
 
+    class Config:
+        extra = Extra.forbid
+
 
 class IpBlockModel(BaseModel):
     ip_block: CIDRModel = Field(alias=lib.IP_BLOCK_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class PortsModel(BaseModel):
@@ -287,6 +299,9 @@ class PortsModel(BaseModel):
                 f" {lib.PORT_FIELD}"
             )
         return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 class IngressNodeModel(BaseModel):
@@ -312,6 +327,7 @@ class IngressNodeModel(BaseModel):
 
     class Config:
         smart_union = True
+        extra = Extra.forbid
 
 
 class EgressNodeModel(BaseModel):
@@ -337,11 +353,17 @@ class EgressNodeModel(BaseModel):
 
     class Config:
         smart_union = True
+        extra = Extra.forbid
 
 
 class NetworkPolicyModel(BaseModel):
     ingress: List[IngressNodeModel] = Field(alias=lib.INGRESS_FIELD)
     egress: List[EgressNodeModel] = Field(alias=lib.EGRESS_FIELD)
+
+
+class DeviationNetworkPolicyModel(BaseModel):
+    ingress: Optional[List[IngressNodeModel]] = Field(alias=lib.INGRESS_FIELD)
+    egress: Optional[List[EgressNodeModel]] = Field(alias=lib.EGRESS_FIELD)
 
 
 # Process Models --------------------------------------------------------------
@@ -368,6 +390,33 @@ class ProcessNodeModel(SimpleProcessNodeModel):
             raise ValueError(f"Duplicate id '{v}' detected.")
         add_proc_id(v)
         return v
+
+    class Config:
+        extra = Extra.forbid
+
+
+class GuardDeviationProcessNodeModel(BaseModel):
+    id: str = Field(alias=lib.ID_FIELD)
+    children: Optional[List[ProcessNodeModel]] = Field(
+        alias=lib.CHILDREN_FIELD
+    )
+
+    @validator("id")
+    def validate_no_duplicate_ids(cls, v):
+        if in_proc_ids(v):
+            raise ValueError(f"Duplicate id '{v}' detected.")
+        add_proc_id(v)
+        return v
+
+    # class Config:
+    #     extra = Extra.forbid
+
+
+class GuardDeviationNodeModel(BaseModel):
+    policy_node: GuardDeviationProcessNodeModel = Field(alias="policyNode")
+
+    class Config:
+        extra = Extra.forbid
 
 
 # Actions Models --------------------------------------------------------------
@@ -557,6 +606,11 @@ class GuardianFingerprintGroupMetadataModel(BaseModel):
     )
 
 
+class GuardianDeviationMetadataModel(BaseModel):
+    type: str = Field(alias=lib.METADATA_TYPE_FIELD)
+    policy_uid: str = Field(alias="policy_uid")
+
+
 # Spec Models -----------------------------------------------------------------
 
 
@@ -580,6 +634,20 @@ class GuardianBaselineSpecModel(
 ):
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class GuardianDeviationSpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
+    process_policy: List[
+        Union[ProcessNodeModel, GuardDeviationNodeModel]
+    ] = Field(alias=lib.PROC_POLICY_FIELD)
+    network_policy: Optional[DeviationNetworkPolicyModel] = Field(
+        alias=lib.NET_POLICY_FIELD
+    )
 
     class Config:
         extra = Extra.forbid
@@ -619,6 +687,9 @@ class FingerprintGroupDataModel(BaseModel):
     cont_ids: Optional[List[str]] = Field(alias=lib.FPRINT_GRP_CONT_IDS_FIELD)
     machines: Optional[List[str]] = Field(alias=lib.FPRINT_GRP_MACHINES_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class GuardianFingerprintGroupModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
@@ -632,6 +703,20 @@ class GuardianFingerprintGroupModel(BaseModel):
 
     class Config:
         extra = Extra.ignore
+
+
+class GuardianDeviationModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.DEVIATION_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
+    metadata: GuardianDeviationMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: GuardianDeviationSpecModel = Field(alias=lib.SPEC_FIELD)
+
+    def __init__(self, **data: Any):
+        clear_proc_ids()
+        super().__init__(**data)
+        clear_proc_ids()
 
 
 class GuardianBaselineModel(BaseModel):
@@ -713,6 +798,9 @@ class SuppressionPolicySelectorsModel(BaseModel):
             raise ValueError("")
         return values
 
+    class Config:
+        extra = Extra.forbid
+
 
 # Metadata Models -------------------------------------------------------------
 
@@ -751,6 +839,9 @@ class SuppressionPolicySpecModel(SuppressionPolicySelectorsModel):
         alias=lib.ALLOWED_FLAGS_FIELD
     )
 
+    class Config:
+        extra = Extra.forbid
+
 
 # Top-level Models ------------------------------------------------------------
 
@@ -760,6 +851,9 @@ class SuppressionPolicyModel(BaseModel):
     kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
     metadata: SuppressionPolicyMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: SuppressionPolicySpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 # -----------------------------------------------------------------------------
@@ -785,6 +879,9 @@ class ContextModel(BaseModel):
     )
     pods: Optional[Union[str, List[str]]] = Field(alias=lib.POD_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 # Metadata Models -------------------------------------------------------------
 
@@ -808,11 +905,17 @@ class SecretModel(BaseModel):
     data: Optional[Dict[str, str]] = Field(alias=lib.DATA_FIELD)
     string_data: Optional[Dict[str, str]] = Field(alias=lib.STRING_DATA_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class ContextsModel(BaseModel):
     context_name: str = Field(alias=lib.CONTEXT_NAME_FIELD)
     secret: str = Field(alias=lib.SECRET_FIELD)
     context: ContextModel = Field(alias=lib.CONTEXT_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class ConfigModel(BaseModel):
@@ -822,6 +925,9 @@ class ConfigModel(BaseModel):
     )
     contexts: List[ContextsModel] = Field(alias=lib.CONTEXTS_FIELD)
     current_context: str = Field(alias=lib.CURR_CONTEXT_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 # -----------------------------------------------------------------------------
@@ -848,6 +954,9 @@ class UidListMetadataModel(BaseModel):
 class UidListDataModel(BaseModel):
     uids: List[str] = Field(alias=lib.UIDS_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class UidListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
@@ -856,6 +965,9 @@ class UidListModel(BaseModel):
     )
     metadata: UidListMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: UidListDataModel = Field(alias=lib.DATA_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class SpyderbatObject(BaseModel):
@@ -883,6 +995,7 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     (lib.POL_KIND, lib.POL_TYPE_TRACE): SuppressionPolicyModel,
     lib.SECRET_KIND: SecretModel,
     lib.UID_LIST_KIND: UidListModel,
+    lib.DEVIATION_KIND: GuardianDeviationModel,
 }
 
 

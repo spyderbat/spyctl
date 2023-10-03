@@ -288,13 +288,17 @@ def retrieve_data(
             continue
         for json_obj in resp.iter_lines():
             obj = json.loads(json_obj)
-            id = obj["id"]
-            if new_version(id, obj):
-                data[id] = obj
-                while len(popped_off_cache) > 0:
-                    yield popped_off_cache.pop()
-    while len(data) > 0:
-        yield data.popitem()[1]
+            id = obj.get("id")
+            if id:
+                if new_version(id, obj):
+                    data[id] = obj
+                    while len(popped_off_cache) > 0:
+                        yield popped_off_cache.pop()
+            else:
+                yield obj
+    else:
+        while len(data) > 0:
+            yield data.popitem()[1]
 
 
 def get_filtered_data(
@@ -689,6 +693,44 @@ def get_deployments(
         __log_interrupt()
 
 
+def get_deviations(
+    api_url,
+    api_key,
+    org_uid,
+    policy_uids,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar=False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_AUDIT
+        schema = (
+            f"{lib.EVENT_AUDIT_PREFIX}:"
+            f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
+        )
+        url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
+        for deviation in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            policy_uids,
+            datatype,
+            schema,
+            time,
+            url=url,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar=disable_pbar,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield deviation
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
 def get_fingerprints(
     api_url,
     api_key,
@@ -1068,7 +1110,7 @@ def get_audit_events(
         )
     else:
         schema = lib.EVENT_AUDIT_PREFIX
-    url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/logs"
+    url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
     for resp in threadpool_progress_bar_time_blocks(
         [src_uid],
         time,
@@ -1129,6 +1171,15 @@ def get_trace_summaries(
             yield fingerprint
     except KeyboardInterrupt:
         __log_interrupt()
+
+
+# ----------------------------------------------------------------- #
+#                          Aggregation Counts                       #
+# ----------------------------------------------------------------- #
+
+
+def deviation_count():
+    pass
 
 
 # ----------------------------------------------------------------- #

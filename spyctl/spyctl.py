@@ -858,6 +858,19 @@ def describe(resource, name_or_id, filename=None):
     type=lib.time_inp,
 )
 @click.option(
+    "--force-fprints",
+    is_flag=True,
+    help="Force spyctl to diff a policy with relevant fingerprints when it."
+    "would otherwise be diff'd with deviations.",
+)
+@click.option(
+    "--full-diff",
+    is_flag=True,
+    help="A diff summary is shown by default, set this flag to show the full"
+    " object when viewing a diff. (All changes to the object"
+    " are shown in the summary).",
+)
+@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -892,6 +905,8 @@ def diff(
     with_policy=None,
     latest=False,
     api=False,
+    force_fprints=False,
+    full_diff=False,
 ):
     """Diff target Baselines and Policies with other Resources.
 
@@ -899,7 +914,8 @@ def diff(
     document you are maintaining) and a Resource to diff with the target.
     A target can be either a local file supplied using the -f option or a policy
     you've applied to the Spyderbat Backend supplied with the -p option.
-    By default, target's are diff'd with relevant* Fingerprints from the last 24
+    By default, target's are diff'd with deviations if they are applied policies,
+    otherwise they are diff'd with relevant* Fingerprints from the last 24
     hours to now. Targets may also be diff'd with local files with the -w option
     or with data from an existing applied policy using the -P option.
 
@@ -913,23 +929,23 @@ def diff(
 
     \b
     Examples:
-      # diff a local policy file with relevant* Fingerprints from the last
+      # diff a local policy file with data from the last
       # 24hrs to now:
       spyctl diff -f policy.yaml\n
     \b
-      # diff a local policy file with relevant* Fingerprints from its
+      # diff a local policy file with data from its
       # latestTimestamp field to now:
       spyctl diff -f policy.yaml --latest\n
     \b
-      # diff an existing applied policy with relevant* Fingerprints from the
+      # diff an existing applied policy with data from the
       # last 24hrs to now:
       spyctl diff -p <NAME_OR_UID>\n
     \b
-      # Bulk diff all existing policies with relevant* Fingerprints from the
+      # Bulk diff all existing policies with data from the
       # last 24hrs to now:
       spyctl diff -p\n
     \b
-      # Bulk diff multiple policies with relevant* Fingerprints from the
+      # Bulk diff multiple policies with data from the
       # last 24hrs to now:
       spyctl diff -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
     \b
@@ -971,6 +987,8 @@ def diff(
         latest,
         include_network,
         api,
+        force_fprints,
+        full_diff,
     )
 
 
@@ -1028,6 +1046,30 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Include redflags marked as exceptions in output."
                     " Off by default.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.DEVIATIONS_RESOURCE],
+            "args": [
+                click.option(
+                    f"--{lib.POLICIES_FIELD}",
+                    "policies",
+                    help="Policies to get deviations from.",
+                    type=lib.ListParam(),
+                    metavar="",
+                ),
+                click.option(
+                    "--unique",
+                    is_flag=True,
+                    help="Only return unique deviations in json or yaml"
+                    " output",
+                ),
+                click.option(
+                    "--items-list",
+                    is_flag=True,
+                    help="Return deviations in a format compatible with local"
+                    " diff'ing and merging.",
                 ),
             ],
         },
@@ -1185,6 +1227,12 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " created from the name in each policy's metadata.",
                     is_flag=True,
                 ),
+                click.option(
+                    "--get-deviations",
+                    help="In the summary output, show deviations count for the"
+                    " provided time window",
+                    is_flag=True,
+                ),
             ],
         },
     ]
@@ -1321,8 +1369,10 @@ def get(
     Some resources are retrieved from from databases where a time range can
     be specified:
     - Connections
+    - Connection Bundles
     - Containers
     - Deployments
+    - Deviations
     - Fingerprints
     - Namespaces
     - Nodes
@@ -1575,6 +1625,19 @@ def logs(
     is_flag=True,
 )
 @click.option(
+    "--force-fprints",
+    is_flag=True,
+    help="Force spyctl to merge a policy with relevant fingerprints when it."
+    "would otherwise be merged with deviations.",
+)
+@click.option(
+    "--full-diff",
+    is_flag=True,
+    help="A diff summary is shown by default, set this flag to show the full"
+    " object when viewing a diff following a merge. (All changes to the object"
+    " are shown in the summary).",
+)
+@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -1624,6 +1687,8 @@ def merge(
     latest=False,
     output_to_file=False,
     api=False,
+    force_fprints=False,
+    full_diff=False,
 ):
     """Merge target Baselines and Policies with other Resources.
 
@@ -1631,7 +1696,8 @@ def merge(
     document you are maintaining) and a Resource to merge into the target.
     A target can either be a local file supplied using the -f option or a policy
     you've applied to the Spyderbat Backend supplied with the -p option.
-    By default, target's are merged with relevant* Fingerprints from the last 24
+    By default, target's are merged with deviations if they are applied policies,
+    otherwise they are merged with relevant* Fingerprints from the last 24
     hours to now. Targets may also be merged with local files with the -w option
     or with data from an existing applied policy using the -P option.
 
@@ -1653,28 +1719,28 @@ def merge(
 
     \b
     Examples:
-      # merge a local policy file with relevant* Fingerprints from the last
+      # merge a local policy file with data from the last
       # 24hrs to now:
       spyctl merge -f policy.yaml\n
     \b
-      # merge a local policy file with relevant* Fingerprints from its
+      # merge a local policy file with data from its
       # latestTimestamp field to now:
       spyctl merge -f policy.yaml --latest\n
     \b
-      # merge an existing applied policy with relevant* Fingerprints from the
+      # merge an existing applied policy with data from the
       # last 24hrs to now:
       spyctl merge -p <NAME_OR_UID>\n
     \b
-      # Bulk merge all existing policies with relevant* Fingerprints from the
+      # Bulk merge all existing policies with data from the
       # last 24hrs to now:
       spyctl merge -p\n
     \b
-      # Bulk merge multiple policies with relevant* Fingerprints from the
+      # Bulk merge multiple policies with data from the
       # last 24hrs to now:
       spyctl merge -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
     \b
-      # Bulk merge all files in cwd matching a pattern with relevant*
-      # Fingerprints from the last 24hrs to now:
+      # Bulk merge all files in cwd matching a pattern with data
+      # from the last 24hrs to now:
       spyctl merge -f *.yaml\n
     \b
       # merge an existing applied policy with a local file:
@@ -1716,6 +1782,8 @@ def merge(
         yes_except,
         include_network,
         api,
+        force_fprints,
+        full_diff,
     )
 
 

@@ -127,6 +127,11 @@ DEPLOYMENTS_RESOURCE = Aliases(
     "deployment",
     "deployments",
 )
+DEVIATIONS_RESOURCE = Aliases(
+    ["deviations", "deviation", "dev"],
+    "deviation",
+    "deviations",
+)
 FINGERPRINT_GROUP_RESOURCE = Aliases(
     ["fingerprint-group", "fingerprint-groups", "fprint-group", "fg"],
     "fingerprint-group",
@@ -252,6 +257,7 @@ GET_RESOURCES: List[str] = [
     CONNECTION_BUN_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
     DEPLOYMENTS_RESOURCE.name_plural,
+    DEVIATIONS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
@@ -507,6 +513,7 @@ MODEL_FINGERPRINT_SUBTYPE_MAP = {
 }
 
 # Datatypes for searching via API
+DATATYPE_AUDIT = "audit"
 DATATYPE_AGENTS = "agent_status"
 DATATYPE_FINGERPRINTS = "fingerprints"
 DATATYPE_K8S = "k8s"
@@ -520,6 +527,7 @@ BASELINE_KIND = "SpyderbatBaseline"
 FPRINT_KIND = "SpyderbatFingerprint"
 FPRINT_GROUP_KIND = "FingerprintGroup"
 UID_LIST_KIND = "UidList"
+DEVIATION_KIND = "GuardianDeviation"
 
 # CONFIG Kinds
 CONFIG_KIND = "Config"
@@ -644,6 +652,9 @@ SELECTOR_FIELDS = {
 }
 
 # Policies/Fingerprints
+BE_POL_UID_FIELD = (
+    "policy_uid"  # not in the policy objects themselves but in other records
+)
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "linux-service"
 POL_TYPE_TRACE = "trace"
@@ -771,6 +782,9 @@ REPLICAS_FIELD = "replicas"
 AVAILABLE_REPLICAS_FIELD = "availableReplicas"
 READY_REPLICAS_FIELD = "readyReplicas"
 UPDATED_REPLICAS_FIELD = "updatedReplicas"
+
+# Deviations
+CHECKSUM_FIELD = "checksum"
 
 # Nodes
 NODE_INFO_FIELD = "nodeInfo"

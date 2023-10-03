@@ -27,6 +27,8 @@ SOURCE_TYPE_GLOBAL = "global"
 SOURCE_TYPE_MUID = "muid"
 SOURCE_TYPE_POL = "pol"
 
+POLICIES_CACHE = None
+
 
 def get_filtered_cluids(**filters) -> List[str]:
     ctx = cfg.get_current_context()
@@ -45,8 +47,13 @@ def get_filtered_muids(**filters) -> List[str]:
 
 
 def get_filtered_pol_uids(**filters) -> List[str]:
+    global POLICIES_CACHE
     ctx = cfg.get_current_context()
-    policies = api.get_policies(*ctx.get_api_data())
+    if not POLICIES_CACHE:
+        policies = api.get_policies(*ctx.get_api_data())
+        POLICIES_CACHE = policies
+    else:
+        policies = POLICIES_CACHE
     policy_filters = filters.get(lib.POLICIES_FIELD)
     if policy_filters:
         policies = [
@@ -80,14 +87,27 @@ class API_Filter:
 
     @classmethod
     def generate_pipeline(
-        cls, schema, name_or_uid=None, latest_model=True, filters={}
+        cls,
+        schema,
+        name_or_uid=None,
+        latest_model=True,
+        filters={},
+        count=False,
     ) -> List:
         pipeline_items = []
+        if latest_model:
+            pipeline_items.append({"latest_model": {}})
         pipeline_items.append(
             cls.__generate_fprint_api_filters(schema, name_or_uid, **filters)
         )
-        if latest_model:
-            pipeline_items.append({"latest_model": {}})
+        if count:
+            pipeline_items.append(
+                {
+                    "aggregation": {
+                        "aggregations": [{"count": {}, "as": "count"}]
+                    }
+                }
+            )
         return pipeline_items
 
     @classmethod
@@ -191,6 +211,7 @@ class API_Filter:
             sources = [cluid + "_poco" for cluid in cluids]
         elif cls.source_type == SOURCE_TYPE_POL:
             pol_uids = get_filtered_pol_uids(**filters)
+            cls.__pop_pol_filters(ctx_filters, filters)
             sources = pol_uids
         else:  # muids is the default
             if cls.alternate_source_type in CLUSTER_SOURCES and (
@@ -237,6 +258,11 @@ class API_Filter:
     def __pop_muid_filters(ctx_filters: Dict, cmdline_filters: Dict):
         ctx_filters.pop(lib.MACHINES_FIELD, None)
         cmdline_filters.pop(lib.MACHINES_FIELD, None)
+
+    @staticmethod
+    def __pop_pol_filters(ctx_filters: Dict, cmdline_filters: Dict):
+        ctx_filters.pop(lib.POLICIES_FIELD, None)
+        cmdline_filters.pop(lib.POLICIES_FIELD, None)
 
 
 class Agents(API_Filter):
@@ -379,6 +405,54 @@ class Deployments(API_Filter):
         return super(Deployments, cls).generate_pipeline(
             schema, name_or_uid, latest_model, filters
         )
+
+
+class Deviations(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.POLICIES_FIELD: lib.BE_POL_UID_FIELD,
+    }
+    name_or_uid_props = [lib.ID_FIELD]
+    source_type = SOURCE_TYPE_POL
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = (
+            f"{lib.EVENT_AUDIT_PREFIX}:"
+            f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
+        )
+        return super(Deviations, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+    @classmethod
+    def generate_count_pipeline(cls, filters={}):
+        schema = (
+            f"{lib.EVENT_AUDIT_PREFIX}:"
+            f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
+        )
+        pipeline_items = super(Deviations, cls).generate_pipeline(
+            schema,
+            None,
+            True,
+            filters,
+        )
+        pipeline_items.append(
+            {
+                "aggregation": {
+                    "aggregations": [
+                        {
+                            "uniq_count": {"property": "checksum"},
+                            "as": "counts",
+                        },
+                    ],
+                    "by": [{"property": "policy_uid"}],
+                },
+            }
+        )
+        return pipeline_items
 
 
 class Fingerprints(API_Filter):
