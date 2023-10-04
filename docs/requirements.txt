@@ -104,7 +104,7 @@ typing-extensions==4.7.1
     # via
     #   pydantic
     #   spyctl
-urllib3==2.0.4
+urllib3==2.0.6
     # via requests
 zulu==2.0.0
     # via spyctl
