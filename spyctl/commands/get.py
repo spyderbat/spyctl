@@ -326,7 +326,7 @@ def handle_get_deviations(name_or_id, st, et, output, **filters):
     if _af.POLICIES_CACHE:
         policies = _af.POLICIES_CACHE
     else:
-        policies = api.get_policies(*ctx.get_api_data)
+        policies = api.get_policies(*ctx.get_api_data())
     sources_set = set(sources)
     policies = [
         policy
