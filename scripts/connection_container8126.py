@@ -13,19 +13,8 @@ def epoch_to_zulu(epoch):
         return epoch
 
 
-data = {}
-writefile = open("connections8126.json", "w")
-
-# step 1: spyctl get connections > connect.json and spyctl get containers > container8126.json
-# then filter connection data for port 53 from connnection.json
-# and write to connection53.json
-with open("connect.json", "r") as file:
-    for line in file:
-        parsed_json = json.loads(line)
-        if parsed_json["remote_port"] == 8126:
-            writefile.write(json.dumps(parsed_json) + "\n")
-
-writefile.close()
+# step 1: spyctl get connections -o json --ndjson --remote-port 8126 > connections8126.json and
+# spyctl get containers -o json --ndjson > containers8126.json
 
 # load connection data and add it to the conn dictionary
 # if any field is not present default is " "

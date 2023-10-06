@@ -2,20 +2,8 @@ import json
 
 from tabulate import tabulate
 
-data = {}
-
-writefile = open("connections53.json", "w")
-
-# step 1: spyctl get connections > connections.json and spyctl get containers > container53.json
-# filter connection data for port 53 from connnection.json
-# and write to connection53.json
-with open("connections.json", "r") as file:
-    for line in file:
-        parsed_json = json.loads(line)
-        if parsed_json["remote_port"] == 53:
-            writefile.write(json.dumps(parsed_json) + "\n")
-
-writefile.close()
+# step 1: spyctl get connections -o json --ndjson --remote-port 53 > connections53.json and
+# spyctl get containers -o json --ndjson > containers53.json
 
 
 # load connection data and add it to the conn dictionary
