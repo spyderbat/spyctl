@@ -19,6 +19,7 @@ import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.nodes as spyctl_nodes
 import spyctl.resources.notifications as spyctl_notif
+import spyctl.resources.notification_targets as spyctl_tgt
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
@@ -32,6 +33,8 @@ not_time_based = [
     lib.SOURCES_RESOURCE,
     lib.POLICIES_RESOURCE,
     lib.CLUSTERS_RESOURCE,
+    lib.NOTIFICATION_POLICIES_RESOURCE,
+    lib.NOTIFICATION_TARGETS_RESOURCE,
 ]
 resource_with_global_src = [lib.AGENT_RESOURCE, lib.FINGERPRINTS_RESOURCE]
 
@@ -78,6 +81,8 @@ def handle_get(
         handle_get_nodes(name_or_id, st, et, output, **filters)
     elif resource == lib.NOTIFICATION_POLICIES_RESOURCE:
         handle_get_notification_policies(name_or_id, output, **filters)
+    elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
+        handle_get_notification_targets(name_or_id, output, **filters)
     elif resource == lib.OPSFLAGS_RESOURCE:
         handle_get_opsflags(name_or_id, st, et, output, **filters)
     elif resource == lib.PODS_RESOURCE:
@@ -121,7 +126,7 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
 
 def handle_get_notification_policies(name_or_id, output: str, **filters: Dict):
     ctx = cfg.get_current_context()
-    notif_type = filters.get(lib.NOTIF_TYPES_FIELD, lib.NOTIF_TYPE_ALL)
+    notif_type = filters.get(lib.NOTIF_TYPE_FIELD, lib.NOTIF_TYPE_ALL)
     n_pol = api.get_notification_policy(*ctx.get_api_data())
     if not n_pol or not isinstance(n_pol, dict):
         cli.err_exit("Could not load notification policy")
@@ -133,7 +138,24 @@ def handle_get_notification_policies(name_or_id, output: str, **filters: Dict):
         __wide_not_supported()
     else:
         for route in routes:
-            cli.show(n_pol, output, ndjson=NDJSON)
+            cli.show(route, output, ndjson=NDJSON)
+
+
+def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
+    ctx = cfg.get_current_context()
+    n_pol = api.get_notification_policy(*ctx.get_api_data())
+    if not n_pol or not isinstance(n_pol, dict):
+        cli.err_exit("Could not load notification targets")
+    targets = n_pol.get(lib.TARGETS_FIELD)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_tgt.targets_summary_output(targets)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        summary = spyctl_tgt.targets_wide_output(targets)
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        for target in targets:
+            cli.show(target, output, ndjson=NDJSON)
 
 
 def handle_get_sources(name_or_id, output: str, **filters: Dict):
