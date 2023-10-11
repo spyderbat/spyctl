@@ -13,9 +13,8 @@ with open("connections53.json", "r") as file:
     for connections in file:
         connection = json.loads(connections)
         containerUID = connection.get("container_uid", " ")
-        cgroup = connection.get("cgroup", " ")
         payload = connection.get("payload", " ")
-        conn_dict[containerUID] = {"cgroup": cgroup, "payload": payload}
+        conn_dict[containerUID] = {"payload": payload}
 
 
 container_dict = {}
@@ -27,7 +26,7 @@ with open("containers53.json", "r") as file:
         containerInfo = json.loads(containers)
         containerUID = containerInfo.get("id", " ")
         containerName = containerInfo.get("container_name_k8s", " ")
-        print(containerName)
+        # print(containerName)
         cluster = containerInfo.get("clustername", " ")
         pod = containerInfo.get("pod_name", " ")
         namespace = containerInfo.get("pod_namespace", " ")
