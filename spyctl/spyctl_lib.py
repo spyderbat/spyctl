@@ -162,6 +162,28 @@ NAMESPACES_RESOURCE = Aliases(
     "namespace",
     "namespaces",
 )
+NOTIFICATION_POLICIES_RESOURCE = Aliases(
+    [
+        "notification",
+        "notifications",
+        "notification-policy",
+        "notification-policies",
+        "np",
+    ],
+    "notification",
+    "notifications",
+)
+NOTIFICATION_TARGETS_RESOURCE = Aliases(
+    [
+        "target",
+        "targets",
+        "notification-target",
+        "notification-targets",
+        "nt",
+    ],
+    "notification-target",
+    "notification-targets",
+)
 NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
@@ -262,6 +284,8 @@ GET_RESOURCES: List[str] = [
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
     NODES_RESOURCE.name_plural,
+    NOTIFICATION_POLICIES_RESOURCE.name_plural,
+    NOTIFICATION_TARGETS_RESOURCE.name_plural,
     OPSFLAGS_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
     POLICIES_RESOURCE.name_plural,
@@ -521,13 +545,14 @@ DATATYPE_REDFLAGS = "redflags"
 DATATYPE_SPYDERGRAPH = "spydergraph"
 
 # Resource Kinds
+BASELINE_KIND = "SpyderbatBaseline"
+DEVIATION_KIND = "GuardianDeviation"
+FPRINT_GROUP_KIND = "FingerprintGroup"
+FPRINT_KIND = "SpyderbatFingerprint"
+NOTIFICATION_KIND = "SpyderbatNotification"
 POL_KIND = "SpyderbatPolicy"
 SUP_POL_KIND_ALIAS = "SuppressionPolicy"
-BASELINE_KIND = "SpyderbatBaseline"
-FPRINT_KIND = "SpyderbatFingerprint"
-FPRINT_GROUP_KIND = "FingerprintGroup"
 UID_LIST_KIND = "UidList"
-DEVIATION_KIND = "GuardianDeviation"
 
 # CONFIG Kinds
 CONFIG_KIND = "Config"
@@ -865,6 +890,19 @@ ENDPORT_FIELD = "endPort"
 PROCESSES_FIELD = "processes"
 PROTO_FIELD = "protocol"
 TO_FIELD = "to"
+
+
+# Notifications
+NOTIF_TYPE_ALL = "all"
+NOTIF_TYPE_AGENT = "agent"
+NOTIF_TYPE_DASHBOARD = "dashboard"
+NOTIF_TYPES = [NOTIF_TYPE_ALL, NOTIF_TYPE_AGENT, NOTIF_TYPE_DASHBOARD]
+NOTIF_TYPES_FIELD = "types"
+ROUTES_FIELD = "routes"
+TARGETS_FIELD = "targets"
+NOTIF_DATA_FIELD = "data"
+NOTIF_SETTINGS_FIELD = "analyticsNotifications"
+NOTIF_CREATE_TIME = "createTime"
 
 # Flags
 FLAG_CLASS = "class"
@@ -1821,6 +1859,12 @@ def get_metadata_name(resource: Dict) -> Optional[str]:
     metadata = resource.get(METADATA_FIELD, {})
     name = metadata.get(METADATA_NAME_FIELD)
     return name
+
+
+def get_metadata_type(resource: Dict) -> Optional[str]:
+    metadata = resource.get(METADATA_FIELD, {})
+    type = metadata.get(METADATA_TYPE_FIELD)
+    return type
 
 
 def slugify(value, allow_unicode=False):

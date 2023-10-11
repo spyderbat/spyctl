@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import tqdm
 import zulu
+import json
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
@@ -41,7 +42,11 @@ class NotFoundException(ValueError):
 
 def get(url, key, params=None, raise_notfound=False):
     if key:
-        headers = {"Authorization": f"Bearer {key}"}
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "content-type": "application/json",
+            "accept": "application/json",
+        }
     else:
         headers = None
     try:
@@ -478,6 +483,12 @@ def get_clusters(api_url, api_key, org_uid) -> List[Dict]:
         if "/" not in cluster["uid"]:
             clusters.append(cluster)
     return clusters
+
+
+def get_notification_policy(api_url, api_key, org_uid) -> List[Dict]:
+    url = f"{api_url}/api/v1/org/{org_uid}/notification_policy/"
+    json = get(url, api_key).json()
+    return json
 
 
 def get_sources(api_url, api_key, org_uid) -> List[Dict]:

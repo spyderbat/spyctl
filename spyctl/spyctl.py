@@ -12,6 +12,7 @@ import spyctl.commands.create as c
 import spyctl.commands.diff as d
 import spyctl.commands.get as g
 import spyctl.commands.merge as m
+import spyctl.commands.notifications as notif
 import spyctl.commands.show_schema as sh_s
 import spyctl.commands.suppress as sup
 import spyctl.commands.update as u

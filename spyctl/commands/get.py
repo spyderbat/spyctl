@@ -18,6 +18,7 @@ import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.nodes as spyctl_nodes
+import spyctl.resources.notifications as spyctl_notif
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
@@ -75,6 +76,8 @@ def handle_get(
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.NODES_RESOURCE:
         handle_get_nodes(name_or_id, st, et, output, **filters)
+    elif resource == lib.NOTIFICATION_POLICIES_RESOURCE:
+        handle_get_notification_policies(name_or_id, output, **filters)
     elif resource == lib.OPSFLAGS_RESOURCE:
         handle_get_opsflags(name_or_id, st, et, output, **filters)
     elif resource == lib.PODS_RESOURCE:
@@ -114,6 +117,23 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
     else:
         for cluster in clusters:
             cli.show(cluster, output, ndjson=NDJSON)
+
+
+def handle_get_notification_policies(name_or_id, output: str, **filters: Dict):
+    ctx = cfg.get_current_context()
+    notif_type = filters.get(lib.NOTIF_TYPES_FIELD, lib.NOTIF_TYPE_ALL)
+    n_pol = api.get_notification_policy(*ctx.get_api_data())
+    if not n_pol or not isinstance(n_pol, dict):
+        cli.err_exit("Could not load notification policy")
+    routes = n_pol.get(lib.ROUTES_FIELD)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_notif.notifications_summary_output(routes, notif_type)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for route in routes:
+            cli.show(n_pol, output, ndjson=NDJSON)
 
 
 def handle_get_sources(name_or_id, output: str, **filters: Dict):
