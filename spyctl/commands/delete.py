@@ -3,15 +3,50 @@ import spyctl.cli as cli
 import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
+import spyctl.resources.notification_targets as nt
+
+INTERACTIVE_SUPPORTED = [lib.NOTIFICATION_TARGETS_RESOURCE]
 
 
-def handle_delete(resource, name_or_id):
-    if resource == lib.POLICIES_RESOURCE:
+def handle_delete(resource, name_or_id, interactive=False):
+    if not interactive and not name_or_id:
+        cli.err_exit("Name or ID must be provided if not interactive.")
+    if interactive and resource not in INTERACTIVE_SUPPORTED:
+        cli.try_log(
+            f"The interactive delete is not supported for '{resource}'"
+        )
+    if resource == lib.NOTIFICATION_TARGETS_RESOURCE:
+        handle_delete_notif_tgt(name_or_id, interactive)
+    elif resource == lib.POLICIES_RESOURCE:
         handle_delete_policy(name_or_id)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_delete_suppression_policy(name_or_id)
     else:
-        cli.err_exit(f"The 'delete' command is not supported for {resource}")
+        cli.err_exit(f"The 'delete' command is not supported for '{resource}'")
+
+
+def handle_delete_notif_tgt(name_or_id, interactive):
+    ctx = cfg.get_current_context()
+    notif_pol = api.get_notification_policy(*ctx.get_api_data())
+    if interactive:
+        nt.interactive_targets(notif_pol, "delete")
+    else:
+        targets = notif_pol[lib.TARGETS_FIELD]
+        if name_or_id not in targets:
+            cli.err_exit(f"No notification targets matching '{name_or_id}'.")
+        if cli.query_yes_no(
+            "Are you sure you want to delete notification target"
+            f" {name_or_id}?"
+        ):
+            notif_pol = api.get_notification_policy(*ctx.get_api_data())
+            notif_pol[lib.TARGETS_FIELD].pop(name_or_id, None)
+            resp = api.put_notification_policy(notif_pol)
+            if resp.status_code == 200:
+                cli.try_log(
+                    f"Successfully deleted notification target '{name_or_id}'"
+                )
+            else:
+                cli.try_log("Unable perform delete of notification target.")
 
 
 def handle_delete_policy(name_or_uid):

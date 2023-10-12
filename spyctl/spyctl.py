@@ -23,6 +23,7 @@ from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
 from spyctl.commands.logs import handle_logs
+from spyctl.commands.edit import handle_edit
 
 MAIN_EPILOG = (
     "\b\n"
@@ -521,6 +522,21 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     )
 
 
+@create.command(
+    "notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG
+)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-i",
+    "--interactive",
+    metavar="",
+    default=False,
+    is_flag=True,
+)
+def create_notif_tgt(interactive):
+    c.handle_create_notif_tgt(interactive)
+
+
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
@@ -743,6 +759,13 @@ def create_suppression_policy(
 @click.argument("resource", type=lib.DelResourcesParam())
 @click.argument("name_or_id")
 @click.option(
+    "-i",
+    "--interactive",
+    metavar="",
+    default=False,
+    is_flag=True,
+)
+@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -750,11 +773,42 @@ def create_suppression_policy(
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
-def delete(resource, name_or_id, yes=False):
+def delete(resource, name_or_id, interactive, yes=False):
     """Delete resources by resource and name, or by resource and ids"""
     if yes:
         cli.set_yes_option()
-    handle_delete(resource, name_or_id)
+    handle_delete(resource, name_or_id, interactive)
+
+
+# ----------------------------------------------------------------- #
+#                          Edit Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("edit", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.DelResourcesParam())
+@click.argument("name_or_id")
+@click.option(
+    "-i",
+    "--interactive",
+    metavar="",
+    default=False,
+    is_flag=True,
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def edit(resource, name_or_id, interactive, yes=False):
+    """Edit resources by resource and name, or by resource and ids"""
+    if yes:
+        cli.set_yes_option()
+    handle_edit(resource, name_or_id, interactive)
 
 
 # ----------------------------------------------------------------- #

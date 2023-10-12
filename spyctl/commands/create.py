@@ -5,6 +5,7 @@ import spyctl.config.configs as cfg
 import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
+import spyctl.resources.notification_targets as nt
 import spyctl.search as search
 import spyctl.spyctl_lib as lib
 import spyctl.api as api
@@ -151,4 +152,16 @@ def create_trace_suppression_policy(
 def handle_create_flag_suppression_policy(
     id, include_users, output, **selectors
 ):
+    pass
+
+
+def handle_create_notif_tgt(interactive: bool):
+    ctx = cfg.get_current_context()
+    n_pol = api.get_notification_policy(*ctx.get_api_data())
+    if interactive:
+        nt.interactive_targets(n_pol, "create")
+    pass
+
+
+def handle_create_nofit():
     pass
