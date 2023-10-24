@@ -517,17 +517,16 @@ class Namespaces(API_Filter):
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
         lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
     }
-    # Namespaces aren't filtered by name at the API Level
     name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
 
     @classmethod
-    def generate_pipeline(cls, latest_model=True, filters={}) -> List:
-        # Namespace objects don't exist in spyderbat's backend. Clusters
-        # track the metadata of namespaces though.
-        schema = lib.MODEL_CLUSTER_PREFIX
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_NAMESPACE_PREFIX
         return super(Namespaces, cls).generate_pipeline(
-            schema, None, latest_model, filters
+            schema, name_or_uid, latest_model, filters
         )
 
     @classmethod

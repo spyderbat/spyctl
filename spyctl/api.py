@@ -815,7 +815,7 @@ def get_namespaces(
     try:
         datatype = lib.DATATYPE_K8S
         schema = lib.MODEL_CLUSTER_PREFIX
-        clusters_models = list(
+        namespaces = list(
             retrieve_data(
                 api_url,
                 api_key,
@@ -830,11 +830,8 @@ def get_namespaces(
                 disable_pbar_on_first=disable_pbar_on_first,
             )
         )
-        for cluster_model in clusters_models:
-            for namespace_meta in cluster_model["namespace_meta"]:
-                yield __make_spyctl_internal_namespace_obj(
-                    namespace_meta, cluster_model
-                )
+        for namespace in namespaces:
+            yield namespace
     except KeyboardInterrupt:
         __log_interrupt()
 
@@ -1325,21 +1322,6 @@ def get_sources_data_for_agents(api_url, api_key, org_uid) -> Dict:
 # ----------------------------------------------------------------- #
 #                          Helper Functions                         #
 # ----------------------------------------------------------------- #
-
-
-def __make_spyctl_internal_namespace_obj(
-    namespace_meta: Dict, cluster_model: Dict
-):
-    rv = {
-        lib.API_FIELD: "v1",
-        lib.KIND_FIELD: "Namespace",
-        lib.METADATA_FIELD: namespace_meta,
-        lib.SPEC_FIELD: {lib.NOT_AVAILABLE: lib.NOT_AVAILABLE},
-        lib.STATUS_FIELD: {"phase": "Active"},
-        "cluster_uid": cluster_model[lib.ID_FIELD],
-        "cluster_name": cluster_model.get("name"),
-    }
-    return rv
 
 
 def __log_interrupt():
