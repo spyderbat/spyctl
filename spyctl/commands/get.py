@@ -128,7 +128,7 @@ def handle_get_notification_policies(name_or_id, output: str, **filters: Dict):
     ctx = cfg.get_current_context()
     notif_type = filters.get(lib.NOTIF_TYPE_FIELD, lib.NOTIF_TYPE_ALL)
     n_pol = api.get_notification_policy(*ctx.get_api_data())
-    if not n_pol or not isinstance(n_pol, dict):
+    if n_pol is None or not isinstance(n_pol, dict):
         cli.err_exit("Could not load notification policy")
     routes = n_pol.get(lib.ROUTES_FIELD)
     if output == lib.OUTPUT_DEFAULT:
@@ -137,8 +137,9 @@ def handle_get_notification_policies(name_or_id, output: str, **filters: Dict):
     elif output == lib.OUTPUT_WIDE:
         __wide_not_supported()
     else:
-        for route in routes:
-            cli.show(route, output, ndjson=NDJSON)
+        # for route in routes:
+        #     cli.show(route, output, ndjson=NDJSON)
+        cli.show(n_pol, output, ndjson=NDJSON)
 
 
 def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
@@ -154,8 +155,14 @@ def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
         summary = spyctl_tgt.targets_wide_output(targets)
         cli.show(summary, lib.OUTPUT_RAW)
     else:
-        for target, tgt_data in targets.items():
-            cli.show({target: tgt_data}, output, ndjson=NDJSON)
+        if name_or_id:
+            name_or_id = name_or_id.strip("*")
+            if name_or_id not in targets:
+                return
+            cli.show({name_or_id: targets[name_or_id]}, output, ndjson=NDJSON)
+        else:
+            for target, tgt_data in targets.items():
+                cli.show({target: tgt_data}, output, ndjson=NDJSON)
 
 
 def handle_get_sources(name_or_id, output: str, **filters: Dict):

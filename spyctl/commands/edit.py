@@ -28,7 +28,7 @@ def handle_edit_notif_tgt(name_or_id, interactive):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
     if interactive:
-        nt.interactive_targets(notif_pol, "edit")
+        nt.interactive_targets(notif_pol, "edit", name_or_id)
     else:
         targets = notif_pol[lib.TARGETS_FIELD]
         if name_or_id not in targets:
@@ -37,10 +37,11 @@ def handle_edit_notif_tgt(name_or_id, interactive):
         while True:
             edited_tgt = click.edit(tgt_yaml)
             if edited_tgt is None:
-                break
+                cli.try_log("Operation cancelled.")
+                return
             # TODO add validation
             break
-        tgt_data = yaml.load(edited_tgt)
+        tgt_data = yaml.load(edited_tgt, lib.UniqueKeyLoader)
         if cli.query_yes_no(
             "Are you sure you want to update notification target"
             f" '{name_or_id}'?"

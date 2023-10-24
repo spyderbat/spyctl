@@ -13,6 +13,7 @@ from fnmatch import fnmatch
 from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import click
@@ -274,6 +275,7 @@ DEL_RESOURCES: List[str] = [
 DESC_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
 ]
+EDIT_RESOURCES: List[str] = [NOTIFICATION_TARGETS_RESOURCE.name]
 GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
@@ -358,6 +360,19 @@ class DescribeResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in DESC_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class EditResourcesParam(click.ParamType):
+    name = "edit_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in EDIT_RESOURCES
             if resrc_name.startswith(incomplete)
         ]
 
@@ -896,27 +911,82 @@ TO_FIELD = "to"
 
 # Notifications
 NOTIF_TYPE_ALL = "all"
-NOTIF_TYPE_AGENT = "agent"
+NOTIF_TYPE_OBJECT = "object"
 NOTIF_TYPE_DASHBOARD = "dashboard"
-NOTIF_TYPES = [NOTIF_TYPE_ALL, NOTIF_TYPE_AGENT, NOTIF_TYPE_DASHBOARD]
+NOTIF_TYPES = [NOTIF_TYPE_ALL, NOTIF_TYPE_OBJECT, NOTIF_TYPE_DASHBOARD]
 NOTIF_TYPE_FIELD = "type"
+DST_TYPE_ORG = "org_uid"
 DST_TYPE_EMAIL = "emails"
 DST_TYPE_SLACK = "slack"
 DST_TYPE_SNS = "sns"
 DST_TYPE_USERS = "users"
 DST_TYPE_WEBHOOK = "webhook"
+DST_NAME_EMAIL = "Email"
+DST_NAME_SLACK = "Slack"
+DST_NAME_SNS = "SNS"
+DST_NAME_WEBHOOK = "Webhook"
 DST_TYPES = [
     DST_TYPE_EMAIL,
     DST_TYPE_SLACK,
     DST_TYPE_SNS,
     DST_TYPE_WEBHOOK,
 ]
+DST_NAMES = [
+    DST_NAME_EMAIL,
+    DST_NAME_SLACK,
+    DST_NAME_SNS,
+    DST_NAME_WEBHOOK,
+]
+DST_NAME_TO_TYPE = {
+    DST_NAME_EMAIL: DST_TYPE_EMAIL,
+    DST_NAME_SLACK: DST_TYPE_SLACK,
+    DST_NAME_SNS: DST_TYPE_SNS,
+    DST_NAME_WEBHOOK: DST_TYPE_WEBHOOK,
+}
+DST_TYPE_TO_NAME = {
+    DST_TYPE_EMAIL: DST_NAME_EMAIL,
+    DST_TYPE_SLACK: DST_NAME_SLACK,
+    DST_TYPE_SNS: DST_NAME_SNS,
+    DST_TYPE_WEBHOOK: DST_NAME_WEBHOOK,
+}
 ROUTES_FIELD = "routes"
 TARGETS_FIELD = "targets"
+DST_DESCRIPTION = "description"
+DST_DATA = "data"
+DST_SNS_TOPIC_ARN = "sns_topic_arn"
+DST_SNS_CROSS_ACCOUNT_ROLE = "cross_account_iam_role"
+DST_WEBHOOK_URL = "url"
+DST_WEBHOOK_TLS_VAL = "no_tls_validation"
+DST_SLACK_URL = "url"
+ROUTE_TARGETS = "targets"
+ROUTE_DESTINATION = "destination"
+ROUTE_DATA = "data"
+ROUTE_DATA_ANA_SETTINGS = "analyticsSettings"
+ROUTE_DESCRIPTION = "description"
+ROUTE_EXPR = "expr"
+
 NOTIF_DATA_FIELD = "data"
+NOTIF_CONDITION_FIELD = "condition"
 NOTIF_SETTINGS_FIELD = "analyticsNotifications"
+NOTIF_NAME_FIELD = "name"
+NOTIF_INTERVAL_FIELD = "interval"
+NOTIF_TITLE_FIELD = "title"
+NOTIF_MESSAGE_FIELD = "message"
+NOTIF_NOTIFY_FIELD = "notify"
 NOTIF_CREATE_TIME = "createTime"
 NOTIF_LAST_UPDATED = "lastUpdated"
+NOTIF_DEFAULT_SCHEMA = "schema"
+ANA_NOTIF_TYPE_AGENT_HEALTH = "agent_health"
+ANA_NOTIF_TYPE_CUSTOM = "custom"
+
+
+def get_dst_type(name):
+    return DST_NAME_TO_TYPE[name]
+
+
+def get_dst_name(type):
+    return DST_NAME_TO_TYPE[type]
+
 
 # Flags
 FLAG_CLASS = "class"
@@ -2023,3 +2093,54 @@ def calc_age(time_float: float):
     else:
         age = f"{age_delta.seconds//60}m"
         return age
+
+
+TGT_NAME_VALID_SYMBOLS = ["-", "_"]
+NOTIF_NAME_VALID_SYMBOLS = ["-", "_"]
+
+
+def is_valid_tgt_name(input_string):
+    pattern = r"^[a-zA-Z0-9\-_]+$"
+
+    if re.match(pattern, input_string):
+        return True
+    else:
+        return False
+
+
+def valid_notification_name(input_string) -> str:
+    pattern = r"^[a-zA-Z0-9\-_]+$"
+    if re.match(pattern, input_string) and len(input_string) <= 64:
+        return input_string
+    raise click.UsageError(
+        "Notification name must contain only letters, numbers, and"
+        f" {NOTIF_NAME_VALID_SYMBOLS}. It must also be less than 64"
+        " characters."
+    )
+
+
+def valid_schema(input_string) -> str:
+    if " " in input_string:
+        raise click.UsageError("Schemas may not have spaces.")
+    return input_string
+
+
+def is_valid_email(email):
+    # Define a regular expression pattern for a valid email address
+    pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+
+    # Use the re.match function to check if the email matches the pattern
+    if re.match(pattern, email):
+        return True
+    else:
+        return False
+
+
+def is_valid_url(url):
+    try:
+        result = urlparse(url)
+        return all(
+            [result.scheme, result.netloc]
+        )  # Check if both scheme and network location are present
+    except ValueError:
+        return False

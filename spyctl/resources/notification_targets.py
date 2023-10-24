@@ -1,9 +1,7 @@
-import re
 import time
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from urllib.parse import urlparse
 import yaml
 
 import click
@@ -172,9 +170,9 @@ def targets_wide_output(targets: Dict):
     return tabulate(row_data, TARGETS_HEADERS, "plain")
 
 
-def interactive_targets(notif_policy: Dict, shortcut=None):
+def interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
     notif_policy_copy = deepcopy(notif_policy)
-    targets: Dict = notif_policy_copy[lib.TARGETS_FIELD]
+    targets: Dict = notif_policy_copy.get(lib.TARGETS_FIELD, {})
     main_menu = __build_main_menu()
     update_policy = False
     delete_name = None
@@ -192,7 +190,10 @@ def interactive_targets(notif_policy: Dict, shortcut=None):
                     targets[new_name] = new_data
                     update_policy = True
         elif main_sel == 1 or shortcut == "edit":
-            tgt_name = __i_tgt_pick_menu(targets)
+            if name_or_id and name_or_id in targets:
+                tgt_name = name_or_id
+            else:
+                tgt_name = __i_tgt_pick_menu(targets)
             if tgt_name:
                 tgt_data = targets[tgt_name]
                 updated_tgt = __i_tgt_menu(targets, tgt_name, tgt_data)
@@ -216,7 +217,10 @@ def interactive_targets(notif_policy: Dict, shortcut=None):
                             delete_name = tgt_name
                         update_policy = True
         elif main_sel == 2 or shortcut == "delete":
-            tgt_name = __i_tgt_pick_menu(targets)
+            if name_or_id and name_or_id in targets:
+                tgt_name = name_or_id
+            else:
+                tgt_name = __i_tgt_pick_menu(targets)
             if tgt_name and cli.query_yes_no(
                 f"Delete target '{tgt_name}'? This cannot be undone."
             ):
@@ -228,25 +232,26 @@ def interactive_targets(notif_policy: Dict, shortcut=None):
         elif main_sel == 4 or main_sel is None:
             return
         shortcut = None
+        name_or_id = None
         if update_policy:
             update_policy = False
             notif_policy_copy = __put_and_get_notif_pol(targets, delete_name)
-            targets = notif_policy_copy[lib.TARGETS_FIELD]
+            targets = notif_policy_copy.get(lib.TARGETS_FIELD, {})
             delete_name = None
 
 
 def __put_and_get_notif_pol(targets: Dict, delete_name=None):
     ctx = cfg.get_current_context()
     new_pol = api.get_notification_policy(*ctx.get_api_data())
-    new_pol[lib.TARGETS_FIELD].update(**targets)
+    if lib.TARGETS_FIELD in new_pol:
+        new_pol[lib.TARGETS_FIELD].update(**targets)
+    else:
+        new_pol[lib.TARGETS_FIELD] = targets
     if delete_name:
         new_pol[lib.TARGETS_FIELD].pop(delete_name, None)
     api.put_notification_policy(*ctx.get_api_data(), new_pol)
     rv_pol = api.get_notification_policy(*ctx.get_api_data())
     return rv_pol
-
-
-valid_symbols = ["-", "_"]
 
 
 def __i_tgt_menu(
@@ -268,18 +273,18 @@ def __i_tgt_menu(
         if tgt_menu_sel == 0:
             new_name = input(
                 "Supply a unique target name containing letters, numbers and"
-                f" valid symbols {valid_symbols}\nTarget Name: "
+                f" valid symbols {lib.TGT_NAME_VALID_SYMBOLS}\nTarget Name: "
             )
             if new_name != orig_tgt_name and new_name in targets:
                 error_msg = "Error: name already taken"
-            elif new_name and __valid_name(new_name):
+            elif new_name and lib.is_valid_tgt_name(new_name):
                 tgt_name = new_name
             elif new_name:
                 error_msg = "Error: invalid name"
         elif tgt_menu_sel == 1:
             dst_type = __i_dst_pick_menu()
             if dst_type:
-                dst_data = __get_dst_data(dst_type)
+                dst_data = get_dst_data(dst_type)
                 if dst_data:
                     if dst_type not in rv_tgt_data or (
                         dst_type in rv_tgt_data
@@ -301,7 +306,7 @@ def __i_tgt_menu(
                     dst_types.append(dst_type)
             dst_type = __i_dst_pick_menu(dst_types)
             if dst_type:
-                dst_data = __get_dst_data(dst_type, rv_tgt_data[dst_type])
+                dst_data = get_dst_data(dst_type, rv_tgt_data[dst_type])
                 if dst_data is not None:
                     if dst_type not in rv_tgt_data or (
                         dst_type in rv_tgt_data
@@ -355,7 +360,7 @@ def __i_tgt_menu(
         error_msg = None
 
 
-def __get_dst_data(dst_type, old_data=None):
+def get_dst_data(dst_type, old_data=None):
     if dst_type == lib.DST_TYPE_EMAIL:
         MARKER = "# Add one email per line. Everything above is ignored.\n"
         if old_data:
@@ -372,7 +377,7 @@ def __get_dst_data(dst_type, old_data=None):
         valid_emails = []
         for email in raw_emails:
             email = email.strip("\n ")
-            if __is_valid_email(email):
+            if lib.is_valid_email(email):
                 valid_emails.append(email)
         if valid_emails:
             return valid_emails
@@ -421,7 +426,7 @@ def __get_dst_data(dst_type, old_data=None):
             return None
         resp = resp.split(MARKER, 1)[-1]
         raw_url = resp.split("\n")[0].split(":", 1)[-1].strip()
-        if __is_valid_url(raw_url):
+        if lib.is_valid_url(raw_url):
             return Slack(url=raw_url).dest
         if old_data and cli.query_yes_no(
             "No valid Slack hook url, keep old data?"
@@ -460,7 +465,7 @@ def __get_dst_data(dst_type, old_data=None):
         raw_url = resp.split("\n")[0].split(":", 1)[-1].strip()
         raw_bool = resp.split("\n")[1].split(":", 1)[-1].strip()
         raw_bool = __parse_bool_str(raw_bool)
-        if __is_valid_url(raw_url):
+        if lib.is_valid_url(raw_url):
             return Webhook(raw_url, not raw_bool).dest
         if old_data and cli.query_yes_no(
             "No valid webhook url provided, keep old data?"
@@ -548,7 +553,7 @@ def __build_main_menu() -> TerminalMenu:
     main_menu_items = [
         "Create Target",
         "Edit Target",
-        "Remove Target",
+        "Delete Target",
         "View Targets",
         "Exit",
     ]
@@ -584,7 +589,7 @@ def __build_tgt_menu(tgt_name=None, error_msg=None) -> TerminalMenu:
         set_name,
         "Add Destination",
         "Edit Destination",
-        "Remove Destination",
+        "Delete Destination",
         "Cancel",
         "Apply Changes",
     ]
@@ -681,38 +686,6 @@ def __del_tgt_menu(targets: Dict) -> TerminalMenu:
         clear_screen=True,
     )
     return del_tgt_menu
-
-
-def __valid_name(input_string):
-    # Define a regular expression pattern to match allowed characters
-    pattern = r"^[a-zA-Z0-9\-_]+$"
-
-    # Use the re.match function to check if the input_string matches the pattern
-    if re.match(pattern, input_string):
-        return True
-    else:
-        return False
-
-
-def __is_valid_email(email):
-    # Define a regular expression pattern for a valid email address
-    pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
-
-    # Use the re.match function to check if the email matches the pattern
-    if re.match(pattern, email):
-        return True
-    else:
-        return False
-
-
-def __is_valid_url(url):
-    try:
-        result = urlparse(url)
-        return all(
-            [result.scheme, result.netloc]
-        )  # Check if both scheme and network location are present
-    except ValueError:
-        return False
 
 
 def __parse_bool_str(input) -> bool:

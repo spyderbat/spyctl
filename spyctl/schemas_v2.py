@@ -775,6 +775,125 @@ class GuardianObjectListModel(BaseModel):
 
 
 # -----------------------------------------------------------------------------
+# Notification Models ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+
+class DestinationSlackModel(BaseModel):
+    url: str = Field(alias=lib.DST_SLACK_URL)
+
+    @validator("url")
+    def valid_url(cls, url):
+        if not lib.is_valid_url:
+            raise ValueError(
+                "Invalid url format. Example: https://my.url.example"
+            )
+        return url
+
+
+class DestinationWebhookModel(BaseModel):
+    url: str = Field(alias=lib.DST_WEBHOOK_URL)
+    no_tls_validation: bool = Field(alias=lib.DST_WEBHOOK_TLS_VAL)
+
+    @validator("url")
+    def valid_url(cls, url):
+        if not lib.is_valid_url:
+            raise ValueError(
+                "Invalid url format. Example: https://my.url.example"
+            )
+        return url
+
+
+class DestinationSNSModel(BaseModel):
+    cross_account_iam_role: Optional[str] = Field(
+        alias=lib.DST_SNS_CROSS_ACCOUNT_ROLE
+    )
+    sns_topic_arn: str = Field(alias=lib.DST_SNS_TOPIC_ARN)
+
+
+class NotificationDestinationModel(BaseModel):
+    org_uid: Optional[str] = Field(alias=lib.DST_TYPE_ORG)
+    emails: Optional[List[str]] = Field(alias=lib.DST_TYPE_EMAIL)
+    users: Optional[List[str]] = Field(alias=lib.DST_TYPE_USERS)
+    slack: Optional[DestinationSlackModel] = Field(alias=lib.DST_TYPE_SLACK)
+    webhook: Optional[DestinationWebhookModel] = Field(
+        alias=lib.DST_TYPE_WEBHOOK
+    )
+    sns: Optional[DestinationSNSModel] = Field(alias=lib.DST_TYPE_SNS)
+    data: Optional[Dict] = Field(alias=lib.DST_DATA)
+    description: Optional[str] = Field(
+        alias=lib.DST_DESCRIPTION, max_length=128
+    )
+
+    @validator("emails", each_item=True)
+    def valid_emails(cls, email):
+        if not lib.is_valid_email(email):
+            raise ValueError("Email format is invalid.")
+        return email
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotifAnaSettingsMetadataModel(BaseModel):
+    pass
+
+
+class NotifAnaSettingsSpecModel(BaseModel):
+    enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+
+
+class NotificationAnalyticsSettings(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.NOTIFICATION_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    metadata: NotifAnaSettingsMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: NotifAnaSettingsSpecModel = Field(alias=lib.SPEC_FIELD)
+
+
+class NotificationRouteDataModel(BaseModel):
+    analytics_settings: Optional[NotificationAnalyticsSettings]
+
+
+class NotificationRouteModel(BaseModel):
+    targets: Optional[List[str]] = Field(alias=lib.ROUTE_TARGETS)
+    destination: Optional[NotificationDestinationModel] = Field(
+        alias=lib.ROUTE_DESTINATION
+    )
+    data: Optional[Dict] = Field(alias=lib.ROUTE_DATA)
+    description: Optional[str] = Field(alias=lib.ROUTE_DESCRIPTION)
+    expr: Optional[Dict] = Field(alias=lib.ROUTE_EXPR)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotificationPolicyModel(BaseModel):
+    targets: Optional[Dict[str, NotificationDestinationModel]] = Field(
+        alias=lib.TARGETS_FIELD
+    )
+    routes: Optional[List[NotificationRouteModel]] = Field(
+        alias=lib.ROUTES_FIELD
+    )
+
+    @validator("targets")
+    def validate_target_name(cls, v):
+        for name in v:
+            if len(name) > 64:
+                raise ValueError(
+                    "Target name must be less than 64 characters."
+                )
+            if not lib.is_valid_tgt_name(name):
+                raise ValueError(
+                    "Target name must be only letters, numbers, and valid"
+                    f" symbols {lib.TGT_NAME_VALID_SYMBOLS}."
+                )
+        return v
+
+    class Config:
+        extra = Extra.forbid
+
+
+# -----------------------------------------------------------------------------
 # Suppression Models ----------------------------------------------------------
 # -----------------------------------------------------------------------------
 

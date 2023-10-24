@@ -24,6 +24,7 @@ from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
 from spyctl.commands.logs import handle_logs
 from spyctl.commands.edit import handle_edit
+from spyctl.commands.test_notification import handle_test_notification
 
 MAIN_EPILOG = (
     "\b\n"
@@ -530,11 +531,24 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     "-i",
     "--interactive",
     metavar="",
-    default=False,
+    default=True,
     is_flag=True,
 )
 def create_notif_tgt(interactive):
     c.handle_create_notif_tgt(interactive)
+
+
+@create.command("notification", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-i",
+    "--interactive",
+    metavar="",
+    default=True,
+    is_flag=True,
+)
+def create_notif_route(interactive):
+    c.handle_create_notif_route(interactive)
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
@@ -757,7 +771,7 @@ def create_suppression_policy(
 @main.command("delete", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.DelResourcesParam())
-@click.argument("name_or_id")
+@click.argument("name_or_id", required=False)
 @click.option(
     "-i",
     "--interactive",
@@ -778,37 +792,6 @@ def delete(resource, name_or_id, interactive, yes=False):
     if yes:
         cli.set_yes_option()
     handle_delete(resource, name_or_id, interactive)
-
-
-# ----------------------------------------------------------------- #
-#                          Edit Subcommand                          #
-# ----------------------------------------------------------------- #
-
-
-@main.command("edit", cls=lib.CustomCommand, epilog=SUB_EPILOG)
-@click.help_option("-h", "--help", hidden=True)
-@click.argument("resource", type=lib.DelResourcesParam())
-@click.argument("name_or_id")
-@click.option(
-    "-i",
-    "--interactive",
-    metavar="",
-    default=False,
-    is_flag=True,
-)
-@click.option(
-    "-y",
-    "--yes",
-    "--assume-yes",
-    is_flag=True,
-    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
-    " run non-interactively.",
-)
-def edit(resource, name_or_id, interactive, yes=False):
-    """Edit resources by resource and name, or by resource and ids"""
-    if yes:
-        cli.set_yes_option()
-    handle_edit(resource, name_or_id, interactive)
 
 
 # ----------------------------------------------------------------- #
@@ -1044,6 +1027,37 @@ def diff(
         force_fprints,
         full_diff,
     )
+
+
+# ----------------------------------------------------------------- #
+#                          Edit Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("edit", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.EditResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-i",
+    "--interactive",
+    metavar="",
+    default=False,
+    is_flag=True,
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def edit(resource, name_or_id, interactive, yes=False):
+    """Edit resources by resource and name, or by resource and ids"""
+    if yes:
+        cli.set_yes_option()
+    handle_edit(resource, name_or_id, interactive)
 
 
 # ----------------------------------------------------------------- #
@@ -1918,6 +1932,41 @@ def suppress_spydertrace(
         cli.set_yes_option()
     if id:
         sup.handle_suppress_trace_by_id(id, include_users)
+
+
+# ----------------------------------------------------------------- #
+#                   Test Notification Subcommand                    #
+# ----------------------------------------------------------------- #
+
+
+@main.command("test-notification", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-T",
+    "--targets",
+    type=lib.ListParam(),
+    metavar="",
+    help="Comma-delimitated list of target names to send a test notification"
+    " to. Use 'spyctl get notification-targets' to see what is available.",
+)
+@click.option(
+    "-r",
+    "--routes",
+    type=lib.ListParam(),
+    metavar="",
+    help="Comma-delimitated list of route IDs to send a test notification to."
+    " Use 'spyctl get notifications' to see what is available.",
+)
+def test_notification(targets, routes):
+    """Send test notifications to Targets or Notification Routes.
+
+    Targets are named destinations like email, slack hooks, webhooks, or sns
+    topics.
+    Notification Routes define which notifications are send to which targets.
+    Testing a notification route will send a test notification to one or many
+    targets it is configured with.
+    """
+    handle_test_notification(targets, routes)
 
 
 # ----------------------------------------------------------------- #

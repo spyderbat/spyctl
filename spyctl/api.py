@@ -497,6 +497,12 @@ def put_notification_policy(api_url, api_key, org_uid, notification_pol):
     return resp
 
 
+def post_test_notification(api_url, api_key, org_uid, target_name):
+    url = f"{api_url}/api/v1/org/{org_uid}/notification_policy/test_target"
+    resp = post(url, {"target": target_name}, api_key)
+    return resp
+
+
 def get_sources(api_url, api_key, org_uid) -> List[Dict]:
     machines: Dict[str, Dict] = {}
     url = f"{api_url}/api/v1/org/{org_uid}/source/"

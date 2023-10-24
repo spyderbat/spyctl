@@ -29,7 +29,7 @@ def handle_delete_notif_tgt(name_or_id, interactive):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
     if interactive:
-        nt.interactive_targets(notif_pol, "delete")
+        nt.interactive_targets(notif_pol, "delete", name_or_id)
     else:
         targets = notif_pol[lib.TARGETS_FIELD]
         if name_or_id not in targets:
