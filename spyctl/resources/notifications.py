@@ -688,6 +688,8 @@ def __i_notif_pick_menu(routes) -> str:
     else:
         return options[sel - 1].split(" - ")[-1]
 
+def __i_notif_config_menu():
+    
 
 def __i_tgt_pick_menu(targets: Dict) -> Optional[str]:
     target_names = sorted(list(targets))
