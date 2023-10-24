@@ -431,7 +431,6 @@ def handle_get_namespaces(name_or_uid, st, et, output, **filters):
     ctx = cfg.get_current_context()
     sources, filters = _af.Namespaces.build_sources_and_filters(**filters)
     pipeline = _af.Namespaces.generate_pipeline(name_or_uid, filters=filters)
-    field_names = _af.Namespaces.get_name_or_uid_fields()
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_names.namespace_summary_output(
             name_or_uid, ctx, sources, (st, et), pipeline
@@ -447,11 +446,7 @@ def handle_get_namespaces(name_or_uid, st, et, output, **filters):
             pipeline,
             not lib.is_redirected(),
         ):
-            ns = [namespace]
-            if name_or_uid:
-                ns = filt.filter_obj(ns, field_names, name_or_uid)
-            if ns:
-                cli.show(namespace, output, ndjson=NDJSON)
+            cli.show(namespace, output, ndjson=NDJSON)
 
 
 def handle_get_nodes(name_or_id, st, et, output: str, **filters: Dict):
