@@ -950,6 +950,12 @@ DST_TYPE_TO_NAME = {
     DST_TYPE_SNS: DST_NAME_SNS,
     DST_TYPE_WEBHOOK: DST_NAME_WEBHOOK,
 }
+DST_TYPE_TO_DESC = {
+    DST_TYPE_EMAIL: "A list of email addresses to send notifications to.",
+    DST_TYPE_SLACK: "A Slack hook URL to send notifications to.",
+    DST_TYPE_SNS: "An AWS sns endpoint to send notifications to.",
+    DST_TYPE_WEBHOOK: "A generic webhook URL to send notifications to.",
+}
 ROUTES_FIELD = "routes"
 TARGETS_FIELD = "targets"
 DST_DESCRIPTION = "description"
@@ -1128,7 +1134,7 @@ def walk_up_tree(
     return rv
 
 
-def load_file(path: Path) -> Dict:
+def load_file(path: Path):
     try:
         with path.open("r") as f:
             try:
@@ -2099,11 +2105,17 @@ def calc_age(time_float: float):
 TGT_NAME_VALID_SYMBOLS = ["-", "_"]
 NOTIF_NAME_VALID_SYMBOLS = ["-", "_"]
 
+TGT_NAME_ERROR_MSG = (
+    "Target name must contain only letters, numbers, and"
+    f" {TGT_NAME_VALID_SYMBOLS}. It must also be less than 64"
+    " characters."
+)
+
 
 def is_valid_tgt_name(input_string):
     pattern = r"^[a-zA-Z0-9\-_]+$"
 
-    if re.match(pattern, input_string):
+    if re.match(pattern, input_string) and len(input_string) <= 64:
         return True
     else:
         return False

@@ -1,13 +1,18 @@
-from collections.abc import Sequence
+import curses
+import curses.textpad as textpad
 import json
 import os
+import re
 import sys
 import time
-from typing import Callable, Dict, List
-import yaml
+from collections import namedtuple
+from collections.abc import Sequence
 from pathlib import Path
-from pydoc import pipepager, pager
-import re
+from pydoc import pager, pipepager
+from typing import Callable, Dict, List
+
+import yaml
+
 import spyctl.spyctl_lib as lib
 
 yaml.Dumper.ignore_aliases = lambda *args: True
@@ -76,6 +81,18 @@ def query_yes_no(question, default="yes", ignore_yes_option=False):
             sys.stderr.write(
                 "Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n"
             )
+
+
+def notice(notice_msg):
+    """Notify the user of something, wait for input
+
+    "notice_msg" is a string that is presented to the user.
+    """
+    if YES_OPTION:
+        return
+    prompt = " [ok] "
+    sys.stderr.write(notice_msg + prompt)
+    input()
 
 
 def show(
@@ -232,3 +249,132 @@ def _seq_but_not_str(obj):
     return isinstance(obj, Sequence) and not isinstance(
         obj, (str, bytes, bytearray)
     )
+
+
+menu_item = namedtuple(
+    "menu_item", ["option_txt", "description", "return_val"]
+)
+
+
+def selection_menu(title: str, menu_items: List[menu_item], selected_option=0):
+    return curses.wrapper(__selection_menu, title, menu_items, selected_option)
+
+
+def __selection_menu(
+    stdscr: curses.window, title, menu_items: List[menu_item], selected_option
+):
+    if not selected_option:
+        selected_option = 0
+    # Set up the screen
+    curses.curs_set(0)
+    stdscr.clear()
+    stdscr.addstr(title, curses.A_BOLD)
+    stdscr.refresh()
+    y, x = stdscr.getmaxyx()
+    menu = curses.newwin(y - 1, x, 1, 0)
+    menu.keypad(True)
+
+    # Initialize variables
+    key = 0
+
+    while key != ord("q"):  # 'q' key to quit
+        menu.clear()
+
+        # Display the menu
+        for i, item in enumerate(menu_items):
+            if i == selected_option:
+                menu.addstr(i, 0, f"> {item.option_txt}", curses.A_BOLD)
+            else:
+                menu.addstr(i, 0, f"  {item.option_txt}")
+
+        # Display the description of the selected option
+        _, cols = menu.getmaxyx()
+        menu.addstr(len(menu_items), 0, "-" * cols)
+        menu.addstr(
+            len(menu_items) + 1, 1, menu_items[selected_option].description
+        )
+
+        # Refresh the screen
+        menu.refresh()
+
+        key = menu.getch()
+
+        # Handle arrow key presses to navigate the menu
+        if key == curses.KEY_DOWN and selected_option < len(menu_items) - 1:
+            selected_option += 1
+        elif key == curses.KEY_UP and selected_option > 0:
+            selected_option -= 1
+        elif key == curses.KEY_UP:
+            selected_option = len(menu_items) - 1
+        elif key == curses.KEY_DOWN:
+            selected_option = 0
+        elif key == curses.KEY_ENTER or key == 10 or key == 13:
+            return menu_items[selected_option].return_val
+
+
+def input_window(
+    prompt,
+    description=None,
+    existing_data="",
+    validator: callable = None,
+    error_msg=None,
+    show_error_msg=False,
+):
+    if show_error_msg and error_msg:
+        e_msg = error_msg
+    else:
+        e_msg = None
+    while True:
+        rv = curses.wrapper(
+            __input_window, prompt, description, existing_data, e_msg
+        )
+        if rv is not None and validator:
+            if not validator(rv):
+                show_error_msg = True
+                e_msg = error_msg
+                continue
+        break
+    return rv
+
+
+def __input_window(
+    stdscr: curses.window, prompt, description, existing_data, error_msg
+):
+    curses.curs_set(1)
+    stdscr.clear()
+    stdscr.refresh()
+    _, x = stdscr.getmaxyx()
+    if description and error_msg:
+        h = 5
+        err_y = 2
+        text_y = 3
+    elif description or error_msg:
+        h = 4
+        err_y = 1
+        text_y = 2
+    else:
+        h = 3
+        text_y = 1
+    win = curses.newwin(h, x)
+    win.border(0)
+    if description:
+        win.addstr(1, 1, description)
+    if error_msg:
+        win.addstr(err_y, 1, error_msg)
+    prompt = prompt + ": "
+    win.addstr(text_y, 1, prompt)
+    text_win = win.subwin(1, x - (2 + len(prompt)), text_y, len(prompt) + 1)
+    if existing_data:
+        text_win.addstr(existing_data)
+    box = textpad.Textbox(text_win)
+    win.refresh()
+    stdscr.refresh()
+    box.edit(__esc_is_terminate)
+    rv = box.gather().strip().replace("\n", "")
+    return rv
+
+
+def __esc_is_terminate(key):
+    if key == 27:
+        return 7
+    return key

@@ -13,6 +13,7 @@ import spyctl.config.configs as cfg
 import spyctl.resources.notification_targets as nt
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from pathlib import Path
 
 NOTIFICATIONS_HEADERS = [
     "NAME",
@@ -39,13 +40,12 @@ DEFAULT_ANALYTICS_NOTIFICATION = {
     },
 }
 
-
 class NotificationRoute:
     """
     apiVersion: spyderbat/v1
     kind: SpyderbatNotification
     metadata:
-      type: agentHealth
+      type: object
       name: Agent Health
     spec:
       enabled: true
@@ -254,6 +254,28 @@ class NotificationRoute:
     def enabled(self) -> bool:
         return self.get_settings()[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
 
+class NotificationConfig:
+    def __init__(self, config: Dict) -> None:
+        self.display_name = config["display_name"]
+        self.description = config["description"]
+        self.pre_conf_fields = config["config"]
+
+    def update_rt(self, rt: NotificationRoute):
+        for key in rt.settings[lib.SPEC_FIELD]:
+            if key in self.pre_conf_fields:
+                rt.update(**{key: self.pre_conf_fields[key]})
+        
+
+NOTIF_CONFIGS_LOC = Path("spyctl/resources/notification_configs.json")
+
+def __load_notif_configs() -> List[NotificationConfig]:
+    rv = []
+    configs: List[Dict] = lib.load_file(NOTIF_CONFIGS_LOC)
+    for config in configs:
+        rv.append(NotificationConfig(config))
+    return rv
+
+NOTIF_CONFIGS: List[NotificationConfig] = __load_notif_configs()
 
 def notifications_summary_output(routes: Dict, notif_type: str):
     data = []
@@ -688,8 +710,10 @@ def __i_notif_pick_menu(routes) -> str:
     else:
         return options[sel - 1].split(" - ")[-1]
 
+
 def __i_notif_config_menu():
-    
+    options = [c.display_name for c in NOTIF_CONFIGS]
+
 
 def __i_tgt_pick_menu(targets: Dict) -> Optional[str]:
     target_names = sorted(list(targets))

@@ -38,7 +38,8 @@ dependencies = [
   "tqdm >= 4.0",
   "schema",
   "pydantic < 2.0",
-  "simple-term-menu"
+  "simple-term-menu",
+  "windows-curses; platform_system=='Windows'"
 ]
 
 [project.urls]

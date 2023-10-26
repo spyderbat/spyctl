@@ -1,0 +1,20 @@
+[
+    {
+        "display_name": "NanoAgent Offline",
+        "description": "This will send a notification message to your desired target when Spyderbat detects it is no longer receiving data from a non-ephemeral Nano Agent.",
+        "config": {
+            "condition": "schema ~= \"*agent_offline*\" AND ephemeral = false",
+            "title": "Spyderbat NanoAgent Detected Offline",
+            "message": "Agent id \"{{ ref }}\" went offline at {{ __hr_time__ }}.\nMachine uid: {{ muid }}\n{{ __linkback__ }}\n{{ __source__ }}"
+        }
+    },
+    {
+        "display_name": "Ephemeral NanoAgent(s) Offline",
+        "description": "This will send a notification message to your desired target when Spyderbat detects it is no longer receiving data from a non-ephemeral Nano Agent.",
+        "config": {
+            "condition": "schema ~= \"*agent_offline*\" AND ephemeral = false",
+            "title": "Spyderbat NanoAgent Detected Offline",
+            "message": "Agent id \"{{ ref }}\" went offline at {{ __hr_time__ }}.\nMachine uid: {{ muid }}\n{{ __linkback__ }}\n{{ __source__ }}"
+        }
+    }
+]

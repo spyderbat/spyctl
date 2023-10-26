@@ -485,7 +485,7 @@ def get_clusters(api_url, api_key, org_uid) -> List[Dict]:
     return clusters
 
 
-def get_notification_policy(api_url, api_key, org_uid) -> List[Dict]:
+def get_notification_policy(api_url, api_key, org_uid) -> Dict:
     url = f"{api_url}/api/v1/org/{org_uid}/notification_policy/"
     json = get(url, api_key).json()
     return json
