@@ -40,6 +40,7 @@ DEFAULT_ANALYTICS_NOTIFICATION = {
     },
 }
 
+
 class NotificationRoute:
     """
     apiVersion: spyderbat/v1
@@ -71,20 +72,22 @@ class NotificationRoute:
             icon: :red_circle:
     """
 
-    def __init__(self, notification_settings: Dict) -> None:
-        self.settings = notification_settings
-        meta = notification_settings[lib.METADATA_FIELD]
+    def __init__(self, notification_configuration: Dict) -> None:
+        self.settings = notification_configuration
+        meta = notification_configuration[lib.METADATA_FIELD]
         if lib.METADATA_UID_FIELD not in meta:
             self.id = "notif:" + lib.make_uuid()
             meta[lib.METADATA_UID_FIELD] = self.id
+            self.new = True
         else:
             self.id = meta[lib.METADATA_UID_FIELD]
+            self.new = False
         self.name = meta[lib.NAME_FIELD]
         self.create_time = meta.get(lib.NOTIF_CREATE_TIME, time.time())
         self.last_updated = time.time()
         meta[lib.NOTIF_CREATE_TIME] = self.create_time
         meta[lib.NOTIF_LAST_UPDATED] = self.last_updated
-        spec = notification_settings[lib.SPEC_FIELD]
+        spec = notification_configuration[lib.SPEC_FIELD]
         self.targets = []
         self.destination = None
         for dest in spec[lib.NOTIF_NOTIFY_FIELD]:
@@ -254,6 +257,7 @@ class NotificationRoute:
     def enabled(self) -> bool:
         return self.get_settings()[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
 
+
 class NotificationConfig:
     def __init__(self, config: Dict) -> None:
         self.display_name = config["display_name"]
@@ -264,9 +268,10 @@ class NotificationConfig:
         for key in rt.settings[lib.SPEC_FIELD]:
             if key in self.pre_conf_fields:
                 rt.update(**{key: self.pre_conf_fields[key]})
-        
+
 
 NOTIF_CONFIGS_LOC = Path("spyctl/resources/notification_configs.json")
+
 
 def __load_notif_configs() -> List[NotificationConfig]:
     rv = []
@@ -275,7 +280,9 @@ def __load_notif_configs() -> List[NotificationConfig]:
         rv.append(NotificationConfig(config))
     return rv
 
+
 NOTIF_CONFIGS: List[NotificationConfig] = __load_notif_configs()
+
 
 def notifications_summary_output(routes: Dict, notif_type: str):
     data = []
@@ -411,6 +418,91 @@ def __get_dashboard_data(routes: List[Dict]):
 def interactive_notifications(
     notif_policy: Dict, shortcut=None, route_id=None
 ):
+    routes: List[Dict] = notif_policy.get(lib.ROUTES_FIELD)
+    targets = notif_policy.get(lib.TARGETS_FIELD, {})
+    sel = None
+    title = "Notification Configurations Main Menu"
+    menu_items = [
+        cli.menu_item("Create", "Create a new Notification Configuration", 0),
+        cli.menu_item(
+            "Edit", "Edit an existing Notification Configuration", 1
+        ),
+        cli.menu_item(
+            "Delete", "Delete an existing Notification Configuration", 2
+        ),
+        cli.menu_item(
+            "View", "View a summary of existing Notification Configurations", 3
+        ),
+        cli.menu_item("Exit", "Leave this menu", 4),
+    ]
+    while True:
+        nr = None
+        delete = None
+        id_index = __build_id_index(routes)
+        if not shortcut:
+            sel = cli.selection_menu(title, menu_items, sel)
+        if sel == 0 or shortcut == "create":
+            nr = __interactive_create_notification(targets, routes)
+            if not nr:
+                cli.notice("No changes made.")
+        elif sel == 1 or shortcut == "edit":
+            if route_id and route_id in id_index:
+                nr_id = route_id
+            else:
+                nr_id = __i_notif_pick_menu(routes)
+            if nr_id:
+                route = routes[id_index[nr_id]]
+                if lib.NOTIF_SETTINGS_FIELD not in route.get(
+                    lib.DATA_FIELD, {}
+                ):
+                    cli.notice("Legacy Notifications Editing not supported.")
+                else:
+                    nr = __i_notif_menu(
+                        targets,
+                        routes,
+                        NotificationRoute(
+                            route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
+                        ),
+                    )
+                    if not nr:
+                        cli.notice("No changes made.")
+                    else:
+                        delete = nr_id
+        elif sel == 2 or shortcut == "delete":
+            if route_id and route_id in id_index:
+                nr_id = route_id
+            else:
+                nr_id = __i_notif_pick_menu(routes)
+            if nr_id:
+                route = routes[id_index[nr_id]]
+                if lib.NOTIF_SETTINGS_FIELD in route.get(lib.DATA_FIELD, {}):
+                    name = NotificationRoute(
+                        route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
+                    )
+                    name = f"{name} - {nr_id}"
+                else:
+                    name = nr_id
+                if cli.query_yes_no(
+                    f"Delete notification '{name}'? This cannot be undone."
+                ):
+                    delete = nr_id
+        elif sel == 3 or shortcut == "view":
+            click.echo_via_pager(
+                notifications_summary_output(routes, lib.NOTIF_TYPE_ALL)
+            )
+        elif sel == 4 or sel is None:
+            return
+        shortcut = None
+        route_id = None
+        if delete or nr:
+            notif_policy = __put_and_get_notif_pol(nr, delete)
+            routes: List[Dict] = notif_policy.get(lib.ROUTES_FIELD)
+            targets = notif_policy.get(lib.TARGETS_FIELD, {})
+
+
+def x_interactive_notifications(
+    notif_policy: Dict, shortcut=None, route_id=None
+):
     notif_policy_copy = deepcopy(notif_policy)
     routes: List[Dict] = notif_policy_copy.get(lib.ROUTES_FIELD)
     targets = notif_policy_copy.get(lib.TARGETS_FIELD, {})
@@ -484,6 +576,12 @@ def interactive_notifications(
 
 
 def __interactive_create_notification(
+    targets: Dict, routes: List[Dict], nr: NotificationRoute = None
+) -> Optional[NotificationRoute]:
+    pass
+
+
+def x__interactive_create_notification(
     targets: Dict,
     notification: Dict = None,
     schema=None,
@@ -743,7 +841,9 @@ def __i_dst_pick_menu(route: NotificationRoute) -> Optional[str]:
         return lib.get_dst_type(lib.DST_NAMES[sel - 1])
 
 
-def __put_and_get_notif_pol(new_route, new_route_id, delete_id):
+def __put_and_get_notif_pol(
+    nr: NotificationRoute = None, delete_id: str = None
+):
     ctx = cfg.get_current_context()
     n_pol = api.get_notification_policy(*ctx.get_api_data())
     routes: List = n_pol.get(lib.ROUTES_FIELD, [])
@@ -755,18 +855,18 @@ def __put_and_get_notif_pol(new_route, new_route_id, delete_id):
             if rt_id == delete_id:
                 routes.pop(i)
                 break
-    if new_route_id:
+    if nr:
         found = False
         for i, route in list(enumerate(routes)):
             rt_id = route.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
             if not rt_id:
                 continue
-            if rt_id == new_route_id:
+            if rt_id == nr.id:
                 found = True
-                routes[i] = new_route
+                routes[i] = nr.route
                 break
         if not found:
-            routes.append(new_route)
+            routes.append(nr.route)
     n_pol[lib.ROUTES_FIELD] = routes
     api.put_notification_policy(*ctx.get_api_data(), n_pol)
     n_pol = api.get_notification_policy(*ctx.get_api_data())

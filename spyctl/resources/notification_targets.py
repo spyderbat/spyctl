@@ -12,6 +12,7 @@ import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
 import spyctl.api as api
 import spyctl.config.configs as cfg
+import spyctl.schemas_v2 as schemas
 
 TARGETS_HEADERS = ["NAME", "AGE", "TYPE", "DESTINATIONS"]
 
@@ -106,10 +107,12 @@ class NotificationTarget:
         if tgt_data:
             self.new = False
             self.data = tgt_data.get(lib.DATA_FIELD, {})
+            self.data[lib.DST_DESCRIPTION] = self.name
             for dst_type in lib.DST_TYPES:
                 if dst_type in tgt_data:
                     self.type = dst_type
                     self.dst_data = tgt_data[dst_type]
+
                     break
         else:
             now = time.time()
@@ -118,6 +121,7 @@ class NotificationTarget:
                 lib.NOTIF_CREATE_TIME: now,
                 lib.NOTIF_LAST_UPDATED: now,
                 lib.ID_FIELD: "notif_tgt:" + lib.make_uuid(),
+                lib.DST_DESCRIPTION: self.name,
             }
 
     def update_name(self, new_name) -> bool:
@@ -125,6 +129,7 @@ class NotificationTarget:
             self.name = new_name
             now = time.time()
             self.data[lib.NOTIF_LAST_UPDATED] = now
+            self.data[lib.DST_DESCRIPTION] = self.name
             return True
         return False
 
@@ -136,6 +141,9 @@ class NotificationTarget:
             self.dst_data = dst_data
             return True
         False
+
+    def set_last_updated(self, time: float):
+        self.data[lib.NOTIF_LAST_UPDATED] = time
 
     @property
     def tgt_data(self) -> Dict:
@@ -224,17 +232,17 @@ def targets_wide_output(targets: Dict):
 def interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
     targets: Dict = notif_policy.get(lib.TARGETS_FIELD, {})
     sel = None
-    title = "Targets Main Menu"
+    title = "Notification Targets Main Menu"
     menu_items = [
         cli.menu_item(
-            "Create Target",
+            "Create",
             "Create a new Target. This is a named destination for"
             " notifications.",
             0,
         ),
-        cli.menu_item("Edit Target", "Edit an existing Target.", 1),
-        cli.menu_item("Delete Target", "Delete an existing Target.", 2),
-        cli.menu_item("View Targets", "View all existing Targets.", 3),
+        cli.menu_item("Edit", "Edit an existing Target.", 1),
+        cli.menu_item("Delete", "Delete an existing Target.", 2),
+        cli.menu_item("View", "View a summary of existing Targets.", 3),
         cli.menu_item("Exit", "Leave this menu.", 4),
     ]
     while True:
@@ -258,7 +266,8 @@ def interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
                 )
                 if not nt:
                     cli.notice("No changes made.")
-                delete = tgt_name
+                else:
+                    delete = tgt_name
         elif sel == 2 or shortcut == "delete":
             if name_or_id and name_or_id in targets:
                 tgt_name = name_or_id
@@ -279,46 +288,6 @@ def interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
         if delete or nt:
             notif_policy = __put_and_get_notif_pol(nt, delete)
             targets = notif_policy.get(lib.TARGETS_FIELD, {})
-
-
-def __i_create_target(targets, old_type=None, old_name=None, old_data=None):
-    quit_prompt = "Are you sure you want to discard this new target?"
-    # Get the type of destination for the Target
-    quit = False
-    while True:
-        if quit and cli.query_yes_no(quit_prompt, "no"):
-            return None
-        quit = False
-        dst_type = prompt_select_dst_type()
-        if not dst_type:
-            quit = True
-            continue
-        break
-    # Get the name for the target
-    quit = False
-    while True:
-        if quit and cli.query_yes_no(quit_prompt, "no"):
-            return None
-        quit = False
-        tgt_name = prompt_tgt_name(targets, old_name)
-        if not tgt_name:
-            quit = True
-            continue
-        break
-    # Get the data for the target
-    quit = False
-    while True:
-        if quit and cli.query_yes_no(quit_prompt, "no"):
-            return None
-        quit = False
-        dst_data = get_dst_data(dst_type)
-        if not dst_data:
-            quit = True
-            continue
-        break
-    nt = NotificationTarget(tgt_name)
-    nt.update_destination(dst_type, dst_data)
-    return __i_tgt_menu(targets, nt)
 
 
 def prompt_tgt_name(targets: Dict, old_name=None) -> Optional[str]:
@@ -357,74 +326,38 @@ def prompt_select_dst_type() -> Optional[str]:
         return None
 
 
-def x_interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
-    notif_policy_copy = deepcopy(notif_policy)
-    targets: Dict = notif_policy_copy.get(lib.TARGETS_FIELD, {})
-    main_menu = __build_main_menu()
-    update_policy = False
-    delete_name = None
+def __i_create_target(targets, old_type=None, old_name=None, old_data=None):
+    quit_prompt = "Are you sure you want to discard this new target?"
+    # Get the type of destination for the Target
+    quit = False
     while True:
-        main_sel = None
-        if not shortcut:
-            main_sel = main_menu.show()
-        if main_sel == 0 or shortcut == "create":
-            new_tgt = __i_tgt_menu(targets)
-            if new_tgt:
-                new_name, new_data = list(new_tgt.items())[0]
-                if cli.query_yes_no("Preview new target?"):
-                    click.echo_via_pager(yaml.dump(new_tgt))
-                if cli.query_yes_no(f"Add new target '{new_name}'?"):
-                    targets[new_name] = new_data
-                    update_policy = True
-        elif main_sel == 1 or shortcut == "edit":
-            if name_or_id and name_or_id in targets:
-                tgt_name = name_or_id
-            else:
-                tgt_name = __i_tgt_pick_menu(targets)
-            if tgt_name:
-                tgt_data = targets[tgt_name]
-                updated_tgt = __i_tgt_menu(targets, tgt_name, tgt_data)
-                if updated_tgt:
-                    new_name, new_data = list(updated_tgt.items())[0]
-                    if cli.query_yes_no("Preview change?"):
-                        click.echo_via_pager(yaml.dump(updated_tgt))
-                    if new_name != tgt_name:
-                        query = (
-                            f"Update target '{tgt_name}' and rename to"
-                            f" '{new_name}'?"
-                        )
-                    else:
-                        query = f"Update target '{tgt_name}'?"
-                    if cli.query_yes_no(query):
-                        if new_name == tgt_name:
-                            targets[new_name] = new_data
-                        else:
-                            del targets[tgt_name]
-                            targets[new_name] = new_data
-                            delete_name = tgt_name
-                        update_policy = True
-        elif main_sel == 2 or shortcut == "delete":
-            if name_or_id and name_or_id in targets:
-                tgt_name = name_or_id
-            else:
-                tgt_name = __i_tgt_pick_menu(targets)
-            if tgt_name and cli.query_yes_no(
-                f"Delete target '{tgt_name}'? This cannot be undone."
-            ):
-                del targets[tgt_name]
-                update_policy = True
-                delete_name = tgt_name
-        elif main_sel == 3:
-            click.echo_via_pager(targets_summary_output(targets))
-        elif main_sel == 4 or main_sel is None:
-            return
-        shortcut = None
-        name_or_id = None
-        if update_policy:
-            update_policy = False
-            notif_policy_copy = __put_and_get_notif_pol(targets, delete_name)
-            targets = notif_policy_copy.get(lib.TARGETS_FIELD, {})
-            delete_name = None
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        dst_type = prompt_select_dst_type()
+        if not dst_type:
+            quit = True
+            continue
+        # Get the data for the target
+        dst_data = get_dst_data(dst_type)
+        if not dst_data:
+            quit = True
+            continue
+        break
+    # Get the name for the target
+    quit = False
+    while True:
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        tgt_name = prompt_tgt_name(targets, old_name)
+        if not tgt_name:
+            quit = True
+            continue
+        break
+    nt = NotificationTarget(tgt_name)
+    nt.update_destination(dst_type, dst_data)
+    return __i_tgt_menu(targets, nt)
 
 
 def __put_and_get_notif_pol(nt: NotificationTarget, delete_name=None):
@@ -433,7 +366,7 @@ def __put_and_get_notif_pol(nt: NotificationTarget, delete_name=None):
     if delete_name:
         notif_pol[lib.TARGETS_FIELD].pop(delete_name, None)
     if nt:
-        notif_pol[lib.TARGETS_FIELD][nt.name] = nt.tgt_data
+        notif_pol[lib.TARGETS_FIELD].update(nt.tgt_data)
     api.put_notification_policy(*ctx.get_api_data(), notif_pol)
     rv_pol = api.get_notification_policy(*ctx.get_api_data())
     return rv_pol
@@ -443,25 +376,29 @@ def __i_tgt_menu(targets: Dict, nt: NotificationTarget):
     if nt.new:
         apply_desc = "Save new Target for use with Notifications."
     else:
-        apply_desc = f"Save changes to current Target."
+        apply_desc = "Save changes to current Target."
     title = "Target Menu"
-    menu_items = [
-        cli.menu_item("Set Name", "Update the Target's name", 0),
-        cli.menu_item(
-            "Set Destination",
-            "Update existing destination or change the type entirely",
-            1,
-        ),
-        cli.menu_item("Edit Target", "Manually edit the Target YAML.", 2),
-        cli.menu_item("View Target", "View the Target YAML", 3),
-        cli.menu_item("Cancel", "", 4),
-        cli.menu_item("Apply", apply_desc, 5),
-    ]
     sel = 0
     changed = False
     if nt.new:
         changed = True
     while True:
+        menu_items = [
+            cli.menu_item(
+                f"Set Name (curr: {nt.name})", "Update the Target's name.", 0
+            ),
+            cli.menu_item(
+                f"Set Destination (curr: {lib.DST_TYPE_TO_NAME[nt.type]})",
+                "Update existing destination or change the type entirely.",
+                1,
+            ),
+            cli.menu_item("Edit Target", "Manually edit the Target YAML.", 2),
+            cli.menu_item("View Target", "View the Target YAML.", 3),
+            cli.menu_item(
+                "Cancel", "Return to previous menu without making changes.", 4
+            ),
+            cli.menu_item("Apply", apply_desc, 5),
+        ]
         sel = cli.selection_menu(title, menu_items, sel)
         if sel == 0:
             tgt_name = prompt_tgt_name(targets, nt.name)
@@ -476,7 +413,24 @@ def __i_tgt_menu(targets: Dict, nt: NotificationTarget):
                     continue
                 changed = nt.update_destination(dst_type, dst_data)
         elif sel == 2:
-            click.edit(yaml.dump(nt.tgt_data))
+            while True:
+                edits = click.edit(yaml.dump(nt.tgt_data), extension=".yaml")
+                if edits:
+                    try:
+                        edits = yaml.load(edits, lib.UniqueKeyLoader)
+                    except Exception as e:
+                        cli.notice(f"Unable to load yaml. {e}")
+                        continue
+                    tgt_name, tgt_data = next(iter(edits.items()))
+                    if not schemas.valid_notification_target(tgt_data, True):
+                        continue
+                    tgt_data[lib.DATA_FIELD] = nt.data
+                    nt = NotificationTarget(tgt_name, tgt_data)
+                    nt.set_last_updated(time.time())
+                    changed = True
+                else:
+                    cli.notice("No edits made.")
+                break
         elif sel == 3:
             click.echo_via_pager(yaml.dump(nt.tgt_data))
         elif sel == 4 or sel is None:
@@ -489,108 +443,6 @@ def __i_tgt_menu(targets: Dict, nt: NotificationTarget):
                 return
             if cli.query_yes_no("Are you sure you want to apply changes?"):
                 return nt
-
-
-def x__i_tgt_menu(targets: Dict, tgt_name, tgt_data) -> Optional[Dict]:
-    tgt_menu = __build_tgt_menu(tgt_name)
-    orig_tgt_name = tgt_name
-    if not tgt_data:
-        new = True
-        rv_tgt_data = {}
-    else:
-        new = False
-        rv_tgt_data = deepcopy(tgt_data)
-    error_msg = None
-    while True:
-        tgt_menu_sel = tgt_menu.show()
-        if tgt_menu_sel == 0:
-            new_name = input(
-                "Supply a unique target name containing letters, numbers and"
-                f" valid symbols {lib.TGT_NAME_VALID_SYMBOLS}\nTarget Name: "
-            )
-            if new_name != orig_tgt_name and new_name in targets:
-                error_msg = "Error: name already taken"
-            elif new_name and lib.is_valid_tgt_name(new_name):
-                tgt_name = new_name
-            elif new_name:
-                error_msg = "Error: invalid name"
-        elif tgt_menu_sel == 1:
-            dst_type = __i_dst_pick_menu()
-            if dst_type:
-                dst_data = get_dst_data(dst_type)
-                if dst_data:
-                    if dst_type not in rv_tgt_data or (
-                        dst_type in rv_tgt_data
-                        and dst_data != rv_tgt_data[dst_type]
-                        and cli.query_yes_no(
-                            f"Overwrite '{dst_type}' destination(s) in current"
-                            " target?"
-                        )
-                    ):
-                        rv_tgt_data[dst_type] = dst_data
-                elif dst_data is False:
-                    error_msg = f"Error: no valid '{dst_type}' destinations."
-                else:
-                    rv_tgt_data.pop(dst_type, None)
-        elif tgt_menu_sel == 2:
-            dst_types = []
-            for dst_type in lib.DST_TYPES:
-                if dst_type in rv_tgt_data:
-                    dst_types.append(dst_type)
-            dst_type = __i_dst_pick_menu(dst_types)
-            if dst_type:
-                dst_data = get_dst_data(dst_type, rv_tgt_data[dst_type])
-                if dst_data is not None:
-                    if dst_type not in rv_tgt_data or (
-                        dst_type in rv_tgt_data
-                        and dst_data != rv_tgt_data[dst_type]
-                        and cli.query_yes_no(
-                            f"Overwrite '{dst_type}' destination(s) in current"
-                            " target?"
-                        )
-                    ):
-                        rv_tgt_data[dst_type] = dst_data
-                else:
-                    rv_tgt_data.pop(dst_type, None)
-        elif tgt_menu_sel == 3:
-            dst_types = []
-            for dst_type in lib.DST_TYPES:
-                if dst_type in rv_tgt_data:
-                    dst_types.append(dst_type)
-            dst_type = __i_dst_pick_menu(dst_types)
-            if dst_type and cli.query_yes_no(
-                f"Delete all '{dst_type}' destination(s) from target?"
-            ):
-                del rv_tgt_data[dst_type]
-        elif tgt_menu_sel == 4 or tgt_menu_sel is None:
-            return None
-        elif tgt_menu_sel == 5:
-            if tgt_name and any(
-                [dst_type in rv_tgt_data for dst_type in lib.DST_TYPES]
-            ):
-                now = time.time()
-                if new:
-                    data = {
-                        lib.NOTIF_CREATE_TIME: now,
-                        lib.NOTIF_LAST_UPDATED: now,
-                    }
-                else:
-                    data = rv_tgt_data.get(lib.DATA_FIELD, {})
-                    data[lib.NOTIF_LAST_UPDATED] = now
-                data[lib.ID_FIELD] = tgt_name
-                rv_tgt_data["description"] = tgt_name
-                rv_tgt_data[lib.DATA_FIELD] = data
-                return {tgt_name: rv_tgt_data}
-            else:
-                if not tgt_name:
-                    error_msg = "Error: Cannot apply, invalid target name."
-                else:
-                    error_msg = (
-                        "Error: Cannot apply, invalid or missing"
-                        " destination(s)."
-                    )
-        tgt_menu = __build_tgt_menu(tgt_name, error_msg)
-        error_msg = None
 
 
 def get_dst_data(dst_type, old_data=None):
@@ -764,102 +616,6 @@ def __i_tgt_pick_menu(targets: Dict) -> Optional[str]:
         return target_names[tgt_pick_sel - 1]
 
 
-def __i_dst_pick_menu(dst_types: List = None) -> Optional[str]:
-    if dst_types is None:
-        dst_types = lib.DST_TYPES
-    dst_type_menu = __build_dst_type_menu(dst_types)
-    dst_type_sel = dst_type_menu.show()
-    if dst_type_sel == 0 or dst_type_sel is None:
-        return None
-    else:
-        return dst_types[dst_type_sel - 1]
-
-
-def __i_rm_tgt_menu(targets: Dict):
-    pass
-
-
-def __build_main_menu() -> TerminalMenu:
-    main_menu_title = (
-        "  Notification Target Main Menu.\n  Press Q or Esc to exit. \n"
-    )
-    main_menu_items = [
-        "Create Target",
-        "Edit Target",
-        "Delete Target",
-        "View Targets",
-        "Exit",
-    ]
-    main_menu_cursor = "> "
-    main_menu_cursor_style = ("fg_red", "bold")
-    main_menu_style = ("bg_red", "fg_yellow")
-    main_menu = TerminalMenu(
-        menu_entries=main_menu_items,
-        title=main_menu_title,
-        menu_cursor=main_menu_cursor,
-        menu_cursor_style=main_menu_cursor_style,
-        menu_highlight_style=main_menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return main_menu
-
-
-def __build_tgt_menu(tgt_name=None, error_msg=None) -> TerminalMenu:
-    menu_cursor = "> "
-    cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    tgt_menu_title = (
-        "  Add Target Menu.\n  Press Q or Esc to back to main menu. \n"
-    )
-    if error_msg:
-        tgt_menu_title = tgt_menu_title + "\n  " + error_msg + "\n"
-    if tgt_name:
-        set_name = f"Set Name (curr: {tgt_name})"
-    else:
-        set_name = "Set Name"
-    tgt_menu_items = [
-        set_name,
-        "Add Destination",
-        "Edit Destination",
-        "Delete Destination",
-        "Cancel",
-        "Apply Changes",
-    ]
-    tgt_menu = TerminalMenu(
-        tgt_menu_items,
-        title=tgt_menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return tgt_menu
-
-
-def __build_dst_type_menu(dst_types: List = None):
-    menu_cursor = "> "
-    cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    dst_type_menu_title = "  Select A Destination Type.\n  Press Q or Esc to back to main menu. \n"
-    dst_type_menu_items = ["Back"]
-    if dst_types is not None:
-        dst_type_menu_items.extend(dst_types)
-    else:
-        dst_type_menu_items.extend(*lib.DST_TYPES)
-    dst_type_menu = TerminalMenu(
-        dst_type_menu_items,
-        title=dst_type_menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return dst_type_menu
-
-
 def __build_tgt_pick_menu(target_names: List[str]):
     menu_cursor = "> "
     cursor_style = ("fg_red", "bold")
@@ -879,46 +635,6 @@ def __build_tgt_pick_menu(target_names: List[str]):
         clear_screen=True,
     )
     return add_tgt_menu
-
-
-def __add_dest_menu() -> TerminalMenu:
-    menu_cursor = "> "
-    cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    add_tgt_menu_title = (
-        "  Add Target Menu.\n  Press Q or Esc to back to main menu. \n"
-    )
-    add_tgt_menu_items = ["Edit Config", "Save Settings", "Back to Main Menu"]
-    add_tgt_menu = TerminalMenu(
-        add_tgt_menu_items,
-        title=add_tgt_menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return add_tgt_menu
-
-
-def __del_tgt_menu(targets: Dict) -> TerminalMenu:
-    menu_cursor = "> "
-    cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    del_tgt_menu_title = (
-        "  Edit Menu.\n  Press Q or Esc to back to main menu. \n"
-    )
-    del_tgt_menu_items = ["Edit Config", "Save Settings", "Back to Main Menu"]
-    del_tgt_menu = TerminalMenu(
-        del_tgt_menu_items,
-        title=del_tgt_menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return del_tgt_menu
 
 
 def __parse_bool_str(input) -> bool:

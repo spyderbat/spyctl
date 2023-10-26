@@ -974,7 +974,7 @@ ROUTE_EXPR = "expr"
 
 NOTIF_DATA_FIELD = "data"
 NOTIF_CONDITION_FIELD = "condition"
-NOTIF_SETTINGS_FIELD = "analyticsNotifications"
+NOTIF_SETTINGS_FIELD = "analyticsConfiguration"
 NOTIF_NAME_FIELD = "name"
 NOTIF_INTERVAL_FIELD = "interval"
 NOTIF_TITLE_FIELD = "title"

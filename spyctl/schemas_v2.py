@@ -15,6 +15,7 @@ from pydantic import (
 )
 
 import spyctl.spyctl_lib as lib
+import spyctl.cli as cli
 
 
 def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
@@ -63,6 +64,18 @@ def valid_context(context_data: Dict, verbose=True):
 def handle_show_schema(kind: str) -> str:
     object = KIND_TO_SCHEMA.get(kind)
     return object.schema_json()
+
+
+def valid_notification_target(tgt_data: Dict, interactive=False):
+    try:
+        NotificationTargetModel(**tgt_data)
+    except ValidationError as e:
+        if interactive:
+            cli.notice(str(e))
+        else:
+            lib.try_log(str(e), is_warning=True)
+        return False
+    return True
 
 
 __PROC_IDS = {}
@@ -811,7 +824,7 @@ class DestinationSNSModel(BaseModel):
     sns_topic_arn: str = Field(alias=lib.DST_SNS_TOPIC_ARN)
 
 
-class NotificationDestinationModel(BaseModel):
+class NotificationTargetModel(BaseModel):
     org_uid: Optional[str] = Field(alias=lib.DST_TYPE_ORG)
     emails: Optional[List[str]] = Field(alias=lib.DST_TYPE_EMAIL)
     users: Optional[List[str]] = Field(alias=lib.DST_TYPE_USERS)
@@ -830,6 +843,20 @@ class NotificationDestinationModel(BaseModel):
         if not lib.is_valid_email(email):
             raise ValueError("Email format is invalid.")
         return email
+
+    @root_validator(pre=True)
+    def one_destination(cls, values: Dict):
+        count = 0
+        for dst_type in lib.DST_TYPES:
+            if dst_type in values:
+                count += 1
+        if count == 0:
+            raise ValueError(
+                f"One destination type is required. {lib.DST_TYPES}"
+            )
+        elif count > 1:
+            raise ValueError("Only one destination type is allowed.")
+        return values
 
     class Config:
         extra = Extra.forbid
