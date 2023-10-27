@@ -5,17 +5,22 @@ import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
 import spyctl.resources.notification_targets as nt
 
-INTERACTIVE_SUPPORTED = [lib.NOTIFICATION_TARGETS_RESOURCE]
+INTERACTIVE_SUPPORTED = [
+    lib.NOTIFICATION_TARGETS_RESOURCE,
+    lib.NOTIFICATION_CONFIGS_RESOURCE,
+]
 
 
 def handle_delete(resource, name_or_id, interactive=False):
     if not interactive and not name_or_id:
         cli.err_exit("Name or ID must be provided if not interactive.")
     if interactive and resource not in INTERACTIVE_SUPPORTED:
-        cli.try_log(
+        cli.err_exit(
             f"The interactive delete is not supported for '{resource}'"
         )
-    if resource == lib.NOTIFICATION_TARGETS_RESOURCE:
+    if resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
+        handle_delete_notif_config(name_or_id, interactive)
+    elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
         handle_delete_notif_tgt(name_or_id, interactive)
     elif resource == lib.POLICIES_RESOURCE:
         handle_delete_policy(name_or_id)
@@ -25,10 +30,20 @@ def handle_delete(resource, name_or_id, interactive=False):
         cli.err_exit(f"The 'delete' command is not supported for '{resource}'")
 
 
+def handle_delete_notif_config(name_or_id, interactive):
+    ctx = cfg.get_current_context()
+    notif_pol = api.get_notification_policy(*ctx.get_api_data())
+
+    if True:
+        nt.interactive_targets(notif_pol, "delete", name_or_id)
+    else:
+        pass
+
+
 def handle_delete_notif_tgt(name_or_id, interactive):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
-    if interactive:
+    if True:
         nt.interactive_targets(notif_pol, "delete", name_or_id)
     else:
         targets = notif_pol[lib.TARGETS_FIELD]
