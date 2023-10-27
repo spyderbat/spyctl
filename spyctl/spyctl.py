@@ -531,11 +531,11 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     "-i",
     "--interactive",
     metavar="",
-    default=True,
+    default=False,
     is_flag=True,
 )
 def create_notif_tgt(interactive):
-    c.handle_create_notif_tgt(interactive)
+    c.handle_create_notif_tgt(True)
 
 
 @create.command("notification", cls=lib.CustomCommand, epilog=SUB_EPILOG)
@@ -544,11 +544,11 @@ def create_notif_tgt(interactive):
     "-i",
     "--interactive",
     metavar="",
-    default=True,
+    default=False,
     is_flag=True,
 )
 def create_notif_route(interactive):
-    c.handle_create_notif_route(interactive)
+    c.handle_create_notif_route(True)
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)

@@ -1,4 +1,3 @@
-from copy import deepcopy
 from typing import Dict, List, Optional
 import time
 
@@ -18,11 +17,11 @@ from pathlib import Path
 NOTIFICATIONS_HEADERS = [
     "NAME",
     "TYPE",
-    "DESTINATIONS",
+    "DESTINATION",
     "AGE",
 ]
 
-DEFAULT_ANALYTICS_NOTIFICATION = {
+DEFAULT_NOTIFICATION_CONFIG = {
     lib.API_FIELD: lib.API_VERSION,
     lib.KIND_FIELD: lib.NOTIFICATION_KIND,
     lib.METADATA_FIELD: {
@@ -33,7 +32,6 @@ DEFAULT_ANALYTICS_NOTIFICATION = {
         lib.ENABLED_FIELD: True,
         lib.NOTIF_DEFAULT_SCHEMA: None,
         lib.NOTIF_CONDITION_FIELD: None,
-        lib.NOTIF_INTERVAL_FIELD: 0,
         lib.NOTIF_TITLE_FIELD: None,
         lib.NOTIF_MESSAGE_FIELD: None,
         lib.NOTIF_NOTIFY_FIELD: [],
@@ -50,7 +48,7 @@ class NotificationRoute:
       name: Agent Health
     spec:
       enabled: true
-      schema: event_opsflag:agent_offline
+      schemaType: event_opsflag:agent_offline
       condition: ephemeral = true
       interval: 86400  # aggregation window
       title: "Agent Offline"
@@ -64,12 +62,11 @@ class NotificationRoute:
             url: https://…
             template: agent_alert_slack
             icon: :red_circle:
-        - target:
+        - targets:
             admin_email:
-            title: "Admin Notification: Agent Offline"
-        - target:
+                title: "Admin Notification: Agent Offline"
             admin_slack:
-            icon: :red_circle:
+                icon: :red_circle:
     """
 
     def __init__(self, notification_configuration: Dict) -> None:
@@ -88,13 +85,12 @@ class NotificationRoute:
         meta[lib.NOTIF_CREATE_TIME] = self.create_time
         meta[lib.NOTIF_LAST_UPDATED] = self.last_updated
         spec = notification_configuration[lib.SPEC_FIELD]
-        self.targets = []
-        self.destination = None
-        for dest in spec[lib.NOTIF_NOTIFY_FIELD]:
-            if "target" in dest:
-                self.targets.append(dest["target"])
-            elif not self.destination:
-                self.destination = dest
+        self.dst_type = None
+        self.dst_data = None
+        if spec[lib.NOTIF_NOTIFY_FIELD]:
+            self.dst_type, self.dst_data = next(
+                iter(spec[lib.NOTIF_NOTIFY_FIELD].items())
+            )
         self.changed = False
 
     def update(self, **kwargs) -> None:
@@ -148,81 +144,53 @@ class NotificationRoute:
             ):
                 self.changed = True
                 self.settings[lib.SPEC_FIELD][lib.NOTIF_DEFAULT_SCHEMA] = value
-            elif key == "destination" and value != self.destination:
-                self.changed = True
-                self.destination = value
-            elif key == "notify":
-                self.changed = True
-                self.settings[lib.SPEC_FIELD][lib.NOTIF_NOTIFY_FIELD] = value
-                self.targets = []
-                self.destination = None
-                for dest in value:
-                    if "target" in dest:
-                        self.targets.append(list(dest["target"].keys())[0])
-                    elif not self.destination:
-                        self.destination = dest
+            elif key == "notify" or key == "destination":
+                dst_type, dst_data = next(iter(value.items()))
+                if dst_type != self.dst_type or dst_data != self.dst_data:
+                    self.changed = True
+                    self.settings[lib.SPEC_FIELD][
+                        lib.NOTIF_NOTIFY_FIELD
+                    ] = value
+                    self.dst_type = dst_type
+                    self.dst_data = dst_data
 
-    def add_destination(self, dst: Dict):
+    def set_last_updated(self, time: float):
         self.changed = True
-        dst_type, dst_settings = next(iter(dst.items()))
-        if dst_type == "target":
-            tgt_name, tgt_settings = next(iter(dst_settings.items()))
-            match = False
-            for i, name in list(enumerate(self.targets)):
-                if tgt_name == name:
-                    match = True
-                    self.targets[i] = {tgt_name: tgt_settings}
-                    break
-            if not match:
-                self.targets.append({tgt_name: tgt_settings})
-        else:
-            self.destination = dst
-        self.settings[lib.SPEC_FIELD][lib.NOTIF_NOTIFY_FIELD] = [*self.targets]
-        if self.destination:
-            self.settings[lib.SPEC_FIELD][lib.NOTIF_NOTIFY_FIELD].append(
-                self.destination
-            )
-
-    def update_target(self, index: int, target: Dict):
-        if self.targets[index] != target:
-            self.changed = True
-            self.targets[index] = target
-
-    def delete_target(self, index: int):
-        self.changed = True
-        self.targets.pop(index)
-
-    def set_condition(self, condition: str):
-        if (
-            condition
-            == self.settings[lib.SPEC_FIELD][lib.NOTIF_CONDITION_FIELD]
-        ):
-            return
-        self.changed = True
-        self.settings[lib.SPEC_FIELD][lib.NOTIF_CONDITION_FIELD] = condition
+        self.last_updated = time
 
     def get_settings(self) -> Dict:
-        rv = self.settings
-        notify = [{"target": target} for target in self.targets]
-        if self.destination:
-            notify.append(self.destination)
-        self.settings[lib.SPEC_FIELD][lib.NOTIF_NOTIFY_FIELD] = notify
+        return self.settings
+
+    def get_notify_data(self, dst_type):
+        return self.settings[lib.SPEC_FIELD][lib.NOTIF_NOTIFY_FIELD].get(
+            dst_type
+        )
+
+    @property
+    def targets(self) -> List[str]:
+        if self.dst_type != lib.NOTIF_DST_TGTS:
+            return []
+        rv = [tgt_name for tgt_name in self.dst_data]
         return rv
 
     @property
-    def dst_count(self) -> int:
-        settings = self.get_settings()
-        return len(settings[lib.SPEC_FIELD].get(lib.NOTIF_NOTIFY_FIELD, []))
+    def curr_dest(self) -> Optional[str]:
+        return self.dst_type
+
+    @property
+    def dst_name(self) -> int:
+        if self.dst_type == lib.NOTIF_DST_TGTS:
+            return "Target(s)"
+        else:
+            return lib.DST_TYPE_TO_NAME[self.dst_type]
 
     @property
     def route(self) -> Dict:
         rv = {}
         if self.targets:
-            rv[lib.TARGETS_FIELD] = [
-                next(iter(target)) for target in self.targets
-            ]
-        if self.destination:
-            rv["destination"] = self.destination
+            rv[lib.TARGETS_FIELD] = self.targets
+        else:
+            rv["destination"] = {self.dst_type: self.dst_data}
         rv[lib.DATA_FIELD] = {
             lib.NOTIF_CREATE_TIME: self.create_time,
             lib.ID_FIELD: self.id,
@@ -262,7 +230,7 @@ class NotificationConfig:
     def __init__(self, config: Dict) -> None:
         self.display_name = config["display_name"]
         self.description = config["description"]
-        self.pre_conf_fields = config["config"]
+        self.config_values = config["config"]
 
     def update_rt(self, rt: NotificationRoute):
         for key in rt.settings[lib.SPEC_FIELD]:
@@ -376,7 +344,7 @@ def __get_object_data(routes: List[Dict]):
             age = lib.NOT_AVAILABLE
         dst_count = NotificationRoute(
             route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
-        ).dst_count
+        ).dst_name
         table_rows.append(
             [
                 name,
@@ -408,7 +376,7 @@ def __get_dashboard_data(routes: List[Dict]):
             [
                 name,
                 lib.NOTIF_TYPE_DASHBOARD,
-                len(route[lib.TARGETS_FIELD]),
+                lib.DST_NAME_SNS,
                 age,
             ]
         )
@@ -442,7 +410,7 @@ def interactive_notifications(
         if not shortcut:
             sel = cli.selection_menu(title, menu_items, sel)
         if sel == 0 or shortcut == "create":
-            nr = __interactive_create_notification(targets, routes)
+            nr = __i_create_notification(targets)
             if not nr:
                 cli.notice("No changes made.")
         elif sel == 1 or shortcut == "edit":
@@ -500,289 +468,416 @@ def interactive_notifications(
             targets = notif_policy.get(lib.TARGETS_FIELD, {})
 
 
-def x_interactive_notifications(
-    notif_policy: Dict, shortcut=None, route_id=None
-):
-    notif_policy_copy = deepcopy(notif_policy)
-    routes: List[Dict] = notif_policy_copy.get(lib.ROUTES_FIELD)
-    targets = notif_policy_copy.get(lib.TARGETS_FIELD, {})
-    main_menu = __build_main_menu()
-    update_policy = False
-    delete_id = None
-    new_route_id = None
-    new_route = None
-    while True:
-        id_index = __build_id_index(routes)
-        main_sel = None
-        if not shortcut:
-            main_sel = main_menu.show()
-        if main_sel == 0 or shortcut == "create":
-            new_notif = __interactive_create_notification(
-                targets, None, None, None
-            )
-            if new_notif:
-                update_policy = True
-                new_route_id = new_notif.id
-                new_route = new_notif.route
-        elif main_sel == 1 or shortcut == "edit":
-            if route_id and route_id in id_index:
-                sel_id = route_id
-            else:
-                sel_id = __i_notif_pick_menu(routes)
-            if sel_id:
-                index = id_index[sel_id]
-                route = routes[index]
-                if lib.NOTIF_SETTINGS_FIELD not in route.get(
-                    lib.DATA_FIELD, {}
-                ):
-                    continue
-                updated_notif = __i_notif_menu(
-                    targets,
-                    NotificationRoute(
-                        route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
-                    ),
-                )
-                if updated_notif:
-                    update_policy = True
-                    new_route_id = updated_notif.id
-                    new_route = updated_notif.route
-        elif main_sel == 2 or shortcut == "delete":
-            if route_id and route_id in id_index:
-                sel_id = route_id
-            else:
-                sel_id = __i_notif_pick_menu(routes)
-            if sel_id and cli.query_yes_no(
-                f"Delete notification '{sel_id}'? This cannot be undone."
-            ):
-                update_policy = True
-                delete_id = sel_id
-        elif main_sel == 3:
-            click.echo_via_pager(
-                notifications_summary_output(routes, lib.NOTIF_TYPE_ALL)
-            )
-        elif main_sel == 4 or main_sel is None:
-            return
-        shortcut = None
-        route_id = None
-        if update_policy:
-            update_policy = False
-            notif_policy_copy = __put_and_get_notif_pol(
-                new_route, new_route_id, delete_id
-            )
-            routes = notif_policy_copy.get(lib.ROUTES_FIELD, [])
-            delete_id = None
-            new_route = None
-            new_route_id = None
-
-
-def __interactive_create_notification(
-    targets: Dict, routes: List[Dict], nr: NotificationRoute = None
+def __i_create_notification(
+    targets: Dict, nr: NotificationRoute = None
 ) -> Optional[NotificationRoute]:
-    pass
-
-
-def x__interactive_create_notification(
-    targets: Dict,
-    notification: Dict = None,
-    schema=None,
-    condition=None,
-):
-    if notification is None:
-        notification = deepcopy(DEFAULT_ANALYTICS_NOTIFICATION)
-    route = NotificationRoute(notification)
-    try:
-        # Ask for destinations
+    quit_prompt = (
+        "Are you sure you want to discard this new Notification Configuration?"
+    )
+    if not nr:
         while True:
-            if not route.dst_count:
-                query = "Add a destination for the notification?"
-            else:
-                query = "Add another notification destination?"
-            if not cli.query_yes_no(query):
-                if not route.dst_count:
-                    if cli.query_yes_no(
-                        "Are you sure you want to discard this new notification?",
-                        default="no",
-                    ):
-                        raise click.Abort
-                    else:
-                        continue
+            new = True
+            nr = NotificationRoute(DEFAULT_NOTIFICATION_CONFIG)
+            config_vals = __prompt_pre_config_selection()
+            if config_vals == "custom":
                 break
-            dst_type = __i_dst_pick_menu(route)
-            if dst_type == "target":
-                target_name = __i_tgt_pick_menu(targets)
-                if not target_name:
-                    continue
-                route.add_destination({"target": {target_name: None}})
-            elif dst_type:
-                dst_data = nt.get_dst_data(dst_type)
-                if not dst_data:
-                    continue
-                route.add_destination({dst_type: dst_data})
-        # Ask for a Name
-        name = __name_prompt()
-        route.update(name=name)
-        # Ask for a schema
-        if not schema:
-            schema = __schema_prompt()
-        route.update(schema=schema)
-        # Ask for a condition
-        if not condition:
-            condition = __condition_prompt()
-        route.update(condition=condition)
-        # Ask for a title
-        title = __title_prompt()
-        route.update(title=title)
-        # Ask for a message
-        message = __message_prompt()
-        route.update(message=message)
-        # Ask for an interval
-        interval = __interval_prompt()
-        route.update(interval=interval)
-    except click.Abort:
-        return None
-    return __i_notif_menu(targets, route, True)
-
-
-def __i_notif_menu(targets: Dict, route: NotificationRoute, new_notif=False):
-    cursor_index = 0
+            if config_vals:
+                nr.update(**config_vals)
+                break
+            elif cli.query_yes_no(quit_prompt):
+                return None
+    else:
+        new = False
+    # Ask for destinations
+    quit = False
     while True:
-        menu = __build_notif_menu(cursor_index, route.route)
-        sel = menu.show()
-        if sel == 0:
-            cursor_index = 0
-            try:
-                new_name = __name_prompt(route.name)
-                route.update(name=new_name)
-            except click.Abort:
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        dst_type = __prompt_select_dst_type(nr)
+        if not dst_type:
+            quit = True
+            continue
+        if dst_type == lib.NOTIF_DST_TGTS:
+            __i_edit_targets(targets, nr)
+            if not nr.targets:
                 continue
-        elif sel == 1:
-            cursor_index = 1
-            try:
-                schema = __schema_prompt(route.schema)
-                route.update(schema=schema)
-            except click.Abort:
+        else:
+            dst_data = nt.get_dst_data(dst_type, nr.get_notify_data(dst_type))
+            if not dst_data:
                 continue
-        elif sel == 2:
-            cursor_index = 2
-            try:
-                condition = __condition_prompt(route.condition)
-                route.update(condition=condition)
-            except click.Abort:
-                continue
-        elif sel == 3:
-            cursor_index = 3
-            try:
-                interval = __interval_prompt(route.interval)
-                route.update(interval=interval)
-            except click.Abort:
-                continue
-        elif sel == 4:
-            cursor_index = 4
-            try:
-                title = __title_prompt()
-                route.update(title=title)
-            except click.Abort:
-                continue
-        elif sel == 5:
-            cursor_index = 5
-            try:
-                message = __message_prompt(route.message)
-                route.update(message=message)
-            except click.Abort:
-                continue
-        elif sel == 6:
-            cursor_index = 6
-            dst_type = __i_dst_pick_menu()
-            if not dst_type:
-                continue
-            if dst_type == "target":
-                target_name = __i_tgt_pick_menu(targets)
-                if not target_name:
-                    continue
-                route.add_destination({"target": {target_name: None}})
+            nr.update(destination={dst_type: dst_data})
+        if cli.query_yes_no(
+            "Continue? Respond with 'no' to re-configure Notification destination."
+        ):
+            break
+    # Get the name for the Notification Configuration
+    quit = False
+    while True:
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        name = __prompt_nr_name(nr)
+        if not name:
+            quit = True
+            continue
+        nr.update(name=name)
+        break
+    # Get the schema type
+    quit = False
+    while True:
+        if new and nr.schema:
+            break
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        schema_type = __prompt_schema_type(nr)
+        if not schema_type:
+            quit = True
+            continue
+        nr.update(schema=schema_type)
+        break
+    # Get the condition
+    quit = False
+    while True:
+        if new and nr.condition:
+            break
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        condition = __prompt_condition(nr)
+        if not condition:
+            quit = True
+            continue
+        nr.update(condition=condition)
+        break
+    # Get title
+    quit = False
+    while True:
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        title = __prompt_title(nr)
+        if not title:
+            quit = True
+            continue
+        nr.update(title=title)
+        break
+    # Get message
+    while True:
+        if quit and cli.query_yes_no(quit_prompt, "no"):
+            return None
+        quit = False
+        message = __prompt_message(nr)
+        if not message:
+            quit = True
+            continue
+        nr.update(message=message)
+        break
+    if new:
+        return __i_notif_menu(targets, nr)
+    return
+
+
+def __prompt_pre_config_selection() -> Optional[Dict]:
+    title = "Select Notification Configuration Template or Custom"
+    menu_items = [
+        cli.menu_item(
+            "Custom", "Build out a custom Notification Configuration", "custom"
+        )
+    ]
+    for config in NOTIF_CONFIGS:
+        menu_items.append(
+            cli.menu_item(
+                config.display_name, config.description, config.config_values
+            )
+        )
+    return cli.selection_menu(title, menu_items)
+
+
+def __prompt_select_dst_type(nr: NotificationRoute):
+    try:
+        title = "Select a Destination for your Notifications"
+        menu_items = []
+        if nr.curr_dest:
+            if nr.curr_dest == lib.NOTIF_DST_TGTS:
+                curr_str = "Target(s)"
             else:
-                dst_data = nt.get_dst_data(dst_type)
+                curr_str = lib.DST_TYPE_TO_NAME[nr.curr_dest]
+            menu_items.append(
+                cli.menu_item(
+                    f"Current (curr: {curr_str})",
+                    "Use the current Destination type.",
+                    nr.curr_dest,
+                )
+            )
+        menu_items.append(
+            cli.menu_item(
+                "Target(s)",
+                "Select one or more pre-configured destinations.",
+                lib.NOTIF_DST_TGTS,
+            )
+        )
+        menu_items.extend(
+            [
+                cli.menu_item(
+                    lib.DST_TYPE_TO_NAME[d_type],
+                    lib.DST_TYPE_TO_DESC[d_type],
+                    d_type,
+                )
+                for d_type in lib.DST_TYPES
+            ]
+        )
+        return cli.selection_menu(title, menu_items)
+    except KeyboardInterrupt:
+        return None
+
+
+def __prompt_nr_name(nr: NotificationRoute):
+    try:
+        while True:
+            tgt_name = cli.input_window(
+                "Name",
+                "Provide a name for the Notification Configuration.",
+                existing_data=nr.name,
+                error_msg=lib.NOTIF_CONF_NAME_ERROR_MSG,
+                validator=lib.is_valid_notification_name,
+            )
+            break
+        return tgt_name
+    except KeyboardInterrupt:
+        return nr.name
+
+
+def __prompt_schema_type(nr: NotificationRoute):
+    title = "Select The Type of Record To Notify On"
+    current = nr.schema
+    menu_items = []
+    if current:
+        menu_items.append(
+            cli.menu_item(
+                "Current", f"The current schema type is {current}", current
+            )
+        )
+    menu_items.extend(
+        [
+            cli.menu_item(
+                "Operations Flags (event_opsflag)",
+                "Events of interested related to operations.",
+                "event_opsflag",
+            ),
+            cli.menu_item(
+                "Red Flags (event_redflag)",
+                "Event of interest related to security.",
+                "event_redflag",
+            ),
+        ]
+    )
+    return cli.selection_menu(title, menu_items)
+
+
+def __prompt_condition(nr: NotificationRoute):
+    try:
+        while True:
+            condition = cli.input_window(
+                "Condition",
+                "Provide a condition for when this Configuration should emit Notifications.",
+                existing_data=nr.condition,
+            )
+            break
+        return condition
+    except KeyboardInterrupt:
+        return nr.condition
+
+
+def __prompt_title(nr: NotificationRoute):
+    try:
+        while True:
+            title = cli.input_window(
+                "Title",
+                "Provide a title for when notification are emitted. For email"
+                " destinations this would be the subject line.",
+                existing_data=nr.title,
+            )
+            if not title:
+                return nr.title
+            break
+        return title
+    except KeyboardInterrupt:
+        return nr.title
+
+
+def __prompt_message(nr: NotificationRoute) -> Optional[str]:
+    MARKER = (
+        "# Provide a message for the body of the notification.\n"
+        "# If not provided, a message will be generated for you.\n"
+        "# Everything above this line is ignored.\n"
+    )
+    prompt = MARKER + nr.message if nr.message else MARKER
+    try:
+        while True:
+            resp = click.edit(prompt)
+            if resp and MARKER not in resp:
+                continue
+            if not resp:
+                return nr.message
+            message = resp.split(MARKER, 1)[-1].strip(" \n")
+            if not message:
+                return nr.message
+            return message
+    except KeyboardInterrupt:
+        return nr.message
+
+
+def __i_edit_targets(targets: Dict, nr: NotificationRoute):
+    title = "Configure Targets"
+    sel = 0
+    nr_targets = nr.targets.copy()
+    while True:
+        new_targets = set(nr_targets).difference(set(nr.targets))
+        menu_items = [
+            cli.menu_item(
+                f"Add (curr: {len(new_targets)} new target(s))",
+                "Add existing Target to this Notification Configuration",
+                0,
+            ),
+            cli.menu_item(
+                "Delete",
+                "Delete Target from this Notification Configuration",
+                1,
+            ),
+            cli.menu_item("View", "View pending Target list.", 2),
+            cli.menu_item(
+                "Cancel", "Return to previous menu without making changes.", 3
+            ),
+            cli.menu_item(
+                "Done",
+                f"Confirm adding {len(new_targets)} Target(s) to this Notification Configuration",
+                4,
+            ),
+        ]
+        sel = cli.selection_menu(title, menu_items, sel)
+        if sel == 0:
+            tgt_opts = set(targets) - set(nr_targets)
+            tgt_name = nt.i_tgt_pick_menu(tgt_opts)
+            if not tgt_name:
+                cli.notice("No Target added.")
+                continue
+            nr_targets.append(tgt_name)
+        elif sel == 1:
+            tgt_name = nt.i_tgt_pick_menu(nr_targets)
+            if not tgt_name:
+                cli.notice("No Target deleted.")
+            try:
+                i = nr_targets.index(tgt_name)
+                nr_targets.pop(i)
+            except ValueError:
+                pass
+        elif sel == 2:
+            click.echo_via_pager(yaml.dump(nr_targets))
+        elif sel == 3:
+            return
+        elif sel == 4:
+            if (
+                new_targets or set(nr_targets) != set(nr.targets)
+            ) and cli.query_yes_no(
+                "Are you sure you want update Targets for this Notification"
+                " Configuration?"
+            ):
+                nr.update(
+                    destination={
+                        lib.NOTIF_DST_TGTS: {name: None for name in nr_targets}
+                    }
+                )
+            return
+
+
+def __i_notif_menu(targets, nr: NotificationRoute):
+    if nr.new:
+        apply_desc = "Save new Notification Configuration."
+    else:
+        apply_desc = "Save changes to current Notification Configuration."
+    title = "Notification Configuration Menu"
+    sel = 0
+    while True:
+        menu_items = [
+            cli.menu_item(
+                f"Set Name (curr: {nr.name})",
+                "Update the Notification Configuration's name.",
+                0,
+            ),
+            cli.menu_item(
+                f"Set Destination (curr: {nr.dst_name})",
+                "Update existing destination or change the type entirely.",
+                1,
+            ),
+            cli.menu_item(
+                "Run Prompts",
+                "Re-run through creation prompts to set values.",
+                2,
+            ),
+            cli.menu_item("Edit", "Manually edit the Configuration YAML.", 3),
+            cli.menu_item("View", "View the Configuration YAML.", 4),
+            cli.menu_item(
+                "Cancel", "Return to Main Menu without making changes.", 5
+            ),
+            cli.menu_item("Apply", apply_desc, 6),
+        ]
+        sel = cli.selection_menu(title, menu_items, sel)
+        if sel == 0:
+            name = __prompt_nr_name(nr)
+            if not name:
+                cli.notice("No changes made.")
+                continue
+            nr.update(name=name)
+        elif sel == 1:
+            dst_type = __prompt_select_dst_type(nr)
+            if not dst_type:
+                cli.notice("No changes made.")
+                continue
+            if dst_type == lib.NOTIF_DST_TGTS:
+                __i_edit_targets(targets, nr)
+                if not nr.targets:
+                    continue
+            else:
+                dst_data = nt.get_dst_data(
+                    dst_type, nr.get_notify_data(dst_type)
+                )
                 if not dst_data:
                     continue
-                route.add_destination({dst_type: dst_data})
-        elif sel == 7:
-            cursor_index = 7
-            menu_items, helper_data = __notify_dst_pick_menu_items(route)
-            notify_menu = __build_notify_dst_pick_menu(menu_items)
-            notif_sel = notify_menu.show()
-            if not notif_sel:
-                continue
-            else:
-                data = helper_data[notif_sel - 1]
-                ind, dst = next(iter(data.items()))
-                if isinstance(ind, int):
-                    target_name = __i_tgt_pick_menu(targets)
-                    if not target_name:
+                nr.update(destination={dst_type: dst_data})
+        elif sel == 2:
+            __i_create_notification(targets, nr)
+        elif sel == 3:
+            while True:
+                edits = click.edit(yaml.dump(nr.settings), extension=".yaml")
+                if edits:
+                    try:
+                        edits = yaml.load(edits, lib.UniqueKeyLoader)
+                    except Exception as e:
+                        cli.notice(f"Unable to load yaml. {e}")
                         continue
-                    route.update_target(ind, {target_name: None})
+                    if not schemas.valid_object(
+                        edits, allow_obj_list=False, interactive=True
+                    ):
+                        continue
+                    nr = NotificationRoute(edits)
+                    nr.set_last_updated(time.time())
                 else:
-                    dst_type, old_data = next(iter(dst.items()))
-                    dst_data = nt.get_dst_data(dst_type, old_data)
-                    route.update(destination={dst_type: dst_data})
-        elif sel == 8:
-            cursor_index = 8
-            menu_items, helper_data = __notify_dst_pick_menu_items(route)
-            notify_menu = __build_notify_dst_pick_menu(menu_items)
-            notif_sel = notify_menu.show()
-            if not notif_sel:
-                continue
-            else:
-                data = helper_data[notif_sel - 1]
-                ind, dst = next(iter(data.items()))
-                if isinstance(ind, int):
-                    route.delete_target(ind)
-                else:
-                    route.update(destination=None)
-        elif sel == 9:
-            cursor_index = 9
-            if route.enabled:
-                if cli.query_yes_no(
-                    "Are you sure you want to disable this notification?"
-                ):
-                    route.update(enabled=False)
-            else:
-                if cli.query_yes_no(
-                    "Are you sure you want to enable this notification?"
-                ):
-                    route.update(enabled=True)
-        elif sel == 10:
-            cursor_index = 10
-            click.echo_via_pager(yaml.dump(route.get_settings()))
-        elif sel == 11:
-            cursor_index = 11
-            if new_notif:
-                query = (
-                    "Are you sure you want to discard this new notification?"
-                )
-            elif route.changed:
-                query = (
-                    "Are you sure you want to discard updates to notification"
-                    f" '{route.name} - {route.id}'"
-                )
-            else:
+                    cli.notice("No edits made.")
+                break
+        elif sel == 4:
+            click.echo_via_pager(yaml.dump(nr.settings))
+        elif sel == 5 or sel is None:
+            if not nr.changed or cli.query_yes_no(
+                "Are you sure you want to discard all changes?", "no"
+            ):
+                return
+        elif sel == 6:
+            if not nr.changed:
                 return None
-            if cli.query_yes_no(query):
-                return None
-            continue
-        elif sel == 12:
-            cursor_index = 12
-            if new_notif:
-                query = "Are you sure you want to apply this new notification?"
-            elif route.changed:
-                query = (
-                    "Are you sure you want to update notification"
-                    f" '{route.name} - {route.id}'"
-                )
-            else:
-                cli.try_log("No changes to apply.")
-            if cli.query_yes_no(query):
-                return route
-            continue
+            if cli.query_yes_no("Are you sure you want to apply changes?"):
+                return nr
 
 
 def __i_notif_pick_menu(routes) -> str:
@@ -807,38 +902,6 @@ def __i_notif_pick_menu(routes) -> str:
         return None
     else:
         return options[sel - 1].split(" - ")[-1]
-
-
-def __i_notif_config_menu():
-    options = [c.display_name for c in NOTIF_CONFIGS]
-
-
-def __i_tgt_pick_menu(targets: Dict) -> Optional[str]:
-    target_names = sorted(list(targets))
-    tgt_pick_menu = __build_tgt_pick_menu(target_names)
-    tgt_pick_sel = tgt_pick_menu.show()
-    if tgt_pick_sel == 0 or tgt_pick_sel is None:
-        return None
-    else:
-        return target_names[tgt_pick_sel - 1]
-
-
-def __i_dst_pick_menu(route: NotificationRoute) -> Optional[str]:
-    title = "  Select a Notification Destination."
-    if route.destination:
-        title += (
-            "\n  Adding another non-target destination will overwrite the\n"
-            "  existing one. Only 1 non-target destination is allowed."
-        )
-    menu_items = ["Pre-configured Target", *lib.DST_NAMES]
-    menu = __build_generic_menu(title, menu_items)
-    sel = menu.show()
-    if sel == 0:
-        return "target"
-    elif sel is None:
-        return None
-    else:
-        return lib.get_dst_type(lib.DST_NAMES[sel - 1])
 
 
 def __put_and_get_notif_pol(
@@ -873,80 +936,6 @@ def __put_and_get_notif_pol(
     return n_pol
 
 
-def __build_main_menu():
-    main_menu_title = (
-        "  Notifications Main Menu.\n  Press Q or Esc to exit. \n"
-    )
-    main_menu_items = [
-        "Create Notification",
-        "Edit Notification",
-        "Delete Notification",
-        "View Notifications",
-        "Exit",
-    ]
-    main_menu_cursor = "> "
-    main_menu_cursor_style = ("fg_red", "bold")
-    main_menu_style = ("bg_red", "fg_yellow")
-    main_menu = TerminalMenu(
-        menu_entries=main_menu_items,
-        title=main_menu_title,
-        menu_cursor=main_menu_cursor,
-        menu_cursor_style=main_menu_cursor_style,
-        menu_highlight_style=main_menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return main_menu
-
-
-def __build_notif_menu(cursor_index, notification: Dict):
-    analytic_notif_setting = notification[lib.NOTIF_DATA_FIELD][
-        lib.NOTIF_SETTINGS_FIELD
-    ]
-    menu_title = "  Notification Menu.\n  Press Q or Esc to exit. \n"
-    meta = analytic_notif_setting[lib.METADATA_FIELD]
-    spec = analytic_notif_setting[lib.SPEC_FIELD]
-    name = meta[lib.METADATA_NAME_FIELD]
-    schema = spec[lib.NOTIF_DEFAULT_SCHEMA]
-    condition = __shorten_str(spec[lib.NOTIF_CONDITION_FIELD])
-    interval = spec.get(lib.NOTIF_INTERVAL_FIELD)
-    title = __shorten_str(spec.get(lib.NOTIF_TITLE_FIELD))
-    message = __shorten_str(spec.get(lib.NOTIF_MESSAGE_FIELD))
-    notify = spec[lib.NOTIF_NOTIFY_FIELD]
-    enabled = spec.get(lib.ENABLED_FIELD, True)
-    enable_str = "Disable" if enabled else "Enable"
-
-    menu_items = [
-        f"Set name{f' (curr: {name})' if name else ''}",
-        f"Set schema{f' (curr: {schema})' if schema else ''}",
-        f"Set condition{f' (curr: {condition})' if condition else ''}",
-        f"Set interval{f' (curr: {interval})' if interval is not None else ''}",
-        f"Set title{f' (curr: {title})' if title else ''}",
-        f"Set message{f' (curr: {message})' if message else ''}",
-        f"Add Notify Destination{f' (curr: {len(notify)})' if notify else ''}",
-        f"Edit Notify Destination{f' (curr: {len(notify)})' if notify else ''}",
-        f"Delete Notify Destination{f' (curr: {len(notify)})' if notify else ''}",
-        f"{enable_str} Notification",
-        "View notification",
-        "Cancel",
-        "Apply",
-    ]
-    menu_cursor = "> "
-    menu_cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    main_menu = TerminalMenu(
-        menu_entries=menu_items,
-        title=menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=menu_cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-        cursor_index=cursor_index,
-    )
-    return main_menu
-
-
 def __build_notif_pick_menu(options: List):
     menu_cursor = "> "
     cursor_style = ("fg_red", "bold")
@@ -967,104 +956,6 @@ def __build_notif_pick_menu(options: List):
     return add_tgt_menu
 
 
-def __build_dst_type_menu(dst_types: List):
-    dst_pick_menu_title = ()
-
-    menu_cursor = "> "
-    menu_cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    rv = TerminalMenu(
-        menu_entries=dst_pick_menu_items,
-        title=dst_pick_menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=menu_cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return rv
-
-
-def __build_tgt_pick_menu(target_names: List[str]):
-    menu_cursor = "> "
-    cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    add_tgt_menu_title = (
-        "  Select A Target.\n  Press Q or Esc to back to main menu. \n"
-    )
-    add_tgt_menu_items = ["Back"]
-    add_tgt_menu_items.extend(target_names)
-    add_tgt_menu = TerminalMenu(
-        add_tgt_menu_items,
-        title=add_tgt_menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return add_tgt_menu
-
-
-def __notify_dst_pick_menu_items(route: NotificationRoute):
-    rv: List[List, Dict] = [["Back"], []]
-    items = rv[0]
-    helper_data = rv[1]
-    for i, tgt in enumerate(route.targets):
-        items.append(next(iter(tgt)))
-        helper_data.append({i: tgt})
-    if route.destination:
-        dst_type = next(iter(route.destination))
-        items.append(dst_type)
-        helper_data.append({lib.ROUTE_DESTINATION: route.destination})
-    return rv
-
-
-def __build_notify_dst_pick_menu(menu_items):
-    menu_title = "  Pick a Destination.\n  Press Q or Esc to exit. \n"
-    menu_cursor = "> "
-    menu_cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    rv = TerminalMenu(
-        menu_entries=menu_items,
-        title=menu_title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=menu_cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return rv
-
-
-def __build_generic_menu(title, menu_items, can_cancel=True):
-    menu_cursor = "> "
-    menu_cursor_style = ("fg_red", "bold")
-    menu_style = ("bg_red", "fg_yellow")
-    if can_cancel:
-        title += "\n  Press Q or Esc to exit. \n"
-    rv = TerminalMenu(
-        menu_entries=menu_items,
-        title=title,
-        menu_cursor=menu_cursor,
-        menu_cursor_style=menu_cursor_style,
-        menu_highlight_style=menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    return rv
-
-
-def __shorten_str(input, shorten_length: int = 10) -> str:
-    if input is None:
-        return None
-    input = str(input)
-    rv = input[:shorten_length]
-    if len(input) > shorten_length:
-        rv += "..."
-    return rv
-
-
 def __build_id_index(routes: List[Dict]) -> Dict:
     rv = {}
     for i, route in enumerate(routes):
@@ -1073,83 +964,3 @@ def __build_id_index(routes: List[Dict]) -> Dict:
             continue
         rv[id] = i
     return rv
-
-
-def __name_prompt(default=None) -> str:
-    name = click.prompt(
-        "Provide a name for this notification",
-        default=default,
-        type=lib.valid_notification_name,
-    )
-    return name
-
-
-def __schema_prompt() -> str:
-    sel = None
-    schema_types = ["event_opsflag"]
-    while sel is None:
-        menu = __build_generic_menu(
-            "Select a schema type for the notification.\n"
-            "This is the type of record that will be evaluated to trigger the"
-            " notification.",
-            schema_types,
-            can_cancel=False,
-        )
-        sel = menu.show()
-    return schema_types[sel]
-
-
-def __condition_prompt(default=None) -> str:
-    while True:
-        condition = click.prompt("Provide a condition", default=default)
-        try:
-            # TODO add condition validation
-            pass
-        except ValueError as e:
-            cli.try_log(*e.args, is_warning=True)
-            continue
-        break
-    return condition
-
-
-def __interval_prompt(default=None) -> int:
-    interval = click.prompt(
-        "Provide the interval.\n"
-        "The interval is the minimum time in seconds between subsequent\n"
-        "notifications. Notifications matching the condition will be\n"
-        "aggregated in the interim.",
-        default=0,
-        type=int,
-    )
-    return interval
-
-
-def __title_prompt() -> Optional[str]:
-    title = click.prompt(
-        "Provide a title for the notification record.\n"
-        "This is equivalent to the subject line in an email.",
-    )
-    title = None if title == "__default__" else title
-    return title
-
-
-def __message_prompt(default=None) -> Optional[str]:
-    MARKER = (
-        "# Provide a message for the body of the notification.\n"
-        "# If not provided, a message will be generated for you.\n"
-        "# Everything above this line is ignored.\n"
-    )
-    prompt = MARKER + default if default else MARKER
-    try:
-        while True:
-            resp = click.edit(prompt)
-            if resp and MARKER not in resp:
-                continue
-            if not resp:
-                return None
-            message = resp.split(MARKER, 1)[-1].strip(" \n")
-            if not message:
-                return None
-            return message
-    except KeyboardInterrupt:
-        raise click.Abort

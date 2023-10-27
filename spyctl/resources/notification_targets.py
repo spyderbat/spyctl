@@ -1,7 +1,6 @@
 import time
-from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Iterable
 import yaml
 
 import click
@@ -258,7 +257,7 @@ def interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
             if name_or_id and name_or_id in targets:
                 tgt_name = name_or_id
             else:
-                tgt_name = __i_tgt_pick_menu(targets)
+                tgt_name = i_tgt_pick_menu(targets)
             if tgt_name:
                 tgt_data = targets[tgt_name]
                 nt = __i_tgt_menu(
@@ -272,7 +271,7 @@ def interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
             if name_or_id and name_or_id in targets:
                 tgt_name = name_or_id
             else:
-                tgt_name = __i_tgt_pick_menu(targets)
+                tgt_name = i_tgt_pick_menu(targets)
             if not tgt_name or not cli.query_yes_no(
                 f"Are you sure you want to delete target {tgt_name}?", "no"
             ):
@@ -327,7 +326,9 @@ def prompt_select_dst_type() -> Optional[str]:
 
 
 def __i_create_target(targets, old_type=None, old_name=None, old_data=None):
-    quit_prompt = "Are you sure you want to discard this new target?"
+    quit_prompt = (
+        "Are you sure you want to discard this new Notification Target?"
+    )
     # Get the type of destination for the Target
     quit = False
     while True:
@@ -392,8 +393,8 @@ def __i_tgt_menu(targets: Dict, nt: NotificationTarget):
                 "Update existing destination or change the type entirely.",
                 1,
             ),
-            cli.menu_item("Edit Target", "Manually edit the Target YAML.", 2),
-            cli.menu_item("View Target", "View the Target YAML.", 3),
+            cli.menu_item("Edit", "Manually edit the Target YAML.", 2),
+            cli.menu_item("View", "View the Target YAML.", 3),
             cli.menu_item(
                 "Cancel", "Return to previous menu without making changes.", 4
             ),
@@ -440,7 +441,7 @@ def __i_tgt_menu(targets: Dict, nt: NotificationTarget):
                 return
         elif sel == 5:
             if not changed:
-                return
+                return None
             if cli.query_yes_no("Are you sure you want to apply changes?"):
                 return nt
 
@@ -606,7 +607,7 @@ def get_dst_data(dst_type, old_data=None):
         return None
 
 
-def __i_tgt_pick_menu(targets: Dict) -> Optional[str]:
+def i_tgt_pick_menu(targets: Iterable) -> Optional[str]:
     target_names = sorted(list(targets))
     tgt_pick_menu = __build_tgt_pick_menu(target_names)
     tgt_pick_sel = tgt_pick_menu.show()

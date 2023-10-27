@@ -18,7 +18,9 @@ import spyctl.spyctl_lib as lib
 import spyctl.cli as cli
 
 
-def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
+def valid_object(
+    data: Dict, verbose=True, allow_obj_list=True, interactive=False
+) -> bool:
     kind = data.get(lib.KIND_FIELD)
     if kind not in KIND_TO_SCHEMA:
         if lib.ITEMS_FIELD not in data:
@@ -32,7 +34,10 @@ def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
             GuardianObjectListModel(**data)
         except ValidationError as e:
             if verbose:
-                lib.try_log(str(e), is_warning=True)
+                if interactive:
+                    cli.notice(str(e))
+                else:
+                    lib.try_log(str(e), is_warning=True)
             return False
         for item in data[lib.ITEMS_FIELD]:
             if not valid_object(item, allow_obj_list=False):
@@ -46,7 +51,10 @@ def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
         KIND_TO_SCHEMA[kind](**data)
     except ValidationError as e:
         if verbose:
-            lib.try_log(str(e), is_warning=True)
+            if interactive:
+                cli.notice(str(e))
+            else:
+                lib.try_log(str(e), is_warning=True)
         return False
     return True
 
@@ -862,28 +870,77 @@ class NotificationTargetModel(BaseModel):
         extra = Extra.forbid
 
 
-class NotifAnaSettingsMetadataModel(BaseModel):
-    pass
+class NotifAnaConfigNotifyModel(BaseModel):
+    targets: Dict = Field(alias=lib.NOTIF_DST_TGTS)
+    emails: Optional[List[str]] = Field(alias=lib.DST_TYPE_EMAIL)
+    slack: Optional[DestinationSlackModel] = Field(alias=lib.DST_TYPE_SLACK)
+    webhook: Optional[DestinationWebhookModel] = Field(
+        alias=lib.DST_TYPE_WEBHOOK
+    )
+    sns: Optional[DestinationSNSModel] = Field(alias=lib.DST_TYPE_SNS)
+
+    @root_validator(pre=True)
+    def one_destination(cls, values: Dict):
+        count = 0
+        for dst_type in lib.DST_TYPES:
+            if dst_type in values:
+                count += 1
+        if lib.NOTIF_DST_TGTS in values:
+            count += 1
+        if count == 0:
+            raise ValueError(
+                f"One destination type is required. {lib.DST_TYPES}"
+            )
+        elif count > 1:
+            raise ValueError("Only one destination type is allowed.")
+        return values
+
+    class Config:
+        extra = Extra.forbid
 
 
-class NotifAnaSettingsSpecModel(BaseModel):
+class NotifAnaConfigMetadataModel(BaseModel):
+    name: str = Field(alias=lib.METADATA_NAME_FIELD)
+    notif_type: str = Field(alias=lib.METADATA_TYPE_FIELD)
+    uid: str = Field(alias=lib.METADATA_UID_FIELD)
+    create_time: Optional[Union[float, int]] = Field(
+        alias=lib.METADATA_CREATE_TIME
+    )
+    update_time: Optional[Union[float, int]] = Field(
+        alias=lib.NOTIF_LAST_UPDATED
+    )
+
+
+class NotifAnaConfigSpecModel(BaseModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+    condition: str = Field(alias=lib.NOTIF_CONDITION_FIELD)
+    icon: Optional[str] = Field(alias=lib.NOTIF_ICON_FIELD)
+    message: str = Field(alias=lib.NOTIF_MESSAGE_FIELD)
+    notify: NotifAnaConfigNotifyModel = Field(alias=lib.NOTIF_NOTIFY_FIELD)
+    schema_type: str = Field(alias=lib.NOTIF_DEFAULT_SCHEMA)
+    title: str = Field(alias=lib.NOTIF_TITLE_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
-class NotificationAnalyticsSettings(BaseModel):
+class NotificationAnalyticsConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
     kind: Literal[lib.NOTIFICATION_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
-    metadata: NotifAnaSettingsMetadataModel = Field(alias=lib.METADATA_FIELD)
-    spec: NotifAnaSettingsSpecModel = Field(alias=lib.SPEC_FIELD)
+    metadata: NotifAnaConfigMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: NotifAnaConfigSpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class NotificationRouteDataModel(BaseModel):
-    analytics_settings: Optional[NotificationAnalyticsSettings]
+    analytics_settings: Optional[NotificationAnalyticsConfigModel]
 
 
 class NotificationRouteModel(BaseModel):
     targets: Optional[List[str]] = Field(alias=lib.ROUTE_TARGETS)
-    destination: Optional[NotificationDestinationModel] = Field(
+    destination: Optional[NotificationAnalyticsConfigModel] = Field(
         alias=lib.ROUTE_DESTINATION
     )
     data: Optional[Dict] = Field(alias=lib.ROUTE_DATA)
@@ -895,7 +952,7 @@ class NotificationRouteModel(BaseModel):
 
 
 class NotificationPolicyModel(BaseModel):
-    targets: Optional[Dict[str, NotificationDestinationModel]] = Field(
+    targets: Optional[Dict[str, NotificationTargetModel]] = Field(
         alias=lib.TARGETS_FIELD
     )
     routes: Optional[List[NotificationRouteModel]] = Field(
@@ -1142,6 +1199,7 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     lib.SECRET_KIND: SecretModel,
     lib.UID_LIST_KIND: UidListModel,
     lib.DEVIATION_KIND: GuardianDeviationModel,
+    lib.NOTIFICATION_KIND: NotificationAnalyticsConfigModel,
 }
 
 

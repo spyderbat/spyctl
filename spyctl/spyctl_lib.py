@@ -567,7 +567,7 @@ BASELINE_KIND = "SpyderbatBaseline"
 DEVIATION_KIND = "GuardianDeviation"
 FPRINT_GROUP_KIND = "FingerprintGroup"
 FPRINT_KIND = "SpyderbatFingerprint"
-NOTIFICATION_KIND = "SpyderbatNotification"
+NOTIFICATION_KIND = "NotificationConfiguration"
 POL_KIND = "SpyderbatPolicy"
 SUP_POL_KIND_ALIAS = "SuppressionPolicy"
 UID_LIST_KIND = "UidList"
@@ -972,6 +972,7 @@ ROUTE_DATA_ANA_SETTINGS = "analyticsSettings"
 ROUTE_DESCRIPTION = "description"
 ROUTE_EXPR = "expr"
 
+NOTIF_DST_TGTS = "targets"
 NOTIF_DATA_FIELD = "data"
 NOTIF_CONDITION_FIELD = "condition"
 NOTIF_SETTINGS_FIELD = "analyticsConfiguration"
@@ -979,10 +980,11 @@ NOTIF_NAME_FIELD = "name"
 NOTIF_INTERVAL_FIELD = "interval"
 NOTIF_TITLE_FIELD = "title"
 NOTIF_MESSAGE_FIELD = "message"
+NOTIF_ICON_FIELD = "icon"
 NOTIF_NOTIFY_FIELD = "notify"
 NOTIF_CREATE_TIME = "createTime"
 NOTIF_LAST_UPDATED = "lastUpdated"
-NOTIF_DEFAULT_SCHEMA = "schema"
+NOTIF_DEFAULT_SCHEMA = "schemaType"
 ANA_NOTIF_TYPE_AGENT_HEALTH = "agent_health"
 ANA_NOTIF_TYPE_CUSTOM = "custom"
 
@@ -2111,6 +2113,12 @@ TGT_NAME_ERROR_MSG = (
     " characters."
 )
 
+NOTIF_CONF_NAME_ERROR_MSG = (
+    "Name must contain only letters, numbers, and"
+    f" {NOTIF_NAME_VALID_SYMBOLS}. It must also be less than 64"
+    " characters."
+)
+
 
 def is_valid_tgt_name(input_string):
     pattern = r"^[a-zA-Z0-9\-_]+$"
@@ -2119,6 +2127,13 @@ def is_valid_tgt_name(input_string):
         return True
     else:
         return False
+
+
+def is_valid_notification_name(input_string) -> str:
+    pattern = r"^[a-zA-Z0-9\-_]+$"
+    if re.match(pattern, input_string) and len(input_string) <= 64:
+        return True
+    return False
 
 
 def valid_notification_name(input_string) -> str:
