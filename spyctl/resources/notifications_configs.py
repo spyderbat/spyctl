@@ -426,7 +426,6 @@ def interactive_notifications(
                 else:
                     nr = __i_notif_menu(
                         targets,
-                        routes,
                         NotificationRoute(
                             route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
                         ),

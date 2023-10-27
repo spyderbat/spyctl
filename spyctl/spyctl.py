@@ -1059,7 +1059,7 @@ def edit(resource, name_or_id, interactive, yes=False):
     """Edit resources by resource and name, or by resource and ids"""
     if yes:
         cli.set_yes_option()
-    handle_edit(resource, name_or_id, interactive)
+    handle_edit(resource, name_or_id, True)
 
 
 # ----------------------------------------------------------------- #

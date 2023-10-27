@@ -10,14 +10,17 @@ import yaml
 import spyctl.schemas_v2 as schemas
 
 
-INTERACTIVE_SUPPORTED = [lib.NOTIFICATION_TARGETS_RESOURCE]
+INTERACTIVE_SUPPORTED = [
+    lib.NOTIFICATION_TARGETS_RESOURCE,
+    lib.NOTIFICATION_CONFIGS_RESOURCE,
+]
 
 
 def handle_edit(resource, name_or_id, interactive=False):
     if not interactive and not name_or_id:
         cli.err_exit("Name or ID must be provided if not interactive.")
     if interactive and resource not in INTERACTIVE_SUPPORTED:
-        cli.try_log(
+        cli.err_exit(
             f"The interactive delete is not supported for '{resource}'"
         )
     if resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
