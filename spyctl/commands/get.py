@@ -18,7 +18,7 @@ import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.nodes as spyctl_nodes
-import spyctl.resources.notifications as spyctl_notif
+import spyctl.resources.notifications_configs as spyctl_notif
 import spyctl.resources.notification_targets as spyctl_tgt
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
@@ -33,7 +33,7 @@ not_time_based = [
     lib.SOURCES_RESOURCE,
     lib.POLICIES_RESOURCE,
     lib.CLUSTERS_RESOURCE,
-    lib.NOTIFICATION_POLICIES_RESOURCE,
+    lib.NOTIFICATION_CONFIGS_RESOURCE,
     lib.NOTIFICATION_TARGETS_RESOURCE,
 ]
 resource_with_global_src = [lib.AGENT_RESOURCE, lib.FINGERPRINTS_RESOURCE]
@@ -79,8 +79,8 @@ def handle_get(
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.NODES_RESOURCE:
         handle_get_nodes(name_or_id, st, et, output, **filters)
-    elif resource == lib.NOTIFICATION_POLICIES_RESOURCE:
-        handle_get_notification_policies(name_or_id, output, **filters)
+    elif resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
+        handle_get_notification_configs(name_or_id, output, **filters)
     elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
         handle_get_notification_targets(name_or_id, output, **filters)
     elif resource == lib.OPSFLAGS_RESOURCE:
@@ -124,22 +124,33 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
             cli.show(cluster, output, ndjson=NDJSON)
 
 
-def handle_get_notification_policies(name_or_id, output: str, **filters: Dict):
+def handle_get_notification_configs(name_or_id, output: str, **filters: Dict):
+    full_policy = filters.get("full_policy", False)
     ctx = cfg.get_current_context()
     notif_type = filters.get(lib.NOTIF_TYPE_FIELD, lib.NOTIF_TYPE_ALL)
     n_pol = api.get_notification_policy(*ctx.get_api_data())
     if n_pol is None or not isinstance(n_pol, dict):
         cli.err_exit("Could not load notification policy")
     routes = n_pol.get(lib.ROUTES_FIELD)
+    if name_or_id:
+        routes = filt.filter_obj(routes, ["data.id", "data.name"], name_or_id)
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_notif.notifications_summary_output(routes, notif_type)
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
         __wide_not_supported()
     else:
-        # for route in routes:
-        #     cli.show(route, output, ndjson=NDJSON)
-        cli.show(n_pol, output, ndjson=NDJSON)
+        if not full_policy:
+            for route in routes:
+                config = route.get(lib.DATA_FIELD, {}).get(
+                    lib.NOTIF_SETTINGS_FIELD
+                )
+                if config:
+                    cli.show(config, output, ndjson=NDJSON)
+                else:
+                    cli.show(route, output, ndjson=NDJSON)
+        else:
+            cli.show(n_pol, output, ndjson=NDJSON)
 
 
 def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
@@ -148,6 +159,12 @@ def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
     if not n_pol or not isinstance(n_pol, dict):
         cli.err_exit("Could not load notification targets")
     targets = n_pol.get(lib.TARGETS_FIELD)
+    if name_or_id:
+        name_or_id = name_or_id.strip("*")
+        if name_or_id not in targets:
+            targets = {}
+        else:
+            targets = {name_or_id: targets[name_or_id]}
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_tgt.targets_summary_output(targets)
         cli.show(summary, lib.OUTPUT_RAW)
@@ -155,14 +172,8 @@ def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
         summary = spyctl_tgt.targets_wide_output(targets)
         cli.show(summary, lib.OUTPUT_RAW)
     else:
-        if name_or_id:
-            name_or_id = name_or_id.strip("*")
-            if name_or_id not in targets:
-                return
-            cli.show({name_or_id: targets[name_or_id]}, output, ndjson=NDJSON)
-        else:
-            for target, tgt_data in targets.items():
-                cli.show({target: tgt_data}, output, ndjson=NDJSON)
+        for target, tgt_data in targets.items():
+            cli.show({target: tgt_data}, output, ndjson=NDJSON)
 
 
 def handle_get_sources(name_or_id, output: str, **filters: Dict):

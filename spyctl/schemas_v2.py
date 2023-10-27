@@ -871,7 +871,7 @@ class NotificationTargetModel(BaseModel):
 
 
 class NotifAnaConfigNotifyModel(BaseModel):
-    targets: Dict = Field(alias=lib.NOTIF_DST_TGTS)
+    targets: Optional[Dict] = Field(alias=lib.NOTIF_DST_TGTS)
     emails: Optional[List[str]] = Field(alias=lib.DST_TYPE_EMAIL)
     slack: Optional[DestinationSlackModel] = Field(alias=lib.DST_TYPE_SLACK)
     webhook: Optional[DestinationWebhookModel] = Field(

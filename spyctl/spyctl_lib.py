@@ -163,16 +163,15 @@ NAMESPACES_RESOURCE = Aliases(
     "namespace",
     "namespaces",
 )
-NOTIFICATION_POLICIES_RESOURCE = Aliases(
+NOTIFICATION_CONFIGS_RESOURCE = Aliases(
     [
-        "notification",
-        "notifications",
+        "notification-config",
+        "notification-configs",
         "notification-policy",
-        "notification-policies",
-        "np",
+        "nc",
     ],
-    "notification",
-    "notifications",
+    "notification-config",
+    "notification-configs",
 )
 NOTIFICATION_TARGETS_RESOURCE = Aliases(
     [
@@ -269,13 +268,16 @@ def get_plural_name_from_alias(alias: str):
 DEL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
-    NOTIFICATION_POLICIES_RESOURCE.name,
+    NOTIFICATION_CONFIGS_RESOURCE.name,
     NOTIFICATION_TARGETS_RESOURCE.name,
 ]
 DESC_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
 ]
-EDIT_RESOURCES: List[str] = [NOTIFICATION_TARGETS_RESOURCE.name]
+EDIT_RESOURCES: List[str] = [
+    NOTIFICATION_CONFIGS_RESOURCE.name,
+    NOTIFICATION_TARGETS_RESOURCE.name,
+]
 GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
@@ -288,7 +290,7 @@ GET_RESOURCES: List[str] = [
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
     NODES_RESOURCE.name_plural,
-    NOTIFICATION_POLICIES_RESOURCE.name_plural,
+    NOTIFICATION_CONFIGS_RESOURCE.name_plural,
     NOTIFICATION_TARGETS_RESOURCE.name_plural,
     OPSFLAGS_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,

@@ -538,7 +538,9 @@ def create_notif_tgt(interactive):
     c.handle_create_notif_tgt(True)
 
 
-@create.command("notification", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@create.command(
+    "notification-config", cls=lib.CustomCommand, epilog=SUB_EPILOG
+)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-i",
@@ -1114,6 +1116,19 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Include redflags marked as exceptions in output."
                     " Off by default.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.NOTIFICATION_CONFIGS_RESOURCE],
+            "args": [
+                click.option(
+                    "--full-policy",
+                    "full_policy",
+                    is_flag=True,
+                    default=False,
+                    help="Emit the full organization notification policy"
+                    " object when using yaml or json output format.",
                 ),
             ],
         },
