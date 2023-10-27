@@ -364,10 +364,12 @@ def __i_create_target(targets, old_type=None, old_name=None, old_data=None):
 def __put_and_get_notif_pol(nt: NotificationTarget, delete_name=None):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
+    targets: Dict = notif_pol.get(lib.TARGETS_FIELD, {})
     if delete_name:
-        notif_pol[lib.TARGETS_FIELD].pop(delete_name, None)
+        targets.pop(delete_name, None)
     if nt:
-        notif_pol[lib.TARGETS_FIELD].update(nt.tgt_data)
+        targets.update(nt.tgt_data)
+    notif_pol[lib.TARGETS_FIELD] = targets
     api.put_notification_policy(*ctx.get_api_data(), notif_pol)
     rv_pol = api.get_notification_policy(*ctx.get_api_data())
     return rv_pol

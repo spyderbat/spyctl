@@ -385,7 +385,7 @@ def __get_dashboard_data(routes: List[Dict]):
 def interactive_notifications(
     notif_policy: Dict, shortcut=None, route_id=None
 ):
-    routes: List[Dict] = notif_policy.get(lib.ROUTES_FIELD)
+    routes: List[Dict] = notif_policy.get(lib.ROUTES_FIELD, [])
     targets = notif_policy.get(lib.TARGETS_FIELD, {})
     sel = None
     title = "Notification Configurations Main Menu"
@@ -462,7 +462,7 @@ def interactive_notifications(
         route_id = None
         if delete or nr:
             notif_policy = __put_and_get_notif_pol(nr, delete)
-            routes: List[Dict] = notif_policy.get(lib.ROUTES_FIELD)
+            routes: List[Dict] = notif_policy.get(lib.ROUTES_FIELD, [])
             targets = notif_policy.get(lib.TARGETS_FIELD, {})
 
 
