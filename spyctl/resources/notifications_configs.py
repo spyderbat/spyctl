@@ -1301,7 +1301,6 @@ class InteractiveNotifications:
         self, nr: NotificationRoute, next_menu: Callable = None
     ):
         def validate_condition(condition: str):
-            return
             condition = condition.strip()
             ctx = cfg.get_current_context()
             try:

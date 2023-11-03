@@ -1380,7 +1380,11 @@ def validate_search_query(
         "schema": schema_type,
     }
     resp = post(url, data, api_key)
-    return resp.text
+    resp = resp.json()
+    if not resp["ok"]:
+        return resp["error"]
+    else:
+        return ""
 
 
 # ----------------------------------------------------------------- #
