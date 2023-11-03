@@ -35,7 +35,7 @@ def valid_object(
         except ValidationError as e:
             if verbose:
                 if interactive:
-                    cli.notice(str(e))
+                    return str(e)
                 else:
                     lib.try_log(str(e), is_warning=True)
             return False
@@ -52,7 +52,7 @@ def valid_object(
     except ValidationError as e:
         if verbose:
             if interactive:
-                cli.notice(str(e))
+                return str(e)
             else:
                 lib.try_log(str(e), is_warning=True)
         return False
@@ -79,7 +79,7 @@ def valid_notification_target(tgt_data: Dict, interactive=False):
         NotificationTargetModel(**tgt_data)
     except ValidationError as e:
         if interactive:
-            cli.notice(str(e))
+            return str(e)
         else:
             lib.try_log(str(e), is_warning=True)
         return False

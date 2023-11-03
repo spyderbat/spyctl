@@ -535,6 +535,7 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     is_flag=True,
 )
 def create_notif_tgt(interactive):
+    lib.set_interactive()
     c.handle_create_notif_tgt(True)
 
 
@@ -550,6 +551,7 @@ def create_notif_tgt(interactive):
     is_flag=True,
 )
 def create_notif_route(interactive):
+    lib.set_interactive()
     c.handle_create_notif_route(True)
 
 

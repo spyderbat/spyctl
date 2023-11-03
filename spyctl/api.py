@@ -68,7 +68,14 @@ def get(url, key, params=None, raise_notfound=False):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -95,7 +102,14 @@ def post(url, data, key, raise_notfound=False):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -120,7 +134,14 @@ def put(url, data, key):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -145,7 +166,14 @@ def delete(url, key):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -1340,6 +1368,19 @@ def get_sources_data_for_agents(api_url, api_key, org_uid) -> Dict:
                 "last_data": source["last_data"],
             }
     return rv
+
+
+def validate_search_query(
+    api_url, api_key, org_uid, schema_type: str, query: str
+):
+    url = f"{api_url}/api/v1/org/{org_uid}/search/validate"
+    data = {
+        "context_uid": lib.build_ctx(),
+        "query": query,
+        "schema": schema_type,
+    }
+    resp = post(url, data, api_key)
+    return resp.text
 
 
 # ----------------------------------------------------------------- #

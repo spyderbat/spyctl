@@ -23,6 +23,8 @@ def handle_edit(resource, name_or_id, interactive=False):
         cli.err_exit(
             f"The interactive delete is not supported for '{resource}'"
         )
+    if interactive:
+        lib.set_interactive()
     if resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
         handle_edit_notif_config(name_or_id, interactive)
     elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:

@@ -1,17 +1,19 @@
 import time
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Iterable
-import yaml
+from typing import Callable, Dict, Iterable, List, Optional
 
 import click
+import urwid as u
+import yaml
 from simple_term_menu import TerminalMenu
 from tabulate import tabulate
 
-import spyctl.cli as cli
-import spyctl.spyctl_lib as lib
 import spyctl.api as api
+import spyctl.cli as cli
 import spyctl.config.configs as cfg
 import spyctl.schemas_v2 as schemas
+import spyctl.spyctl_lib as lib
 
 TARGETS_HEADERS = ["NAME", "AGE", "TYPE", "DESTINATIONS"]
 
@@ -101,10 +103,12 @@ class Webhook:
 class NotificationTarget:
     def __init__(self, name, tgt_data=None) -> None:
         self.name = name
+        self.old_name = name
         self.type = None
         self.dst_data = None
         if tgt_data:
             self.new = False
+            self.changed = False
             self.data = tgt_data.get(lib.DATA_FIELD, {})
             self.data[lib.DST_DESCRIPTION] = self.name
             for dst_type in lib.DST_TYPES:
@@ -116,6 +120,7 @@ class NotificationTarget:
         else:
             now = time.time()
             self.new = True
+            self.changed = True
             self.data = {
                 lib.NOTIF_CREATE_TIME: now,
                 lib.NOTIF_LAST_UPDATED: now,
@@ -123,26 +128,25 @@ class NotificationTarget:
                 lib.DST_DESCRIPTION: self.name,
             }
 
-    def update_name(self, new_name) -> bool:
+    def update_name(self, new_name):
         if new_name != self.name:
+            self.changed = True
             self.name = new_name
-            now = time.time()
-            self.data[lib.NOTIF_LAST_UPDATED] = now
             self.data[lib.DST_DESCRIPTION] = self.name
-            return True
-        return False
 
-    def update_destination(self, dst_type, dst_data) -> bool:
+    def update_destination(self, dst_type, dst_data):
         if self.type != dst_type or self.dst_data != dst_data:
-            now = time.time()
-            self.data[lib.NOTIF_LAST_UPDATED] = now
+            self.changed = True
             self.type = dst_type
             self.dst_data = dst_data
-            return True
-        False
 
     def set_last_updated(self, time: float):
         self.data[lib.NOTIF_LAST_UPDATED] = time
+
+    @property
+    def tgt_type_name(self) -> Optional[str]:
+        if self.type:
+            return lib.DST_TYPE_TO_NAME[self.type]
 
     @property
     def tgt_data(self) -> Dict:
@@ -151,9 +155,13 @@ class NotificationTarget:
         }
 
     @property
+    def editable_tgt_data(self) -> Dict:
+        rv_dict = {self.name: {self.type: self.dst_data}}
+        return rv_dict
+
+    @property
     def dst_yaml(self):
-        rv_dict = {self.name: {self.type: self.tgt_data}}
-        return yaml.dump(rv_dict)
+        return yaml.dump(self.tgt_data)
 
 
 def targets_summary_output(targets: Dict):
@@ -180,6 +188,7 @@ def targets_summary_output(targets: Dict):
         else:
             type = lib.NOT_AVAILABLE
         row_data.append([tgt_name, age, type, dest_count])
+    row_data.sort(key=lambda row: row[0].lower())
     return tabulate(row_data, TARGETS_HEADERS, "plain")
 
 
@@ -229,6 +238,18 @@ def targets_wide_output(targets: Dict):
 
 
 def interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
+    shortcut_map = {
+        "create": 0,
+        "edit": 1,
+        "delete": 2,
+    }
+    if shortcut is not None:
+        shortcut = shortcut_map[shortcut]
+    app = InteractiveTargets(notif_policy, shortcut)
+    app.start()
+
+
+def _interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
     targets: Dict = notif_policy.get(lib.TARGETS_FIELD, {})
     sel = None
     title = "Notification Targets Main Menu"
@@ -361,7 +382,7 @@ def __i_create_target(targets, old_type=None, old_name=None, old_data=None):
     return __i_tgt_menu(targets, nt)
 
 
-def __put_and_get_notif_pol(nt: NotificationTarget, delete_name=None):
+def put_and_get_notif_pol(nt: NotificationTarget, delete_name=None):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
     targets: Dict = notif_pol.get(lib.TARGETS_FIELD, {})
@@ -652,3 +673,709 @@ def __parse_bool_str(input) -> bool:
         "certainly",
         "uh-huh",
     ]
+
+
+class InteractiveTargets:
+    return_footer = " Q to return"
+
+    MAIN_MENU_ITEMS = [
+        cli.menu_item(
+            "Create",
+            "Create a new Target. This is a named destination for"
+            " notifications.",
+            0,
+        ),
+        cli.menu_item("Edit", "Edit an existing Target.", 1),
+        cli.menu_item("Delete", "Delete an existing Target.", 2),
+        cli.menu_item("View", "View a summary of existing Targets.", 3),
+        cli.menu_item("Exit", "Leave this menu.", 4),
+    ]
+
+    def __init__(self, notif_pol: Dict, shortcut=None) -> None:
+        self.notif_pol = notif_pol
+        self.loop = u.MainLoop(
+            u.Filler(u.Text("")),
+            cli.URWID_PALLET,
+            unhandled_input=self.unhandled_input,
+        )
+        self.menu_stack = []
+        self.show_main_menu(shortcut=shortcut)
+
+    @property
+    def targets(self) -> Dict:
+        return self.notif_pol.get(lib.TARGETS_FIELD, {})
+
+    @property
+    def routes(self) -> List:
+        return self.notif_pol.get(lib.ROUTES_FIELD, [])
+
+    @property
+    def curr_menu_data(self):
+        return self.menu_stack[-1][1]
+
+    def unhandled_input(self, key):
+        if key in ("q", "enter") and len(self.menu_stack) > 1:
+            self.pop_menu()
+        elif key in ("q",):
+            self.quit()
+
+    def quit(self):
+        raise u.ExitMainLoop()
+
+    def start(self):
+        self.loop.run()
+
+    def push_update(self, nt: NotificationTarget, delete_name=None):
+        self.loop.stop()
+        try:
+            self.notif_pol = put_and_get_notif_pol(nt, delete_name)
+            self.loop.start()
+        except Exception as e:
+            self.loop.start()
+            raise e
+
+    # ----------------------------------------------------------
+    # Menu Stack Management
+    # ----------------------------------------------------------
+    def sub_menu(self, menu: u.Frame, menu_data=None):
+        self.menu_stack.append((menu, menu_data))
+        self.loop.widget = menu
+
+    def pop_menu(self):
+        self.menu_stack.pop()
+        self.loop.widget = self.menu_stack[-1][0]
+
+    # ----------------------------------------------------------
+    # Menu menu
+    # ----------------------------------------------------------
+    def show_main_menu(
+        self, previous_sel: int = 0, shortcut: int = None, route_id: str = None
+    ):
+        title = "Notification Targets Main Menu"
+        frame = cli.selection_menu_v2(
+            title,
+            self.MAIN_MENU_ITEMS,
+            previous_sel,
+            " Q to exit",
+            self.handle_main_menu_selection,
+        )
+        self.loop.widget = frame
+        self.menu_stack = [(frame, 0)]
+        if shortcut is not None:
+            self.handle_main_menu_selection(shortcut)
+
+    def handle_main_menu_selection(self, sel: int, id=None):
+        if sel == 0:
+            self.start_creation_prompts()
+        elif sel == 1:
+            self.show_target_sel_menu(self.handle_edit_target)
+        elif sel == 2:
+            self.show_target_sel_menu(self.handle_delete_target)
+        elif sel == 3:
+            self.show_pager(targets_summary_output(self.targets))
+        elif sel == 4 or sel is None:
+            self.quit()
+
+    # ----------------------------------------------------------
+    # Target Management Menu
+    # ----------------------------------------------------------
+    def show_target_mgmt_menu(
+        self, nt: NotificationTarget, selected=0, menu_data=None
+    ):
+        title = "Notification Configuration Menu"
+        frame = cli.selection_menu_v2(
+            title,
+            self.__build_target_mgmt_menu_items(nt),
+            selected,
+            self.return_footer,
+            lambda sel: self.handle_target_mgmt_selection(nt, sel),
+        )
+        if not menu_data:
+            menu_data = nt.name
+        nt.old_name = menu_data
+        self.sub_menu(frame, menu_data)
+
+    def handle_target_mgmt_selection(self, nt: NotificationTarget, sel: int):
+        old_name = self.curr_menu_data
+
+        def update_nt(new_nt: NotificationTarget):
+            self.pop_menu()
+            self.show_target_mgmt_menu(new_nt, sel, old_name)
+
+        def update_nt_from_edits(new_data: Dict):
+            self.pop_menu()
+            tgt_name, tgt_data = next(iter(new_data.items()))
+            tgt_data[lib.DATA_FIELD] = nt.data
+            new_nt = NotificationTarget(tgt_name, tgt_data)
+            new_nt.changed = True
+            self.show_target_mgmt_menu(new_nt, sel, old_name)
+
+        def show_get_dst_data(dst_type: str):
+            self.get_dst_data_prompts(nt, dst_type, lambda: update_nt(nt))
+
+        def edit_target_yaml():
+            self.edit_yaml(
+                nt.editable_tgt_data, invalid_edit, update_nt_from_edits
+            )
+
+        def invalid_edit(error: str):
+            self.show_pager(error, edit_target_yaml)
+
+        def should_quit_menu(should_quit: bool):
+            self.pop_menu()
+            if should_quit:
+                self.pop_menu()
+                self.show_pager("No changes made.")
+
+        def should_apply_target(should_apply: bool):
+            self.pop_menu()
+            if should_apply:
+                try:
+                    nt.set_last_updated(time.time())
+                    self.push_update(nt, old_name)
+                    self.pop_menu()
+                    self.show_pager(f"Successfully added Target '{nt.name}'")
+                except Exception as e:
+                    self.show_pager(str(e))
+
+        def stay(**_):
+            self.pop_menu()
+
+        if sel == 0:
+            self.show_edit_name_prompt(nt, lambda: update_nt(nt))
+        elif sel == 1:
+            self.show_select_dst_type(nt, show_get_dst_data)
+        elif sel == 2:
+            edit_target_yaml()
+        elif sel == 3:
+            self.show_pager(nt.dst_yaml)
+        elif sel == 4:
+            if nt.changed:
+                query = "Are you sure you want to discard all changes?"
+                frame = cli.urwid_query_yes_no(
+                    query, should_quit_menu, stay, "no"
+                )
+                self.sub_menu(frame)
+            else:
+                self.pop_menu()
+                self.show_pager("No changes made.")
+        elif sel == 5:
+            if nt.changed:
+                query = "Are you sure you want to apply changes?"
+                frame = cli.urwid_query_yes_no(
+                    query, should_apply_target, stay, "yes"
+                )
+                self.sub_menu(frame)
+            else:
+                self.pop_menu()
+                self.show_pager("No changes made.")
+
+    # ----------------------------------------------------------
+    # Select Target Menu
+    # ----------------------------------------------------------
+    def show_target_sel_menu(self, handler: callable):
+        menu_items = self.__build_target_sel_menu_items()
+        title = "Select A Notification Target"
+        frame = cli.extended_selection_menu(
+            title,
+            menu_items,
+            self.return_footer,
+            handler,
+        )
+        self.sub_menu(frame)
+
+    def handle_edit_target(self, tgt_name):
+        self.pop_menu()
+        if tgt_name in self.targets:
+            nt = NotificationTarget(tgt_name, self.targets[tgt_name])
+            self.show_target_mgmt_menu(nt)
+
+    def handle_delete_target(self, tgt_name):
+        def confirm_delete(should_delete=False):
+            self.pop_menu()
+            if should_delete:
+                try:
+                    self.push_update(None, tgt_name)
+                    self.pop_menu()
+                    self.show_pager(f"Deleted target '{tgt_name}'.")
+                except Exception as e:
+                    self.show_pager(str(e))
+            else:
+                self.pop_menu()
+                self.show_pager("No target deleted.")
+
+        def cancel(**_):
+            self.pop_menu()
+            self.show_pager("No target deleted.")
+
+        if tgt_name in self.targets:
+            query = f"Are you sure you want to delete target '{tgt_name}'"
+            frame = cli.urwid_query_yes_no(
+                query, confirm_delete, cancel, default="no"
+            )
+            self.sub_menu(frame)
+        else:
+            self.pop_menu()
+            self.show_pager("No target deleted.")
+
+    # ----------------------------------------------------------
+    # Target Creation Prompts
+    # ----------------------------------------------------------
+    def start_creation_prompts(
+        self, nt: NotificationTarget = None, next_func: Callable = None
+    ):
+        def show_get_dst_data(dst_type: str):
+            self.get_dst_data_prompts(nt, dst_type, show_name_prompt)
+
+        def show_name_prompt():
+            if next_func:
+                self.show_edit_name_prompt(nt, lambda: next_func(nt))
+            else:
+                self.show_edit_name_prompt(
+                    nt, lambda: self.show_target_mgmt_menu(nt)
+                )
+
+        if not nt:
+            nt = NotificationTarget("")
+        else:
+            nt = deepcopy(nt)
+        self.show_select_dst_type(nt, show_get_dst_data)
+
+    # ----------------------------------------------------------
+    # Select Dst Type (Creation Prompt)
+    # ----------------------------------------------------------
+    def show_select_dst_type(
+        self, nt: NotificationTarget, next_menu: Callable
+    ):
+        title = "Select a Destination Type for your Notifications"
+        frame = cli.selection_menu_v2(
+            title,
+            self.__build_dst_type_menu_items(nt),
+            0,
+            self.return_footer,
+            lambda dst_type: self.handle_dst_type_selection(
+                dst_type, next_menu
+            ),
+        )
+        self.sub_menu(frame)
+
+    def handle_dst_type_selection(self, dst_type: str, next_menu: Callable):
+        self.pop_menu()
+        next_menu(dst_type)
+
+    # ----------------------------------------------------------
+    # Get Dst Data Menus (Creation Prompt)
+    # ----------------------------------------------------------
+    def get_dst_data_prompts(
+        self, nt: NotificationTarget, dst_type: str, next_menu: Callable = None
+    ):
+        def show_get_emails():
+            self.show_get_emails_prompt(nt, next_menu)
+
+        def show_get_slack_url():
+            self.show_get_slack_url_prompt(nt, next_menu)
+
+        def show_get_webhook_url():
+            self.show_get_webhook_url(nt, show_get_tls_val)
+
+        def show_get_tls_val():
+            self.show_get_webhook_tls_validation(nt, next_menu)
+
+        def show_get_sns_topic():
+            self.show_get_sns_topic_arn(nt, show_get_cross_acct_role)
+
+        def show_get_cross_acct_role():
+            self.show_get_cross_acct_role(nt, next_menu)
+
+        if dst_type == lib.DST_TYPE_EMAIL:
+            show_get_emails()
+        elif dst_type == lib.DST_TYPE_SLACK:
+            show_get_slack_url()
+        elif dst_type == lib.DST_TYPE_WEBHOOK:
+            show_get_webhook_url()
+        elif dst_type == lib.DST_TYPE_SNS:
+            show_get_sns_topic()
+
+    # Dst Data Emails
+    def show_get_emails_prompt(
+        self, nt: NotificationTarget, next_menu: Callable = None
+    ):
+        def validate_emails(emails: str):
+            lines = emails.splitlines()
+            if len(lines) == 0:
+                return "No emails provided"
+            error = []
+            for line in lines:
+                line = line.strip()
+                if not lib.is_valid_email(line):
+                    error.append(f"'{line}' is not a valid email.")
+            if error:
+                return " ".join(error)
+
+        if nt.type == lib.DST_TYPE_EMAIL:
+            curr_emails = "\n".join(nt.dst_data)
+        else:
+            curr_emails = ""
+        frame = cli.urwid_multi_line_prompt(
+            "Provide email addresses to send notifications to, 1 email per line:",
+            lambda emails: self.handle_emails_input(
+                nt, False, emails, next_menu
+            ),
+            lambda emails: self.handle_emails_input(
+                nt, True, emails, next_menu
+            ),
+            curr_emails,
+            validator=validate_emails,
+        )
+        self.sub_menu(frame)
+
+    def handle_emails_input(
+        self,
+        nt: NotificationTarget,
+        canceled: bool,
+        emails: str,
+        next_menu: Callable = None,
+    ):
+        self.pop_menu()
+        if canceled:
+            return
+        emails = emails.splitlines()
+        emails = [email.strip() for email in emails]
+        nt.update_destination(lib.DST_TYPE_EMAIL, emails)
+        if next_menu:
+            next_menu()
+
+    # Dst Data Slack
+    def show_get_slack_url_prompt(
+        self, nt: NotificationTarget, next_menu: Callable = None
+    ):
+        def validate_slack_hook(url: str):
+            if not lib.is_valid_slack_url(url.strip()):
+                return (
+                    'URL must start with "https://hooks.slack.com/services/"'
+                )
+
+        if nt.type == lib.DST_TYPE_SLACK:
+            curr_url = nt.dst_data["url"]
+        else:
+            curr_url = ""
+        frame = cli.urwid_prompt(
+            "url",
+            "Provide a Slack Hook URL (e.g. https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx)",
+            lambda url: self.handle_slack_input(nt, False, url, next_menu),
+            lambda url: self.handle_slack_input(nt, True, url, next_menu),
+            curr_url,
+            validator=validate_slack_hook,
+        )
+        self.sub_menu(frame)
+
+    def handle_slack_input(
+        self,
+        nr: NotificationTarget,
+        canceled: bool,
+        url: str,
+        next_menu: Callable,
+    ):
+        self.pop_menu()
+        if canceled:
+            return
+        nr.update_destination(lib.DST_TYPE_SLACK, {"url": url.strip()})
+        if next_menu:
+            next_menu()
+
+    # Dst Data Webhook
+    def show_get_webhook_url(
+        self, nt: NotificationTarget, next_menu: Callable = None
+    ):
+        def validate_url(url: str):
+            if not lib.is_valid_url(url.strip()):
+                return f"'{url.strip()}' is not a valid URL."
+
+        if nt.type == lib.DST_TYPE_WEBHOOK:
+            curr_url = nt.dst_data["url"]
+        else:
+            curr_url = ""
+        frame = cli.urwid_prompt(
+            "url",
+            "Provide a webhook URL (e.g. https://my.webhook.example/location/of/webhook",
+            lambda url: self.handle_webhook_url_input(
+                nt, False, url, next_menu
+            ),
+            lambda url: self.handle_webhook_url_input(
+                nt, True, url, next_menu
+            ),
+            curr_url,
+            validator=validate_url,
+        )
+        self.sub_menu(frame)
+
+    def handle_webhook_url_input(
+        self, nt: NotificationTarget, canceled: bool, url: str, next_menu
+    ):
+        self.pop_menu()
+        if canceled:
+            return
+        if nt.type == lib.DST_TYPE_WEBHOOK:
+            dst_data = deepcopy(nt.dst_data)
+            dst_data["url"] = url.strip()
+            nt.update_destination(lib.DST_TYPE_WEBHOOK, dst_data)
+        else:
+            nt.update_destination(lib.DST_TYPE_WEBHOOK, {"url": url.strip()})
+        if next_menu:
+            next_menu()
+
+    def show_get_webhook_tls_validation(
+        self, nt: NotificationTarget, next_menu: Callable = None
+    ):
+        if nt.type == lib.DST_TYPE_WEBHOOK:
+            default = not nt.dst_data.get("no_tls_validation", True)
+        else:
+            default = False
+        default = "yes" if default else "no"
+        frame = cli.urwid_query_yes_no(
+            "Would you like to perform TLS Validation on this webhook?",
+            lambda resp: self.handle_tls_val_query(nt, resp, False, next_menu),
+            lambda resp: self.handle_tls_val_query(nt, resp, True, next_menu),
+            default,
+        )
+        self.sub_menu(frame)
+
+    def handle_tls_val_query(
+        self,
+        nt: NotificationTarget,
+        resp: bool,
+        cancel,
+        next_menu: Callable = None,
+    ):
+        self.pop_menu()
+        if cancel:
+            return
+        dst_data = deepcopy(nt.dst_data)
+        dst_data["no_tls_validation"] = not resp
+        nt.update_destination(lib.DST_TYPE_WEBHOOK, dst_data)
+        if next_menu:
+            next_menu()
+
+    # Dst Data SNS
+    def show_get_sns_topic_arn(
+        self, nt: NotificationTarget, next_menu: Callable = None
+    ):
+        if nt.type == lib.DST_TYPE_SNS:
+            curr_topic = nt.dst_data["sns_topic_arn"]
+        else:
+            curr_topic = ""
+        description = "Provide an AWS SNS Topic ARN (e.g. arn:aws:sns:region:account-id:topic-name)"
+        frame = cli.urwid_prompt(
+            "Topic ARN",
+            description,
+            lambda topic_arn: self.handle_sns_topic_input(
+                nt, topic_arn, False, next_menu
+            ),
+            lambda topic_arn: self.handle_sns_topic_input(
+                nt, topic_arn, False, next_menu
+            ),
+            curr_topic,
+        )
+        self.sub_menu(frame)
+
+    def handle_sns_topic_input(
+        self,
+        nt: NotificationTarget,
+        topic_arn: str,
+        cancel: bool,
+        next_menu: Callable = None,
+    ):
+        self.pop_menu()
+        if cancel:
+            return
+        if nt.type == lib.DST_TYPE_SNS:
+            dst_data = deepcopy(nt.dst_data)
+            dst_data["sns_topic_arn"] = topic_arn
+            nt.update_destination(lib.DST_TYPE_SNS, dst_data)
+        else:
+            nt.update_destination(
+                lib.DST_TYPE_SNS, {"sns_topic_arn": topic_arn}
+            )
+        if next_menu:
+            next_menu()
+
+    def show_get_cross_acct_role(
+        self, nt: NotificationTarget, next_menu: Callable
+    ):
+        if nt.type == lib.DST_TYPE_SNS:
+            curr_role = nt.dst_data.get("cross_account_iam_role", None)
+        else:
+            curr_role = ""
+        description = "Provide an AWS IAM Role ARN with cross-account permissions (e.g. arn:aws:iam::account-id:role/role-name)"
+        frame = cli.urwid_prompt(
+            "Role ARN",
+            description,
+            lambda role_arn: self.handle_iam_role_input(
+                nt, role_arn, False, next_menu
+            ),
+            lambda role_arn: self.handle_iam_role_input(
+                nt, role_arn, True, next_menu
+            ),
+            curr_role,
+        )
+        self.sub_menu(frame)
+
+    def handle_iam_role_input(
+        self,
+        nt: NotificationTarget,
+        role_arn: str,
+        cancel: bool,
+        next_menu: Callable = None,
+    ):
+        self.pop_menu()
+        if cancel:
+            return
+        dst_data = deepcopy(nt.dst_data)
+        dst_data["cross_account_iam_role"] = role_arn
+        nt.update_destination(lib.DST_TYPE_SNS, dst_data)
+        if next_menu:
+            next_menu()
+
+    # ----------------------------------------------------------
+    # Set Target Name (Creation Prompt)
+    # ----------------------------------------------------------
+    def show_edit_name_prompt(
+        self, nt: NotificationTarget, next_menu: Callable = None
+    ):
+        def validate_name(tmp_name: str) -> str:
+            if tmp_name in self.targets and tmp_name != nt.old_name:
+                return "Target names must be unique."
+            if not lib.is_valid_tgt_name(tmp_name):
+                return lib.TGT_NAME_ERROR_MSG
+
+        self.sub_menu(
+            cli.urwid_prompt(
+                "Name",
+                "Provide a name for the Notification Config.",
+                lambda name: self.handle_name_input(
+                    nt, False, name, next_menu
+                ),
+                lambda name: self.handle_name_input(nt, True, name, next_menu),
+                nt.name,
+                validator=validate_name,
+            )
+        )
+
+    def handle_name_input(
+        self,
+        nt: NotificationTarget,
+        canceled: bool,
+        name: str,
+        next_menu: Callable = None,
+    ):
+        self.pop_menu()
+        if canceled:
+            return
+        nt.update_name(name)
+        if next_menu:
+            next_menu()
+
+    # ----------------------------------------------------------
+    # Simple Pager-like Menu
+    # ----------------------------------------------------------
+    def show_pager(self, data: str, on_close_handler: Callable = None):
+        pager = cli.urwid_pager(
+            data,
+            self.return_footer,
+            lambda: self.on_pager_close(on_close_handler),
+        )
+        self.sub_menu(pager)
+
+    def on_pager_close(self, on_close_handler: Callable = None):
+        self.pop_menu()
+        if on_close_handler:
+            on_close_handler()
+
+    # ----------------------------------------------------------
+    # Edit Yaml in Default Text Editor
+    # ----------------------------------------------------------
+    def edit_yaml(
+        self, data: Dict, invalid_func: Callable, next_func: Callable
+    ):
+        self.loop.stop()
+        yaml_str = yaml.dump(data)
+        edits = click.edit(yaml_str, extension=".yaml")
+        self.loop.start()
+        if edits:
+            try:
+                edits: Dict = yaml.load(edits, lib.UniqueKeyLoader)
+                if not isinstance(edits, dict):
+                    raise TypeError("Target data should be a dictionary.")
+            except Exception as e:
+                error = f"Unable to load yaml. {e}"
+                invalid_func(error)
+                return
+            tgt_data = next(iter(edits.values()))
+            error = schemas.valid_notification_target(
+                tgt_data, interactive=True
+            )
+            if isinstance(error, str):
+                invalid_func(error)
+                return
+            next_func(edits)
+            return
+        else:
+            next_func(data)
+
+    # ----------------------------------------------------------
+    # Misc
+    # ----------------------------------------------------------
+    def __build_dst_type_menu_items(
+        self, nt: NotificationTarget
+    ) -> List[cli.menu_item]:
+        menu_items = []
+        if nt.type:
+            curr_str = lib.DST_TYPE_TO_NAME[nt.type]
+            menu_items.append(
+                cli.menu_item(
+                    f"Current (curr: {curr_str})",
+                    "Use the current Destination type.",
+                    nt.type,
+                )
+            )
+        menu_items.extend(
+            [
+                cli.menu_item(
+                    lib.DST_TYPE_TO_NAME[d_type],
+                    lib.DST_TYPE_TO_DESC[d_type],
+                    d_type,
+                )
+                for d_type in lib.DST_TYPES
+            ]
+        )
+        return menu_items
+
+    def __build_target_sel_menu_items(self):
+        menu_items = [cli.menu_item("Back", "", None)]
+        for name, tgt_data in self.targets.items():
+            dst_type = next(iter(tgt_data))
+            menu_items.append(
+                cli.menu_item(
+                    f"{name} ({lib.DST_TYPE_TO_NAME[dst_type]})", "", name
+                )
+            )
+        return menu_items
+
+    def __build_target_mgmt_menu_items(self, nt: NotificationTarget):
+        menu_items = [
+            cli.menu_item(
+                f"Set Name (curr: {nt.name})", "Update the Target's name.", 0
+            ),
+            cli.menu_item(
+                f"Set Destination (curr: {lib.DST_TYPE_TO_NAME[nt.type]})",
+                "Update existing destination or change the type entirely.",
+                1,
+            ),
+            cli.menu_item("Edit", "Manually edit the Target YAML.", 2),
+            cli.menu_item("View", "View the Target YAML.", 3),
+            cli.menu_item(
+                "Cancel", "Return to Main Menu without making changes.", 4
+            ),
+            cli.menu_item("Apply", "Apply changes.", 5),
+        ]
+        return menu_items

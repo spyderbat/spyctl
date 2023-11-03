@@ -46,6 +46,7 @@ ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
 API_CALL = False
+INTERACTIVE = False
 DEBUG = False
 LOG_VAR = []
 ERR_VAR = []
@@ -974,6 +975,7 @@ ROUTE_DATA_ANA_SETTINGS = "analyticsSettings"
 ROUTE_DESCRIPTION = "description"
 ROUTE_EXPR = "expr"
 
+NOTIF_ADDITIONAL_FIELDS = "additionalFields"
 NOTIF_DST_TGTS = "targets"
 NOTIF_DATA_FIELD = "data"
 NOTIF_CONDITION_FIELD = "condition"
@@ -1788,7 +1790,7 @@ def make_uuid():
 
 
 def err_exit(message: str, exception: Exception = None):
-    if API_CALL:
+    if API_CALL or INTERACTIVE:
         raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
@@ -2054,6 +2056,13 @@ def set_api_call():
     disable_colorization()
 
 
+def set_interactive():
+    global INTERACTIVE, USE_LOG_VARS
+    INTERACTIVE = True
+    USE_LOG_VARS = True
+    disable_colorization()
+
+
 def set_debug():
     global DEBUG
     DEBUG = True
@@ -2115,11 +2124,7 @@ TGT_NAME_ERROR_MSG = (
     " characters."
 )
 
-NOTIF_CONF_NAME_ERROR_MSG = (
-    "Name must contain only letters, numbers, and"
-    f" {NOTIF_NAME_VALID_SYMBOLS}. It must also be less than 64"
-    " characters."
-)
+NOTIF_CONF_NAME_ERROR_MSG = "Name must be less than 64 characters."
 
 
 def is_valid_tgt_name(input_string):
@@ -2132,8 +2137,7 @@ def is_valid_tgt_name(input_string):
 
 
 def is_valid_notification_name(input_string) -> str:
-    pattern = r"^[a-zA-Z0-9\-_]+$"
-    if re.match(pattern, input_string) and len(input_string) <= 64:
+    if len(input_string) <= 64:
         return True
     return False
 
@@ -2174,3 +2178,26 @@ def is_valid_url(url):
         )  # Check if both scheme and network location are present
     except ValueError:
         return False
+
+
+def is_valid_slack_url(url: str):
+    try:
+        result = urlparse(url)
+        if not all(
+            [result.scheme, result.netloc]
+        ):  # Check if both scheme and network location are present
+            return False
+        if not url.startswith("https://hooks.slack.com/services/"):
+            return False
+        return True
+    except ValueError:
+        return False
+
+
+def encode_int(x, length=4):
+    b = int(x).to_bytes(length, byteorder="big")
+    return b64url(b).decode("ascii").strip("=")
+
+
+def build_ctx() -> str:
+    return f"{encode_int(time.time())}.{make_uuid()[:5]}"
