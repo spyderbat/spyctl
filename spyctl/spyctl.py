@@ -527,16 +527,22 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     "notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG
 )
 @click.help_option("-h", "--help", hidden=True)
+@click.option("-n", "--name", metavar="", required=True)
 @click.option(
-    "-i",
-    "--interactive",
+    "-T",
+    "--type",
     metavar="",
-    default=False,
-    is_flag=True,
+    required=True,
+    type=click.Choice(lib.DST_TYPES, case_sensitive=False),
 )
-def create_notif_tgt(interactive):
-    lib.set_interactive()
-    c.handle_create_notif_tgt(True)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def create_notif_tgt(name, type, output):
+    c.handle_create_notif_tgt(name, type, output)
 
 
 @create.command(
@@ -1041,14 +1047,7 @@ def diff(
 @main.command("edit", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.EditResourcesParam())
-@click.argument("name_or_id", required=False)
-@click.option(
-    "-i",
-    "--interactive",
-    metavar="",
-    default=False,
-    is_flag=True,
-)
+@click.argument("name_or_id")
 @click.option(
     "-y",
     "--yes",

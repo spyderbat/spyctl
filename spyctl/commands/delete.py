@@ -4,6 +4,7 @@ import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
 import spyctl.resources.notification_targets as nt
+from typing import Dict
 
 INTERACTIVE_SUPPORTED = [
     lib.NOTIFICATION_TARGETS_RESOURCE,
@@ -42,28 +43,35 @@ def handle_delete_notif_config(name_or_id, interactive):
         pass
 
 
-def handle_delete_notif_tgt(name_or_id, interactive):
+def handle_delete_notif_tgt(name_or_id):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
-    if True:
-        nt.interactive_targets(notif_pol, "delete", name_or_id)
-    else:
-        targets = notif_pol[lib.TARGETS_FIELD]
-        if name_or_id not in targets:
-            cli.err_exit(f"No notification targets matching '{name_or_id}'.")
-        if cli.query_yes_no(
-            "Are you sure you want to delete notification target"
-            f" {name_or_id}?"
-        ):
-            notif_pol = api.get_notification_policy(*ctx.get_api_data())
-            notif_pol[lib.TARGETS_FIELD].pop(name_or_id, None)
-            resp = api.put_notification_policy(notif_pol)
-            if resp.status_code == 200:
-                cli.try_log(
-                    f"Successfully deleted notification target '{name_or_id}'"
-                )
-            else:
-                cli.try_log("Unable perform delete of notification target.")
+    targets: Dict = notif_pol[lib.TARGETS_FIELD]
+    del_name = None
+    # check if name exists
+    if name_or_id in targets:
+        del_name = name_or_id
+    if not del_name:
+        for tgt_name, tgt in targets.items():
+            id = tgt.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+            if id is None:
+                continue
+            if id == name_or_id:
+                del_name = tgt_name
+    if not del_name:
+        cli.err_exit(f"No notification targets matching '{name_or_id}'.")
+    if cli.query_yes_no(
+        "Are you sure you want to delete notification target" f" {del_name}?"
+    ):
+        notif_pol = api.get_notification_policy(*ctx.get_api_data())
+        notif_pol[lib.TARGETS_FIELD].pop(del_name)
+        resp = api.put_notification_policy(notif_pol)
+        if resp.status_code == 200:
+            cli.try_log(
+                f"Successfully deleted notification target '{name_or_id}'"
+            )
+        else:
+            cli.try_log("Unable perform delete of notification target.")
 
 
 def handle_delete_policy(name_or_uid):

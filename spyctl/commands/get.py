@@ -172,8 +172,9 @@ def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
         summary = spyctl_tgt.targets_wide_output(targets)
         cli.show(summary, lib.OUTPUT_RAW)
     else:
-        for target, tgt_data in targets.items():
-            cli.show({target: tgt_data}, output, ndjson=NDJSON)
+        for tgt_name, tgt_data in targets.items():
+            target = spyctl_tgt.Target(backend_target={tgt_name: tgt_data})
+            cli.show(target.as_dict(), output, ndjson=NDJSON)
 
 
 def handle_get_sources(name_or_id, output: str, **filters: Dict):

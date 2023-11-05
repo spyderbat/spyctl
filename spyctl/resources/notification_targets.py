@@ -15,7 +15,23 @@ import spyctl.config.configs as cfg
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
 
-TARGETS_HEADERS = ["NAME", "AGE", "TYPE", "DESTINATIONS"]
+TARGETS_HEADERS = ["NAME", "ID", "AGE", "TYPE", "DESTINATIONS"]
+
+TGT_DEFAULT = {"NAME": {"data": {}, "description": ""}}
+
+TGT_DEFAULT_DSTS = {
+    lib.DST_TYPE_EMAIL: ["example@example.com"],
+    lib.DST_TYPE_SLACK: {
+        "url": "https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    lib.DST_TYPE_SNS: {
+        "sns_topic_arn": "arn:aws:sns:region:account-id:topic-name"
+    },
+    lib.DST_TYPE_WEBHOOK: {
+        "url": "https://my.webhook.example/location/of/webhook",
+        "no_tls_validation": True,
+    },
+}
 
 
 @dataclass
@@ -100,6 +116,93 @@ class Webhook:
         return rv
 
 
+def create_target(name, type) -> Dict:
+    target = Target(initial_name=name, initial_type=type)
+    return target.as_dict()
+
+
+class Target:
+    def __init__(
+        self,
+        target_resource: Dict = None,
+        backend_target: Dict[str, Dict] = None,
+        initial_name=None,
+        initial_type=None,
+    ) -> None:
+        if target_resource:
+            self.from_resource(target_resource)
+        else:
+            if backend_target is None:
+                backend_target = deepcopy(TGT_DEFAULT)
+            name, tgt_data = next(iter(backend_target.items()))
+            if initial_name:
+                self.name = initial_name
+            else:
+                self.name = name
+            self.description = tgt_data.get(lib.TGT_DESCRIPTION_FIELD)
+            if initial_type:
+                self.destination = {
+                    initial_type: TGT_DEFAULT_DSTS[initial_type]
+                }
+            else:
+                self.destination = None
+                for dst_type in lib.DST_TYPES:
+                    if dst_type in tgt_data:
+                        self.destination = {dst_type: tgt_data[dst_type]}
+                        break
+            data = tgt_data.get(lib.DATA_FIELD, {})
+            if lib.ID_FIELD in data:
+                self.id = data.pop(lib.ID_FIELD)
+            else:
+                self.id = "notif_tgt:" + lib.make_uuid()
+            self.additional_data = data
+
+    def from_resource(self, tgt_resource: Dict):
+        tgt_resource = deepcopy(tgt_resource)
+        self.name = tgt_resource[lib.METADATA_FIELD].pop(
+            lib.METADATA_NAME_FIELD
+        )
+        self.id = tgt_resource[lib.METADATA_FIELD].pop(lib.METADATA_UID_FIELD)
+        self.description = tgt_resource[lib.METADATA_FIELD].pop(
+            lib.TGT_DESCRIPTION_FIELD, ""
+        )
+        self.additional_data = tgt_resource[lib.METADATA_FIELD]
+        self.destination = tgt_resource[lib.SPEC_FIELD]
+
+    def as_dict(self) -> Dict:
+        rv = {
+            lib.API_FIELD: lib.API_VERSION,
+            lib.KIND_FIELD: lib.TARGET_KIND,
+            lib.METADATA_FIELD: {
+                lib.METADATA_UID_FIELD: self.id,
+                lib.METADATA_NAME_FIELD: self.name,
+                lib.TGT_DESCRIPTION_FIELD: self.description,
+                **self.additional_data,
+            },
+            lib.SPEC_FIELD: self.destination,
+        }
+        if not self.description:
+            rv[lib.METADATA_FIELD].pop(lib.TGT_DESCRIPTION_FIELD)
+        return rv
+
+    def as_target(self) -> Dict:
+        rv = {
+            self.name: {
+                **self.destination,
+                "data": {lib.ID_FIELD: self.id, **self.additional_data},
+            }
+        }
+        if self.description:
+            rv[self.name][lib.TGT_DESCRIPTION_FIELD] = self.description
+        return rv
+
+    def set_last_update_time(self):
+        now = time.time()
+        self.additional_data[lib.NOTIF_LAST_UPDATED] = now
+        if lib.NOTIF_CREATE_TIME not in self.additional_data:
+            self.additional_data[lib.NOTIF_CREATE_TIME] = now
+
+
 class NotificationTarget:
     def __init__(self, name, tgt_data=None) -> None:
         self.name = name
@@ -175,19 +278,24 @@ def targets_summary_output(targets: Dict):
                 types.append(tgt_type)
         if lib.DATA_FIELD not in tgt_data:
             age = lib.NOT_AVAILABLE
+            tgt_id = lib.NOT_AVAILABLE
         else:
             data = tgt_data[lib.DATA_FIELD]
             if lib.NOTIF_CREATE_TIME in data:
                 age = lib.calc_age(data[lib.NOTIF_CREATE_TIME])
             else:
                 age = lib.NOT_AVAILABLE
+            if lib.ID_FIELD in data:
+                tgt_id = data[lib.ID_FIELD]
+            else:
+                tgt_id = lib.NOT_AVAILABLE
         if len(types) == 1:
             type = types[0]
         elif len(types) > 1:
             type = f"{len(types)} types"
         else:
             type = lib.NOT_AVAILABLE
-        row_data.append([tgt_name, age, type, dest_count])
+        row_data.append([tgt_name, tgt_id, age, type, dest_count])
     row_data.sort(key=lambda row: row[0].lower())
     return tabulate(row_data, TARGETS_HEADERS, "plain")
 
@@ -214,26 +322,38 @@ def targets_wide_output(targets: Dict):
                 types.append(tgt_type)
         if lib.DATA_FIELD not in tgt_data:
             age = lib.NOT_AVAILABLE
+            tgt_id = lib.NOT_AVAILABLE
         else:
             data = tgt_data[lib.DATA_FIELD]
             if lib.NOTIF_CREATE_TIME in data:
                 age = lib.calc_age(data[lib.NOTIF_CREATE_TIME])
             else:
                 age = lib.NOT_AVAILABLE
+            if lib.ID_FIELD in data:
+                tgt_id = data[lib.ID_FIELD]
+            else:
+                tgt_id = lib.NOT_AVAILABLE
         if types:
             for i, tgt_type in enumerate(types):
                 if i == 0:
                     row_data.append(
-                        [tgt_name, age, tgt_type, dests[tgt_type].sum_dest]
+                        [
+                            tgt_name,
+                            tgt_id,
+                            age,
+                            tgt_type,
+                            dests[tgt_type].sum_dest,
+                        ]
                     )
                 else:
                     row_data.append(
-                        ["", "", tgt_type, dests[tgt_type].sum_dest]
+                        ["", tgt_id, "", tgt_type, dests[tgt_type].sum_dest]
                     )
         else:
             row_data.append(
-                [tgt_name, age, lib.NOT_AVAILABLE, lib.NOT_AVAILABLE]
+                [tgt_name, tgt_id, age, lib.NOT_AVAILABLE, lib.NOT_AVAILABLE]
             )
+    row_data.sort(key=lambda row: row[0].lower())
     return tabulate(row_data, TARGETS_HEADERS, "plain")
 
 

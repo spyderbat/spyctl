@@ -156,11 +156,11 @@ def handle_create_flag_suppression_policy(
     pass
 
 
-def handle_create_notif_tgt(interactive: bool):
-    ctx = cfg.get_current_context()
-    n_pol = api.get_notification_policy(*ctx.get_api_data())
-    if interactive:
-        nt.interactive_targets(n_pol, "create")
+def handle_create_notif_tgt(name, type, output):
+    target = nt.create_target(name, type)
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
+    cli.show(target, output)
 
 
 def handle_create_notif_route(interactive: bool):

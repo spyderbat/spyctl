@@ -8,6 +8,7 @@ import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.spyctl_lib as lib
 import spyctl.commands.merge as m
+import spyctl.resources.notification_targets as nt
 
 
 def handle_apply(filename):
@@ -21,6 +22,8 @@ def handle_apply(filename):
             handle_apply_policy(resrc_data)
         else:
             cli.err_exit(f"Unrecognized policy type '{type}'.")
+    elif kind == lib.TARGET_KIND:
+        handle_apply_notification_target(resrc_data)
     else:
         cli.err_exit(f"The 'apply' command is not supported for {kind}")
 
@@ -78,6 +81,35 @@ def handle_matching_policies(policy: Dict, matching_policies: Dict[str, Dict]):
             ret_pol = merged.get_obj_data()
     ret_pol[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
     return sp.TraceSuppressionPolicy(ret_pol)
+
+
+def handle_apply_notification_target(notif_target: Dict):
+    ctx = cfg.get_current_context()
+    target = nt.Target(target_resource=notif_target)
+    notif_pol = api.get_notification_policy(*ctx.get_api_data())
+    targets: Dict = notif_pol.get(lib.TARGETS_FIELD, {})
+    old_tgt = None
+    for tgt_name, tgt_data in targets.items():
+        tgt_id = tgt_data.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+        if not tgt_id:
+            continue
+        if tgt_id == target:
+            old_tgt = {tgt_name: tgt_data}
+            break
+        if tgt_name == target.name:
+            cli.err_exit("Target names must be unique!")
+    if old_tgt:
+        tgt_name = next(iter(old_tgt))
+        targets.pop(tgt_name)
+    target.set_last_update_time()
+    new_tgt = target.as_target()
+    targets.update(**new_tgt)
+    notif_pol[lib.TARGETS_FIELD] = targets
+    api.put_notification_policy(*ctx.get_api_data(), notif_pol)
+    if old_tgt:
+        cli.try_log(f"Successfully updated Notification Target '{target.id}'")
+    else:
+        cli.try_log(f"Successfully applied Notification Target '{target.id}'")
 
 
 def check_suppression_policy_selector_hash(policy: Dict) -> Dict[str, Dict]:

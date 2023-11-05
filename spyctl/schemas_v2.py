@@ -805,11 +805,14 @@ class DestinationSlackModel(BaseModel):
 
     @validator("url")
     def valid_url(cls, url):
-        if not lib.is_valid_url:
+        if not lib.is_valid_slack_url:
             raise ValueError(
-                "Invalid url format. Example: https://my.url.example"
+                "Invalid url format. Example: https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"
             )
         return url
+
+    class Config:
+        extra = Extra.forbid
 
 
 class DestinationWebhookModel(BaseModel):
@@ -824,6 +827,9 @@ class DestinationWebhookModel(BaseModel):
             )
         return url
 
+    class Config:
+        extra = Extra.forbid
+
 
 class DestinationSNSModel(BaseModel):
     cross_account_iam_role: Optional[str] = Field(
@@ -831,8 +837,11 @@ class DestinationSNSModel(BaseModel):
     )
     sns_topic_arn: str = Field(alias=lib.DST_SNS_TOPIC_ARN)
 
+    class Config:
+        extra = Extra.forbid
 
-class NotificationTargetModel(BaseModel):
+
+class AllDestinationsModel(BaseModel):
     org_uid: Optional[str] = Field(alias=lib.DST_TYPE_ORG)
     emails: Optional[List[str]] = Field(alias=lib.DST_TYPE_EMAIL)
     users: Optional[List[str]] = Field(alias=lib.DST_TYPE_USERS)
@@ -841,10 +850,6 @@ class NotificationTargetModel(BaseModel):
         alias=lib.DST_TYPE_WEBHOOK
     )
     sns: Optional[DestinationSNSModel] = Field(alias=lib.DST_TYPE_SNS)
-    data: Optional[Dict] = Field(alias=lib.DST_DATA)
-    description: Optional[str] = Field(
-        alias=lib.DST_DESCRIPTION, max_length=128
-    )
 
     @validator("emails", each_item=True)
     def valid_emails(cls, email):
@@ -868,6 +873,38 @@ class NotificationTargetModel(BaseModel):
 
     class Config:
         extra = Extra.forbid
+
+
+class NotificationTargetModel(AllDestinationsModel):
+    data: Optional[Dict] = Field(alias=lib.DST_DATA)
+    description: Optional[str] = Field(
+        alias=lib.DST_DESCRIPTION, max_length=128
+    )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotifTgtMetadataModel(BaseModel):
+    name: str = Field(alias=lib.METADATA_NAME_FIELD)
+    uid: str = Field(alias=lib.METADATA_UID_FIELD)
+    create_time: Optional[Union[float, int]] = Field(
+        alias=lib.METADATA_CREATE_TIME
+    )
+    update_time: Optional[Union[float, int]] = Field(
+        alias=lib.NOTIF_LAST_UPDATED
+    )
+
+
+class NotifTgtSpecModel(AllDestinationsModel):
+    pass
+
+
+class NotificationTgtResourceModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.TARGET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    metadata: NotifTgtMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: NotifTgtSpecModel = Field(alias=lib.SPEC_FIELD)
 
 
 class NotifAnaConfigNotifyModel(BaseModel):
@@ -1200,6 +1237,7 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     lib.UID_LIST_KIND: UidListModel,
     lib.DEVIATION_KIND: GuardianDeviationModel,
     lib.NOTIFICATION_KIND: NotificationAnalyticsConfigModel,
+    lib.TARGET_KIND: NotificationTgtResourceModel,
 }
 
 

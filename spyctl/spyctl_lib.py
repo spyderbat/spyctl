@@ -573,6 +573,7 @@ FPRINT_KIND = "SpyderbatFingerprint"
 NOTIFICATION_KIND = "NotificationConfiguration"
 POL_KIND = "SpyderbatPolicy"
 SUP_POL_KIND_ALIAS = "SuppressionPolicy"
+TARGET_KIND = "NotificationTarget"
 UID_LIST_KIND = "UidList"
 
 # CONFIG Kinds
@@ -974,6 +975,7 @@ ROUTE_DATA = "data"
 ROUTE_DATA_ANA_SETTINGS = "analyticsSettings"
 ROUTE_DESCRIPTION = "description"
 ROUTE_EXPR = "expr"
+TGT_DESCRIPTION_FIELD = "description"
 
 NOTIF_ADDITIONAL_FIELDS = "additionalFields"
 NOTIF_DST_TGTS = "targets"
