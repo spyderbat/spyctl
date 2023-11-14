@@ -6,7 +6,7 @@ import spyctl.resources.baselines as b
 import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.resources.notification_targets as nt
-import spyctl.resources.notifications_configs as notif
+import spyctl.resources.notifications_configs as nc
 import spyctl.search as search
 import spyctl.spyctl_lib as lib
 import spyctl.api as api
@@ -163,8 +163,10 @@ def handle_create_notif_tgt(name, type, output):
     cli.show(target, output)
 
 
-def handle_create_notif_route(interactive: bool):
-    ctx = cfg.get_current_context()
-    n_pol = api.get_notification_policy(*ctx.get_api_data())
-    if interactive:
-        notif.interactive_notifications(n_pol, "create")
+def handle_create_notif_config(
+    name: str, target: str, template: str, output: str
+):
+    config = nc.create_config(name, target, template)
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
+    cli.show(config, output)

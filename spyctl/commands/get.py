@@ -1,4 +1,5 @@
 import time
+import fnmatch
 from typing import IO, Dict, List, Tuple
 
 import spyctl.api as api
@@ -35,6 +36,7 @@ not_time_based = [
     lib.CLUSTERS_RESOURCE,
     lib.NOTIFICATION_CONFIGS_RESOURCE,
     lib.NOTIFICATION_TARGETS_RESOURCE,
+    lib.NOTIFICATION_CONFIG_TEMPLATES_RESOURCE,
 ]
 resource_with_global_src = [lib.AGENT_RESOURCE, lib.FINGERPRINTS_RESOURCE]
 
@@ -81,6 +83,8 @@ def handle_get(
         handle_get_nodes(name_or_id, st, et, output, **filters)
     elif resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
         handle_get_notification_configs(name_or_id, output, **filters)
+    elif resource == lib.NOTIFICATION_CONFIG_TEMPLATES_RESOURCE:
+        handle_get_notif_config_templates(name_or_id, output, **filters)
     elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
         handle_get_notification_targets(name_or_id, output, **filters)
     elif resource == lib.OPSFLAGS_RESOURCE:
@@ -153,18 +157,23 @@ def handle_get_notification_configs(name_or_id, output: str, **filters: Dict):
             cli.show(n_pol, output, ndjson=NDJSON)
 
 
-def handle_get_notification_targets(name_or_id, output: str, **filters: Dict):
+def handle_get_notification_targets(
+    name_or_id: str, output: str, **filters: Dict
+):
     ctx = cfg.get_current_context()
     n_pol = api.get_notification_policy(*ctx.get_api_data())
     if not n_pol or not isinstance(n_pol, dict):
         cli.err_exit("Could not load notification targets")
-    targets = n_pol.get(lib.TARGETS_FIELD)
+    targets: Dict = n_pol.get(lib.TARGETS_FIELD, {})
     if name_or_id:
-        name_or_id = name_or_id.strip("*")
-        if name_or_id not in targets:
-            targets = {}
-        else:
-            targets = {name_or_id: targets[name_or_id]}
+        tmp_tgts = {}
+        for tgt_name, tgt_data in targets.items():
+            tgt_obj = spyctl_tgt.Target(backend_target={tgt_name: tgt_data})
+            if tgt_obj.id == name_or_id.strip("*") or fnmatch.fnmatch(
+                tgt_name, name_or_id
+            ):
+                tmp_tgts[tgt_name] = tgt_data
+        targets = tmp_tgts
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_tgt.targets_summary_output(targets)
         cli.show(summary, lib.OUTPUT_RAW)
@@ -612,6 +621,31 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
             not lib.is_redirected(),
         ):
             cli.show(spydertrace, output, ndjson=NDJSON)
+
+
+# ----------------------------------------------------------------- #
+#                          Other Resources                          #
+# ----------------------------------------------------------------- #
+
+
+def handle_get_notif_config_templates(name_or_id: str, output, **_):
+    templates: List[spyctl_notif.NotificationConfigTemplate] = []
+    if not name_or_id:
+        templates.extend(spyctl_notif.NOTIF_CONFIG_TEMPLATES)
+    else:
+        for tmpl in spyctl_notif.NOTIF_CONFIG_TEMPLATES:
+            if fnmatch.fnmatch(
+                tmpl.display_name, name_or_id
+            ) or tmpl.id == name_or_id.strip("*"):
+                templates.append(tmpl)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_notif.notif_config_tmpl_summary_output(templates)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for tmpl in templates:
+            cli.show(tmpl.as_dict(), output)
 
 
 # ----------------------------------------------------------------- #

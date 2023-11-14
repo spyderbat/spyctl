@@ -805,7 +805,7 @@ class DestinationSlackModel(BaseModel):
 
     @validator("url")
     def valid_url(cls, url):
-        if not lib.is_valid_slack_url:
+        if not lib.is_valid_slack_url(url):
             raise ValueError(
                 "Invalid url format. Example: https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"
             )
@@ -821,7 +821,7 @@ class DestinationWebhookModel(BaseModel):
 
     @validator("url")
     def valid_url(cls, url):
-        if not lib.is_valid_url:
+        if not lib.is_valid_url(url):
             raise ValueError(
                 "Invalid url format. Example: https://my.url.example"
             )
@@ -906,6 +906,9 @@ class NotificationTgtResourceModel(BaseModel):
     metadata: NotifTgtMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifTgtSpecModel = Field(alias=lib.SPEC_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class NotifAnaConfigNotifyModel(BaseModel):
     targets: Optional[Dict] = Field(alias=lib.NOTIF_DST_TGTS)
@@ -938,7 +941,6 @@ class NotifAnaConfigNotifyModel(BaseModel):
 
 class NotifAnaConfigMetadataModel(BaseModel):
     name: str = Field(alias=lib.METADATA_NAME_FIELD)
-    notif_type: str = Field(alias=lib.METADATA_TYPE_FIELD)
     uid: str = Field(alias=lib.METADATA_UID_FIELD)
     create_time: Optional[Union[float, int]] = Field(
         alias=lib.METADATA_CREATE_TIME
@@ -951,17 +953,31 @@ class NotifAnaConfigMetadataModel(BaseModel):
 class NotifAnaConfigSpecModel(BaseModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
     condition: str = Field(alias=lib.NOTIF_CONDITION_FIELD)
-    icon: Optional[str] = Field(alias=lib.NOTIF_ICON_FIELD)
     message: str = Field(alias=lib.NOTIF_MESSAGE_FIELD)
-    notify: NotifAnaConfigNotifyModel = Field(alias=lib.NOTIF_NOTIFY_FIELD)
+    target: str = Field(alias=lib.NOTIF_TARGET_FIELD)
     schema_type: str = Field(alias=lib.NOTIF_DEFAULT_SCHEMA)
     title: str = Field(alias=lib.NOTIF_TITLE_FIELD)
+    additional_fields: Dict = Field(alias=lib.NOTIF_ADDITIONAL_FIELDS)
+    template: str = Field(alias=lib.NOTIF_TEMPLATE_FIELD)
+
+    @root_validator
+    def validate_condition(cls, values):
+        import spyctl.config.configs as cfg
+        import spyctl.api as api
+
+        ctx = cfg.get_current_context()
+        error = api.validate_search_query(
+            *ctx.get_api_data(), values["schema_type"], values["condition"]
+        )
+        if error and False:
+            raise ValueError(error)
+        return values
 
     class Config:
         extra = Extra.forbid
 
 
-class NotificationAnalyticsConfigModel(BaseModel):
+class NotificationConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
     kind: Literal[lib.NOTIFICATION_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
     metadata: NotifAnaConfigMetadataModel = Field(alias=lib.METADATA_FIELD)
@@ -972,12 +988,12 @@ class NotificationAnalyticsConfigModel(BaseModel):
 
 
 class NotificationRouteDataModel(BaseModel):
-    analytics_settings: Optional[NotificationAnalyticsConfigModel]
+    analytics_settings: Optional[NotificationConfigModel]
 
 
 class NotificationRouteModel(BaseModel):
     targets: Optional[List[str]] = Field(alias=lib.ROUTE_TARGETS)
-    destination: Optional[NotificationAnalyticsConfigModel] = Field(
+    destination: Optional[NotificationConfigModel] = Field(
         alias=lib.ROUTE_DESTINATION
     )
     data: Optional[Dict] = Field(alias=lib.ROUTE_DATA)
@@ -1236,7 +1252,7 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     lib.SECRET_KIND: SecretModel,
     lib.UID_LIST_KIND: UidListModel,
     lib.DEVIATION_KIND: GuardianDeviationModel,
-    lib.NOTIFICATION_KIND: NotificationAnalyticsConfigModel,
+    lib.NOTIFICATION_KIND: NotificationConfigModel,
     lib.TARGET_KIND: NotificationTgtResourceModel,
 }
 

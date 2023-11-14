@@ -4,7 +4,7 @@ import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
 import spyctl.resources.notification_targets as nt
-from typing import Dict
+from typing import Dict, List
 
 INTERACTIVE_SUPPORTED = [
     lib.NOTIFICATION_TARGETS_RESOURCE,
@@ -12,19 +12,11 @@ INTERACTIVE_SUPPORTED = [
 ]
 
 
-def handle_delete(resource, name_or_id, interactive=False):
-    if not interactive and not name_or_id:
-        cli.err_exit("Name or ID must be provided if not interactive.")
-    if interactive and resource not in INTERACTIVE_SUPPORTED:
-        cli.err_exit(
-            f"The interactive delete is not supported for '{resource}'"
-        )
-    if interactive:
-        lib.set_interactive()
+def handle_delete(resource, name_or_id):
     if resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
-        handle_delete_notif_config(name_or_id, interactive)
+        handle_delete_notif_config(name_or_id)
     elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
-        handle_delete_notif_tgt(name_or_id, interactive)
+        handle_delete_notif_tgt(name_or_id)
     elif resource == lib.POLICIES_RESOURCE:
         handle_delete_policy(name_or_id)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
@@ -33,14 +25,29 @@ def handle_delete(resource, name_or_id, interactive=False):
         cli.err_exit(f"The 'delete' command is not supported for '{resource}'")
 
 
-def handle_delete_notif_config(name_or_id, interactive):
+def handle_delete_notif_config(name_or_id):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
-
-    if True:
-        nt.interactive_targets(notif_pol, "delete", name_or_id)
-    else:
-        pass
+    routes: List = notif_pol.get(lib.ROUTES_FIELD, [])
+    del_index = None
+    del_id = None
+    for i, route in enumerate(routes):
+        id = route.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+        name = route.get(lib.DATA_FIELD, {}).get(lib.NAME_FIELD)
+        if id == name_or_id or name == name_or_id:
+            if del_index is not None and name == name_or_id:
+                cli.err_exit(f"{name_or_id} is ambiguous, use ID")
+            del_index = i
+            del_id = id
+    if del_index is None:
+        cli.err_exit(f"No notification targets matching '{name_or_id}'")
+    if cli.query_yes_no(
+        f"Are you sure you want to delete notification config {del_id}"
+    ):
+        routes.pop(del_index)
+        notif_pol[lib.ROUTES_FIELD] = routes
+        api.put_notification_policy(*ctx.get_api_data(), notif_pol)
+        cli.try_log(f"Successfully deleted notification target '{del_id}'")
 
 
 def handle_delete_notif_tgt(name_or_id):
@@ -61,17 +68,12 @@ def handle_delete_notif_tgt(name_or_id):
     if not del_name:
         cli.err_exit(f"No notification targets matching '{name_or_id}'.")
     if cli.query_yes_no(
-        "Are you sure you want to delete notification target" f" {del_name}?"
+        "Are you sure you want to delete notification target" f" '{del_name}'?"
     ):
         notif_pol = api.get_notification_policy(*ctx.get_api_data())
         notif_pol[lib.TARGETS_FIELD].pop(del_name)
-        resp = api.put_notification_policy(notif_pol)
-        if resp.status_code == 200:
-            cli.try_log(
-                f"Successfully deleted notification target '{name_or_id}'"
-            )
-        else:
-            cli.try_log("Unable perform delete of notification target.")
+        api.put_notification_policy(*ctx.get_api_data(), notif_pol)
+        cli.try_log(f"Successfully deleted notification target '{del_name}'")
 
 
 def handle_delete_policy(name_or_uid):

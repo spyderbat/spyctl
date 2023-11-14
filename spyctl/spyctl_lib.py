@@ -174,6 +174,18 @@ NOTIFICATION_CONFIGS_RESOURCE = Aliases(
     "notification-config",
     "notification-configs",
 )
+NOTIFICATION_CONFIG_TEMPLATES_RESOURCE = Aliases(
+    [
+        "notification-config-template",
+        "notification-config-templates",
+        "notification-config-tmpls",
+        "notif-config-tmpl",
+        "notif-config-tmpls",
+        "nct",
+    ],
+    "notification-config-template",
+    "notification-config-templates",
+)
 NOTIFICATION_TARGETS_RESOURCE = Aliases(
     [
         "target",
@@ -292,6 +304,7 @@ GET_RESOURCES: List[str] = [
     NAMESPACES_RESOURCE.name_plural,
     NODES_RESOURCE.name_plural,
     NOTIFICATION_CONFIGS_RESOURCE.name_plural,
+    NOTIFICATION_CONFIG_TEMPLATES_RESOURCE.name_plural,
     NOTIFICATION_TARGETS_RESOURCE.name_plural,
     OPSFLAGS_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
@@ -571,6 +584,7 @@ DEVIATION_KIND = "GuardianDeviation"
 FPRINT_GROUP_KIND = "FingerprintGroup"
 FPRINT_KIND = "SpyderbatFingerprint"
 NOTIFICATION_KIND = "NotificationConfiguration"
+NOTIF_TMPL_KIND = "NotificationConfigTemplate"
 POL_KIND = "SpyderbatPolicy"
 SUP_POL_KIND_ALIAS = "SuppressionPolicy"
 TARGET_KIND = "NotificationTarget"
@@ -976,6 +990,8 @@ ROUTE_DATA_ANA_SETTINGS = "analyticsSettings"
 ROUTE_DESCRIPTION = "description"
 ROUTE_EXPR = "expr"
 TGT_DESCRIPTION_FIELD = "description"
+TMPL_DESCRIPTION_FIELD = "description"
+TMPL_CONFIG_VALUES_FIELD = "configValues"
 
 NOTIF_ADDITIONAL_FIELDS = "additionalFields"
 NOTIF_DST_TGTS = "targets"
@@ -990,6 +1006,8 @@ NOTIF_ICON_FIELD = "icon"
 NOTIF_NOTIFY_FIELD = "notify"
 NOTIF_CREATE_TIME = "createTime"
 NOTIF_LAST_UPDATED = "lastUpdated"
+NOTIF_TEMPLATE_FIELD = "template"
+NOTIF_TARGET_FIELD = "target"
 NOTIF_DEFAULT_SCHEMA = "schemaType"
 ANA_NOTIF_TYPE_AGENT_HEALTH = "agent_health"
 ANA_NOTIF_TYPE_CUSTOM = "custom"

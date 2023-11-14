@@ -1,4 +1,5 @@
 import time
+import fnmatch
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional
@@ -464,6 +465,21 @@ def prompt_select_dst_type() -> Optional[str]:
         return cli.selection_menu(prompt, menu_items)
     except KeyboardInterrupt:
         return None
+
+
+def get_target(name_or_uid: str, targets: Dict = None) -> Optional[Target]:
+    if not targets:
+        ctx = cfg.get_current_context()
+        n_pol = api.get_notification_policy(*ctx.get_api_data())
+        if not n_pol or not isinstance(n_pol, dict):
+            cli.err_exit("Could not load notification targets")
+        targets = n_pol.get(lib.TARGETS_FIELD, {})
+    if name_or_uid in targets:
+        return Target(backend_target={name_or_uid: targets[name_or_uid]})
+    for tgt_name, tgt_data in targets.items():
+        tgt_obj = Target(backend_target={tgt_name: tgt_data})
+        if tgt_obj.id == name_or_uid:
+            return tgt_obj
 
 
 def __i_create_target(targets, old_type=None, old_name=None, old_data=None):

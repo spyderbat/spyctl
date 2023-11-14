@@ -527,13 +527,20 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     "notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG
 )
 @click.help_option("-h", "--help", hidden=True)
-@click.option("-n", "--name", metavar="", required=True)
+@click.option(
+    "-n",
+    "--name",
+    help="A name for the target. Used by other resources to refer to the configured target destination.",
+    metavar="",
+    required=True,
+)
 @click.option(
     "-T",
     "--type",
     metavar="",
     required=True,
     type=click.Choice(lib.DST_TYPES, case_sensitive=False),
+    help="The type of destination for the target.",
 )
 @click.option(
     "-o",
@@ -550,15 +557,30 @@ def create_notif_tgt(name, type, output):
 )
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
-    "-i",
-    "--interactive",
-    metavar="",
-    default=False,
-    is_flag=True,
+    "-n", "--name", help="A name for the config.", metavar="", required=True
 )
-def create_notif_route(interactive):
-    lib.set_interactive()
-    c.handle_create_notif_route(True)
+@click.option(
+    "-T",
+    "--target",
+    help="The name or ID of a notification target. Tells the config where to send notifications.",
+    metavar="",
+    required=True,
+)
+@click.option(
+    "-P",
+    "--template",
+    help="The name or ID of a notification configuration template. If omitted, the config will be completely custom.",
+    metavar="",
+    default="CUSTOM",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def create_notif_route(name, target, template, output):
+    c.handle_create_notif_config(name, target, template, output)
 
 
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
@@ -1056,11 +1078,11 @@ def diff(
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
-def edit(resource, name_or_id, interactive, yes=False):
+def edit(resource, name_or_id, yes=False):
     """Edit resources by resource and name, or by resource and ids"""
     if yes:
         cli.set_yes_option()
-    handle_edit(resource, name_or_id, True)
+    handle_edit(resource, name_or_id)
 
 
 # ----------------------------------------------------------------- #

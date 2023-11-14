@@ -16,9 +16,18 @@ import spyctl.spyctl_lib as lib
 
 NOTIFICATIONS_HEADERS = [
     "NAME",
+    "ID",
     "TYPE",
-    "DESTINATION",
+    "TARGET",
+    "STATUS",
     "AGE",
+]
+
+NOTIF_CONFIG_TMPL_HEADERS = [
+    "NAME",
+    "ID",
+    "SCHEMA_TYPE",
+    "DESCRIPTION",
 ]
 
 DEFAULT_NOTIFICATION_CONFIG = {
@@ -30,16 +39,18 @@ DEFAULT_NOTIFICATION_CONFIG = {
     },
     lib.SPEC_FIELD: {
         lib.ENABLED_FIELD: True,
-        lib.NOTIF_DEFAULT_SCHEMA: None,
-        lib.NOTIF_CONDITION_FIELD: None,
-        lib.NOTIF_TITLE_FIELD: None,
-        lib.NOTIF_MESSAGE_FIELD: None,
-        lib.NOTIF_NOTIFY_FIELD: {},
+        lib.NOTIF_DEFAULT_SCHEMA: "",
+        lib.NOTIF_CONDITION_FIELD: "",
+        lib.NOTIF_TITLE_FIELD: "",
+        lib.NOTIF_MESSAGE_FIELD: "",
+        lib.NOTIF_TEMPLATE_FIELD: "CUSTOM",
+        lib.NOTIF_TARGET_FIELD: "",
+        lib.NOTIF_ADDITIONAL_FIELDS: {},
     },
 }
 
 
-class NotificationRoute:
+class NotificationConfig:
     """
     apiVersion: spyderbat/v1
     kind: SpyderbatNotification
@@ -50,199 +61,118 @@ class NotificationRoute:
       enabled: true
       schemaType: event_opsflag:agent_offline
       condition: ephemeral = true
-      interval: 86400  # aggregation window
       title: "Agent Offline"
-      message: "Detected {{ref.id}} offline at {{time}}."
-      notify:
-        - email:
-            address: admins@rmi.org
-        - slack:
-            url: https://…
-        - targets:
-            admin_email:
-            admin_slack:
+      message: "Detected {{ ref.id }} offline at {{ time }}."
+      target: TARGET_NAME
+      template: TEMPLATE_NAME
       additionalFields:
         slack_icon: ":large_green_circle:"
     """
 
-    def __init__(self, notification_configuration: Dict) -> None:
-        self.settings = notification_configuration
-        meta = notification_configuration[lib.METADATA_FIELD]
+    def __init__(self, config_resource: Dict = None) -> None:
+        if not config_resource:
+            config_resource = deepcopy(DEFAULT_NOTIFICATION_CONFIG)
+        meta: Dict = config_resource[lib.METADATA_FIELD]
+        spec: Dict = config_resource[lib.SPEC_FIELD]
         if lib.METADATA_UID_FIELD not in meta:
             self.id = "notif:" + lib.make_uuid()
             meta[lib.METADATA_UID_FIELD] = self.id
             self.new = True
+            self.create_time = None
+            self.last_updated = None
         else:
             self.id = meta[lib.METADATA_UID_FIELD]
             self.new = False
-        self.name = meta[lib.NAME_FIELD]
-        self.create_time = meta.get(lib.NOTIF_CREATE_TIME, time.time())
-        self.last_updated = time.time()
-        meta[lib.NOTIF_CREATE_TIME] = self.create_time
-        meta[lib.NOTIF_LAST_UPDATED] = self.last_updated
-        spec = notification_configuration[lib.SPEC_FIELD]
-        self.dst_type = None
-        self.dst_data = None
-        if spec[lib.NOTIF_NOTIFY_FIELD]:
-            self.dst_type, self.dst_data = next(
-                iter(spec[lib.NOTIF_NOTIFY_FIELD].items())
-            )
+            self.create_time = meta.get(lib.NOTIF_CREATE_TIME, None)
+            self.last_updated = meta.get(lib.NOTIF_LAST_UPDATED, None)
         self.changed = False
+        self.name = meta.get(lib.NAME_FIELD, "")
+        self.enabled = spec.get(lib.ENABLED_FIELD, True)
+        self.schema_type = spec.get(lib.NOTIF_DEFAULT_SCHEMA, "")
+        self.condition = spec.get(lib.NOTIF_CONDITION_FIELD, "")
+        self.title = spec.get(lib.NOTIF_TITLE_FIELD)
+        self.message = spec.get(lib.NOTIF_MESSAGE_FIELD)
+        self.target = spec.get(lib.NOTIF_TARGET_FIELD, "")
+        self.template = spec.get(lib.NOTIF_TEMPLATE_FIELD, "")
+        self.additional_fields = spec.get(lib.NOTIF_ADDITIONAL_FIELDS, {})
 
     def update(self, **kwargs) -> None:
         for key, value in kwargs.items():
-            if key == "additional_fields" and value != self.additional_fields:
+            if hasattr(self, key) and getattr(self, key) != value:
                 self.changed = True
-                self.settings[lib.SPEC_FIELD][
-                    lib.NOTIF_ADDITIONAL_FIELDS
-                ] = value
-            elif key == "name" and value != self.name:
-                self.changed = True
-                self.name = value
-                self.settings[lib.METADATA_FIELD][
-                    lib.METADATA_NAME_FIELD
-                ] = value
-            elif (
-                key == "condition"
-                and value
-                != self.settings[lib.SPEC_FIELD][lib.NOTIF_CONDITION_FIELD]
-            ):
-                self.changed = True
-                self.settings[lib.SPEC_FIELD][
-                    lib.NOTIF_CONDITION_FIELD
-                ] = value
-            elif (
-                key == "interval"
-                and value
-                != self.settings[lib.SPEC_FIELD][lib.NOTIF_INTERVAL_FIELD]
-            ):
-                self.changed = True
-                self.settings[lib.SPEC_FIELD][lib.NOTIF_INTERVAL_FIELD] = value
-            elif (
-                key == "enabled"
-                and value != self.settings[lib.SPEC_FIELD][lib.ENABLED_FIELD]
-            ):
-                self.changed = True
-                self.settings[lib.SPEC_FIELD][lib.ENABLED_FIELD] = value
-            elif (
-                key == "title"
-                and value
-                != self.settings[lib.SPEC_FIELD][lib.NOTIF_TITLE_FIELD]
-            ):
-                self.changed = True
-                self.settings[lib.SPEC_FIELD][lib.NOTIF_TITLE_FIELD] = value
-            elif (
-                key == "message"
-                and value
-                != self.settings[lib.SPEC_FIELD][lib.NOTIF_MESSAGE_FIELD]
-            ):
-                self.changed = True
-                self.settings[lib.SPEC_FIELD][lib.NOTIF_MESSAGE_FIELD] = value
-            elif (
-                key == "schema"
-                and value
-                != self.settings[lib.SPEC_FIELD][lib.NOTIF_DEFAULT_SCHEMA]
-            ):
-                self.changed = True
-                self.settings[lib.SPEC_FIELD][lib.NOTIF_DEFAULT_SCHEMA] = value
-            elif key == "notify" or key == "destination":
-                dst_type, dst_data = next(iter(value.items()))
-                if dst_type != self.dst_type or dst_data != self.dst_data:
-                    self.changed = True
-                    self.settings[lib.SPEC_FIELD][
-                        lib.NOTIF_NOTIFY_FIELD
-                    ] = value
-                    self.dst_type = dst_type
-                    self.dst_data = dst_data
+                setattr(self, key, value)
 
-    def set_last_updated(self, time: float):
-        self.changed = True
-        self.last_updated = time
+    def set_last_updated(self):
+        now = time.time()
+        self.last_updated = now
+        if not self.create_time:
+            self.create_time = now
 
-    def get_settings(self) -> Dict:
-        return self.settings
-
-    def get_notify_data(self, dst_type):
-        return self.settings[lib.SPEC_FIELD][lib.NOTIF_NOTIFY_FIELD].get(
-            dst_type
-        )
-
-    @property
-    def additional_fields(self) -> Dict:
-        return self.settings[lib.SPEC_FIELD].get(
-            lib.NOTIF_ADDITIONAL_FIELDS, {}
-        )
-
-    @property
-    def targets(self) -> List[str]:
-        if self.dst_type != lib.NOTIF_DST_TGTS:
-            return []
-        rv = [tgt_name for tgt_name in self.dst_data]
+    def as_dict(self) -> Dict:
+        rv = {
+            lib.API_FIELD: lib.API_VERSION,
+            lib.KIND_FIELD: lib.NOTIFICATION_KIND,
+            lib.METADATA_FIELD: {
+                lib.METADATA_UID_FIELD: self.id,
+                lib.METADATA_NAME_FIELD: self.name,
+            },
+            lib.SPEC_FIELD: {
+                lib.ENABLED_FIELD: self.enabled,
+                lib.NOTIF_DEFAULT_SCHEMA: self.schema_type,
+                lib.NOTIF_CONDITION_FIELD: self.condition,
+                lib.NOTIF_TARGET_FIELD: self.target,
+                lib.NOTIF_TITLE_FIELD: self.title,
+                lib.NOTIF_MESSAGE_FIELD: self.message,
+                lib.NOTIF_TEMPLATE_FIELD: self.template,
+                lib.NOTIF_ADDITIONAL_FIELDS: self.additional_fields,
+            },
+        }
+        if self.create_time:
+            rv[lib.METADATA_FIELD][lib.NOTIF_CREATE_TIME] = self.create_time
+            rv[lib.METADATA_FIELD][lib.NOTIF_LAST_UPDATED] = self.last_updated
         return rv
-
-    @property
-    def curr_dest(self) -> Optional[str]:
-        return self.dst_type
-
-    @property
-    def dst_name(self) -> int:
-        if self.dst_type == lib.NOTIF_DST_TGTS:
-            return "Target(s)"
-        else:
-            return lib.DST_TYPE_TO_NAME[self.dst_type]
 
     @property
     def route(self) -> Dict:
         rv = {}
-        if self.targets:
-            rv[lib.TARGETS_FIELD] = self.targets
-        else:
-            rv["destination"] = {self.dst_type: self.dst_data}
+        rv[lib.TARGETS_FIELD] = [self.target]
         rv[lib.DATA_FIELD] = {
             lib.NOTIF_CREATE_TIME: self.create_time,
             lib.ID_FIELD: self.id,
             lib.NOTIF_LAST_UPDATED: self.last_updated,
-            lib.NOTIF_SETTINGS_FIELD: self.get_settings(),
+            lib.NOTIF_SETTINGS_FIELD: self.as_dict(),
             lib.NOTIF_NAME_FIELD: self.name,
         }
         rv[lib.ROUTE_EXPR] = {"property": "data.route_id", "equals": self.id}
         return rv
 
-    @property
-    def schema(self) -> str:
-        return self.get_settings()[lib.SPEC_FIELD][lib.NOTIF_DEFAULT_SCHEMA]
-
-    @property
-    def condition(self) -> str:
-        return self.get_settings()[lib.SPEC_FIELD][lib.NOTIF_CONDITION_FIELD]
-
-    @property
-    def interval(self) -> int:
-        return self.get_settings()[lib.SPEC_FIELD][lib.NOTIF_INTERVAL_FIELD]
-
-    @property
-    def title(self) -> Optional[str]:
-        return self.get_settings()[lib.SPEC_FIELD].get(lib.NOTIF_TITLE_FIELD)
-
-    @property
-    def message(self) -> Optional[str]:
-        return self.get_settings()[lib.SPEC_FIELD].get(lib.NOTIF_MESSAGE_FIELD)
-
-    @property
-    def enabled(self) -> bool:
-        return self.get_settings()[lib.SPEC_FIELD].get(lib.ENABLED_FIELD, True)
-
 
 class NotificationConfigTemplate:
-    def __init__(self, config: Dict) -> None:
-        self.display_name = config["display_name"]
-        self.description = config["description"]
-        self.config_values = config["config"]
+    def __init__(self, config_template: Dict) -> None:
+        self.display_name = config_template["display_name"]
+        self.description = config_template["description"]
+        self.config_values = config_template["config"]
+        self.id = config_template["id"]
 
-    def update_rt(self, rt: NotificationRoute):
+    def update_rt(self, rt: NotificationConfig):
         for key in rt.settings[lib.SPEC_FIELD]:
             if key in self.pre_conf_fields:
                 rt.update(**{key: self.pre_conf_fields[key]})
+
+    def as_dict(self):
+        rv = {
+            lib.API_FIELD: lib.API_VERSION,
+            lib.KIND_FIELD: lib.NOTIF_TMPL_KIND,
+            lib.METADATA_FIELD: {
+                lib.METADATA_NAME_FIELD: self.display_name,
+                lib.METADATA_UID_FIELD: self.id,
+            },
+            lib.SPEC_FIELD: {
+                lib.TMPL_DESCRIPTION_FIELD: self.description,
+                lib.TMPL_CONFIG_VALUES_FIELD: self.config_values,
+            },
+        }
+        return rv
 
 
 def __load_notif_configs() -> List[NotificationConfigTemplate]:
@@ -255,6 +185,45 @@ def __load_notif_configs() -> List[NotificationConfigTemplate]:
 NOTIF_CONFIG_TEMPLATES: List[
     NotificationConfigTemplate
 ] = __load_notif_configs()
+
+
+def notif_config_tmpl_summary_output(
+    templates: List[NotificationConfigTemplate],
+):
+    data = []
+    for tmpl in templates:
+        data.append(
+            [
+                tmpl.display_name,
+                tmpl.id,
+                tmpl.config_values["schema_type"],
+                __wrap_text(tmpl.description, 45),
+            ]
+        )
+    return tabulate(data, NOTIF_CONFIG_TMPL_HEADERS, "plain")
+
+
+def __wrap_text(text, max_line_length=30) -> str:
+    lines = text.split("\n")
+    wrapped_lines = []
+
+    for line in lines:
+        while len(line) > max_line_length:
+            # Find the last space within the max_line_length
+            last_space = line.rfind(" ", 0, max_line_length)
+            if last_space == -1:
+                # If no space is found, split the line at max_line_length
+                last_space = max_line_length
+
+            # Append the portion of the line up to the last space to the result
+            wrapped_lines.append(line[:last_space])
+            # Remove the portion that was added to the result
+            line = line[last_space + 1 :]
+
+        # Append the remaining portion of the line to the result
+        wrapped_lines.append(line)
+
+    return "\n".join(wrapped_lines)
 
 
 def notifications_summary_output(routes: Dict, notif_type: str):
@@ -337,25 +306,28 @@ def __get_object_data(routes: List[Dict]):
     for route in routes:
         data = route.get(lib.DATA_FIELD, {})
         if isinstance(data, dict):
-            name = data.get(
-                lib.NAME_FIELD, data.get(lib.ID_FIELD, lib.NOT_AVAILABLE)
-            )
+            id = data.get(lib.ID_FIELD, lib.NOT_AVAILABLE)
+            name = data.get(lib.NAME_FIELD, lib.NOT_AVAILABLE)
             create_time = data.get(lib.NOTIF_CREATE_TIME)
             if create_time:
                 age = lib.calc_age(create_time)
             else:
                 age = lib.NOT_AVAILABLE
         else:
+            id = lib.NOT_AVAILABLE
             name = lib.NOT_AVAILABLE
             age = lib.NOT_AVAILABLE
-        dst_count = NotificationRoute(
+        config = NotificationConfig(
             route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
-        ).dst_name
+        )
+        status = "Enabled" if config.enabled else "Disabled"
         table_rows.append(
             [
                 name,
+                id,
                 lib.NOTIF_TYPE_OBJECT,
-                dst_count,
+                config.target,
+                status,
                 age,
             ]
         )
@@ -365,28 +337,64 @@ def __get_object_data(routes: List[Dict]):
 def __get_dashboard_data(routes: List[Dict]):
     table_rows = []
     for route in routes:
+        targets = route.get(lib.TARGETS_FIELD)
+        if targets:
+            target = targets[0]
+        else:
+            lib.NOT_AVAILABLE
         data = route.get(lib.DATA_FIELD, {})
         if isinstance(data, dict):
-            name = data.get(
-                lib.NAME_FIELD, data.get(lib.ID_FIELD, lib.NOT_AVAILABLE)
-            )
+            id = data.get(lib.ID_FIELD, lib.NOT_AVAILABLE)
+            name = data.get(lib.NAME_FIELD, lib.NOT_AVAILABLE)
             create_time = data.get(lib.NOTIF_CREATE_TIME)
             if create_time:
                 age = lib.calc_age(create_time)
             else:
                 age = lib.NOT_AVAILABLE
         else:
+            id = lib.NOT_AVAILABLE
             name = lib.NOT_AVAILABLE
             age = lib.NOT_AVAILABLE
         table_rows.append(
             [
                 name,
+                id,
                 lib.NOTIF_TYPE_DASHBOARD,
-                lib.DST_NAME_SNS,
+                target,
+                "Enabled",
                 age,
             ]
         )
     return table_rows
+
+
+def create_config(name, tgt_name_or_id, tmpl_name_or_id):
+    import spyctl.resources.notification_targets as nt
+
+    config = NotificationConfig()
+    target: nt.NotificationTarget = nt.get_target(tgt_name_or_id)
+    if not target:
+        cli.err_exit(f'No target with name or uid "{tgt_name_or_id}"')
+    if tmpl_name_or_id != "CUSTOM":
+        template = get_template(tmpl_name_or_id)
+    else:
+        template = tmpl_name_or_id
+    if not template:
+        cli.err_exit(f'No template with name or uid "{tmpl_name_or_id}"')
+    if template == "CUSTOM":
+        config.update(template="CUSTOM")
+    else:
+        config.update(template=template.display_name)
+        config.update(**template.config_values)
+    config.update(target=target.name)
+    config.update(name=name)
+    return config.as_dict()
+
+
+def get_template(name_or_id) -> Optional[NotificationConfigTemplate]:
+    for tmpl in NOTIF_CONFIG_TEMPLATES:
+        if name_or_id == tmpl.display_name or name_or_id == tmpl.id:
+            return tmpl
 
 
 def interactive_notifications(
@@ -403,7 +411,9 @@ def interactive_notifications(
     app.start()
 
 
-def put_and_get_notif_pol(nr: NotificationRoute = None, delete_id: str = None):
+def put_and_get_notif_pol(
+    nr: NotificationConfig = None, delete_id: str = None
+):
     ctx = cfg.get_current_context()
     n_pol = api.get_notification_policy(*ctx.get_api_data())
     routes: List = n_pol.get(lib.ROUTES_FIELD, [])
@@ -484,7 +494,7 @@ class InteractiveNotifications:
     def start(self):
         self.loop.run()
 
-    def push_update(self, nr: NotificationRoute, delete_id=None):
+    def push_update(self, nr: NotificationConfig, delete_id=None):
         self.loop.stop()
         self.notif_pol = put_and_get_notif_pol(nr, delete_id)
         self.loop.start()
@@ -536,7 +546,7 @@ class InteractiveNotifications:
     # ----------------------------------------------------------
     # Notification Config Management Menu
     # ----------------------------------------------------------
-    def show_config_mgmt_menu(self, nr: NotificationRoute, selected=0):
+    def show_config_mgmt_menu(self, nr: NotificationConfig, selected=0):
         title = "Notification Configuration Menu"
         frame = cli.selection_menu_v2(
             title,
@@ -547,15 +557,15 @@ class InteractiveNotifications:
         )
         self.sub_menu(frame)
 
-    def handle_config_mgmt_selection(self, nr: NotificationRoute, sel: int):
-        def update_nr(new_nr: NotificationRoute):
+    def handle_config_mgmt_selection(self, nr: NotificationConfig, sel: int):
+        def update_nr(new_nr: NotificationConfig):
             self.pop_menu()
             new_nr.changed = nr.changed
             self.show_config_mgmt_menu(new_nr, sel)
 
         def update_settings(new_settings: Dict):
             self.pop_menu()
-            new_nr = NotificationRoute(new_settings)
+            new_nr = NotificationConfig(new_settings)
             new_nr.changed = nr.changed
             self.show_config_mgmt_menu(new_nr, sel)
 
@@ -643,7 +653,7 @@ class InteractiveNotifications:
             )
             if config:
                 config = deepcopy(config)
-                self.show_config_mgmt_menu(NotificationRoute(config))
+                self.show_config_mgmt_menu(NotificationConfig(config))
 
     def handle_delete_config(self, config_id):
         name = None
@@ -669,7 +679,7 @@ class InteractiveNotifications:
                 lib.NOTIF_SETTINGS_FIELD
             )
             if settings:
-                nr = NotificationRoute(settings)
+                nr = NotificationConfig(settings)
                 name = f"{nr.name} | {config_id}"
             else:
                 name = config_id
@@ -686,7 +696,7 @@ class InteractiveNotifications:
     # Notification Config Additional Fields
     # ----------------------------------------------------------
     def show_additional_fields_menu(
-        self, nr: NotificationRoute, next_func: Callable
+        self, nr: NotificationConfig, next_func: Callable
     ):
         fields = deepcopy(nr.additional_fields)
         title = "Manage Additional Config Fields"
@@ -703,7 +713,7 @@ class InteractiveNotifications:
         self.sub_menu(frame, fields)
 
     def handle_additional_fields_menu_selection(
-        self, nr: NotificationRoute, sel: int, next_func: Callable
+        self, nr: NotificationConfig, sel: int, next_func: Callable
     ):
         fields = self.curr_menu_data
         if sel == 0:
@@ -719,7 +729,9 @@ class InteractiveNotifications:
             nr.update(additional_fields=fields)
             next_func()
 
-    def show_additional_fields(self, nr: NotificationRoute, handler: Callable):
+    def show_additional_fields(
+        self, nr: NotificationConfig, handler: Callable
+    ):
         title = "Select a field to set"
         menu_items = self.__build_additional_fields_options()
         frame = cli.selection_menu_v2(
@@ -734,12 +746,12 @@ class InteractiveNotifications:
         self.sub_menu(frame)
 
     def handle_additional_field_selection(
-        self, nr: NotificationRoute, field: str, handler: Callable
+        self, nr: NotificationConfig, field: str, handler: Callable
     ):
         self.pop_menu()
         handler(nr, field)
 
-    def show_set_field_value(self, nr: NotificationRoute, field: str):
+    def show_set_field_value(self, nr: NotificationConfig, field: str):
         curr_value = nr.additional_fields.get(field, "")
         frame = cli.urwid_prompt(
             "Value",
@@ -751,7 +763,7 @@ class InteractiveNotifications:
         self.sub_menu(frame)
 
     def handle_set_field_value(
-        self, nr: NotificationRoute, field: str, cancel: bool, value: str
+        self, nr: NotificationConfig, field: str, cancel: bool, value: str
     ):
         self.pop_menu()
         fields = self.curr_menu_data
@@ -759,7 +771,7 @@ class InteractiveNotifications:
             return
         fields[field] = value
 
-    def handle_delete_field(self, nr: NotificationRoute, field: str):
+    def handle_delete_field(self, nr: NotificationConfig, field: str):
         fields: Dict = self.curr_menu_data
         fields.pop(field, None)
 
@@ -767,7 +779,7 @@ class InteractiveNotifications:
     # Notification Config Creation Prompts
     # ----------------------------------------------------------
     def start_creation_prompts(
-        self, nr: NotificationRoute = None, next_func: Callable = None
+        self, nr: NotificationConfig = None, next_func: Callable = None
     ):
         def show_select_dst_type():
             self.show_select_dst_type(nr, show_get_dst_data)
@@ -808,7 +820,7 @@ class InteractiveNotifications:
 
         if not nr:
             new = True
-            nr = NotificationRoute(deepcopy(DEFAULT_NOTIFICATION_CONFIG))
+            nr = NotificationConfig(deepcopy(DEFAULT_NOTIFICATION_CONFIG))
             self.show_config_template_options(nr, show_select_dst_type)
         else:
             new = False
@@ -819,7 +831,7 @@ class InteractiveNotifications:
     # Select Notification Config Template Menu (Creation Prompt)
     # ----------------------------------------------------------
     def show_config_template_options(
-        self, nr: NotificationRoute, next_func: Callable = None
+        self, nr: NotificationConfig, next_func: Callable = None
     ):
         title = "Select Notification Configuration Template or Custom"
         menu_items = [
@@ -847,7 +859,7 @@ class InteractiveNotifications:
         self.sub_menu(frame)
 
     def handle_template_sel(
-        self, nr: NotificationRoute, template, next_func: Callable = None
+        self, nr: NotificationConfig, template, next_func: Callable = None
     ):
         self.pop_menu()
         if template is None:
@@ -860,7 +872,9 @@ class InteractiveNotifications:
     # ----------------------------------------------------------
     # Select Dst Type (Creation Prompt)
     # ----------------------------------------------------------
-    def show_select_dst_type(self, nr: NotificationRoute, next_menu: Callable):
+    def show_select_dst_type(
+        self, nr: NotificationConfig, next_menu: Callable
+    ):
         title = "Select a Destination Type for your Notifications"
         frame = cli.selection_menu_v2(
             title,
@@ -915,7 +929,7 @@ class InteractiveNotifications:
     # Targets Management Menu
     # ----------------------------------------------------------
     def show_targets_mgmt_menu(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         title = "Manage Destination Targets For this Config"
         frame = cli.selection_menu_v2(
@@ -928,7 +942,7 @@ class InteractiveNotifications:
         self.sub_menu(frame, nr.targets.copy())
 
     def handle_targets_mgmt_menu(
-        self, nr: NotificationRoute, sel: int, next_menu: Callable = None
+        self, nr: NotificationConfig, sel: int, next_menu: Callable = None
     ):
         nr_targets = self.curr_menu_data
         if sel == 0:
@@ -958,7 +972,7 @@ class InteractiveNotifications:
     # Get Dst Data Menus (Creation Prompt)
     # ----------------------------------------------------------
     def get_dst_data_prompts(
-        self, nr: NotificationRoute, dst_type: str, next_menu: Callable = None
+        self, nr: NotificationConfig, dst_type: str, next_menu: Callable = None
     ):
         def show_get_emails():
             self.show_get_emails_prompt(nr, next_menu)
@@ -989,7 +1003,7 @@ class InteractiveNotifications:
 
     # Dst Data Emails
     def show_get_emails_prompt(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         def validate_emails(emails: str):
             lines = emails.splitlines()
@@ -1022,7 +1036,7 @@ class InteractiveNotifications:
 
     def handle_emails_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         canceled: bool,
         emails: str,
         next_menu: Callable = None,
@@ -1038,7 +1052,7 @@ class InteractiveNotifications:
 
     # Dst Data Slack
     def show_get_slack_url_prompt(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         def validate_slack_hook(url: str):
             if not lib.is_valid_slack_url(url.strip()):
@@ -1062,7 +1076,7 @@ class InteractiveNotifications:
 
     def handle_slack_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         canceled: bool,
         url: str,
         next_menu: Callable,
@@ -1076,7 +1090,7 @@ class InteractiveNotifications:
 
     # Dst Data Webhook
     def show_get_webhook_url(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         def validate_url(url: str):
             if not lib.is_valid_url(url.strip()):
@@ -1101,7 +1115,7 @@ class InteractiveNotifications:
         self.sub_menu(frame)
 
     def handle_webhook_url_input(
-        self, nr: NotificationRoute, canceled: bool, url: str, next_menu
+        self, nr: NotificationConfig, canceled: bool, url: str, next_menu
     ):
         self.pop_menu()
         if canceled:
@@ -1116,7 +1130,7 @@ class InteractiveNotifications:
             next_menu()
 
     def show_get_webhook_tls_validation(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         if nr.dst_type == lib.DST_TYPE_WEBHOOK:
             default = not nr.dst_data.get("no_tls_validation", True)
@@ -1133,7 +1147,7 @@ class InteractiveNotifications:
 
     def handle_tls_val_query(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         resp: bool,
         cancel,
         next_menu: Callable = None,
@@ -1149,7 +1163,7 @@ class InteractiveNotifications:
 
     # Dst Data SNS
     def show_get_sns_topic_arn(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         if nr.dst_type == lib.DST_TYPE_SNS:
             curr_topic = nr.dst_data["sns_topic_arn"]
@@ -1171,7 +1185,7 @@ class InteractiveNotifications:
 
     def handle_sns_topic_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         topic_arn: str,
         cancel: bool,
         next_menu: Callable = None,
@@ -1191,7 +1205,7 @@ class InteractiveNotifications:
             next_menu()
 
     def show_get_cross_acct_role(
-        self, nr: NotificationRoute, next_menu: Callable
+        self, nr: NotificationConfig, next_menu: Callable
     ):
         if nr.dst_type == lib.DST_TYPE_SNS:
             curr_role = nr.dst_data.get("cross_account_iam_role")
@@ -1213,7 +1227,7 @@ class InteractiveNotifications:
 
     def handle_iam_role_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         role_arn: str,
         cancel: bool,
         next_menu: Callable = None,
@@ -1231,7 +1245,7 @@ class InteractiveNotifications:
     # Set Notification Config Name (Creation Prompt)
     # ----------------------------------------------------------
     def show_edit_name_prompt(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         def validate_name(tmp_name: str) -> str:
             if not lib.is_valid_notification_name(tmp_name):
@@ -1252,7 +1266,7 @@ class InteractiveNotifications:
 
     def handle_name_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         canceled: bool,
         name: str,
         next_menu: Callable = None,
@@ -1269,7 +1283,7 @@ class InteractiveNotifications:
     # ----------------------------------------------------------
 
     def show_select_schema_type_menu(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         title = "Select The Type of Record To Notify On"
         frame = cli.selection_menu_v2(
@@ -1284,7 +1298,7 @@ class InteractiveNotifications:
         self.sub_menu(frame)
 
     def handle_schema_type_selection(
-        self, nr: NotificationRoute, schema_type, next_menu: Callable = None
+        self, nr: NotificationConfig, schema_type, next_menu: Callable = None
     ):
         self.pop_menu()
         if schema_type is None:
@@ -1298,7 +1312,7 @@ class InteractiveNotifications:
     # ----------------------------------------------------------
 
     def show_set_condition_prompt(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         def validate_condition(condition: str):
             condition = condition.strip()
@@ -1333,7 +1347,7 @@ class InteractiveNotifications:
 
     def handle_condition_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         condition: str,
         cancel: bool,
         next_menu: Callable = None,
@@ -1351,7 +1365,7 @@ class InteractiveNotifications:
     # ----------------------------------------------------------
 
     def show_set_title_prompt(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         if nr.title:
             curr_title = nr.title
@@ -1372,7 +1386,7 @@ class InteractiveNotifications:
 
     def handle_title_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         title: str,
         cancel: bool,
         next_menu: Callable = None,
@@ -1389,7 +1403,7 @@ class InteractiveNotifications:
     # ----------------------------------------------------------
 
     def show_set_message_prompt(
-        self, nr: NotificationRoute, next_menu: Callable = None
+        self, nr: NotificationConfig, next_menu: Callable = None
     ):
         if nr.message:
             curr_message = nr.message
@@ -1410,7 +1424,7 @@ class InteractiveNotifications:
 
     def handle_message_input(
         self,
-        nr: NotificationRoute,
+        nr: NotificationConfig,
         message: str,
         cancel: bool,
         next_menu: Callable = None,
@@ -1489,7 +1503,7 @@ class InteractiveNotifications:
         rv.extend(configs)
         return rv
 
-    def __build_notif_mgmt_menu_items(self, nr: NotificationRoute):
+    def __build_notif_mgmt_menu_items(self, nr: NotificationConfig):
         rv = [
             cli.menu_item(
                 f"Set Name (curr: {nr.name})",
@@ -1521,7 +1535,7 @@ class InteractiveNotifications:
         return rv
 
     def __build_dst_type_menu_items(
-        self, nr: NotificationRoute
+        self, nr: NotificationConfig
     ) -> List[cli.menu_item]:
         menu_items = []
         if nr.curr_dest:
@@ -1556,7 +1570,7 @@ class InteractiveNotifications:
         return menu_items
 
     def __build_tgt_mgmt_menu_items(
-        self, targets: Dict, nr: NotificationRoute
+        self, targets: Dict, nr: NotificationConfig
     ):
         rv = [
             cli.menu_item(
@@ -1581,7 +1595,7 @@ class InteractiveNotifications:
         ]
         return rv
 
-    def __build_schema_type_menu_items(self, nr: NotificationRoute):
+    def __build_schema_type_menu_items(self, nr: NotificationConfig):
         rv = []
         current = nr.schema
         rv = []
