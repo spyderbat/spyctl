@@ -858,6 +858,13 @@ class AllDestinationsModel(BaseModel):
         return email
 
     @root_validator(pre=True)
+    def ensure_not_none(cls, values):
+        for key, value in values.items():
+            if value is None:
+                raise ValueError(f"Field '{key}' cannot be None")
+        return values
+
+    @root_validator(pre=True)
     def one_destination(cls, values: Dict):
         count = 0
         for dst_type in lib.DST_TYPES:
@@ -910,35 +917,6 @@ class NotificationTgtResourceModel(BaseModel):
         extra = Extra.forbid
 
 
-class NotifAnaConfigNotifyModel(BaseModel):
-    targets: Optional[Dict] = Field(alias=lib.NOTIF_DST_TGTS)
-    emails: Optional[List[str]] = Field(alias=lib.DST_TYPE_EMAIL)
-    slack: Optional[DestinationSlackModel] = Field(alias=lib.DST_TYPE_SLACK)
-    webhook: Optional[DestinationWebhookModel] = Field(
-        alias=lib.DST_TYPE_WEBHOOK
-    )
-    sns: Optional[DestinationSNSModel] = Field(alias=lib.DST_TYPE_SNS)
-
-    @root_validator(pre=True)
-    def one_destination(cls, values: Dict):
-        count = 0
-        for dst_type in lib.DST_TYPES:
-            if dst_type in values:
-                count += 1
-        if lib.NOTIF_DST_TGTS in values:
-            count += 1
-        if count == 0:
-            raise ValueError(
-                f"One destination type is required. {lib.DST_TYPES}"
-            )
-        elif count > 1:
-            raise ValueError("Only one destination type is allowed.")
-        return values
-
-    class Config:
-        extra = Extra.forbid
-
-
 class NotifAnaConfigMetadataModel(BaseModel):
     name: str = Field(alias=lib.METADATA_NAME_FIELD)
     uid: str = Field(alias=lib.METADATA_UID_FIELD)
@@ -948,6 +926,20 @@ class NotifAnaConfigMetadataModel(BaseModel):
     update_time: Optional[Union[float, int]] = Field(
         alias=lib.NOTIF_LAST_UPDATED
     )
+
+
+class NotifAdditionalFieldsModel(BaseModel):
+    details: Optional[Dict[str, str]]
+    linkback_text: Optional[str]
+    linkback_url: Optional[str]
+    slack_icon: Optional[str]
+
+    @root_validator(pre=True)
+    def ensure_not_none(cls, values):
+        for key, value in values.items():
+            if value is None:
+                raise ValueError(f"Field '{key}' cannot be None")
+        return values
 
 
 class NotifAnaConfigSpecModel(BaseModel):

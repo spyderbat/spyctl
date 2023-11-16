@@ -135,7 +135,7 @@ def handle_get_notification_configs(name_or_id, output: str, **filters: Dict):
     n_pol = api.get_notification_policy(*ctx.get_api_data())
     if n_pol is None or not isinstance(n_pol, dict):
         cli.err_exit("Could not load notification policy")
-    routes = n_pol.get(lib.ROUTES_FIELD)
+    routes = n_pol.get(lib.ROUTES_FIELD, [])
     if name_or_id:
         routes = filt.filter_obj(routes, ["data.id", "data.name"], name_or_id)
     if output == lib.OUTPUT_DEFAULT:
@@ -162,7 +162,7 @@ def handle_get_notification_targets(
 ):
     ctx = cfg.get_current_context()
     n_pol = api.get_notification_policy(*ctx.get_api_data())
-    if not n_pol or not isinstance(n_pol, dict):
+    if n_pol is None or not isinstance(n_pol, dict):
         cli.err_exit("Could not load notification targets")
     targets: Dict = n_pol.get(lib.TARGETS_FIELD, {})
     if name_or_id:

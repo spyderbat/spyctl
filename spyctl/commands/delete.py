@@ -40,20 +40,20 @@ def handle_delete_notif_config(name_or_id):
             del_index = i
             del_id = id
     if del_index is None:
-        cli.err_exit(f"No notification targets matching '{name_or_id}'")
+        cli.err_exit(f"No notification config matching '{name_or_id}'")
     if cli.query_yes_no(
         f"Are you sure you want to delete notification config {del_id}"
     ):
         routes.pop(del_index)
         notif_pol[lib.ROUTES_FIELD] = routes
         api.put_notification_policy(*ctx.get_api_data(), notif_pol)
-        cli.try_log(f"Successfully deleted notification target '{del_id}'")
+        cli.try_log(f"Successfully deleted notification config '{del_id}'")
 
 
 def handle_delete_notif_tgt(name_or_id):
     ctx = cfg.get_current_context()
     notif_pol = api.get_notification_policy(*ctx.get_api_data())
-    targets: Dict = notif_pol[lib.TARGETS_FIELD]
+    targets: Dict = notif_pol.get(lib.TARGETS_FIELD, {})
     del_name = None
     # check if name exists
     if name_or_id in targets:
@@ -66,7 +66,7 @@ def handle_delete_notif_tgt(name_or_id):
             if id == name_or_id:
                 del_name = tgt_name
     if not del_name:
-        cli.err_exit(f"No notification targets matching '{name_or_id}'.")
+        cli.err_exit(f"No notification target matching '{name_or_id}'.")
     if cli.query_yes_no(
         "Are you sure you want to delete notification target" f" '{del_name}'?"
     ):

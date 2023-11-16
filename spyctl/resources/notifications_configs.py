@@ -69,6 +69,10 @@ class NotificationConfig:
         slack_icon: ":large_green_circle:"
     """
 
+    # Default config type is "object" but custom type can
+    # be determined by schema type such as "metrics"
+    config_types = {"event_metrics": lib.NOTIF_TYPE_METRICS}
+
     def __init__(self, config_resource: Dict = None) -> None:
         if not config_resource:
             config_resource = deepcopy(DEFAULT_NOTIFICATION_CONFIG)
@@ -115,6 +119,7 @@ class NotificationConfig:
             lib.METADATA_FIELD: {
                 lib.METADATA_UID_FIELD: self.id,
                 lib.METADATA_NAME_FIELD: self.name,
+                lib.METADATA_TYPE_FIELD: self.config_type(self.schema_type),
             },
             lib.SPEC_FIELD: {
                 lib.ENABLED_FIELD: self.enabled,
@@ -145,6 +150,17 @@ class NotificationConfig:
         }
         rv[lib.ROUTE_EXPR] = {"property": "data.route_id", "equals": self.id}
         return rv
+
+    @property
+    def type(self) -> str:
+        return self.config_type(self.schema_type)
+
+    @classmethod
+    def config_type(cls, schema_type: str):
+        if schema_type in cls.config_types:
+            return cls.config_types[schema_type]
+        else:
+            return lib.NOTIF_TYPE_OBJECT
 
 
 class NotificationConfigTemplate:
@@ -232,28 +248,31 @@ def notifications_summary_output(routes: Dict, notif_type: str):
         notif_type == lib.NOTIF_TYPE_ALL
         or notif_type == lib.NOTIF_TYPE_DASHBOARD
     ):
-        dashboard_search_notifications = __parse_dashboard_notifications(
-            routes
-        )
+        dashboard_search_notifications = __parse_legacy_notifications(routes)
         if dashboard_search_notifications:
             data.extend(__get_dashboard_data(dashboard_search_notifications))
-    if notif_type == lib.NOTIF_TYPE_ALL or notif_type == lib.NOTIF_TYPE_OBJECT:
-        object_notifications = __parse_object_notifications(routes)
-        if object_notifications:
-            data.extend(__get_object_data(object_notifications))
+    notif_configs = __parse_notification_configs(routes)
+    if notif_type != lib.NOTIF_TYPE_ALL:
+        notif_configs = list(
+            filter(lambda cfg: cfg.type == notif_type, notif_configs)
+        )
+    data.extend(__get_config_data(notif_configs))
     data.sort(key=lambda row: (row[1], row[0]))
     return tabulate(data, NOTIFICATIONS_HEADERS, "plain")
 
 
-def __parse_object_notifications(routes: Dict):
+def __parse_notification_configs(routes: Dict) -> List[NotificationConfig]:
     rv = []
     for route in routes:
-        if __is_object_notification(route):
-            rv.append(route)
+        if __is_notification_config(route):
+            config = NotificationConfig(
+                route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
+            )
+            rv.append(config)
     return rv
 
 
-def __parse_dashboard_notifications(routes: Dict):
+def __parse_legacy_notifications(routes: Dict):
     rv = []
     if not isinstance(routes, list):
         return rv
@@ -263,7 +282,7 @@ def __parse_dashboard_notifications(routes: Dict):
     return rv
 
 
-def __is_object_notification(route: Dict) -> bool:
+def __is_notification_config(route: Dict) -> bool:
     if not isinstance(route, dict):
         return False
     data: Dict = route.get(lib.NOTIF_DATA_FIELD)
@@ -301,34 +320,18 @@ def __is_dashboard_notification(route: Dict) -> bool:
     return True
 
 
-def __get_object_data(routes: List[Dict]):
+def __get_config_data(configs: List[NotificationConfig]):
     table_rows = []
-    for route in routes:
-        data = route.get(lib.DATA_FIELD, {})
-        if isinstance(data, dict):
-            id = data.get(lib.ID_FIELD, lib.NOT_AVAILABLE)
-            name = data.get(lib.NAME_FIELD, lib.NOT_AVAILABLE)
-            create_time = data.get(lib.NOTIF_CREATE_TIME)
-            if create_time:
-                age = lib.calc_age(create_time)
-            else:
-                age = lib.NOT_AVAILABLE
-        else:
-            id = lib.NOT_AVAILABLE
-            name = lib.NOT_AVAILABLE
-            age = lib.NOT_AVAILABLE
-        config = NotificationConfig(
-            route[lib.DATA_FIELD][lib.NOTIF_SETTINGS_FIELD]
-        )
+    for config in configs:
         status = "Enabled" if config.enabled else "Disabled"
         table_rows.append(
             [
-                name,
-                id,
-                lib.NOTIF_TYPE_OBJECT,
+                config.name,
+                config.id,
+                config.type,
                 config.target,
                 status,
-                age,
+                lib.calc_age(config.create_time),
             ]
         )
     return table_rows

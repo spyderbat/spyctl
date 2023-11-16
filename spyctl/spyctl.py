@@ -537,7 +537,6 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
 @click.option(
     "-T",
     "--type",
-    metavar="",
     required=True,
     type=click.Choice(lib.DST_TYPES, case_sensitive=False),
     help="The type of destination for the target.",
@@ -805,13 +804,6 @@ def create_suppression_policy(
 @click.argument("resource", type=lib.DelResourcesParam())
 @click.argument("name_or_id", required=False)
 @click.option(
-    "-i",
-    "--interactive",
-    metavar="",
-    default=False,
-    is_flag=True,
-)
-@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -819,11 +811,11 @@ def create_suppression_policy(
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
-def delete(resource, name_or_id, interactive, yes=False):
+def delete(resource, name_or_id, yes=False):
     """Delete resources by resource and name, or by resource and ids"""
     if yes:
         cli.set_yes_option()
-    handle_delete(resource, name_or_id, interactive)
+    handle_delete(resource, name_or_id)
 
 
 # ----------------------------------------------------------------- #
