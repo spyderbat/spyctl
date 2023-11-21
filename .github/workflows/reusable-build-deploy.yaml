@@ -78,22 +78,19 @@ jobs:
         mkdir ./spyctl_api/build
         mkdir ./spyctl_api/build/spyctl
         cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
     - name: Build, Tag & Push Img to ECR
       id: build-image
+      uses: docker/build-push-action@v5
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
-        IMAGE_TAG: "${{ vars.ENVIRO }}.${{ steps.sha_var.outputs.sha_short }}"
-      run: |
-        # Build docker container and push it to ECR
-        cd ./spyctl_api
-        echo build -t spyctl-api .
-        docker build -t spyctl-api .
-        echo "Tagging Image"
-        echo docker tag spyctl-api:$IMAGE_TAG $ECR_REPOSITORY:$IMAGE_TAG
-        docker tag spyctl-api:latest $ECR_REPOSITORY:$IMAGE_TAG
-        echo "Pushing image to ECR..."
-        echo docker push $ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REPOSITORY:$IMAGE_TAG
+        IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
+      with:
+        platforms: ${{ matrix.platform }}
+        context: ./spyctl_api
+        tags: "${{ secrets.REPO_NAME }}:latest,${{ secrets.REPO_NAME }}:${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
+        push: true
   install:
     name: Install Helm Chart
     runs-on: [self-hosted, ARM64]
