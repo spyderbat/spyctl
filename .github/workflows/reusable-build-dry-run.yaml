@@ -84,6 +84,7 @@ jobs:
         mkdir ./spyctl_api/build
         mkdir ./spyctl_api/build/spyctl
         cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+        cd ./spyctl_api
     - name: Build, Tag & Push Img to ECR
       id: build-image
       uses: docker/build-push-action@v5
@@ -92,7 +93,7 @@ jobs:
         IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
       with:
         platforms: ${{ matrix.platform }}
-        context: ./spyctl_api
+        context: .
         tags: "${{ secrets.REPO_NAME }}:latest"
         push: true
     # - name: Build, Tag & Push Img to ECR
