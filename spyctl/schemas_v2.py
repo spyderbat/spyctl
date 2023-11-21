@@ -103,7 +103,16 @@ class ServiceSelectorModel(BaseModel):
 
 
 class MachineSelectorModel(BaseModel):
-    hostname: str = Field(alias=lib.HOSTNAME_FIELD)
+    hostname: Optional[Union[str, List[str]]] = Field(alias=lib.HOSTNAME_FIELD)
+    machine_uid: Optional[Union[str, List[str]]] = Field(
+        alias=lib.MACHINE_UID_FIELD
+    )
+
+    @root_validator(pre=True)
+    def ensure_one_exists(cls, values: Dict):
+        if not any([value for value in values.values()]):
+            raise ValueError("")
+        return values
 
     class Config:
         extra = Extra.forbid

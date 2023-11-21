@@ -1463,10 +1463,29 @@ def greatest_value_merge(
 
 
 def string_list_merge(
-    mo: MergeObject, base_value: List[str], other_value: List[str], _
+    mo: MergeObject,
+    base_value: Union[str, List[str]],
+    other_value: Union[str, List[str]],
+    _,
 ):
+    if isinstance(base_value, str):
+        base_value = [base_value]
+    if isinstance(other_value, str):
+        other_value = [other_value]
     string_set = set(base_value).union(set(other_value))
     return sorted(string_set)
+
+
+def conditional_string_list_merge(
+    mo: MergeObject,
+    base_value: Union[str, List[str]],
+    other_value: Union[str, List[str]],
+    symmetric: bool,
+):
+    if isinstance(base_value, str) and isinstance(other_value, str):
+        return wildcard_merge(mo, base_value, other_value, symmetric)
+    else:
+        return string_list_merge(mo, base_value, other_value, symmetric)
 
 
 def unique_dict_list_merge(
@@ -1508,7 +1527,10 @@ SVC_SELECTOR_MERGE_SCHEMA = MergeSchema(
 )
 MACHINE_SELECTOR_MERGE_SCHEMA = MergeSchema(
     MACHINE_SELECTOR_FIELD,
-    merge_functions={HOSTNAME_FIELD: wildcard_merge},
+    merge_functions={
+        HOSTNAME_FIELD: conditional_string_list_merge,
+        lib.MACHINE_UID_FIELD: conditional_string_list_merge,
+    },
     values_required=True,
     is_selector=True,
 )

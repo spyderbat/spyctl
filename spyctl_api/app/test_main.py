@@ -1,5 +1,7 @@
-from fastapi.testclient import TestClient
+import json
 import os
+
+from fastapi.testclient import TestClient
 
 from .main import app
 
@@ -77,3 +79,112 @@ def test_validate():
     data = {"object": TEST_POLICY}
     response = client.post("/api/v1/validate", json=data)
     assert response.status_code == 200
+    invalid_message = response.json()["invalid_message"]
+    assert not invalid_message
+    data = {"object": json.dumps(TEST_POLICY2)}
+    response = client.post("/api/v1/validate", json=data)
+    assert response.status_code == 200
+    invalid_message = response.json()["invalid_message"]
+    assert not invalid_message
+
+
+TEST_POLICY2 = {
+    "apiVersion": "spyderbat/v1",
+    "kind": "SpyderbatPolicy",
+    "metadata": {
+        "name": "spyderbat-test",
+        "type": "container",
+        "latestTimestamp": 1672333396.3253918,
+    },
+    "spec": {
+        "containerSelector": {
+            "image": "spyderbat-test",
+            "imageID": "sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e",
+        },
+        "machineSelector": {
+            "hostname": ["spyderbat-test"],
+            "machineUID": "mach:12345678",
+        },
+        "mode": "audit",
+        "processPolicy": [
+            {
+                "name": "python",
+                "exe": ["/usr/local/bin/python3.7"],
+                "id": "python_0",
+                "euser": ["root"],
+                "children": [
+                    {
+                        "name": "sh",
+                        "exe": ["/bin/dash"],
+                        "id": "sh_0",
+                        "children": [
+                            {
+                                "name": "uname",
+                                "exe": ["/bin/uname"],
+                                "id": "uname_0",
+                            }
+                        ],
+                    }
+                ],
+            },
+            {
+                "name": "sh",
+                "exe": ["/bin/dash"],
+                "id": "sh_1",
+                "euser": ["root"],
+                "children": [
+                    {
+                        "name": "python",
+                        "exe": ["/usr/local/bin/python3.7"],
+                        "id": "python_1",
+                        "euser": ["web-svc"],
+                        "children": [
+                            {
+                                "name": "sh",
+                                "exe": ["/bin/dash"],
+                                "id": "sh_2",
+                                "children": [
+                                    {
+                                        "name": "uname",
+                                        "exe": ["/bin/uname"],
+                                        "id": "uname_1",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+        "networkPolicy": {
+            "ingress": [
+                {
+                    "from": [{"ipBlock": {"cidr": "192.168.6.11/32"}}],
+                    "processes": ["python_0", "python_1"],
+                    "ports": [{"protocol": "TCP", "port": 22}],
+                }
+            ],
+            "egress": [
+                {
+                    "to": [{"dnsSelector": ["mongodb.local"]}],
+                    "processes": ["python_0", "python_1"],
+                    "ports": [{"protocol": "TCP", "port": 27017}],
+                },
+                {
+                    "to": [
+                        {"ipBlock": {"cidr": "192.168.5.10/32"}},
+                        {"ipBlock": {"cidr": "192.168.5.11/32"}},
+                        {"ipBlock": {"cidr": "192.168.5.12/32"}},
+                        {"ipBlock": {"cidr": "192.168.5.13/32"}},
+                    ],
+                    "processes": ["python_0", "python_1"],
+                    "ports": [{"protocol": "TCP", "port": 443}],
+                },
+            ],
+        },
+        "response": {
+            "default": [{"makeRedFlag": {"severity": "high"}}],
+            "actions": [],
+        },
+    },
+}
