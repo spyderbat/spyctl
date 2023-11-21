@@ -83,6 +83,8 @@ jobs:
         mkdir ./spyctl_api/build
         mkdir ./spyctl_api/build/spyctl
         cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
     - name: Build, Tag & Push Img to ECR
       id: build-image
       uses: docker/build-push-action@v5
