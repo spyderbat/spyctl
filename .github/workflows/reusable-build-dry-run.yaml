@@ -90,7 +90,7 @@ jobs:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
         IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
       with:
-        platform: ${{ matrix.platform }}
+        platforms: ${{ matrix.platform }}
         context: ./spyctl_api
         tags: $ECR_REPOSITORY:$IMAGE_TAG,$ECR_REPOSITORY:latest
         push: true
