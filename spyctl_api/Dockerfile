@@ -8,6 +8,12 @@ WORKDIR /code
 COPY ./build_requirements.txt /code/requirements.txt
 ADD ./build/spyctl /spyctl
 
+RUN if [ -e /code/requirements.txt ]; then \
+        echo "File exists!"; \
+    else \
+        echo "File does not exist!"; \
+    fi
+
 # 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
