@@ -6,6 +6,7 @@ WORKDIR /code
 
 # 
 COPY ./build_requirements.txt /code/requirements.txt
+COPY ./foobar.txt /code/foobar.txt
 ADD ./build/spyctl /spyctl
 
 # 
