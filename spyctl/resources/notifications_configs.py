@@ -26,6 +26,7 @@ NOTIFICATIONS_HEADERS = [
 NOTIF_CONFIG_TMPL_HEADERS = [
     "NAME",
     "ID",
+    "TYPE",
     "SCHEMA_TYPE",
     "DESCRIPTION",
 ]
@@ -169,6 +170,7 @@ class NotificationConfigTemplate:
         self.description = config_template["description"]
         self.config_values = config_template["config"]
         self.id = config_template["id"]
+        self.type = config_template["type"]
 
     def update_rt(self, rt: NotificationConfig):
         for key in rt.settings[lib.SPEC_FIELD]:
@@ -182,6 +184,7 @@ class NotificationConfigTemplate:
             lib.METADATA_FIELD: {
                 lib.METADATA_NAME_FIELD: self.display_name,
                 lib.METADATA_UID_FIELD: self.id,
+                lib.METADATA_TYPE_FIELD: self.type,
             },
             lib.SPEC_FIELD: {
                 lib.TMPL_DESCRIPTION_FIELD: self.description,
@@ -212,10 +215,12 @@ def notif_config_tmpl_summary_output(
             [
                 tmpl.display_name,
                 tmpl.id,
+                tmpl.type,
                 tmpl.config_values["schema_type"],
                 __wrap_text(tmpl.description, 45),
             ]
         )
+    data.sort(key=lambda row: (row[2], row[0]))
     return tabulate(data, NOTIF_CONFIG_TMPL_HEADERS, "plain")
 
 
@@ -257,7 +262,7 @@ def notifications_summary_output(routes: Dict, notif_type: str):
             filter(lambda cfg: cfg.type == notif_type, notif_configs)
         )
     data.extend(__get_config_data(notif_configs))
-    data.sort(key=lambda row: (row[1], row[0]))
+    data.sort(key=lambda row: (row[2], row[0]))
     return tabulate(data, NOTIFICATIONS_HEADERS, "plain")
 
 
