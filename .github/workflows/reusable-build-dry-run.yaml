@@ -92,7 +92,7 @@ jobs:
       with:
         platforms: ${{ matrix.platform }}
         context: ./spyctl_api
-        tags: $ECR_REPOSITORY:$IMAGE_TAG
+        tags: "$ECR_REPOSITORY:$IMAGE_TAG"
         push: true
     # - name: Build, Tag & Push Img to ECR
     #   id: build-image
