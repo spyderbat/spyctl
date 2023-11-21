@@ -1,11 +1,20 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
+import zulu
 from tabulate import tabulate
 
+import spyctl.api as api
+import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
-import zulu
 
 NOT_AVAILABLE = lib.NOT_AVAILABLE
+SUMMARY_HEADERS = [
+    "NAME",
+    "EXE",
+    "ROOT_EXECUTION",
+    "COUNT",
+    "LATEST_EXECUTED",
+]
 
 
 class ProcessGroup:
@@ -51,16 +60,17 @@ class ProcessGroup:
         return rv
 
 
-def processes_output_summary(procs: List[Dict]) -> str:
-    headers = [
-        "NAME",
-        "EXE",
-        "ROOT_EXECUTION",
-        "COUNT",
-        "LATEST_EXECUTED",
-    ]
-    groups = {}
-    for proc in procs:
+def processes_stream_output_summary(
+    ctx: cfg.Context,
+    muids: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+    limit_mem=False,
+) -> str:
+    groups: Dict[Tuple, ProcessGroup] = {}
+    for proc in api.get_processes(
+        *ctx.get_api_data(), muids, time, pipeline, limit_mem
+    ):
         multiple_exes, key = _key(proc)
         if key not in groups:
             groups[key] = ProcessGroup(multiple_exes)
@@ -68,36 +78,20 @@ def processes_output_summary(procs: List[Dict]) -> str:
     data = []
     for group in groups.values():
         data.append(group.summary_data())
-    output = tabulate(
+    rv = tabulate(
         sorted(
             data,
-            key=lambda x: [x[0], x[2], _to_timestamp(x[4])],
+            key=lambda x: [x[0], x[2], lib.to_timestamp(x[4])],
         ),
-        headers=headers,
+        headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
-    return output + "\n"
+    return rv
 
 
-def _key(process: Dict):
+def _key(process: Dict) -> Tuple:
     name = process["name"]
     exe = process["exe"]
     if exe.endswith(name):
         return False, (name, exe)
     return True, name
-
-
-def _to_timestamp(zulu_str):
-    return zulu.Zulu.parse(zulu_str).timestamp()
-
-
-def processes_output(procs: List[Dict]) -> Dict:
-    if len(procs) == 1:
-        return procs[0]
-    elif len(procs) > 1:
-        return {
-            lib.API_FIELD: lib.API_VERSION,
-            lib.ITEMS_FIELD: procs,
-        }
-    else:
-        return {}

@@ -88,8 +88,8 @@ def filter_spydertraces(
     return spydertraces_data
 
 
-def filter_machines(
-    machines_data: List[Dict],
+def filter_sources(
+    sources_data: List[Dict],
     use_context_filters=True,
     **filters,
 ):
@@ -98,10 +98,10 @@ def filter_machines(
             data, MACHINES_TGT_FIELDS, filt
         ),
     }
-    machines_data = use_filters(
-        machines_data, filter_set, filters, use_context_filters
+    sources_data = use_filters(
+        sources_data, filter_set, filters, use_context_filters
     )
-    return machines_data
+    return sources_data
 
 
 def filter_nodes(
@@ -424,19 +424,28 @@ def match_filters(
     return False
 
 
+def filter_agents(
+    agents: List[Dict],
+    namespaces_data=None,
+    clusters_data=None,
+    machines_data=None,
+    pods_data=None,
+    cgroups_data=None,
+    containers_data=None,
+    **filters,
+):
+    return agents
+
+
 def get_field_value(
     field: Union[str, List[str]], obj: Dict
 ) -> Optional[Union[str, Iterable]]:
     value = obj
     if isinstance(field, str):
-        key = field
+        field = field.split(".")
+    keys = field
+    for key in keys:
         value = value.get(key)
         if value is None:
             return None
-    else:
-        keys = field
-        for key in keys:
-            value = value.get(key)
-            if value is None:
-                return None
     return value

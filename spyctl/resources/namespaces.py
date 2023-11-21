@@ -1,42 +1,47 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from tabulate import tabulate
 
+import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
+import spyctl.api as api
+import spyctl.resources.api_filters as _af
+import spyctl.filter_resource as filt
+
+SUMMARY_HEADERS = ["NAME", "LAST_SEEN_STATUS", "AGE", "CLUSTER"]
 
 
-def namespace_summary_output(namespaces: List[Dict]) -> str:
-    output = ""
-    header = ["NAMESPACE"]
-    if len(namespaces) == 1:
-        data = [
-            [namespace] for namespace in next(iter(namespaces))["namespaces"]
-        ]
-        output = tabulate(data, headers=header, tablefmt="plain")
-    elif len(namespaces) > 1:
-        output = []
-        for cluster_group in namespaces:
-            cluster_key = (
-                f"{cluster_group['cluster_name']}"
-                f" - {cluster_group['cluster_uid']}"
-            )
-            output.append(cluster_key)
-            data = [[namespace] for namespace in cluster_group["namespaces"]]
-            if len(data) > 0:
-                output.append(tabulate(data, header, tablefmt="plain") + "\n")
-            else:
-                output.append("No Namespace Data\n")
-        output = "\n".join(output)
-    return output
+def namespace_summary_output(
+    name_or_uid: str,
+    ctx: cfg.Context,
+    clusters: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+) -> str:
+    data = []
+    field_names = _af.Namespaces.get_name_or_uid_fields()
+    for namespace in api.get_namespaces(
+        *ctx.get_api_data(), clusters, time, pipeline
+    ):
+        ns = [namespace]
+        if name_or_uid:
+            ns = filt.filter_obj(ns, field_names, name_or_uid)
+        if ns:
+            data.append(__namespace_data(namespace))
+    data.sort(key=lambda x: (x[3], x[0]))
+    return tabulate(
+        data,
+        headers=SUMMARY_HEADERS,
+        tablefmt="plain",
+    )
 
 
-def namespaces_output(namespaces: List[Dict]) -> Dict:
-    if len(namespaces) == 1:
-        return namespaces[0]
-    elif len(namespaces) > 1:
-        return {
-            lib.API_FIELD: lib.API_VERSION,
-            lib.ITEMS_FIELD: namespaces,
-        }
-    else:
-        return {}
+def __namespace_data(namespace: Dict) -> List:
+    meta = namespace[lib.METADATA_FIELD]
+    rv = [
+        meta[lib.METADATA_NAME_FIELD],
+        "Active",
+        lib.calc_age(lib.to_timestamp(meta[lib.METADATA_CREATE_TIME])),
+        namespace["cluster_name"] or namespace["cluster_uid"],
+    ]
+    return rv
