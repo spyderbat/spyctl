@@ -955,7 +955,7 @@ class NotifAnaConfigSpecModel(BaseModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
     condition: str = Field(alias=lib.NOTIF_CONDITION_FIELD)
     message: str = Field(alias=lib.NOTIF_MESSAGE_FIELD)
-    target: str = Field(alias=lib.NOTIF_TARGET_FIELD)
+    target: Union[str, List[str]] = Field(alias=lib.NOTIF_TARGET_FIELD)
     schema_type: str = Field(alias=lib.NOTIF_DEFAULT_SCHEMA)
     title: str = Field(alias=lib.NOTIF_TITLE_FIELD)
     additional_fields: Dict = Field(alias=lib.NOTIF_ADDITIONAL_FIELDS)

@@ -141,7 +141,11 @@ class NotificationConfig:
     @property
     def route(self) -> Dict:
         rv = {}
-        rv[lib.TARGETS_FIELD] = [self.target]
+        if isinstance(self.target, str):
+            targets = [self.target]
+        else:
+            targets = self.target
+        rv[lib.TARGETS_FIELD] = targets
         rv[lib.DATA_FIELD] = {
             lib.NOTIF_CREATE_TIME: self.create_time,
             lib.ID_FIELD: self.id,

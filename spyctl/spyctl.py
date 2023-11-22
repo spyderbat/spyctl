@@ -1060,8 +1060,15 @@ def diff(
 
 @main.command("edit", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.argument("resource", type=lib.EditResourcesParam())
-@click.argument("name_or_id")
+@click.argument("resource", type=lib.EditResourcesParam(), required=False)
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename to use to edit the resource.",
+    metavar="",
+    type=click.File(mode="r+"),
+)
 @click.option(
     "-y",
     "--yes",
@@ -1070,11 +1077,11 @@ def diff(
     help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
     " run non-interactively.",
 )
-def edit(resource, name_or_id, yes=False):
+def edit(resource, name_or_id, filename, yes=False):
     """Edit resources by resource and name, or by resource and ids"""
     if yes:
         cli.set_yes_option()
-    handle_edit(resource, name_or_id)
+    handle_edit(resource, name_or_id, filename)
 
 
 # ----------------------------------------------------------------- #
