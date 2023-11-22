@@ -694,6 +694,7 @@ USER_SELECTOR_FIELD = "userSelector"
 MATCH_LABELS_FIELD = "matchLabels"
 # Machine Selector Fields
 HOSTNAME_FIELD = "hostname"
+MACHINE_UID_FIELD = "machineUID"
 # Container Selector Fields
 IMAGE_FIELD = "image"
 IMAGEID_FIELD = "imageID"
