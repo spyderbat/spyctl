@@ -44,6 +44,11 @@ jobs:
     name: Build and Push Container Image
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/arm/v8
     needs: run-tests
     steps:
     - name: Checkout
