@@ -72,7 +72,7 @@ class NotificationConfig:
 
     # Default config type is "object" but custom type can
     # be determined by schema type such as "metrics"
-    config_types = {"event_metrics": lib.NOTIF_TYPE_METRICS}
+    config_types = {"event_metric": lib.NOTIF_TYPE_METRICS}
 
     def __init__(self, config_resource: Dict = None) -> None:
         if not config_resource:
@@ -94,12 +94,15 @@ class NotificationConfig:
         self.name = meta.get(lib.NAME_FIELD, "")
         self.enabled = spec.get(lib.ENABLED_FIELD, True)
         self.schema_type = spec.get(lib.NOTIF_DEFAULT_SCHEMA, "")
+        self.sub_schema = spec.get(lib.NOTIF_SUB_SCHEMA)
         self.condition = spec.get(lib.NOTIF_CONDITION_FIELD, "")
         self.title = spec.get(lib.NOTIF_TITLE_FIELD)
         self.message = spec.get(lib.NOTIF_MESSAGE_FIELD)
         self.target = spec.get(lib.NOTIF_TARGET_FIELD, "")
         self.template = spec.get(lib.NOTIF_TEMPLATE_FIELD, "")
         self.additional_fields = spec.get(lib.NOTIF_ADDITIONAL_FIELDS, {})
+        self.cooldown = spec.get(lib.NOTIF_COOLDOWN_FIELD)
+        self.for_duration = spec.get(lib.NOTIF_FOR_DURATION_FIELD)
 
     def update(self, **kwargs) -> None:
         for key, value in kwargs.items():
@@ -133,6 +136,14 @@ class NotificationConfig:
                 lib.NOTIF_ADDITIONAL_FIELDS: self.additional_fields,
             },
         }
+        if self.for_duration is not None:
+            rv[lib.SPEC_FIELD][
+                lib.NOTIF_FOR_DURATION_FIELD
+            ] = self.for_duration
+        if self.cooldown is not None:
+            rv[lib.SPEC_FIELD][lib.NOTIF_COOLDOWN_FIELD] = self.cooldown
+        if self.sub_schema is not None:
+            rv[lib.SPEC_FIELD][lib.NOTIF_SUB_SCHEMA] = self.sub_schema
         if self.create_time:
             rv[lib.METADATA_FIELD][lib.NOTIF_CREATE_TIME] = self.create_time
             rv[lib.METADATA_FIELD][lib.NOTIF_LAST_UPDATED] = self.last_updated
@@ -224,7 +235,7 @@ def notif_config_tmpl_summary_output(
                 __wrap_text(tmpl.description, 45),
             ]
         )
-    data.sort(key=lambda row: (row[2], row[0]))
+    data.sort(key=lambda row: row[2])
     return tabulate(data, NOTIF_CONFIG_TMPL_HEADERS, "plain")
 
 
@@ -266,6 +277,27 @@ def notifications_summary_output(routes: Dict, notif_type: str):
             filter(lambda cfg: cfg.type == notif_type, notif_configs)
         )
     data.extend(__get_config_data(notif_configs))
+    data.sort(key=lambda row: (row[2], row[0]))
+    return tabulate(data, NOTIFICATIONS_HEADERS, "plain")
+
+
+def notifications_wide_output(routes: Dict, notif_type: str):
+    data = []
+    if (
+        notif_type == lib.NOTIF_TYPE_ALL
+        or notif_type == lib.NOTIF_TYPE_DASHBOARD
+    ):
+        dashboard_search_notifications = __parse_legacy_notifications(routes)
+        if dashboard_search_notifications:
+            data.extend(
+                __get_dashboard_data_wide(dashboard_search_notifications)
+            )
+    notif_configs = __parse_notification_configs(routes)
+    if notif_type != lib.NOTIF_TYPE_ALL:
+        notif_configs = list(
+            filter(lambda cfg: cfg.type == notif_type, notif_configs)
+        )
+    data.extend(__get_config_data_wide(notif_configs))
     data.sort(key=lambda row: (row[2], row[0]))
     return tabulate(data, NOTIFICATIONS_HEADERS, "plain")
 
@@ -332,13 +364,44 @@ def __is_dashboard_notification(route: Dict) -> bool:
 def __get_config_data(configs: List[NotificationConfig]):
     table_rows = []
     for config in configs:
+        if isinstance(config.target, list):
+            if len(config.target) == 1:
+                target = config.target[0]
+            else:
+                target = f"{len(config.target)} targets"
+        else:
+            target = config.target
         status = "Enabled" if config.enabled else "Disabled"
         table_rows.append(
             [
                 config.name,
                 config.id,
                 config.type,
-                config.target,
+                target,
+                status,
+                lib.calc_age(config.create_time),
+            ]
+        )
+    return table_rows
+
+
+def __get_config_data_wide(configs: List[NotificationConfig]):
+    table_rows = []
+    for config in configs:
+        if isinstance(config.target, list):
+            if len(config.target) == 1:
+                target = config.target[0]
+            else:
+                target = "\n".join(config.target)
+        else:
+            target = config.target
+        status = "Enabled" if config.enabled else "Disabled"
+        table_rows.append(
+            [
+                config.name,
+                config.id,
+                config.type,
+                target,
                 status,
                 lib.calc_age(config.create_time),
             ]
@@ -351,9 +414,49 @@ def __get_dashboard_data(routes: List[Dict]):
     for route in routes:
         targets = route.get(lib.TARGETS_FIELD)
         if targets:
-            target = targets[0]
+            if len(targets) == 1:
+                target = targets[0]
+            else:
+                target = f"{len(targets)} targets"
         else:
-            lib.NOT_AVAILABLE
+            target = lib.NOT_AVAILABLE
+        data = route.get(lib.DATA_FIELD, {})
+        if isinstance(data, dict):
+            id = data.get(lib.ID_FIELD, lib.NOT_AVAILABLE)
+            name = data.get(lib.NAME_FIELD, lib.NOT_AVAILABLE)
+            create_time = data.get(lib.NOTIF_CREATE_TIME)
+            if create_time:
+                age = lib.calc_age(create_time)
+            else:
+                age = lib.NOT_AVAILABLE
+        else:
+            id = lib.NOT_AVAILABLE
+            name = lib.NOT_AVAILABLE
+            age = lib.NOT_AVAILABLE
+        table_rows.append(
+            [
+                name,
+                id,
+                lib.NOTIF_TYPE_DASHBOARD,
+                target,
+                "Enabled",
+                age,
+            ]
+        )
+    return table_rows
+
+
+def __get_dashboard_data_wide(routes: List[Dict]):
+    table_rows = []
+    for route in routes:
+        targets = route.get(lib.TARGETS_FIELD)
+        if targets:
+            if len(targets) == 1:
+                target = targets[0]
+            else:
+                target = "\n".join(targets)
+        else:
+            target = lib.NOT_AVAILABLE
         data = route.get(lib.DATA_FIELD, {})
         if isinstance(data, dict):
             id = data.get(lib.ID_FIELD, lib.NOT_AVAILABLE)

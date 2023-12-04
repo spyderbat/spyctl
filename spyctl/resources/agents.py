@@ -129,7 +129,7 @@ def retrieve_latest_metrics(agents: List[Dict]) -> Dict[str, Tuple]:
     cli.try_log("Retrieving latest metrics for each agent.")
     rv = {}  # agent_uid -> tuple of latest metrics
     args = []
-    pipeline = _af.Agents.generate_metrics_pipeline()
+    pipeline = _af.AgentMetrics.generate_pipeline()
     # Build st, et for each agent
     latest_metrics_records = {}
     for agent in agents:
@@ -180,7 +180,7 @@ def __calc_latest_metrics(agent: Dict, metrics_record: Dict):
 def metrics_ref_map(agents: List[Dict]) -> Dict[str, Dict]:
     rv = {}
     for agent in agents:
-        ref_string = f"{agent['id']}:{agent['muid']}"
+        ref_string = f"{agent['id']}"
         rv[ref_string] = agent
     return rv
 

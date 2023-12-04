@@ -1155,6 +1155,18 @@ class GetCommand(lib.ArgumentParametersCommand):
             ],
         },
         {
+            "resource": [lib.NOTIFICATION_CONFIG_TEMPLATES_RESOURCE],
+            "args": [
+                click.option(
+                    "--type",
+                    metavar="",
+                    type=click.Choice(lib.NOTIF_TMPL_TYPES),
+                    help="Emit the full organization notification policy"
+                    " object when using yaml or json output format.",
+                ),
+            ],
+        },
+        {
             "resource": [lib.DEVIATIONS_RESOURCE],
             "args": [
                 click.option(
@@ -1986,15 +1998,7 @@ def suppress_spydertrace(
     help="Comma-delimitated list of target names to send a test notification"
     " to. Use 'spyctl get notification-targets' to see what is available.",
 )
-@click.option(
-    "-r",
-    "--routes",
-    type=lib.ListParam(),
-    metavar="",
-    help="Comma-delimitated list of route IDs to send a test notification to."
-    " Use 'spyctl get notifications' to see what is available.",
-)
-def test_notification(targets, routes):
+def test_notification(targets):
     """Send test notifications to Targets or Notification Routes.
 
     Targets are named destinations like email, slack hooks, webhooks, or sns
@@ -2003,7 +2007,7 @@ def test_notification(targets, routes):
     Testing a notification route will send a test notification to one or many
     targets it is configured with.
     """
-    handle_test_notification(targets, routes)
+    handle_test_notification(targets)
 
 
 # ----------------------------------------------------------------- #

@@ -540,10 +540,15 @@ class FileList(click.File):
 SCHEMA_FIELD = "schema"
 
 # Spyderbat Event Schema Prefix'
-EVENT_AGENT_METRICS_PREFIX = "event_agentmetrics"
+EVENT_METRICS_PREFIX = "event_metric"
 EVENT_AUDIT_PREFIX = "event_audit"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
 EVENT_REDFLAG_PREFIX = "event_redflag"
+
+EVENT_METRIC_SUBTYPE_MAP = {
+    "agent": "agent",
+    "machine": "machine",
+}
 
 EVENT_AUDIT_SUBTYPE_MAP = {
     "deviation": "guardian_deviation",
@@ -943,6 +948,12 @@ NOTIF_TYPES = [
     NOTIF_TYPE_DASHBOARD,
 ]
 NOTIF_TYPE_FIELD = "type"
+NOTIF_TMPL_TYPES = ["agent-health", "security", "operations"]
+NOTIF_TMPL_MAP = {
+    "agent-health": "agent_health",
+    "security": "security",
+    "operations": "operations",
+}
 DST_TYPE_ORG = "org_uid"
 DST_TYPE_EMAIL = "emails"
 DST_TYPE_SLACK = "slack"
@@ -1006,6 +1017,8 @@ NOTIF_ADDITIONAL_FIELDS = "additionalFields"
 NOTIF_DST_TGTS = "targets"
 NOTIF_DATA_FIELD = "data"
 NOTIF_CONDITION_FIELD = "condition"
+NOTIF_COOLDOWN_FIELD = "cooldown"
+NOTIF_FOR_DURATION_FIELD = "forDuration"
 NOTIF_SETTINGS_FIELD = "analyticsConfiguration"
 NOTIF_NAME_FIELD = "name"
 NOTIF_INTERVAL_FIELD = "interval"
@@ -1018,6 +1031,7 @@ NOTIF_LAST_UPDATED = "lastUpdated"
 NOTIF_TEMPLATE_FIELD = "template"
 NOTIF_TARGET_FIELD = "target"
 NOTIF_DEFAULT_SCHEMA = "schemaType"
+NOTIF_SUB_SCHEMA = "subSchema"
 ANA_NOTIF_TYPE_AGENT_HEALTH = "agent_health"
 ANA_NOTIF_TYPE_CUSTOM = "custom"
 

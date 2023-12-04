@@ -15,7 +15,6 @@ from pydantic import (
 )
 
 import spyctl.spyctl_lib as lib
-import spyctl.cli as cli
 
 
 def valid_object(
@@ -43,10 +42,13 @@ def valid_object(
             if not valid_object(item, allow_obj_list=False):
                 return False
         return True
-    if kind == lib.POL_KIND:
-        type = data.get(lib.METADATA_FIELD, {}).get(lib.METADATA_TYPE_FIELD)
-        if type == lib.POL_TYPE_TRACE:
-            kind = (kind, type)
+    # Some validations depend on the type of the object in addition to the kind
+    tmp_kind = (
+        kind,
+        data.get(lib.METADATA_FIELD, {}).get(lib.METADATA_TYPE_FIELD),
+    )
+    if tmp_kind in KIND_TO_SCHEMA:
+        kind = tmp_kind
     try:
         KIND_TO_SCHEMA[kind](**data)
     except ValidationError as e:
@@ -929,11 +931,20 @@ class NotificationTgtResourceModel(BaseModel):
 class NotifAnaConfigMetadataModel(BaseModel):
     name: str = Field(alias=lib.METADATA_NAME_FIELD)
     uid: str = Field(alias=lib.METADATA_UID_FIELD)
+    notif_type: Literal[lib.NOTIF_TYPE_OBJECT] = Field(  # type: ignore
+        lib.METADATA_TYPE_FIELD
+    )
     create_time: Optional[Union[float, int]] = Field(
         alias=lib.METADATA_CREATE_TIME
     )
     update_time: Optional[Union[float, int]] = Field(
         alias=lib.NOTIF_LAST_UPDATED
+    )
+
+
+class NotifAnaConfigMetricsMetadataModel(NotifAnaConfigMetadataModel):
+    notif_type: Literal[lib.NOTIF_TYPE_METRICS] = Field(  # type: ignore
+        lib.METADATA_TYPE_FIELD
     )
 
 
@@ -957,9 +968,11 @@ class NotifAnaConfigSpecModel(BaseModel):
     message: str = Field(alias=lib.NOTIF_MESSAGE_FIELD)
     target: Union[str, List[str]] = Field(alias=lib.NOTIF_TARGET_FIELD)
     schema_type: str = Field(alias=lib.NOTIF_DEFAULT_SCHEMA)
+    sub_schema: Optional[str] = Field(alias=lib.NOTIF_SUB_SCHEMA)
     title: str = Field(alias=lib.NOTIF_TITLE_FIELD)
     additional_fields: Dict = Field(alias=lib.NOTIF_ADDITIONAL_FIELDS)
     template: str = Field(alias=lib.NOTIF_TEMPLATE_FIELD)
+    cooldown: Optional[int] = Field(alias=lib.NOTIF_COOLDOWN_FIELD)
 
     @root_validator
     def validate_condition(cls, values):
@@ -978,11 +991,31 @@ class NotifAnaConfigSpecModel(BaseModel):
         extra = Extra.forbid
 
 
+class NotifAnaConfigMetricsSpecModel(NotifAnaConfigSpecModel):
+    for_duration: Optional[int] = Field(alias=lib.NOTIF_FOR_DURATION_FIELD)
+    schema_type: Literal[lib.EVENT_METRICS_PREFIX] = Field(  # type: ignore
+        alias=lib.NOTIF_DEFAULT_SCHEMA
+    )
+
+    class Config:
+        extra = Extra.forbid
+
+
 class NotificationConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
     kind: Literal[lib.NOTIFICATION_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
     metadata: NotifAnaConfigMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifAnaConfigSpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotificationConfigMetricsModel(NotificationConfigModel):
+    metadata: NotifAnaConfigMetricsMetadataModel = Field(
+        alias=lib.METADATA_FIELD
+    )
+    spec: NotifAnaConfigMetricsSpecModel = Field(alias=lib.SPEC_FIELD)
 
     class Config:
         extra = Extra.forbid
@@ -1254,6 +1287,10 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     lib.UID_LIST_KIND: UidListModel,
     lib.DEVIATION_KIND: GuardianDeviationModel,
     lib.NOTIFICATION_KIND: NotificationConfigModel,
+    (
+        lib.NOTIFICATION_KIND,
+        lib.NOTIF_TYPE_METRICS,
+    ): NotificationConfigMetricsModel,
     lib.TARGET_KIND: NotificationTgtResourceModel,
 }
 

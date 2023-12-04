@@ -1247,7 +1247,7 @@ def get_agent_metrics(
 ) -> Generator[Dict, None, None]:
     try:
         datatype = lib.DATATYPE_AGENTS
-        schema = lib.EVENT_AGENT_METRICS_PREFIX
+        schema = lib.EVENT_METRICS_PREFIX
         for metric in retrieve_data(
             api_url,
             api_key,
@@ -1309,8 +1309,8 @@ def get_latest_agent_metrics(
                 api_key,
                 org_uid,
                 source,
-                "agent_status",
-                "event_agentmetrics",
+                lib.DATATYPE_AGENTS,
+                lib.EVENT_METRICS_PREFIX,
                 time_tup,
                 pipeline=pipeline,
             ),

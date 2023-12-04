@@ -139,6 +139,12 @@ def handle_edit_notif_config(name_or_id):
         .get(lib.DATA_FIELD, {})
         .get(lib.NOTIF_SETTINGS_FIELD)
     )
+    key = (
+        lib.NOTIFICATION_KIND,
+        config.get(lib.METADATA_FIELD).get(lib.METADATA_TYPE_FIELD),
+    )
+    if key not in schemas.KIND_TO_SCHEMA:
+        key == lib.NOTIFICATION_KIND
     if not config:
         cli.err_exit("Editing legacy notification configs not supported.")
     resource_yaml = yaml.dump(config, sort_keys=False)
@@ -146,7 +152,7 @@ def handle_edit_notif_config(name_or_id):
         resource_yaml,
         edit_id,
         lib.NOTIFICATION_CONFIGS_RESOURCE.name,
-        schemas.NotificationConfigModel,
+        schemas.KIND_TO_SCHEMA[key],
         apply_config_edits,
     )
 
@@ -443,7 +449,8 @@ def apply_file_edits(resource, file: IO):
     if extension == ".json":
         file.write(json.dumps(resource, sort_keys=False, indent=2))
     else:
-        file.write(yaml.dump(resource), sort_keys=False)
+        file.write(yaml.dump(resource, sort_keys=False))
+    cli.try_log(f"Successfully edited resource file '{file.name}'")
 
 
 def __strip_comments(yaml_string: str) -> str:

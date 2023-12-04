@@ -142,7 +142,8 @@ def handle_get_notification_configs(name_or_id, output: str, **filters: Dict):
         summary = spyctl_notif.notifications_summary_output(routes, notif_type)
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
-        __wide_not_supported()
+        summary = spyctl_notif.notifications_wide_output(routes, notif_type)
+        cli.show(summary, lib.OUTPUT_RAW)
     else:
         if not full_policy:
             for route in routes:
@@ -628,7 +629,8 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
 # ----------------------------------------------------------------- #
 
 
-def handle_get_notif_config_templates(name_or_id: str, output, **_):
+def handle_get_notif_config_templates(name_or_id: str, output, **filters):
+    tmpl_type = filters.pop(lib.TYPE_FIELD, None)
     templates: List[spyctl_notif.NotificationConfigTemplate] = []
     if not name_or_id:
         templates.extend(spyctl_notif.NOTIF_CONFIG_TEMPLATES)
@@ -638,6 +640,12 @@ def handle_get_notif_config_templates(name_or_id: str, output, **_):
                 tmpl.display_name, name_or_id
             ) or tmpl.id == name_or_id.strip("*"):
                 templates.append(tmpl)
+    if tmpl_type:
+        templates = [
+            tmpl
+            for tmpl in templates
+            if tmpl.type == lib.NOTIF_TMPL_MAP.get(tmpl_type)
+        ]
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_notif.notif_config_tmpl_summary_output(templates)
         cli.show(summary, lib.OUTPUT_RAW)
@@ -825,7 +833,7 @@ def handle_agent_metrics_json(agents: List[Dict], st, et):
     ctx = cfg.get_current_context()
     cli.try_log("Retrieving metrics records.")
     sources = [agent["muid"] for agent in agents]
-    pipeline = _af.Agents.generate_metrics_pipeline()
+    pipeline = _af.AgentMetrics.generate_pipeline()
     for metrics_record in api.get_agent_metrics(
         *ctx.get_api_data(),
         sources,
@@ -841,7 +849,7 @@ def handle_agent_usage_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
     cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
     sources = [agent["muid"] for agent in agents]
-    pipeline = _af.Agents.generate_metrics_pipeline()
+    pipeline = _af.AgentMetrics.generate_pipeline()
     metrics_csv_file.write(spy_agents.metrics_header())
     for metrics_record in api.get_agent_metrics(
         *ctx.get_api_data(), sources, (st, et), pipeline
@@ -858,7 +866,7 @@ def handle_agent_usage_json(agents: List[Dict], st, et):
     cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
     sources = [agent["muid"] for agent in agents]
-    pipeline = _af.Agents.generate_metrics_pipeline()
+    pipeline = _af.AgentMetrics.generate_pipeline()
     for metrics_record in api.get_agent_metrics(
         *ctx.get_api_data(),
         sources,
