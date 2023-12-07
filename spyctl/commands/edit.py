@@ -144,7 +144,7 @@ def handle_edit_notif_config(name_or_id):
         config.get(lib.METADATA_FIELD).get(lib.METADATA_TYPE_FIELD),
     )
     if key not in schemas.KIND_TO_SCHEMA:
-        key == lib.NOTIFICATION_KIND
+        key = lib.NOTIFICATION_KIND
     if not config:
         cli.err_exit("Editing legacy notification configs not supported.")
     resource_yaml = yaml.dump(config, sort_keys=False)
