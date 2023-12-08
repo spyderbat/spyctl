@@ -427,7 +427,7 @@ def _interactive_targets(notif_policy: Dict, shortcut=None, name_or_id=None):
         shortcut = None
         name_or_id = None
         if delete or nt:
-            notif_policy = __put_and_get_notif_pol(nt, delete)
+            notif_policy = put_and_get_notif_pol(nt, delete)
             targets = notif_policy.get(lib.TARGETS_FIELD, {})
 
 
