@@ -1,13 +1,15 @@
-from collections.abc import Sequence
 import json
 import os
+import re
 import sys
 import time
-from typing import Callable, Dict, List
-import yaml
+from collections.abc import Sequence
 from pathlib import Path
-from pydoc import pipepager, pager
-import re
+from pydoc import pager, pipepager
+from typing import Callable, Dict, List
+
+import yaml
+
 import spyctl.spyctl_lib as lib
 
 yaml.Dumper.ignore_aliases = lambda *args: True
@@ -76,6 +78,18 @@ def query_yes_no(question, default="yes", ignore_yes_option=False):
             sys.stderr.write(
                 "Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n"
             )
+
+
+def notice(notice_msg):
+    """Notify the user of something, wait for input
+
+    "notice_msg" is a string that is presented to the user.
+    """
+    if YES_OPTION:
+        return
+    prompt = " [ok] "
+    sys.stderr.write(notice_msg + prompt)
+    input()
 
 
 def show(

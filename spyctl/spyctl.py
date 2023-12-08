@@ -23,6 +23,8 @@ from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
 from spyctl.commands.logs import handle_logs
+from spyctl.commands.edit import handle_edit
+from spyctl.commands.test_notification import handle_test_notification
 
 MAIN_EPILOG = (
     "\b\n"
@@ -521,6 +523,65 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     )
 
 
+@create.command(
+    "notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG
+)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-n",
+    "--name",
+    help="A name for the target. Used by other resources to refer to the configured target destination.",
+    metavar="",
+    required=True,
+)
+@click.option(
+    "-T",
+    "--type",
+    required=True,
+    type=click.Choice(lib.DST_TYPES, case_sensitive=False),
+    help="The type of destination for the target.",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def create_notif_tgt(name, type, output):
+    c.handle_create_notif_tgt(name, type, output)
+
+
+@create.command(
+    "notification-config", cls=lib.CustomCommand, epilog=SUB_EPILOG
+)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-n", "--name", help="A name for the config.", metavar="", required=True
+)
+@click.option(
+    "-T",
+    "--target",
+    help="The name or ID of a notification target. Tells the config where to send notifications.",
+    metavar="",
+    required=True,
+)
+@click.option(
+    "-P",
+    "--template",
+    help="The name or ID of a notification configuration template. If omitted, the config will be completely custom.",
+    metavar="",
+    default="CUSTOM",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def create_notif_route(name, target, template, output):
+    c.handle_create_notif_config(name, target, template, output)
+
+
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
@@ -741,7 +802,7 @@ def create_suppression_policy(
 @main.command("delete", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.DelResourcesParam())
-@click.argument("name_or_id")
+@click.argument("name_or_id", required=False)
 @click.option(
     "-y",
     "--yes",
@@ -993,6 +1054,37 @@ def diff(
 
 
 # ----------------------------------------------------------------- #
+#                          Edit Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("edit", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.EditResourcesParam(), required=False)
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename to use to edit the resource.",
+    metavar="",
+    type=click.File(mode="r+"),
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def edit(resource, name_or_id, filename, yes=False):
+    """Edit resources by resource and name, or by resource and ids"""
+    if yes:
+        cli.set_yes_option()
+    handle_edit(resource, name_or_id, filename)
+
+
+# ----------------------------------------------------------------- #
 #                          Get Subcommand                           #
 # ----------------------------------------------------------------- #
 
@@ -1046,6 +1138,31 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Include redflags marked as exceptions in output."
                     " Off by default.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.NOTIFICATION_CONFIGS_RESOURCE],
+            "args": [
+                click.option(
+                    "--full-policy",
+                    "full_policy",
+                    is_flag=True,
+                    default=False,
+                    help="Emit the full organization notification policy"
+                    " object when using yaml or json output format.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.NOTIFICATION_CONFIG_TEMPLATES_RESOURCE],
+            "args": [
+                click.option(
+                    "--type",
+                    metavar="",
+                    type=click.Choice(lib.NOTIF_TMPL_TYPES),
+                    help="Emit the full organization notification policy"
+                    " object when using yaml or json output format.",
                 ),
             ],
         },
@@ -1864,6 +1981,33 @@ def suppress_spydertrace(
         cli.set_yes_option()
     if id:
         sup.handle_suppress_trace_by_id(id, include_users)
+
+
+# ----------------------------------------------------------------- #
+#                   Test Notification Subcommand                    #
+# ----------------------------------------------------------------- #
+
+
+@main.command("test-notification", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-T",
+    "--targets",
+    type=lib.ListParam(),
+    metavar="",
+    help="Comma-delimitated list of target names to send a test notification"
+    " to. Use 'spyctl get notification-targets' to see what is available.",
+)
+def test_notification(targets):
+    """Send test notifications to Targets or Notification Routes.
+
+    Targets are named destinations like email, slack hooks, webhooks, or sns
+    topics.
+    Notification Routes define which notifications are send to which targets.
+    Testing a notification route will send a test notification to one or many
+    targets it is configured with.
+    """
+    handle_test_notification(targets)
 
 
 # ----------------------------------------------------------------- #
