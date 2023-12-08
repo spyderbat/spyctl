@@ -38,8 +38,6 @@ dependencies = [
   "tqdm >= 4.0",
   "schema",
   "pydantic < 2.0",
-  "simple-term-menu",
-  "urwid"
 ]
 
 [project.urls]
