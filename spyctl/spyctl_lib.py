@@ -953,6 +953,7 @@ NOTIF_TMPL_MAP = {
     "agent-health": "agent_health",
     "security": "security",
     "operations": "operations",
+    "guardian": "guardian",
 }
 DST_TYPE_ORG = "org_uid"
 DST_TYPE_EMAIL = "emails"

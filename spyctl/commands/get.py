@@ -399,16 +399,34 @@ def handle_get_deviations(name_or_id: str, st, et, output, **filters):
     else:
         policies = api.get_policies(*ctx.get_api_data())
     sources_set = set(sources)
-    policies = [
-        policy
-        for policy in policies
-        if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] in sources_set
-        or policy[lib.METADATA_FIELD][lib.NAME_FIELD] == name_or_id
-        or policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] == name_or_id
-    ]
-    dev_uid = (
-        name_or_id if name_or_id.strip("*").startswith("audit:") else None
-    )
+    if name_or_id:
+        dev_uid = (
+            name_or_id if name_or_id.strip("*").startswith("audit:") else None
+        )
+        if not dev_uid:
+            policies = filt.filter_obj(
+                policies,
+                [
+                    [lib.METADATA_FIELD, lib.NAME_FIELD],
+                    [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+                ],
+                name_or_id,
+            )
+        else:
+            policies = [
+                policy
+                for policy in policies
+                if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                in sources_set
+            ]
+    else:
+        dev_uid = None
+        policies = [
+            policy
+            for policy in policies
+            if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+            in sources_set
+        ]
     pipeline = _af.Deviations.generate_pipeline(dev_uid, filters=filters)
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_policies.policies_summary_output(
