@@ -423,14 +423,14 @@ class Deviations(API_Filter):
         )
 
     @classmethod
-    def generate_count_pipeline(cls, filters={}):
+    def generate_count_pipeline(cls, name_or_uid, filters={}):
         schema = (
             f"{lib.EVENT_AUDIT_PREFIX}:"
             f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
         )
         pipeline_items = super(Deviations, cls).generate_pipeline(
             schema,
-            None,
+            name_or_uid,
             True,
             filters,
         )

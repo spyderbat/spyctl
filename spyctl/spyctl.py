@@ -1183,10 +1183,9 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " output",
                 ),
                 click.option(
-                    "--items-list",
+                    "--raw-data",
                     is_flag=True,
-                    help="Return deviations in a format compatible with local"
-                    " diff'ing and merging.",
+                    help="Return the raw event_audit:guardian_deviation data.",
                 ),
             ],
         },

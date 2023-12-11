@@ -265,6 +265,7 @@ def policies_summary_output(
     time: Tuple[float, float] = None,
     get_deviations_count: bool = False,
     suppress_msg=False,
+    dev_name_or_uid=None,
 ):
     output_list = []
     if get_deviations_count:
@@ -281,7 +282,9 @@ def policies_summary_output(
     data = []
     deviation_counts = {}
     if get_deviations_count:
-        deviation_counts = get_deviation_counts(policies, time, suppress_msg)
+        deviation_counts = get_deviation_counts(
+            policies, time, suppress_msg, dev_name_or_uid
+        )
     for policy in policies:
         data.append(
             policy_summary_data(policy, deviation_counts, get_deviations_count)
@@ -358,7 +361,10 @@ def get_policy_by_uid(
 
 
 def get_deviation_counts(
-    policies: List[Dict], time: Tuple[float, float], suppress_msg=False
+    policies: List[Dict],
+    time: Tuple[float, float],
+    suppress_msg=False,
+    dev_name_or_uid=None,
 ) -> Dict:
     if not suppress_msg:
         cli.try_log(
@@ -371,7 +377,7 @@ def get_deviation_counts(
         policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
         for policy in policies
     ]
-    pipeline = _af.Deviations.generate_count_pipeline()
+    pipeline = _af.Deviations.generate_count_pipeline(dev_name_or_uid)
     checksums = set()
     for count_obj in api.get_deviations(
         *ctx.get_api_data(),

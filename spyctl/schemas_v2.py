@@ -962,17 +962,28 @@ class NotifAdditionalFieldsModel(BaseModel):
         return values
 
 
+class NotifAdvancedCooldown(BaseModel):
+    by_field: Union[str, List[str]] = Field(
+        alias=lib.NOTIF_COOLDOWN_BY_FIELD_FIELD, min_items=1, min_length=1
+    )
+    for_seconds: int = Field(alias=lib.NOTIF_COOLDOWN_SECONDS_FIELD)
+
+
 class NotifAnaConfigSpecModel(BaseModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
     condition: str = Field(alias=lib.NOTIF_CONDITION_FIELD)
     message: str = Field(alias=lib.NOTIF_MESSAGE_FIELD)
-    target: Union[str, List[str]] = Field(alias=lib.NOTIF_TARGET_FIELD)
+    target: Union[str, List[str]] = Field(
+        alias=lib.NOTIF_TARGET_FIELD, min_items=1, min_length=1
+    )
     schema_type: str = Field(alias=lib.NOTIF_DEFAULT_SCHEMA)
     sub_schema: Optional[str] = Field(alias=lib.NOTIF_SUB_SCHEMA)
     title: str = Field(alias=lib.NOTIF_TITLE_FIELD)
     additional_fields: Dict = Field(alias=lib.NOTIF_ADDITIONAL_FIELDS)
     template: str = Field(alias=lib.NOTIF_TEMPLATE_FIELD)
-    cooldown: Optional[int] = Field(alias=lib.NOTIF_COOLDOWN_FIELD)
+    cooldown: Optional[Union[int, NotifAdvancedCooldown]] = Field(
+        alias=lib.NOTIF_COOLDOWN_FIELD
+    )
 
     @root_validator
     def validate_condition(cls, values):

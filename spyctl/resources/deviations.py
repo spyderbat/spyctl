@@ -32,7 +32,7 @@ def get_deviations_stream(
     limit_mem,
     disable_pbar_on_first,
     unique=False,
-    items_list=False,
+    raw_data=False,
 ):
     yv = {}
     dev_list = []
@@ -49,11 +49,11 @@ def get_deviations_stream(
             if checksum and checksum not in yv:
                 yv[checksum] = deviation
         else:
-            if items_list:
-                dev_list.append(deviation)
-            else:
+            if raw_data:
                 yield deviation
-    if items_list:
+            else:
+                dev_list.append(deviation)
+    if not raw_data:
         if unique:
             yield __build_items_output(list(yv.values()))
         else:
