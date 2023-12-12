@@ -286,11 +286,6 @@ class Agents(API_Filter):
             schema, name_or_uid, latest_model, filters
         )
 
-    @classmethod
-    def generate_metrics_pipeline(cls):
-        schema = lib.EVENT_AGENT_METRICS_PREFIX
-        return super(Agents, cls).generate_pipeline(schema, latest_model=True)
-
 
 class AgentMetrics(API_Filter):
     property_map = {lib.ID_FIELD: lib.ID_FIELD}
@@ -301,7 +296,7 @@ class AgentMetrics(API_Filter):
     def generate_pipeline(
         cls, name_or_uid=None, type=None, latest_model=True, filters={}
     ) -> List:
-        schema = lib.EVENT_AGENT_METRICS_PREFIX
+        schema = f"{lib.EVENT_METRICS_PREFIX}:{lib.EVENT_METRIC_SUBTYPE_MAP['agent']}"
         return super(AgentMetrics, cls).generate_pipeline(
             schema, name_or_uid, latest_model, filters
         )

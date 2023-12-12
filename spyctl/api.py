@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import tqdm
 import zulu
+import json
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
@@ -41,7 +42,11 @@ class NotFoundException(ValueError):
 
 def get(url, key, params=None, raise_notfound=False):
     if key:
-        headers = {"Authorization": f"Bearer {key}"}
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "content-type": "application/json",
+            "accept": "application/json",
+        }
     else:
         headers = None
     try:
@@ -63,7 +68,14 @@ def get(url, key, params=None, raise_notfound=False):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -90,7 +102,14 @@ def post(url, data, key, raise_notfound=False):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -115,7 +134,14 @@ def put(url, data, key):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -140,7 +166,14 @@ def delete(url, key):
             context_uid = "No context uid found."
         msg = [f"{r.status_code}, {r.reason}", f"\tContext UID: {context_uid}"]
         if r.text:
-            msg.append(f"{r.text}")
+            try:
+                error = json.loads(r.text)
+                if "msg" in error:
+                    msg.append(error["msg"])
+                else:
+                    msg.append(f"{r.text}")
+            except Exception:
+                msg.append(f"{r.text}")
         msg = "\n".join(msg)
         cli.err_exit(msg)
     return r
@@ -478,6 +511,24 @@ def get_clusters(api_url, api_key, org_uid) -> List[Dict]:
         if "/" not in cluster["uid"]:
             clusters.append(cluster)
     return clusters
+
+
+def get_notification_policy(api_url, api_key, org_uid) -> Dict:
+    url = f"{api_url}/api/v1/org/{org_uid}/notification_policy/"
+    json = get(url, api_key).json()
+    return json
+
+
+def put_notification_policy(api_url, api_key, org_uid, notification_pol):
+    url = f"{api_url}/api/v1/org/{org_uid}/notification_policy/"
+    resp = put(url, notification_pol, api_key)
+    return resp
+
+
+def post_test_notification(api_url, api_key, org_uid, target_name):
+    url = f"{api_url}/api/v1/org/{org_uid}/notification_policy/test_target"
+    resp = post(url, {"target": target_name}, api_key)
+    return resp
 
 
 def get_sources(api_url, api_key, org_uid) -> List[Dict]:
@@ -1196,7 +1247,7 @@ def get_agent_metrics(
 ) -> Generator[Dict, None, None]:
     try:
         datatype = lib.DATATYPE_AGENTS
-        schema = lib.EVENT_AGENT_METRICS_PREFIX
+        schema = lib.EVENT_METRICS_PREFIX
         for metric in retrieve_data(
             api_url,
             api_key,
@@ -1258,8 +1309,8 @@ def get_latest_agent_metrics(
                 api_key,
                 org_uid,
                 source,
-                "agent_status",
-                "event_agentmetrics",
+                lib.DATATYPE_AGENTS,
+                lib.EVENT_METRICS_PREFIX,
                 time_tup,
                 pipeline=pipeline,
             ),
@@ -1317,6 +1368,23 @@ def get_sources_data_for_agents(api_url, api_key, org_uid) -> Dict:
                 "last_data": source["last_data"],
             }
     return rv
+
+
+def validate_search_query(
+    api_url, api_key, org_uid, schema_type: str, query: str
+):
+    url = f"{api_url}/api/v1/org/{org_uid}/search/validate"
+    data = {
+        "context_uid": lib.build_ctx(),
+        "query": query,
+        "schema": schema_type,
+    }
+    resp = post(url, data, api_key)
+    resp = resp.json()
+    if not resp["ok"]:
+        return resp["error"]
+    else:
+        return ""
 
 
 # ----------------------------------------------------------------- #

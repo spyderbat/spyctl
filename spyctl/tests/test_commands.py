@@ -1,18 +1,17 @@
 import os
 import shutil
+import unittest.mock as mock
 from fnmatch import fnmatch
-from pathlib import Path
 from itertools import groupby
-import pytest
+from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
-from spyctl import spyctl
-from spyctl.spyctl_lib import time_inp
-from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
-import unittest.mock as mock
 import spyctl.tests.mock_functions as mock_func
-
+from spyctl import spyctl
+from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
+from spyctl.spyctl_lib import time_inp
 
 API_KEY = os.environ.get("API_KEY")
 API_URL = os.environ.get("API_URL")

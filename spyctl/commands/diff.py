@@ -28,6 +28,7 @@ def handle_diff(
     do_api=False,
     force_fprints=False,
     full_diff=False,
+    output=lib.OUTPUT_DEFAULT,
 ):
     if do_api:
         ctx = cfgs.get_current_context()
@@ -78,6 +79,7 @@ def handle_diff(
                     pager,
                     merge_network,
                     full_diff=full_diff,
+                    output=output,
                 )
             elif with_obj is False:
                 continue
@@ -119,6 +121,7 @@ def handle_diff(
                         pager,
                         merge_network,
                         full_diff=full_diff,
+                        output=output,
                     )
                 elif with_obj is False:
                     continue
@@ -181,6 +184,7 @@ def handle_diff(
                         pager,
                         merge_network,
                         full_diff=full_diff,
+                        output=output,
                     )
                 elif with_obj is False:
                     continue
@@ -328,20 +332,31 @@ def diff_resource(
     pager=False,
     merge_network=True,
     full_diff=False,
+    output=lib.OUTPUT_DEFAULT,
 ):
     merged_obj = merge_cmd.merge_resource(
         target, target_name, with_obj, "diff", merge_network
     )
     if merged_obj:
-        handle_output(merged_obj, pager, full_diff)
+        handle_output(merged_obj, pager, full_diff, output)
 
 
-def handle_output(merged_obj: m_lib.MergeObject, pager=False, full_diff=False):
-    diff_data = merged_obj.get_diff(full_diff)
-    if pager:
-        cli.show(diff_data, lib.OUTPUT_RAW, dest=lib.OUTPUT_DEST_PAGER)
+def handle_output(
+    merged_obj: m_lib.MergeObject,
+    pager=False,
+    full_diff=False,
+    output=lib.OUTPUT_DEFAULT,
+):
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_RAW
+        diff_object = False
     else:
-        cli.show(diff_data, lib.OUTPUT_RAW)
+        diff_object = True
+    diff_data = merged_obj.get_diff(full_diff, diff_object)
+    if pager:
+        cli.show(diff_data, output, dest=lib.OUTPUT_DEST_PAGER)
+    else:
+        cli.show(diff_data, output)
 
 
 def __nothing_to_diff_with(

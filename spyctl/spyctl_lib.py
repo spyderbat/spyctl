@@ -13,6 +13,7 @@ from fnmatch import fnmatch
 from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import click
@@ -45,6 +46,7 @@ ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
 API_CALL = False
+INTERACTIVE = False
 DEBUG = False
 LOG_VAR = []
 ERR_VAR = []
@@ -162,6 +164,39 @@ NAMESPACES_RESOURCE = Aliases(
     "namespace",
     "namespaces",
 )
+NOTIFICATION_CONFIGS_RESOURCE = Aliases(
+    [
+        "notification-config",
+        "notification-configs",
+        "notification-policy",
+        "nc",
+    ],
+    "notification-config",
+    "notification-configs",
+)
+NOTIFICATION_CONFIG_TEMPLATES_RESOURCE = Aliases(
+    [
+        "notification-config-template",
+        "notification-config-templates",
+        "notification-config-tmpls",
+        "notif-config-tmpl",
+        "notif-config-tmpls",
+        "nct",
+    ],
+    "notification-config-template",
+    "notification-config-templates",
+)
+NOTIFICATION_TARGETS_RESOURCE = Aliases(
+    [
+        "target",
+        "targets",
+        "notification-target",
+        "notification-targets",
+        "nt",
+    ],
+    "notification-target",
+    "notification-targets",
+)
 NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
@@ -246,9 +281,17 @@ def get_plural_name_from_alias(alias: str):
 DEL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
+    NOTIFICATION_CONFIGS_RESOURCE.name,
+    NOTIFICATION_TARGETS_RESOURCE.name,
 ]
 DESC_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
+]
+EDIT_RESOURCES: List[str] = [
+    POLICIES_RESOURCE.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
+    NOTIFICATION_CONFIGS_RESOURCE.name,
+    NOTIFICATION_TARGETS_RESOURCE.name,
 ]
 GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
@@ -262,6 +305,9 @@ GET_RESOURCES: List[str] = [
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
     NODES_RESOURCE.name_plural,
+    NOTIFICATION_CONFIGS_RESOURCE.name_plural,
+    NOTIFICATION_CONFIG_TEMPLATES_RESOURCE.name_plural,
+    NOTIFICATION_TARGETS_RESOURCE.name_plural,
     OPSFLAGS_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
     POLICIES_RESOURCE.name_plural,
@@ -332,6 +378,19 @@ class DescribeResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in DESC_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class EditResourcesParam(click.ParamType):
+    name = "edit_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in EDIT_RESOURCES
             if resrc_name.startswith(incomplete)
         ]
 
@@ -481,10 +540,15 @@ class FileList(click.File):
 SCHEMA_FIELD = "schema"
 
 # Spyderbat Event Schema Prefix'
-EVENT_AGENT_METRICS_PREFIX = "event_agentmetrics"
+EVENT_METRICS_PREFIX = "event_metric"
 EVENT_AUDIT_PREFIX = "event_audit"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
 EVENT_REDFLAG_PREFIX = "event_redflag"
+
+EVENT_METRIC_SUBTYPE_MAP = {
+    "agent": "agent",
+    "machine": "machine",
+}
 
 EVENT_AUDIT_SUBTYPE_MAP = {
     "deviation": "guardian_deviation",
@@ -522,13 +586,16 @@ DATATYPE_REDFLAGS = "redflags"
 DATATYPE_SPYDERGRAPH = "spydergraph"
 
 # Resource Kinds
+BASELINE_KIND = "SpyderbatBaseline"
+DEVIATION_KIND = "GuardianDeviation"
+FPRINT_GROUP_KIND = "FingerprintGroup"
+FPRINT_KIND = "SpyderbatFingerprint"
+NOTIFICATION_KIND = "NotificationConfiguration"
+NOTIF_TMPL_KIND = "NotificationConfigTemplate"
 POL_KIND = "SpyderbatPolicy"
 SUP_POL_KIND_ALIAS = "SuppressionPolicy"
-BASELINE_KIND = "SpyderbatBaseline"
-FPRINT_KIND = "SpyderbatFingerprint"
-FPRINT_GROUP_KIND = "FingerprintGroup"
+TARGET_KIND = "NotificationTarget"
 UID_LIST_KIND = "UidList"
-DEVIATION_KIND = "GuardianDeviation"
 
 # CONFIG Kinds
 CONFIG_KIND = "Config"
@@ -868,6 +935,115 @@ PROCESSES_FIELD = "processes"
 PROTO_FIELD = "protocol"
 TO_FIELD = "to"
 
+
+# Notifications
+NOTIF_TYPE_ALL = "all"
+NOTIF_TYPE_OBJECT = "object"
+NOTIF_TYPE_METRICS = "metrics"
+NOTIF_TYPE_DASHBOARD = "dashboard"
+NOTIF_TYPES = [
+    NOTIF_TYPE_ALL,
+    NOTIF_TYPE_OBJECT,
+    NOTIF_TYPE_METRICS,
+    NOTIF_TYPE_DASHBOARD,
+]
+NOTIF_TYPE_FIELD = "type"
+NOTIF_TMPL_TYPES = ["agent-health", "security", "operations"]
+NOTIF_TMPL_MAP = {
+    "agent-health": "agent_health",
+    "security": "security",
+    "operations": "operations",
+}
+DST_TYPE_ORG = "org_uid"
+DST_TYPE_EMAIL = "emails"
+DST_TYPE_SLACK = "slack"
+DST_TYPE_SNS = "sns"
+DST_TYPE_USERS = "users"
+DST_TYPE_WEBHOOK = "webhook"
+DST_NAME_EMAIL = "Email"
+DST_NAME_SLACK = "Slack"
+DST_NAME_SNS = "SNS"
+DST_NAME_WEBHOOK = "Webhook"
+DST_TYPES = [
+    DST_TYPE_EMAIL,
+    DST_TYPE_SLACK,
+    DST_TYPE_SNS,
+    DST_TYPE_WEBHOOK,
+]
+DST_NAMES = [
+    DST_NAME_EMAIL,
+    DST_NAME_SLACK,
+    DST_NAME_SNS,
+    DST_NAME_WEBHOOK,
+]
+DST_NAME_TO_TYPE = {
+    DST_NAME_EMAIL: DST_TYPE_EMAIL,
+    DST_NAME_SLACK: DST_TYPE_SLACK,
+    DST_NAME_SNS: DST_TYPE_SNS,
+    DST_NAME_WEBHOOK: DST_TYPE_WEBHOOK,
+}
+DST_TYPE_TO_NAME = {
+    DST_TYPE_EMAIL: DST_NAME_EMAIL,
+    DST_TYPE_SLACK: DST_NAME_SLACK,
+    DST_TYPE_SNS: DST_NAME_SNS,
+    DST_TYPE_WEBHOOK: DST_NAME_WEBHOOK,
+}
+DST_TYPE_TO_DESC = {
+    DST_TYPE_EMAIL: "A list of email addresses to send notifications to.",
+    DST_TYPE_SLACK: "A Slack hook URL to send notifications to.",
+    DST_TYPE_SNS: "An AWS sns endpoint to send notifications to.",
+    DST_TYPE_WEBHOOK: "A generic webhook URL to send notifications to.",
+}
+ROUTES_FIELD = "routes"
+TARGETS_FIELD = "targets"
+DST_DESCRIPTION = "description"
+DST_DATA = "data"
+DST_SNS_TOPIC_ARN = "sns_topic_arn"
+DST_SNS_CROSS_ACCOUNT_ROLE = "cross_account_iam_role"
+DST_WEBHOOK_URL = "url"
+DST_WEBHOOK_TLS_VAL = "no_tls_validation"
+DST_SLACK_URL = "url"
+ROUTE_TARGETS = "targets"
+ROUTE_DESTINATION = "destination"
+ROUTE_DATA = "data"
+ROUTE_DATA_ANA_SETTINGS = "analyticsSettings"
+ROUTE_DESCRIPTION = "description"
+ROUTE_EXPR = "expr"
+TGT_DESCRIPTION_FIELD = "description"
+TMPL_DESCRIPTION_FIELD = "description"
+TMPL_CONFIG_VALUES_FIELD = "configValues"
+
+NOTIF_ADDITIONAL_FIELDS = "additionalFields"
+NOTIF_DST_TGTS = "targets"
+NOTIF_DATA_FIELD = "data"
+NOTIF_CONDITION_FIELD = "condition"
+NOTIF_COOLDOWN_FIELD = "cooldown"
+NOTIF_FOR_DURATION_FIELD = "forDuration"
+NOTIF_SETTINGS_FIELD = "analyticsConfiguration"
+NOTIF_NAME_FIELD = "name"
+NOTIF_INTERVAL_FIELD = "interval"
+NOTIF_TITLE_FIELD = "title"
+NOTIF_MESSAGE_FIELD = "message"
+NOTIF_ICON_FIELD = "icon"
+NOTIF_NOTIFY_FIELD = "notify"
+NOTIF_CREATE_TIME = "createTime"
+NOTIF_LAST_UPDATED = "lastUpdated"
+NOTIF_TEMPLATE_FIELD = "template"
+NOTIF_TARGET_FIELD = "target"
+NOTIF_DEFAULT_SCHEMA = "schemaType"
+NOTIF_SUB_SCHEMA = "subSchema"
+ANA_NOTIF_TYPE_AGENT_HEALTH = "agent_health"
+ANA_NOTIF_TYPE_CUSTOM = "custom"
+
+
+def get_dst_type(name):
+    return DST_NAME_TO_TYPE[name]
+
+
+def get_dst_name(type):
+    return DST_NAME_TO_TYPE[type]
+
+
 # Flags
 FLAG_CLASS = "class"
 
@@ -1007,7 +1183,7 @@ def walk_up_tree(
     return rv
 
 
-def load_file(path: Path) -> Dict:
+def load_file(path: Path):
     try:
         with path.open("r") as f:
             try:
@@ -1657,7 +1833,7 @@ def make_uuid():
 
 
 def err_exit(message: str, exception: Exception = None):
-    if API_CALL:
+    if API_CALL or INTERACTIVE:
         raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
@@ -1825,6 +2001,12 @@ def get_metadata_name(resource: Dict) -> Optional[str]:
     return name
 
 
+def get_metadata_type(resource: Dict) -> Optional[str]:
+    metadata = resource.get(METADATA_FIELD, {})
+    type = metadata.get(METADATA_TYPE_FIELD)
+    return type
+
+
 def slugify(value, allow_unicode=False):
     """
     Taken from https://github.com/django/django/blob/master/django/utils/text.py  # noqa E501
@@ -1917,6 +2099,13 @@ def set_api_call():
     disable_colorization()
 
 
+def set_interactive():
+    global INTERACTIVE, USE_LOG_VARS
+    INTERACTIVE = True
+    USE_LOG_VARS = True
+    disable_colorization()
+
+
 def set_debug():
     global DEBUG
     DEBUG = True
@@ -1967,3 +2156,98 @@ def calc_age(time_float: float):
     else:
         age = f"{age_delta.seconds//60}m"
         return age
+
+
+TGT_NAME_VALID_SYMBOLS = ["-", "_"]
+NOTIF_NAME_VALID_SYMBOLS = ["-", "_"]
+
+TGT_NAME_ERROR_MSG = (
+    "Target name must contain only letters, numbers, and"
+    f" {TGT_NAME_VALID_SYMBOLS}. It must also be less than 64"
+    " characters."
+)
+
+NOTIF_CONF_NAME_ERROR_MSG = "Name must be less than 64 characters."
+
+
+def is_valid_tgt_name(input_string):
+    pattern = r"^[a-zA-Z0-9\-_]+$"
+
+    if re.match(pattern, input_string) and len(input_string) <= 64:
+        return True
+    else:
+        return False
+
+
+def is_valid_notification_name(input_string) -> str:
+    if len(input_string) <= 64:
+        return True
+    return False
+
+
+def valid_notification_name(input_string) -> str:
+    pattern = r"^[a-zA-Z0-9\-_]+$"
+    if re.match(pattern, input_string) and len(input_string) <= 64:
+        return input_string
+    raise click.UsageError(
+        "Notification name must contain only letters, numbers, and"
+        f" {NOTIF_NAME_VALID_SYMBOLS}. It must also be less than 64"
+        " characters."
+    )
+
+
+def valid_schema(input_string) -> str:
+    if " " in input_string:
+        raise click.UsageError("Schemas may not have spaces.")
+    return input_string
+
+
+def is_valid_email(email):
+    # Define a regular expression pattern for a valid email address
+    pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+
+    # Use the re.match function to check if the email matches the pattern
+    if re.match(pattern, email):
+        return True
+    else:
+        return False
+
+
+def is_valid_url(url):
+    try:
+        result = urlparse(url)
+        return all(
+            [result.scheme, result.netloc]
+        )  # Check if both scheme and network location are present
+    except ValueError:
+        return False
+
+
+def is_valid_slack_url(url: str):
+    try:
+        result = urlparse(url)
+        if not all(
+            [result.scheme, result.netloc]
+        ):  # Check if both scheme and network location are present
+            return False
+        if not url.startswith("https://hooks.slack.com/services/"):
+            return False
+        return True
+    except ValueError:
+        return False
+
+
+def encode_int(x, length=4):
+    b = int(x).to_bytes(length, byteorder="big")
+    return b64url(b).decode("ascii").strip("=")
+
+
+def build_ctx() -> str:
+    return f"{encode_int(time.time())}.{make_uuid()[:5]}"
+
+
+def is_guardian_obj(obj: Dict):
+    kind = obj.get(KIND_FIELD)
+    type = obj.get(METADATA_FIELD, {}).get(METADATA_TYPE_FIELD)
+    if kind in [BASELINE_KIND, POL_KIND] and type in GUARDIAN_POL_TYPES:
+        return True

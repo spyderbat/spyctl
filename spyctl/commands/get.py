@@ -1,4 +1,5 @@
 import time
+import fnmatch
 from typing import IO, Dict, List, Tuple
 
 import spyctl.api as api
@@ -18,6 +19,8 @@ import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.machines as spyctl_machines
 import spyctl.resources.namespaces as spyctl_names
 import spyctl.resources.nodes as spyctl_nodes
+import spyctl.resources.notifications_configs as spyctl_notif
+import spyctl.resources.notification_targets as spyctl_tgt
 import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
@@ -31,6 +34,9 @@ not_time_based = [
     lib.SOURCES_RESOURCE,
     lib.POLICIES_RESOURCE,
     lib.CLUSTERS_RESOURCE,
+    lib.NOTIFICATION_CONFIGS_RESOURCE,
+    lib.NOTIFICATION_TARGETS_RESOURCE,
+    lib.NOTIFICATION_CONFIG_TEMPLATES_RESOURCE,
 ]
 resource_with_global_src = [lib.AGENT_RESOURCE, lib.FINGERPRINTS_RESOURCE]
 
@@ -75,6 +81,12 @@ def handle_get(
         handle_get_namespaces(name_or_id, st, et, output, **filters)
     elif resource == lib.NODES_RESOURCE:
         handle_get_nodes(name_or_id, st, et, output, **filters)
+    elif resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
+        handle_get_notification_configs(name_or_id, output, **filters)
+    elif resource == lib.NOTIFICATION_CONFIG_TEMPLATES_RESOURCE:
+        handle_get_notif_config_templates(name_or_id, output, **filters)
+    elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
+        handle_get_notification_targets(name_or_id, output, **filters)
     elif resource == lib.OPSFLAGS_RESOURCE:
         handle_get_opsflags(name_or_id, st, et, output, **filters)
     elif resource == lib.PODS_RESOURCE:
@@ -114,6 +126,65 @@ def handle_get_clusters(name_or_id, output: str, **filters: Dict):
     else:
         for cluster in clusters:
             cli.show(cluster, output, ndjson=NDJSON)
+
+
+def handle_get_notification_configs(name_or_id, output: str, **filters: Dict):
+    full_policy = filters.get("full_policy", False)
+    ctx = cfg.get_current_context()
+    notif_type = filters.get(lib.NOTIF_TYPE_FIELD, lib.NOTIF_TYPE_ALL)
+    n_pol = api.get_notification_policy(*ctx.get_api_data())
+    if n_pol is None or not isinstance(n_pol, dict):
+        cli.err_exit("Could not load notification policy")
+    routes = n_pol.get(lib.ROUTES_FIELD, [])
+    if name_or_id:
+        routes = filt.filter_obj(routes, ["data.id", "data.name"], name_or_id)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_notif.notifications_summary_output(routes, notif_type)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        summary = spyctl_notif.notifications_wide_output(routes, notif_type)
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        if not full_policy:
+            for route in routes:
+                config = route.get(lib.DATA_FIELD, {}).get(
+                    lib.NOTIF_SETTINGS_FIELD
+                )
+                if config:
+                    cli.show(config, output, ndjson=NDJSON)
+                else:
+                    cli.show(route, output, ndjson=NDJSON)
+        else:
+            cli.show(n_pol, output, ndjson=NDJSON)
+
+
+def handle_get_notification_targets(
+    name_or_id: str, output: str, **filters: Dict
+):
+    ctx = cfg.get_current_context()
+    n_pol = api.get_notification_policy(*ctx.get_api_data())
+    if n_pol is None or not isinstance(n_pol, dict):
+        cli.err_exit("Could not load notification targets")
+    targets: Dict = n_pol.get(lib.TARGETS_FIELD, {})
+    if name_or_id:
+        tmp_tgts = {}
+        for tgt_name, tgt_data in targets.items():
+            tgt_obj = spyctl_tgt.Target(backend_target={tgt_name: tgt_data})
+            if tgt_obj.id == name_or_id.strip("*") or fnmatch.fnmatch(
+                tgt_name, name_or_id
+            ):
+                tmp_tgts[tgt_name] = tgt_data
+        targets = tmp_tgts
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_tgt.targets_summary_output(targets)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        summary = spyctl_tgt.targets_wide_output(targets)
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        for tgt_name, tgt_data in targets.items():
+            target = spyctl_tgt.Target(backend_target={tgt_name: tgt_data})
+            cli.show(target.as_dict(), output, ndjson=NDJSON)
 
 
 def handle_get_sources(name_or_id, output: str, **filters: Dict):
@@ -554,6 +625,38 @@ def handle_get_spydertraces(name_or_id, st, et, output, **filters):
 
 
 # ----------------------------------------------------------------- #
+#                          Other Resources                          #
+# ----------------------------------------------------------------- #
+
+
+def handle_get_notif_config_templates(name_or_id: str, output, **filters):
+    tmpl_type = filters.pop(lib.TYPE_FIELD, None)
+    templates: List[spyctl_notif.NotificationConfigTemplate] = []
+    if not name_or_id:
+        templates.extend(spyctl_notif.NOTIF_CONFIG_TEMPLATES)
+    else:
+        for tmpl in spyctl_notif.NOTIF_CONFIG_TEMPLATES:
+            if fnmatch.fnmatch(
+                tmpl.display_name, name_or_id
+            ) or tmpl.id == name_or_id.strip("*"):
+                templates.append(tmpl)
+    if tmpl_type:
+        templates = [
+            tmpl
+            for tmpl in templates
+            if tmpl.type == lib.NOTIF_TMPL_MAP.get(tmpl_type)
+        ]
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_notif.notif_config_tmpl_summary_output(templates)
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for tmpl in templates:
+            cli.show(tmpl.as_dict(), output)
+
+
+# ----------------------------------------------------------------- #
 #                Policy Workflow SQL-Based Resources                #
 # ----------------------------------------------------------------- #
 
@@ -730,7 +833,7 @@ def handle_agent_metrics_json(agents: List[Dict], st, et):
     ctx = cfg.get_current_context()
     cli.try_log("Retrieving metrics records.")
     sources = [agent["muid"] for agent in agents]
-    pipeline = _af.Agents.generate_metrics_pipeline()
+    pipeline = _af.AgentMetrics.generate_pipeline()
     for metrics_record in api.get_agent_metrics(
         *ctx.get_api_data(),
         sources,
@@ -746,7 +849,7 @@ def handle_agent_usage_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
     cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
     sources = [agent["muid"] for agent in agents]
-    pipeline = _af.Agents.generate_metrics_pipeline()
+    pipeline = _af.AgentMetrics.generate_pipeline()
     metrics_csv_file.write(spy_agents.metrics_header())
     for metrics_record in api.get_agent_metrics(
         *ctx.get_api_data(), sources, (st, et), pipeline
@@ -763,7 +866,7 @@ def handle_agent_usage_json(agents: List[Dict], st, et):
     cli.try_log("Retrieving metrics records.")
     agent_map = spy_agents.metrics_ref_map(agents)
     sources = [agent["muid"] for agent in agents]
-    pipeline = _af.Agents.generate_metrics_pipeline()
+    pipeline = _af.AgentMetrics.generate_pipeline()
     for metrics_record in api.get_agent_metrics(
         *ctx.get_api_data(),
         sources,
