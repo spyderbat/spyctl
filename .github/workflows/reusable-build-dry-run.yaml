@@ -42,7 +42,7 @@ jobs:
         pytest ./spyctl_api
   build-dry-run:
     name: Docker Build Dry-Run
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, SelfHostedArm64]
     environment: ${{ inputs.environment }}
     strategy:
       fail-fast: false
@@ -98,7 +98,7 @@ jobs:
         push: true
   install-dry-run:
     name: Install Helm Chart (Dry Run)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, SelfHostedArm64]
     needs: [run-tests, build-dry-run]
     environment: ${{ inputs.environment }}
     steps:

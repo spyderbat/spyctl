@@ -1,12 +1,13 @@
 import fnmatch
 import ipaddress as ipaddr
+import json
 import re
 import time
 from copy import deepcopy
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Set
-from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import yaml
 
@@ -868,12 +869,15 @@ class NetworkNode:
         if self.node_list.ignore_procs:
             self.proc_node_list = []
         new_blocks = []
-        for block in self.ip_blocks:
-            if block in new_blocks:
+        for i, block in enumerate(self.ip_blocks):
+            if any([block in nb for nb in new_blocks]):
                 continue
             if self.node_list.ignore_private and block.network.is_private:
                 continue
             if self.node_list.ignore_public and not block.network.is_private:
+                continue
+            next_index = i + 1
+            if any([block in ob for ob in self.ip_blocks[next_index:]]):
                 continue
             new_blocks.append(block)
         self.ip_blocks = new_blocks
@@ -1382,6 +1386,7 @@ def merge_ingress_or_egress(
         net_node_list.symmetrical_merge(other_node_list)
     else:
         net_node_list.asymmetrical_merge(other_node_list)
+    net_node_list.internal_merge()
     result = net_node_list.get_data()
     return result
 
@@ -2399,12 +2404,12 @@ def guardian_procs_diff(original_spec, other_spec):
     ):
         diff_proc = other_proc.copy()
         diff_proc.pop(lib.CHILDREN_FIELD, None)
+        match_proc = None
         if not orig_procs:
             # If the process is new, document the node as added
             diff_proc["diff"] = "added"
         else:
             # Check to see if another process has a matching ID
-            match_proc = None
             for orig_proc in orig_procs:
                 if diff_proc[lib.ID_FIELD] == orig_proc[lib.ID_FIELD]:
                     cmp1 = diff_proc.copy()
@@ -2422,10 +2427,13 @@ def guardian_procs_diff(original_spec, other_spec):
         # Recursively check
         if lib.CHILDREN_FIELD in other_proc:
             diff_proc[lib.CHILDREN_FIELD] = []
+            orig_children = (
+                match_proc.get(lib.CHILDREN_FIELD, []) if match_proc else []
+            )
             for c_proc in other_proc[lib.CHILDREN_FIELD]:
                 guardian_proc_diff(
                     c_proc,
-                    other_proc.get(lib.CHILDREN_FIELD, []),
+                    orig_children,
                     diff_proc[lib.CHILDREN_FIELD],
                 )
         rv.append(diff_proc)
@@ -2493,9 +2501,7 @@ def guardian_network_diff(original_spec, other_spec):
             return rv
 
         def __hash__(self) -> int:
-            return hash(
-                f"{self.to_or_from}{self.ports}{self.type}{self.processes}"
-            )
+            return hash(json.dumps(self.as_dict(), sort_keys=True))
 
     def guardian_net_node_diff(
         other_nodes: Set[GuardianNetNode],

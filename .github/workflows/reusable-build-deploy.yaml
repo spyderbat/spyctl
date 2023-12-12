@@ -42,7 +42,7 @@ jobs:
         pytest ./spyctl_api
   build-and-push:
     name: Build and Push Container Image
-    runs-on: ubuntu-latest
+    runs-on: runs-on: [self-hosted, SelfHostedArm64]
     environment: ${{ inputs.environment }}
     strategy:
       fail-fast: false
@@ -98,7 +98,7 @@ jobs:
         push: true
   install:
     name: Install Helm Chart
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, SelfHostedArm64]
     environment: ${{ inputs.environment }}
     needs: [run-tests, build-and-push]
     steps:

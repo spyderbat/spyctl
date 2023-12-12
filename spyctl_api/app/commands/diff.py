@@ -1,10 +1,11 @@
+import json
 from dataclasses import dataclass
+from typing import Dict, List
 
 from spyctl.commands.merge import merge_resource
 
 import app.app_lib as app_lib
 import app.exceptions as ex
-from typing import Dict, List
 
 # ------------------------------------------------------------------------------
 # Diff Object with Object(s)
@@ -18,6 +19,8 @@ class DiffInput:
     org_uid: str = ""
     api_key: str = ""
     api_url: str = ""
+    full_diff: bool = False
+    content_type: str = "string"
 
 
 @dataclass
@@ -39,4 +42,15 @@ def diff(i: DiffInput) -> DiffOutput:
         msg = app_lib.flush_spyctl_log_messages()
         ex.internal_server_error(msg)
     app_lib.flush_spyctl_log_messages()
-    return DiffOutput(merge_data.get_diff())
+    if i.content_type == "json":
+        diff_obj = True
+    else:
+        diff_obj = False
+    diff_data = merge_data.get_diff(i.full_diff, diff_obj)
+    if isinstance(diff_data, str):
+        if i.content_type == "json":
+            raise ValueError(
+                "Diff of this object type does not support JSON output."
+            )
+        return DiffOutput(diff_data)
+    return DiffOutput(json.dumps(diff_data))

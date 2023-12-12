@@ -1,5 +1,5 @@
 import json
-from typing import List, Union
+from typing import List, Union, Literal, Optional
 
 import spyctl.schemas_v2 as schemas
 from fastapi import APIRouter, BackgroundTasks
@@ -19,8 +19,9 @@ PrimaryObject = Annotated[
 DiffObject = Annotated[
     Union[
         schemas.GuardianBaselineModel,
-        schemas.GuardianFingerprintModel,
+        schemas.GuardianDeviationModel,
         schemas.GuardianFingerprintGroupModel,
+        schemas.GuardianFingerprintModel,
         schemas.GuardianPolicyModel,
         schemas.UidListModel,
     ],
@@ -40,6 +41,10 @@ class DiffHandlerInput(BaseModel):
     org_uid: str
     api_key: str
     api_url: str
+    full_diff: Optional[bool] = False
+    content_type: Optional[Literal["string", "json"]] = Field(
+        default="string", title="The content type of the diff data"
+    )
 
 
 class DiffHandlerOutput(BaseModel):
@@ -61,6 +66,8 @@ def diff(
         i.org_uid,
         i.api_key,
         i.api_url,
+        i.full_diff,
+        i.content_type,
     )
     output = cmd_diff.diff(cmd_input)
     return DiffHandlerOutput(diff_data=output.diff_data)
