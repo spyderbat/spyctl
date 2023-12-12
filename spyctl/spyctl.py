@@ -22,8 +22,8 @@ import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
-from spyctl.commands.logs import handle_logs
 from spyctl.commands.edit import handle_edit
+from spyctl.commands.logs import handle_logs
 from spyctl.commands.test_notification import handle_test_notification
 
 MAIN_EPILOG = (
@@ -1057,7 +1057,7 @@ def diff(
         api,
         force_fprints,
         full_diff,
-        output
+        output,
     )
 
 
