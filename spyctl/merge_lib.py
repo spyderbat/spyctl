@@ -5,7 +5,8 @@ import time
 from copy import deepcopy
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Set
+from dataclasses import dataclass
 
 import yaml
 
@@ -74,7 +75,7 @@ class MergeObject:
         self.validation_fn = validation_fn
         self.starting_yaml = yaml.dump(obj_data)
         self.merge_network = merge_network
-
+        self.is_guardian = lib.is_guardian_obj(self.original_obj)
         # guardian spec merge settings
         self.__parse_disable_procs_settings(disable_procs)
         self.__parse_disable_conns_settings(disable_conns)
@@ -125,53 +126,58 @@ class MergeObject:
     def is_valid(self) -> bool:
         return schemas.valid_object(self.obj_data)
 
-    def get_diff(self, full_diff=False) -> Optional[str]:
-        original_yaml: str = yaml.dump(self.original_obj, sort_keys=False)
-        yaml_lines = original_yaml.splitlines()
-        diff_all_fields(self.original_obj, self.obj_data, yaml_lines)
-        if full_diff:
-            return "\n".join(yaml_lines)
+    def get_diff(
+        self, full_diff=False, diff_object=False
+    ) -> Optional[Union[str, Dict]]:
+        if diff_object and self.is_guardian:
+            return guardian_object_diff(self.original_obj, self.obj_data)
         else:
-            summary = []
-            in_sum = set()
-            found_spec = False
+            original_yaml: str = yaml.dump(self.original_obj, sort_keys=False)
+            yaml_lines = original_yaml.splitlines()
+            diff_all_fields(self.original_obj, self.obj_data, yaml_lines)
+            if full_diff:
+                return "\n".join(yaml_lines)
+            else:
+                summary = []
+                in_sum = set()
+                found_spec = False
 
-            def add_line_to_sum(index, sum_line):
-                if index not in in_sum:
+                def add_line_to_sum(index, sum_line):
+                    if index not in in_sum:
+                        if (
+                            index != 0
+                            and index - 1 >= 0
+                            and index - 1 not in in_sum
+                        ):
+                            summary.append("...")
+                        summary.append(sum_line)
+                        in_sum.add(index)
+
+                for i, line in enumerate(yaml_lines):
+                    stripped = line.strip()
                     if (
-                        index != 0
-                        and index - 1 >= 0
-                        and index - 1 not in in_sum
+                        line.startswith(f"{lib.ADD_COLOR}{ADD_START}")
+                        or line.startswith(f"{ADD_START}")
+                        or line.startswith(f"{lib.SUB_COLOR}{SUB_START}")
+                        or line.startswith(f"{SUB_START}")
+                        or not found_spec
+                        or stripped.startswith(lib.PROC_POLICY_FIELD)
+                        or stripped.startswith(lib.NET_POLICY_FIELD)
+                        or stripped.startswith(lib.INGRESS_FIELD)
+                        or stripped.startswith(lib.EGRESS_FIELD)
                     ):
-                        summary.append("...")
-                    summary.append(sum_line)
-                    in_sum.add(index)
-
-            for i, line in enumerate(yaml_lines):
-                stripped = line.strip()
-                if (
-                    line.startswith(f"{lib.ADD_COLOR}{ADD_START}")
-                    or line.startswith(f"{ADD_START}")
-                    or line.startswith(f"{lib.SUB_COLOR}{SUB_START}")
-                    or line.startswith(f"{SUB_START}")
-                    or not found_spec
-                    or stripped.startswith(lib.PROC_POLICY_FIELD)
-                    or stripped.startswith(lib.NET_POLICY_FIELD)
-                    or stripped.startswith(lib.INGRESS_FIELD)
-                    or stripped.startswith(lib.EGRESS_FIELD)
-                ):
-                    if line.strip().startswith(lib.SPEC_FIELD):
-                        found_spec = True
-                    for x in range(i - 5, i):
-                        if x >= 0:
-                            add_line_to_sum(x, yaml_lines[x])
-                    add_line_to_sum(i, line)
-                    for x in range(i + 1, i + 6):
-                        if x < len(yaml_lines):
-                            add_line_to_sum(x, yaml_lines[x])
-            if max(in_sum) != len(yaml_lines) - 1:
-                summary.append("...")
-            return "\n".join(summary)
+                        if line.strip().startswith(lib.SPEC_FIELD):
+                            found_spec = True
+                        for x in range(i - 5, i):
+                            if x >= 0:
+                                add_line_to_sum(x, yaml_lines[x])
+                        add_line_to_sum(i, line)
+                        for x in range(i + 1, i + 6):
+                            if x < len(yaml_lines):
+                                add_line_to_sum(x, yaml_lines[x])
+                if max(in_sum) != len(yaml_lines) - 1:
+                    summary.append("...")
+                return "\n".join(summary)
 
     def get_obj_data(self):
         return self.obj_data
@@ -342,20 +348,6 @@ class MergeSchema:
         # in common for a given selector or that selector will remain
         # deleted.
         self.is_selector = is_selector
-
-
-class DiffSchema:
-    def __init__(
-        self,
-        field: str,
-        sub_schemas: Dict[str, "DiffSchema"] = {},
-        diff_functions: Dict[str, Callable] = {},
-        values_required=False,
-    ) -> None:
-        self.field = field
-        self.sub_schemas = sub_schemas
-        self.diff_functions = diff_functions
-        self.values_required = values_required
 
 
 class ProcessNode:
@@ -2367,3 +2359,230 @@ def list_diffs(
             )
         )
     return unify_diffs(diffs)
+
+
+def guardian_object_diff(original_data: Dict, other_data: Dict):
+    """
+    Calculate the difference between two guardian objects. This is an alternative
+    output to string-based diffs focusing specifically on the process, and
+    connection nodes within the guardian objects.
+
+    Args:
+        original_data (Dict): The original guardian object.
+        other_data (Dict): The other guardian object to compare with.
+
+    Returns:
+        Dict: The difference between the two guardian objects.
+    """
+    rv = other_data.copy()
+    rv[lib.SPEC_FIELD] = other_data[lib.SPEC_FIELD].copy()
+    rv[lib.SPEC_FIELD][lib.PROC_POLICY_FIELD] = []
+    rv[lib.SPEC_FIELD][lib.NET_POLICY_FIELD] = other_data[lib.SPEC_FIELD][
+        lib.NET_POLICY_FIELD
+    ].copy()
+    rv[lib.SPEC_FIELD][lib.NET_POLICY_FIELD][INGRESS_FIELD] = []
+    rv[lib.SPEC_FIELD][lib.NET_POLICY_FIELD][EGRESS_FIELD] = []
+    orig_spec = original_data[lib.SPEC_FIELD]
+    other_spec = other_data[lib.SPEC_FIELD]
+    rv[lib.SPEC_FIELD][lib.PROC_POLICY_FIELD] = guardian_procs_diff(
+        orig_spec, other_spec
+    )
+    rv[lib.SPEC_FIELD][lib.NET_POLICY_FIELD] = guardian_network_diff(
+        orig_spec, other_spec
+    )
+    return rv
+
+
+def guardian_procs_diff(original_spec, other_spec):
+    def guardian_proc_diff(
+        other_proc: Dict, orig_procs: List[Dict], rv: List[Dict]
+    ):
+        diff_proc = other_proc.copy()
+        diff_proc.pop(lib.CHILDREN_FIELD, None)
+        if not orig_procs:
+            # If the process is new, document the node as added
+            diff_proc["diff"] = "added"
+        else:
+            # Check to see if another process has a matching ID
+            match_proc = None
+            for orig_proc in orig_procs:
+                if diff_proc[lib.ID_FIELD] == orig_proc[lib.ID_FIELD]:
+                    cmp1 = diff_proc.copy()
+                    cmp1.pop(lib.CHILDREN_FIELD, None)
+                    cmp2 = orig_proc.copy()
+                    cmp2.pop(lib.CHILDREN_FIELD, None)
+                    # The processes are different, document the node as changed
+                    if cmp1 != cmp2:
+                        diff_proc["diff"] = "changed"
+                    match_proc = orig_proc
+                    break
+            # We didn't find a matching ID so document the node as added
+            if not match_proc:
+                diff_proc["diff"] = "added"
+        # Recursively check
+        if lib.CHILDREN_FIELD in other_proc:
+            diff_proc[lib.CHILDREN_FIELD] = []
+            for c_proc in other_proc[lib.CHILDREN_FIELD]:
+                guardian_proc_diff(
+                    c_proc,
+                    other_proc.get(lib.CHILDREN_FIELD, []),
+                    diff_proc[lib.CHILDREN_FIELD],
+                )
+        rv.append(diff_proc)
+
+    def guardian_proc_check_removed(
+        orig_proc: Dict, other_procs: List[Dict], rv: List[Dict]
+    ):
+        # Check to see if another process has a matching ID
+        match_proc = None
+        for other_proc in other_procs:
+            if orig_proc[lib.ID_FIELD] == other_proc[lib.ID_FIELD]:
+                match_proc = other_proc
+                break
+        if not match_proc:
+            # If the process is removed, document the node and all of its children as removed
+            diff_proc = deepcopy(orig_proc)
+            guardian_proc_set_removed(diff_proc)
+            rv.append(diff_proc)
+        else:
+            # Recursively check
+            if lib.CHILDREN_FIELD in orig_proc:
+                for c_proc in orig_proc[lib.CHILDREN_FIELD]:
+                    guardian_proc_check_removed(
+                        c_proc,
+                        match_proc.get(lib.CHILDREN_FIELD, []),
+                        orig_proc[lib.CHILDREN_FIELD],
+                    )
+
+    def guardian_proc_set_removed(diff_proc):
+        diff_proc["diff"] = "removed"
+        if lib.CHILDREN_FIELD in diff_proc:
+            for c_proc in diff_proc[lib.CHILDREN_FIELD]:
+                guardian_proc_set_removed(c_proc)
+
+    rv = []
+    orig_procs = original_spec[lib.PROC_POLICY_FIELD]
+    other_procs = other_spec[lib.PROC_POLICY_FIELD]
+    for other_proc in other_procs:
+        guardian_proc_diff(other_proc, orig_procs, rv)
+    for orig_proc in orig_procs:
+        guardian_proc_check_removed(orig_proc, other_procs, rv)
+    return rv
+
+
+def guardian_network_diff(original_spec, other_spec):
+    @dataclass(frozen=True)
+    class GuardianNetNode:
+        to_or_from: List
+        ports: List[str]
+        type: str
+        processes: List[str] = None
+
+        def as_dict(self):
+            tf_str = (
+                lib.FROM_FIELD
+                if self.type == lib.INGRESS_FIELD
+                else lib.TO_FIELD
+            )
+            rv = {
+                tf_str: self.to_or_from,
+                lib.PORTS_FIELD: self.ports,
+            }
+            if self.processes:
+                rv[lib.PROCESSES_FIELD] = self.processes
+            return rv
+
+        def __hash__(self) -> int:
+            return hash(
+                f"{self.to_or_from}{self.ports}{self.type}{self.processes}"
+            )
+
+    def guardian_net_node_diff(
+        other_nodes: Set[GuardianNetNode],
+        orig_nodes: Set[GuardianNetNode],
+        rv_nodes: List[Dict],
+    ):
+        added = other_nodes.difference(orig_nodes)
+        for node in added:
+            rv_node = node.as_dict()
+            rv_node["diff"] = "added"
+            rv_nodes.append(rv_node)
+        removed = orig_nodes.difference(other_nodes)
+        for node in removed:
+            rv_node = node.as_dict()
+            rv_node["diff"] = "removed"
+            rv_nodes.append(rv_node)
+        unchanged = other_nodes.intersection(orig_nodes)
+        for node in unchanged:
+            rv_node = node.as_dict()
+            rv_nodes.append(rv_node)
+
+    def make_individual_node_set(nodes: List[Dict]) -> Set[GuardianNetNode]:
+        rv = set()
+        for node in nodes:
+            if lib.FROM_FIELD in node:
+                type = lib.INGRESS_FIELD
+            else:
+                type = lib.EGRESS_FIELD
+            to_or_from = node.get(lib.TO_FIELD, node.get(lib.FROM_FIELD, []))
+            processes = node.get(lib.PROCESSES_FIELD, [])
+            ports = node.get(lib.PORTS_FIELD, [])
+            for tf in to_or_from:
+                parse_to_from(rv, tf, processes, ports, type)
+        return rv
+
+    def parse_to_from(
+        rv_set: Set,
+        tf: Dict,
+        processes: Optional[List[str]],
+        ports: List[str],
+        type: str,
+    ):
+        if lib.DNS_SELECTOR_FIELD in tf:
+            for dns_name in tf[lib.DNS_SELECTOR_FIELD]:
+                for port in ports:
+                    if processes:
+                        for proc in processes:
+                            rv_set.add(
+                                GuardianNetNode(
+                                    [{lib.DNS_SELECTOR_FIELD: [dns_name]}],
+                                    [port],
+                                    type,
+                                    [proc],
+                                )
+                            )
+                    else:
+                        rv_set.add(
+                            GuardianNetNode(
+                                {lib.DNS_SELECTOR_FIELD: [dns_name]},
+                                [port],
+                                type,
+                            )
+                        )
+        else:
+            for port in ports:
+                if processes:
+                    for proc in processes:
+                        rv_set.add(GuardianNetNode([tf], [port], type, [proc]))
+                else:
+                    rv_set.add(GuardianNetNode([tf], [port], type))
+
+    rv = {
+        lib.INGRESS_FIELD: [],
+        lib.EGRESS_FIELD: [],
+    }
+    orig_ingress = make_individual_node_set(
+        original_spec[lib.NET_POLICY_FIELD][lib.INGRESS_FIELD]
+    )
+    other_ingress = make_individual_node_set(
+        other_spec[lib.NET_POLICY_FIELD][lib.INGRESS_FIELD]
+    )
+    guardian_net_node_diff(other_ingress, orig_ingress, rv[lib.INGRESS_FIELD])
+    orig_egress = make_individual_node_set(
+        original_spec[lib.NET_POLICY_FIELD][lib.EGRESS_FIELD]
+    )
+    other_egress = make_individual_node_set(
+        other_spec[lib.NET_POLICY_FIELD][lib.EGRESS_FIELD]
+    )
+    guardian_net_node_diff(other_egress, orig_egress, rv[lib.EGRESS_FIELD])
+    return rv

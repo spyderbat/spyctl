@@ -932,6 +932,12 @@ def describe(resource, name_or_id, filename=None):
     " are shown in the summary).",
 )
 @click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -961,6 +967,7 @@ def diff(
     et,
     include_network,
     colorize,
+    output,
     yes=False,
     with_file=None,
     with_policy=None,
@@ -1050,6 +1057,7 @@ def diff(
         api,
         force_fprints,
         full_diff,
+        output
     )
 
 
