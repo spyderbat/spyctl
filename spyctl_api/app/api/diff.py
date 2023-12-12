@@ -42,7 +42,7 @@ class DiffHandlerInput(BaseModel):
     api_key: str
     api_url: str
     full_diff: Optional[bool] = False
-    content_type: Optional[Literal["string", "json"]] = Field(
+    content_type: Optional[Literal["text", "json"]] = Field(
         default="string", title="The content type of the diff data"
     )
 

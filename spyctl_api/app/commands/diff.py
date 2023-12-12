@@ -20,7 +20,7 @@ class DiffInput:
     api_key: str = ""
     api_url: str = ""
     full_diff: bool = False
-    content_type: str = "string"
+    content_type: str = "text"
 
 
 @dataclass
