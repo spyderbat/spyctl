@@ -208,4 +208,37 @@ TEMPLATES = [
             },
         },
     },
+    {
+        "display_name": "Guardian Deviation",
+        "id": "nc_tmpl:000000009",
+        "description": "Send a notification when we see a guardian deviation. (1 hr cooldown per unique deviation)",
+        "type": "guardian",
+        "config": {
+            "schema_type": "event_audit",
+            "sub_schema": "guardian_deviation",
+            "condition": "",
+            "cooldown": {
+                "byField": ["policy_uid", "checksum"],
+                "forSeconds": 3600,
+            },
+            "title": "Spyderbat Guardian Deviation Detected",
+            "message": 'Record "{{ ref }}" deviated from policy "{{ policy_name }}". To update the policy using Spyctl execute:\n'
+            "```spyctl get deviation --policies {{ policy_uid }} {{ id }} -o yaml > deviation.yaml\n"
+            "spyctl merge -p {{ policy_uid }} --with-file deviation.yaml```\n"
+            "\n{{ __origin__ }}\n",
+            "additional_fields": {
+                "details": {
+                    "Time": "{{ __hr_time__ }}",
+                    "Policy": "{{ policy_name }}",
+                    "Policy UID": "{{ policy_uid }}",
+                    "Policy Mode": "{{ policy_mode }}",
+                    "Cluster": "{{ __cluster__ }}",
+                    "Hostname": "{{ hostname }}",
+                },
+                "linkback_text": "View in Spyderbat",
+                "linkback_url": "{{ __linkback__ }}",
+                "slack_icon": ":warning:",
+            },
+        },
+    },
 ]

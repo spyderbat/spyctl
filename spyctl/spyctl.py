@@ -22,8 +22,8 @@ import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
-from spyctl.commands.logs import handle_logs
 from spyctl.commands.edit import handle_edit
+from spyctl.commands.logs import handle_logs
 from spyctl.commands.test_notification import handle_test_notification
 
 MAIN_EPILOG = (
@@ -932,6 +932,12 @@ def describe(resource, name_or_id, filename=None):
     " are shown in the summary).",
 )
 @click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -961,6 +967,7 @@ def diff(
     et,
     include_network,
     colorize,
+    output,
     yes=False,
     with_file=None,
     with_policy=None,
@@ -1050,6 +1057,7 @@ def diff(
         api,
         force_fprints,
         full_diff,
+        output,
     )
 
 
@@ -1183,10 +1191,9 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " output",
                 ),
                 click.option(
-                    "--items-list",
+                    "--raw-data",
                     is_flag=True,
-                    help="Return deviations in a format compatible with local"
-                    " diff'ing and merging.",
+                    help="Return the raw event_audit:guardian_deviation data.",
                 ),
             ],
         },

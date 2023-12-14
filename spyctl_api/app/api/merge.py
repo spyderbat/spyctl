@@ -19,8 +19,9 @@ PrimaryObject = Annotated[
 MergeObject = Annotated[
     Union[
         schemas.GuardianBaselineModel,
-        schemas.GuardianFingerprintModel,
+        schemas.GuardianDeviationModel,
         schemas.GuardianFingerprintGroupModel,
+        schemas.GuardianFingerprintModel,
         schemas.GuardianPolicyModel,
         schemas.UidListModel,
     ],
