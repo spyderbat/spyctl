@@ -42,8 +42,13 @@ jobs:
         pytest ./spyctl_api
   build-dry-run:
     name: Docker Build Dry-Run
-    runs-on: [self-hosted, ARM64]
+    runs-on: [self-hosted, linux, ARM64]
     environment: ${{ inputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/arm/v8
     needs: run-tests
     steps:
     - name: Checkout
@@ -78,25 +83,22 @@ jobs:
         mkdir ./spyctl_api/build
         mkdir ./spyctl_api/build/spyctl
         cp -r ./spyctl ./pyproject.toml ./spyctl_api/build/spyctl
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
     - name: Build, Tag & Push Img to ECR
       id: build-image
+      uses: docker/build-push-action@v5
       env:
         ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
         IMAGE_TAG: "${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
-      run: |
-        # Build docker container and push it to ECR
-        cd ./spyctl_api
-        echo build -t spyctl-api .
-        docker build -t spyctl-api .
-        echo "Tagging Image"
-        echo docker tag spyctl-api:$IMAGE_TAG $ECR_REPOSITORY:$IMAGE_TAG
-        docker tag spyctl-api:latest $ECR_REPOSITORY:$IMAGE_TAG
-        echo "Pushing image to ECR..."
-        echo docker push $ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REPOSITORY:$IMAGE_TAG
+      with:
+        platforms: ${{ matrix.platform }}
+        context: ./spyctl_api
+        tags: "${{ secrets.REPO_NAME }}:latest,${{ secrets.REPO_NAME }}:${{ inputs.deployment }}.${{ steps.sha_var.outputs.sha_short }}"
+        push: true
   install-dry-run:
     name: Install Helm Chart (Dry Run)
-    runs-on: [self-hosted, ARM64]
+    runs-on: [self-hosted, linux, ARM64]
     needs: [run-tests, build-dry-run]
     environment: ${{ inputs.environment }}
     steps:

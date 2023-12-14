@@ -1,18 +1,17 @@
 import os
 import shutil
+import unittest.mock as mock
 from fnmatch import fnmatch
-from pathlib import Path
 from itertools import groupby
-import pytest
+from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
-from spyctl import spyctl
-from spyctl.spyctl_lib import time_inp
-from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
-import unittest.mock as mock
 import spyctl.tests.mock_functions as mock_func
-
+from spyctl import spyctl
+from spyctl.config.configs import CURR_CONTEXT_NONE, set_testing
+from spyctl.spyctl_lib import time_inp
 
 API_KEY = os.environ.get("API_KEY")
 API_URL = os.environ.get("API_URL")
@@ -109,40 +108,51 @@ def process_table_response(output: str):
 
 resources = (
     "clusters",
-    "machines",
+    "sources",
     "policies",
     "pods",
     "nodes",
     "deployments",
     "fingerprints",
-    # "namespaces", # doesn't output a table
+    "namespaces",  # doesn't output a table
     "redflags",
     "opsflags",
 )
 
 
-@mock.patch(
-    "spyctl.commands.get.api.get_clusters", mock_func.mock_get_clusters
+@mock.patch.multiple(
+    "spyctl.commands.get.api",
+    get_clusters=mock_func.mock_get_clusters,
+    get_deployments=mock_func.mock_get_deployments,
+    get_fingerprints=mock_func.mock_get_fingerprints,
+    get_namespaces=mock_func.mock_get_namespaces,
+    get_nodes=mock_func.mock_get_nodes,
+    get_opsflags=mock_func.mock_get_opsflags,
+    get_pods=mock_func.mock_get_pods,
+    get_policies=mock_func.mock_get_policies,
+    get_redflags=mock_func.mock_get_redflags,
+    get_sources=mock_func.mock_get_sources,
 )
-@mock.patch(
-    "spyctl.commands.get.api.get_machines", mock_func.mock_get_machines
+@mock.patch.multiple(
+    "spyctl.resources.deployments.api",
+    get_deployments=mock_func.mock_get_deployments,
 )
-@mock.patch("spyctl.commands.get.api.get_pods", mock_func.mock_get_pods)
-@mock.patch("spyctl.commands.get.api.get_nodes", mock_func.mock_get_nodes)
-@mock.patch(
-    "spyctl.commands.get.api.get_deployments", mock_func.mock_get_deployments
+@mock.patch.multiple(
+    "spyctl.resources.flags.api",
+    get_opsflags=mock_func.mock_get_opsflags,
+    get_redflags=mock_func.mock_get_redflags,
 )
-@mock.patch(
-    "spyctl.commands.get.api.get_fingerprints", mock_func.mock_get_fingerprints
+@mock.patch.multiple(
+    "spyctl.resources.namespaces.api",
+    get_namespaces=mock_func.mock_get_namespaces,
 )
-@mock.patch(
-    "spyctl.commands.get.api.get_redflags", mock_func.mock_get_redflags
+@mock.patch.multiple(
+    "spyctl.resources.nodes.api",
+    get_nodes=mock_func.mock_get_nodes,
 )
-@mock.patch(
-    "spyctl.commands.get.api.get_opsflags", mock_func.mock_get_opsflags
-)
-@mock.patch(
-    "spyctl.commands.get.api.get_policies", mock_func.mock_get_policies
+@mock.patch.multiple(
+    "spyctl.resources.pods.api",
+    get_pods=mock_func.mock_get_pods,
 )
 @pytest.mark.parametrize("resource", resources)
 def test_get_resources(resource):

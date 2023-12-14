@@ -22,7 +22,9 @@ import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
+from spyctl.commands.edit import handle_edit
 from spyctl.commands.logs import handle_logs
+from spyctl.commands.test_notification import handle_test_notification
 
 MAIN_EPILOG = (
     "\b\n"
@@ -521,6 +523,65 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     )
 
 
+@create.command(
+    "notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG
+)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-n",
+    "--name",
+    help="A name for the target. Used by other resources to refer to the configured target destination.",
+    metavar="",
+    required=True,
+)
+@click.option(
+    "-T",
+    "--type",
+    required=True,
+    type=click.Choice(lib.DST_TYPES, case_sensitive=False),
+    help="The type of destination for the target.",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def create_notif_tgt(name, type, output):
+    c.handle_create_notif_tgt(name, type, output)
+
+
+@create.command(
+    "notification-config", cls=lib.CustomCommand, epilog=SUB_EPILOG
+)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-n", "--name", help="A name for the config.", metavar="", required=True
+)
+@click.option(
+    "-T",
+    "--target",
+    help="The name or ID of a notification target. Tells the config where to send notifications.",
+    metavar="",
+    required=True,
+)
+@click.option(
+    "-P",
+    "--template",
+    help="The name or ID of a notification configuration template. If omitted, the config will be completely custom.",
+    metavar="",
+    default="CUSTOM",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+def create_notif_route(name, target, template, output):
+    c.handle_create_notif_config(name, target, template, output)
+
+
 @create.command("policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
@@ -741,7 +802,7 @@ def create_suppression_policy(
 @main.command("delete", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.argument("resource", type=lib.DelResourcesParam())
-@click.argument("name_or_id")
+@click.argument("name_or_id", required=False)
 @click.option(
     "-y",
     "--yes",
@@ -858,6 +919,25 @@ def describe(resource, name_or_id, filename=None):
     type=lib.time_inp,
 )
 @click.option(
+    "--force-fprints",
+    is_flag=True,
+    help="Force spyctl to diff a policy with relevant fingerprints when it."
+    "would otherwise be diff'd with deviations.",
+)
+@click.option(
+    "--full-diff",
+    is_flag=True,
+    help="A diff summary is shown by default, set this flag to show the full"
+    " object when viewing a diff. (All changes to the object"
+    " are shown in the summary).",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -887,11 +967,14 @@ def diff(
     et,
     include_network,
     colorize,
+    output,
     yes=False,
     with_file=None,
     with_policy=None,
     latest=False,
     api=False,
+    force_fprints=False,
+    full_diff=False,
 ):
     """Diff target Baselines and Policies with other Resources.
 
@@ -899,7 +982,8 @@ def diff(
     document you are maintaining) and a Resource to diff with the target.
     A target can be either a local file supplied using the -f option or a policy
     you've applied to the Spyderbat Backend supplied with the -p option.
-    By default, target's are diff'd with relevant* Fingerprints from the last 24
+    By default, target's are diff'd with deviations if they are applied policies,
+    otherwise they are diff'd with relevant* Fingerprints from the last 24
     hours to now. Targets may also be diff'd with local files with the -w option
     or with data from an existing applied policy using the -P option.
 
@@ -913,23 +997,23 @@ def diff(
 
     \b
     Examples:
-      # diff a local policy file with relevant* Fingerprints from the last
+      # diff a local policy file with data from the last
       # 24hrs to now:
       spyctl diff -f policy.yaml\n
     \b
-      # diff a local policy file with relevant* Fingerprints from its
+      # diff a local policy file with data from its
       # latestTimestamp field to now:
       spyctl diff -f policy.yaml --latest\n
     \b
-      # diff an existing applied policy with relevant* Fingerprints from the
+      # diff an existing applied policy with data from the
       # last 24hrs to now:
       spyctl diff -p <NAME_OR_UID>\n
     \b
-      # Bulk diff all existing policies with relevant* Fingerprints from the
+      # Bulk diff all existing policies with data from the
       # last 24hrs to now:
       spyctl diff -p\n
     \b
-      # Bulk diff multiple policies with relevant* Fingerprints from the
+      # Bulk diff multiple policies with data from the
       # last 24hrs to now:
       spyctl diff -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
     \b
@@ -971,7 +1055,41 @@ def diff(
         latest,
         include_network,
         api,
+        force_fprints,
+        full_diff,
+        output,
     )
+
+
+# ----------------------------------------------------------------- #
+#                          Edit Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("edit", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.EditResourcesParam(), required=False)
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename to use to edit the resource.",
+    metavar="",
+    type=click.File(mode="r+"),
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def edit(resource, name_or_id, filename, yes=False):
+    """Edit resources by resource and name, or by resource and ids"""
+    if yes:
+        cli.set_yes_option()
+    handle_edit(resource, name_or_id, filename)
 
 
 # ----------------------------------------------------------------- #
@@ -982,6 +1100,32 @@ def diff(
 class GetCommand(lib.ArgumentParametersCommand):
     argument_name = "resource"
     argument_value_parameters = [
+        {
+            "resource": [
+                lib.AGENT_RESOURCE,
+                lib.CONNECTIONS_RESOURCE,
+                lib.CONTAINER_RESOURCE,
+                lib.DEPLOYMENTS_RESOURCE,
+                lib.FINGERPRINTS_RESOURCE,
+                lib.MACHINES_RESOURCE,
+                lib.NODES_RESOURCE,
+                lib.NODES_RESOURCE,
+                lib.OPSFLAGS_RESOURCE,
+                lib.PODS_RESOURCE,
+                lib.PROCESSES_RESOURCE,
+                lib.REDFLAGS_RESOURCE,
+                lib.SPYDERTRACE_RESOURCE,
+            ],
+            "args": [
+                click.option(
+                    "--latest_model",
+                    help="Use additional memory when outputting json or yaml"
+                    " to ensure only the latest version of each model is"
+                    " returned.",
+                    is_flag=True,
+                ),
+            ],
+        },
         {
             "resource": [lib.REDFLAGS_RESOURCE, lib.OPSFLAGS_RESOURCE],
             "args": [
@@ -1006,8 +1150,98 @@ class GetCommand(lib.ArgumentParametersCommand):
             ],
         },
         {
+            "resource": [lib.NOTIFICATION_CONFIGS_RESOURCE],
+            "args": [
+                click.option(
+                    "--full-policy",
+                    "full_policy",
+                    is_flag=True,
+                    default=False,
+                    help="Emit the full organization notification policy"
+                    " object when using yaml or json output format.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.NOTIFICATION_CONFIG_TEMPLATES_RESOURCE],
+            "args": [
+                click.option(
+                    "--type",
+                    metavar="",
+                    type=click.Choice(lib.NOTIF_TMPL_TYPES),
+                    help="Emit the full organization notification policy"
+                    " object when using yaml or json output format.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.DEVIATIONS_RESOURCE],
+            "args": [
+                click.option(
+                    f"--{lib.POLICIES_FIELD}",
+                    "policies",
+                    help="Policies to get deviations from.",
+                    type=lib.ListParam(),
+                    metavar="",
+                ),
+                click.option(
+                    "--unique",
+                    is_flag=True,
+                    help="Only return unique deviations in json or yaml"
+                    " output",
+                ),
+                click.option(
+                    "--raw-data",
+                    is_flag=True,
+                    help="Return the raw event_audit:guardian_deviation data.",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.AGENT_RESOURCE],
+            "args": [
+                click.option(
+                    "--usage-csv",
+                    help="Outputs the usage metrics for 1 or more agents to"
+                    " a specified csv file.",
+                    type=click.File(mode="w"),
+                ),
+                click.option(
+                    "--usage-json",
+                    help="Outputs the usage metrics for 1 or more agents to"
+                    " stdout in json format.",
+                    is_flag=True,
+                    default=False,
+                ),
+                click.option(
+                    "--raw-metrics-json",
+                    help="Outputs the raw metrics records for 1 or more agents"
+                    " to stdout in json format.",
+                    is_flag=True,
+                    default=False,
+                ),
+                click.option(
+                    "--health-only",
+                    help="This flag returns the agents list, but doesn't query"
+                    " metrics (Faster) in the '-o wide' output. You will still"
+                    " see the agent's health.",
+                    default=False,
+                    is_flag=True,
+                ),
+            ],
+        },
+        {
             "resource": [lib.FINGERPRINTS_RESOURCE],
             "args": [
+                click.option(
+                    "-l",
+                    "--latest",
+                    help="Starting time of the query is set to the"
+                    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
+                    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
+                    " --start-time. [Requires '--filename' option to be set]",
+                    is_flag=True,
+                ),
                 click.option(
                     "-f",
                     "--filename",
@@ -1052,6 +1286,12 @@ class GetCommand(lib.ArgumentParametersCommand):
                     ),
                     help="The type of fingerprint to return.",
                 ),
+                click.option(
+                    "--raw-data",
+                    is_flag=True,
+                    help="When outputting to yaml or json, this outputs the"
+                    " raw fingerprint data, instead of the fingerprint groups",
+                ),
             ],
         },
         {
@@ -1063,6 +1303,18 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="Ignores differing ips in the table output."
                     " Off by default.",
+                ),
+                click.option(
+                    "--remote-port",
+                    lib.REMOTE_PORT,
+                    help="The port number on the remote side of the connection.",
+                    type=click.INT,
+                ),
+                click.option(
+                    "--local-port",
+                    lib.LOCAL_PORT,
+                    help="The port number on the local side of the connection.",
+                    type=click.INT,
                 ),
             ],
         },
@@ -1097,6 +1349,12 @@ class GetCommand(lib.ArgumentParametersCommand):
                     "--output-to-file",
                     help="Should output policies to a file. Unique filename"
                     " created from the name in each policy's metadata.",
+                    is_flag=True,
+                ),
+                click.option(
+                    "--get-deviations",
+                    help="In the summary output, show deviations count for the"
+                    " provided time window",
                     is_flag=True,
                 ),
             ],
@@ -1187,15 +1445,6 @@ class GetCommand(lib.ArgumentParametersCommand):
     ),
 )
 @click.option(
-    "-l",
-    "--latest",
-    help="Starting time of the query is set to the"
-    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
-    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
-    " --start-time. [Requires '--filename' option to be set]",
-    is_flag=True,
-)
-@click.option(
     "-E",
     "--exact",
     "--exact-match",
@@ -1219,6 +1468,11 @@ class GetCommand(lib.ArgumentParametersCommand):
     default=time.time(),
     type=lib.time_inp,
 )
+@click.option(
+    "--ndjson",
+    help="If output is 'json' this outputs each json record on its own line",
+    is_flag=True,
+)
 def get(
     resource,
     st,
@@ -1239,8 +1493,10 @@ def get(
     Some resources are retrieved from from databases where a time range can
     be specified:
     - Connections
+    - Connection Bundles
     - Containers
     - Deployments
+    - Deviations
     - Fingerprints
     - Namespaces
     - Nodes
@@ -1249,6 +1505,7 @@ def get(
     - Processes
     - RedFlags
     - Spydertraces
+    - Agents
 
     \b
     Other resources come from databases where time ranges are not applicable:
@@ -1492,6 +1749,19 @@ def logs(
     is_flag=True,
 )
 @click.option(
+    "--force-fprints",
+    is_flag=True,
+    help="Force spyctl to merge a policy with relevant fingerprints when it."
+    "would otherwise be merged with deviations.",
+)
+@click.option(
+    "--full-diff",
+    is_flag=True,
+    help="A diff summary is shown by default, set this flag to show the full"
+    " object when viewing a diff following a merge. (All changes to the object"
+    " are shown in the summary).",
+)
+@click.option(
     "-y",
     "--yes",
     "--assume-yes",
@@ -1541,6 +1811,8 @@ def merge(
     latest=False,
     output_to_file=False,
     api=False,
+    force_fprints=False,
+    full_diff=False,
 ):
     """Merge target Baselines and Policies with other Resources.
 
@@ -1548,7 +1820,8 @@ def merge(
     document you are maintaining) and a Resource to merge into the target.
     A target can either be a local file supplied using the -f option or a policy
     you've applied to the Spyderbat Backend supplied with the -p option.
-    By default, target's are merged with relevant* Fingerprints from the last 24
+    By default, target's are merged with deviations if they are applied policies,
+    otherwise they are merged with relevant* Fingerprints from the last 24
     hours to now. Targets may also be merged with local files with the -w option
     or with data from an existing applied policy using the -P option.
 
@@ -1570,28 +1843,28 @@ def merge(
 
     \b
     Examples:
-      # merge a local policy file with relevant* Fingerprints from the last
+      # merge a local policy file with data from the last
       # 24hrs to now:
       spyctl merge -f policy.yaml\n
     \b
-      # merge a local policy file with relevant* Fingerprints from its
+      # merge a local policy file with data from its
       # latestTimestamp field to now:
       spyctl merge -f policy.yaml --latest\n
     \b
-      # merge an existing applied policy with relevant* Fingerprints from the
+      # merge an existing applied policy with data from the
       # last 24hrs to now:
       spyctl merge -p <NAME_OR_UID>\n
     \b
-      # Bulk merge all existing policies with relevant* Fingerprints from the
+      # Bulk merge all existing policies with data from the
       # last 24hrs to now:
       spyctl merge -p\n
     \b
-      # Bulk merge multiple policies with relevant* Fingerprints from the
+      # Bulk merge multiple policies with data from the
       # last 24hrs to now:
       spyctl merge -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
     \b
-      # Bulk merge all files in cwd matching a pattern with relevant*
-      # Fingerprints from the last 24hrs to now:
+      # Bulk merge all files in cwd matching a pattern with data
+      # from the last 24hrs to now:
       spyctl merge -f *.yaml\n
     \b
       # merge an existing applied policy with a local file:
@@ -1633,6 +1906,8 @@ def merge(
         yes_except,
         include_network,
         api,
+        force_fprints,
+        full_diff,
     )
 
 
@@ -1713,6 +1988,33 @@ def suppress_spydertrace(
         cli.set_yes_option()
     if id:
         sup.handle_suppress_trace_by_id(id, include_users)
+
+
+# ----------------------------------------------------------------- #
+#                   Test Notification Subcommand                    #
+# ----------------------------------------------------------------- #
+
+
+@main.command("test-notification", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-T",
+    "--targets",
+    type=lib.ListParam(),
+    metavar="",
+    help="Comma-delimitated list of target names to send a test notification"
+    " to. Use 'spyctl get notification-targets' to see what is available.",
+)
+def test_notification(targets):
+    """Send test notifications to Targets or Notification Routes.
+
+    Targets are named destinations like email, slack hooks, webhooks, or sns
+    topics.
+    Notification Routes define which notifications are send to which targets.
+    Testing a notification route will send a test notification to one or many
+    targets it is configured with.
+    """
+    handle_test_notification(targets)
 
 
 # ----------------------------------------------------------------- #
