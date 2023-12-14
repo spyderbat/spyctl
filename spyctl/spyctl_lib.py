@@ -948,11 +948,12 @@ NOTIF_TYPES = [
     NOTIF_TYPE_DASHBOARD,
 ]
 NOTIF_TYPE_FIELD = "type"
-NOTIF_TMPL_TYPES = ["agent-health", "security", "operations"]
+NOTIF_TMPL_TYPES = ["agent-health", "security", "operations", "guardian"]
 NOTIF_TMPL_MAP = {
     "agent-health": "agent_health",
     "security": "security",
     "operations": "operations",
+    "guardian": "guardian",
 }
 DST_TYPE_ORG = "org_uid"
 DST_TYPE_EMAIL = "emails"
@@ -1018,6 +1019,8 @@ NOTIF_DST_TGTS = "targets"
 NOTIF_DATA_FIELD = "data"
 NOTIF_CONDITION_FIELD = "condition"
 NOTIF_COOLDOWN_FIELD = "cooldown"
+NOTIF_COOLDOWN_BY_FIELD_FIELD = "byField"
+NOTIF_COOLDOWN_SECONDS_FIELD = "forSeconds"
 NOTIF_FOR_DURATION_FIELD = "forDuration"
 NOTIF_SETTINGS_FIELD = "analyticsConfiguration"
 NOTIF_NAME_FIELD = "name"

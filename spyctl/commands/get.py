@@ -389,9 +389,9 @@ def handle_get_deployments(name_or_id, st, et, output, **filters):
             cli.show(deployment, output, ndjson=NDJSON)
 
 
-def handle_get_deviations(name_or_id, st, et, output, **filters):
+def handle_get_deviations(name_or_id: str, st, et, output, **filters):
     unique = filters.pop("unique", False)
-    items_list = filters.pop("items_list", False)
+    raw_data = filters.pop("raw_data", False)
     ctx = cfg.get_current_context()
     sources, filters = _af.Deviations.build_sources_and_filters(**filters)
     if _af.POLICIES_CACHE:
@@ -399,15 +399,42 @@ def handle_get_deviations(name_or_id, st, et, output, **filters):
     else:
         policies = api.get_policies(*ctx.get_api_data())
     sources_set = set(sources)
-    policies = [
-        policy
-        for policy in policies
-        if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] in sources_set
-    ]
-    pipeline = _af.Deviations.generate_pipeline(name_or_id, filters=filters)
+    if name_or_id:
+        dev_uid = (
+            name_or_id if name_or_id.strip("*").startswith("audit:") else None
+        )
+        if not dev_uid:
+            policies = filt.filter_obj(
+                policies,
+                [
+                    [lib.METADATA_FIELD, lib.NAME_FIELD],
+                    [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+                ],
+                name_or_id,
+            )
+        else:
+            policies = [
+                policy
+                for policy in policies
+                if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                in sources_set
+            ]
+    else:
+        dev_uid = None
+        policies = [
+            policy
+            for policy in policies
+            if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+            in sources_set
+        ]
+    pipeline = _af.Deviations.generate_pipeline(dev_uid, filters=filters)
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_policies.policies_summary_output(
-            policies, (st, et), get_deviations_count=True, suppress_msg=True
+            policies,
+            (st, et),
+            get_deviations_count=True,
+            suppress_msg=True,
+            dev_name_or_uid=dev_uid,
         )
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
@@ -421,7 +448,7 @@ def handle_get_deviations(name_or_id, st, et, output, **filters):
             LIMIT_MEM,
             disable_pbar_on_first=not lib.is_redirected(),
             unique=unique,
-            items_list=items_list,
+            raw_data=raw_data,
         ):
             cli.show(deviation, output, ndjson=NDJSON)
 
