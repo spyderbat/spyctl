@@ -1,11 +1,19 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from tabulate import tabulate
 
+import spyctl.api as api
+import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
-import zulu
 
 NOT_AVAILABLE = lib.NOT_AVAILABLE
+SUMMARY_HEADERS = [
+    "FLAG",
+    "SEVERITY",
+    "COUNT",
+    "LATEST_TIMESTAMP",
+    "REF_OBJ",
+]
 
 
 class FlagsGroup:
@@ -51,16 +59,22 @@ class FlagsGroup:
         return rv
 
 
-def flags_output_summary(flags: List[Dict]) -> str:
-    headers = [
-        "FLAG",
-        "SEVERITY",
-        "COUNT",
-        "LATEST_TIMESTAMP",
-        "REF_OBJ",
-    ]
-    groups = {}
-    for flag in flags:
+def flags_output_summary(
+    ctx: cfg.Context,
+    flag_type: str,
+    muids: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+    limit_mem=False,
+) -> str:
+    groups: Dict[str, FlagsGroup] = {}
+    if flag_type == lib.EVENT_OPSFLAG_PREFIX:
+        api_func = api.get_opsflags
+    else:
+        api_func = api.get_redflags
+    for flag in api_func(
+        *ctx.get_api_data(), muids, time, pipeline, limit_mem
+    ):
         flag_class = "/".join(flag["class"])
         if flag_class not in groups:
             groups[flag_class] = FlagsGroup()
@@ -75,13 +89,13 @@ def flags_output_summary(flags: List[Dict]) -> str:
                 _severity_index(x[1]),
                 x[0],
                 x[4],
-                _to_timestamp(x[3]),
+                lib.to_timestamp(x[3]),
             ],
         ),
-        headers=headers,
+        headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
-    return output + "\n"
+    return output
 
 
 def _severity_index(severity):
@@ -89,19 +103,3 @@ def _severity_index(severity):
         return lib.ALLOWED_SEVERITIES.index(severity)
     except ValueError:
         return -1
-
-
-def _to_timestamp(zulu_str):
-    return zulu.Zulu.parse(zulu_str).timestamp()
-
-
-def flags_output(flags: List[Dict]) -> Dict:
-    if len(flags) == 1:
-        return flags[0]
-    elif len(flags) > 1:
-        return {
-            lib.API_FIELD: lib.API_VERSION,
-            lib.ITEMS_FIELD: flags,
-        }
-    else:
-        return {}

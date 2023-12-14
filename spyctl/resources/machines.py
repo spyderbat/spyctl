@@ -1,36 +1,43 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from tabulate import tabulate
 
+import spyctl.api as api
+import spyctl.config.configs as cfg
 import spyctl.spyctl_lib as lib
 
+SUMMARY_HEADERS = ["NAME", "UID", "OS", "CLOUD_TYPE", "AGE", "CLUSTER"]
 
-def machines_summary_output(machines: List[Dict]):
-    headers = ["NAME", "UID", "REGISTRATION_DATE", "LAST_DATA"]
+
+def machines_summary_output(
+    ctx: cfg.Context,
+    muids: List[str],
+    time: Tuple[float, float],
+    pipeline=None,
+    limit_mem=False,
+) -> str:
     data = []
-    for machine in machines:
-        data.append(machine_summary_data(machine))
+    for machine in api.get_machines(
+        *ctx.get_api_data(), muids, time, pipeline, limit_mem
+    ):
+        data.append(__machine_summary_data(machine))
     data.sort(key=lambda x: [x[0], lib.to_timestamp(x[3])])
-    return tabulate(data, headers, tablefmt="plain")
+    return tabulate(data, SUMMARY_HEADERS, tablefmt="plain")
 
 
-def machine_summary_data(machine: Dict):
+def __machine_summary_data(machine: Dict):
+    cloud_type = machine.get("cloud_type")
+    if not cloud_type:
+        cloud_type = lib.NOT_AVAILABLE
+    cluster = machine.get("cluster_name")
+    if not cluster:
+        cluster = lib.NOT_AVAILABLE
     rv = [
-        machine["name"],
-        machine["uid"],
-        machine["valid_from"],
-        machine["last_data"],
+        machine[lib.HOSTNAME_FIELD],
+        machine[lib.ID_FIELD],
+        machine["os_version"],
+        cloud_type,
+        lib.calc_age(machine["boot_time"]),
+        cluster,
     ]
     return rv
-
-
-def machines_output(machines: List[Dict]):
-    if len(machines) == 1:
-        return machines[0]
-    elif len(machines) > 1:
-        return {
-            lib.API_FIELD: lib.API_VERSION,
-            lib.ITEMS_FIELD: machines,
-        }
-    else:
-        return {}

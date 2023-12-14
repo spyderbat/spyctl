@@ -13,6 +13,7 @@ from fnmatch import fnmatch
 from hashlib import md5
 from pathlib import Path
 from typing import IO, Any, Dict, Iterable, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import click
@@ -45,6 +46,7 @@ ADD_COLOR = "\x1b[38;5;35m"
 SUB_COLOR = "\x1b[38;5;203m"
 COLOR_END = "\x1b[0m"
 API_CALL = False
+INTERACTIVE = False
 DEBUG = False
 LOG_VAR = []
 ERR_VAR = []
@@ -77,8 +79,10 @@ def flush_err_var() -> str:
 
 
 # Resource Aliases
-CLUSTERS_RESOURCE = Aliases(
-    ["clusters", "cluster", "clust", "clusts", "clus"], "cluster", "clusters"
+AGENT_RESOURCE = Aliases(
+    ["agents", "agent", "ag"],
+    "agent",
+    "agents",
 )
 BASELINES_RESOURCE = Aliases(
     [
@@ -93,25 +97,43 @@ BASELINES_RESOURCE = Aliases(
     "baseline",
     "baselines",
 )
+CLUSTERS_RESOURCE = Aliases(
+    ["clusters", "cluster", "clust", "clusts", "clus"], "cluster", "clusters"
+)
+CONTAINER_RESOURCE = Aliases(
+    ["container", "containers", "cont" "c"],
+    "container",
+    "containers",
+)
+CONNECTIONS_RESOURCE = Aliases(
+    [
+        "connections",
+        "connection",
+        "connect",
+        "connects",
+        "conn",
+        "conns",
+        "con",
+        "cons",
+    ],
+    "connection",
+    "connections",
+)
+CONNECTION_BUN_RESOURCE = Aliases(
+    ["connection-bundle", "connection-bundles", "conn_bun", "conn_buns", "cb"],
+    "connection-bundle",
+    "connection-bundles",
+)
 DEPLOYMENTS_RESOURCE = Aliases(
     ["deployments", "deployment", "deploys", "deploy"],
     "deployment",
     "deployments",
 )
-NAMESPACES_RESOURCE = Aliases(
-    ["namespaces", "name", "names", "namesp", "namesps", "namespace"],
-    "namespace",
-    "namespaces",
+DEVIATIONS_RESOURCE = Aliases(
+    ["deviations", "deviation", "dev"],
+    "deviation",
+    "deviations",
 )
-MACHINES_RESOURCE = Aliases(
-    ["machines", "mach", "machs", "machine"],
-    "machine",
-    "machines",
-)
-NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
-PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
-REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
-OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 FINGERPRINT_GROUP_RESOURCE = Aliases(
     ["fingerprint-group", "fingerprint-groups", "fprint-group", "fg"],
     "fingerprint-group",
@@ -132,6 +154,53 @@ FINGERPRINTS_RESOURCE = Aliases(
     "fingerprint",
     "fingerprints",
 )
+MACHINES_RESOURCE = Aliases(
+    ["machines", "mach", "machs", "machine"],
+    "machine",
+    "machines",
+)
+NAMESPACES_RESOURCE = Aliases(
+    ["namespaces", "name", "names", "namesp", "namesps", "namespace"],
+    "namespace",
+    "namespaces",
+)
+NOTIFICATION_CONFIGS_RESOURCE = Aliases(
+    [
+        "notification-config",
+        "notification-configs",
+        "notification-policy",
+        "nc",
+    ],
+    "notification-config",
+    "notification-configs",
+)
+NOTIFICATION_CONFIG_TEMPLATES_RESOURCE = Aliases(
+    [
+        "notification-config-template",
+        "notification-config-templates",
+        "notification-config-tmpls",
+        "notif-config-tmpl",
+        "notif-config-tmpls",
+        "nct",
+    ],
+    "notification-config-template",
+    "notification-config-templates",
+)
+NOTIFICATION_TARGETS_RESOURCE = Aliases(
+    [
+        "target",
+        "targets",
+        "notification-target",
+        "notification-targets",
+        "nt",
+    ],
+    "notification-target",
+    "notification-targets",
+)
+NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
+OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
+PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
+REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
 POLICIES_RESOURCE = Aliases(
     [
         "policies",
@@ -156,24 +225,11 @@ PROCESSES_RESOURCE = Aliases(
     "process",
     "processes",
 )
-CONTAINER_RESOURCE = Aliases(
-    ["container", "containers", "cont" "c"],
-    "container",
-    "containers",
-)
-CONNECTIONS_RESOURCE = Aliases(
-    [
-        "connections",
-        "connection",
-        "connect",
-        "connects",
-        "conn",
-        "conns",
-        "con",
-        "cons",
-    ],
-    "connection",
-    "connections",
+SOURCES_RESOURCE = Aliases(["source", "sources", "src"], "source", "sources")
+SPYDERTRACE_RESOURCE = Aliases(
+    ["spydertrace", "spydertraces", "spyder", "trace", "traces"],
+    "spydertrace",
+    "spydertraces",
 )
 SPYDERTRACE_SUMMARY_RESOURCE = Aliases(
     [
@@ -196,11 +252,6 @@ SUPPRESSION_POLICY_RESOURCE = Aliases(
     ],
     "suppression-policy",
     "suppression-policies",
-)
-SPYDERTRACE_RESOURCE = Aliases(
-    ["spydertrace", "spydertraces", "spyder", "trace", "traces"],
-    "spydertrace",
-    "spydertraces",
 )
 UID_LIST_RESOURCE = Aliases(
     ["uid-list", "uid-lists", "uid", "uids-list"], "uid-list", "uid-lists"
@@ -230,24 +281,39 @@ def get_plural_name_from_alias(alias: str):
 DEL_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
+    NOTIFICATION_CONFIGS_RESOURCE.name,
+    NOTIFICATION_TARGETS_RESOURCE.name,
 ]
 DESC_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
 ]
+EDIT_RESOURCES: List[str] = [
+    POLICIES_RESOURCE.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
+    NOTIFICATION_CONFIGS_RESOURCE.name,
+    NOTIFICATION_TARGETS_RESOURCE.name,
+]
 GET_RESOURCES: List[str] = [
+    AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
+    CONNECTION_BUN_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
     DEPLOYMENTS_RESOURCE.name_plural,
+    DEVIATIONS_RESOURCE.name_plural,
     FINGERPRINTS_RESOURCE.name_plural,
     MACHINES_RESOURCE.name_plural,
     NAMESPACES_RESOURCE.name_plural,
     NODES_RESOURCE.name_plural,
+    NOTIFICATION_CONFIGS_RESOURCE.name_plural,
+    NOTIFICATION_CONFIG_TEMPLATES_RESOURCE.name_plural,
+    NOTIFICATION_TARGETS_RESOURCE.name_plural,
     OPSFLAGS_RESOURCE.name_plural,
     PODS_RESOURCE.name_plural,
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
+    SOURCES_RESOURCE.name_plural,
     # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
     SUPPRESSION_POLICY_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
@@ -312,6 +378,19 @@ class DescribeResourcesParam(click.ParamType):
         return [
             CompletionItem(resrc_name)
             for resrc_name in DESC_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
+class EditResourcesParam(click.ParamType):
+    name = "edit_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in EDIT_RESOURCES
             if resrc_name.startswith(incomplete)
         ]
 
@@ -458,34 +537,64 @@ class FileList(click.File):
         return rv
 
 
-# Spyderbat Schema Prefix'
 SCHEMA_FIELD = "schema"
-EVENT_REDFLAG_PREFIX = "event_redflag"
-EVENT_OPSFLAG_PREFIX = "event_opsflag"
+
+# Spyderbat Event Schema Prefix'
+EVENT_METRICS_PREFIX = "event_metric"
 EVENT_AUDIT_PREFIX = "event_audit"
+EVENT_OPSFLAG_PREFIX = "event_opsflag"
+EVENT_REDFLAG_PREFIX = "event_redflag"
+
+EVENT_METRIC_SUBTYPE_MAP = {
+    "agent": "agent",
+    "machine": "machine",
+}
+
 EVENT_AUDIT_SUBTYPE_MAP = {
     "deviation": "guardian_deviation",
     "action": "guardian_action",
     "redflag": "guardian_redflag",
     "opsflag": "guardian_opsflag",
 }
+
+# Spyderbat Model Schema Prefix'
+MODEL_AGENT_SCHEMA_PREFIX = "model_agent"
+MODEL_CLUSTER_PREFIX = "model_k8s_cluster"
+MODEL_CONNECTION_PREFIX = "model_connection"
+MODEL_CONN_BUN_PREFIX = "model_bundled_connection"
+MODEL_CONTAINER_PREFIX = "model_container"
+MODEL_DEPLOYMENT_PREFIX = "model_k8s_deployment"
 MODEL_FINGERPRINT_PREFIX = "model_fingerprint"
+MODEL_MACHINE_PREFIX = "model_machine"
+MODEL_NAMESPACE_PREFIX = "model_k8s_namespace"
+MODEL_NODE_PREFIX = "model_k8s_node"
+MODEL_POD_PREFIX = "model_k8s_pod"
+MODEL_PROCESS_PREFIX = "model_process"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
+
 MODEL_FINGERPRINT_SUBTYPE_MAP = {
     "container": "container",
     "linux-service": "linux_svc",
 }
 
 # Datatypes for searching via API
-DATATYPE_SPYDERGRAPH = "spydergraph"
+DATATYPE_AUDIT = "audit"
+DATATYPE_AGENTS = "agent_status"
 DATATYPE_FINGERPRINTS = "fingerprints"
+DATATYPE_K8S = "k8s"
+DATATYPE_REDFLAGS = "redflags"
+DATATYPE_SPYDERGRAPH = "spydergraph"
 
 # Resource Kinds
+BASELINE_KIND = "SpyderbatBaseline"
+DEVIATION_KIND = "GuardianDeviation"
+FPRINT_GROUP_KIND = "FingerprintGroup"
+FPRINT_KIND = "SpyderbatFingerprint"
+NOTIFICATION_KIND = "NotificationConfiguration"
+NOTIF_TMPL_KIND = "NotificationConfigTemplate"
 POL_KIND = "SpyderbatPolicy"
 SUP_POL_KIND_ALIAS = "SuppressionPolicy"
-BASELINE_KIND = "SpyderbatBaseline"
-FPRINT_KIND = "SpyderbatFingerprint"
-FPRINT_GROUP_KIND = "FingerprintGroup"
+TARGET_KIND = "NotificationTarget"
 UID_LIST_KIND = "UidList"
 
 # CONFIG Kinds
@@ -543,6 +652,7 @@ POD_LABELS_FIELD = "pod-labels"
 MACHINES_FIELD = "machines"
 DEFAULT_API_URL = "https://api.spyderbat.com"
 POLICY_UID_FIELD = "policy"
+POLICIES_FIELD = "policies"
 
 
 # Response Actions
@@ -591,6 +701,7 @@ USER_SELECTOR_FIELD = "userSelector"
 MATCH_LABELS_FIELD = "matchLabels"
 # Machine Selector Fields
 HOSTNAME_FIELD = "hostname"
+MACHINE_UID_FIELD = "machineUID"
 # Container Selector Fields
 IMAGE_FIELD = "image"
 IMAGEID_FIELD = "imageID"
@@ -610,6 +721,9 @@ SELECTOR_FIELDS = {
 }
 
 # Policies/Fingerprints
+BE_POL_UID_FIELD = (
+    "policy_uid"  # not in the policy objects themselves but in other records
+)
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "linux-service"
 POL_TYPE_TRACE = "trace"
@@ -708,6 +822,45 @@ UIDS_FIELD = "uniqueIdentifiers"
 
 # Any Object
 VERSION_FIELD = "version"
+VALID_FROM_FIELD = "valid_from"
+
+# K8s Objects
+BE_K8S_STATUS = "k8s_status"
+BE_PHASE = "phase"
+BE_KUID_FIELD = "kuid"
+
+# Connections
+PROC_NAME_FIELD = "proc_name"
+CONN_ID = "id"
+REMOTE_HOSTNAME_FIELD = "remote_hostname"
+PROTOCOL_FIELD = "proto"
+REMOTE_PORT = "remote_port"
+LOCAL_PORT = "local_port"
+
+# Connection Bundles
+CLIENT_IP = "client_ip"
+CLIENT_DNS = "client_dns_name"
+CLIENT_PORT = "client_port"
+SERVER_IP = "server_ip"
+SERVER_DNS = "server_dns_name"
+SERVER_PORT = "server_port"
+NUM_CONNECTIONS = "num_connections"
+
+# Deployments
+REPLICAS_FIELD = "replicas"
+AVAILABLE_REPLICAS_FIELD = "availableReplicas"
+READY_REPLICAS_FIELD = "readyReplicas"
+UPDATED_REPLICAS_FIELD = "updatedReplicas"
+
+# Deviations
+CHECKSUM_FIELD = "checksum"
+
+# Nodes
+NODE_INFO_FIELD = "nodeInfo"
+KUBELET_VERSION_FIELD = "kubeletVersion"
+
+# Pods
+CONTAINER_STATUSES_FIELD = "containerStatuses"
 
 # Processes
 NAME_FIELD = "name"
@@ -722,6 +875,51 @@ CONTAINER_NAME_FIELD = "containerName"
 CONTAINER_ID_FIELD = "containerID"
 CONTAINER_AGE = "age"
 CONTAINER_IMAGE_NAME = "image-name"
+# Backend Container Fields
+BE_CONTAINER_IMAGE = "image"
+BE_CONTAINER_IMAGE_ID = "image_id"
+BE_CONTAINER_NAME = "container_name"
+BE_CONTAINER_ID = "container_id"
+
+# Agents
+AGENT_HEALTH_CRIT = "Critical"
+AGENT_HEALTH_DEL = "Deleted"
+AGENT_HEALTH_ERR = "Error"
+AGENT_HEALTH_NORM = "Normal"
+AGENT_HEALTH_OFFLINE = "Offline"
+AGENT_HEALTH_RESTARTED = "Restarted"
+AGENT_HEALTH_RESTARTING = "Restarting"
+AGENT_HEALTH_STARTED = "Started"
+AGENT_HEALTH_STARTING = "Starting"
+AGENT_HEALTH_WARN = "Warning"
+HEALTH_PRIORITY = {
+    AGENT_HEALTH_CRIT: 20,
+    AGENT_HEALTH_ERR: 30,
+    AGENT_HEALTH_WARN: 40,
+    AGENT_HEALTH_NORM: 50,
+    AGENT_HEALTH_OFFLINE: 10,
+    AGENT_HEALTH_RESTARTED: 70,
+    AGENT_HEALTH_RESTARTING: 60,
+    AGENT_HEALTH_STARTED: 90,
+    AGENT_HEALTH_STARTING: 80,
+    AGENT_HEALTH_DEL: 100,
+}
+AGENT_STATUS = "status"
+AGENT_HOSTNAME = "hostname"
+AGENT_ID = "id"
+AGENT_BAT_STATUSES = "bat_statuses"
+
+# Spydertraces
+BE_TRIGGER_NAME = "trigger_short_name"
+BE_SCORE = "score"
+BE_SUPPRESSED = "suppressed"
+BE_ROOT_PROC_NAME = "root_proc_name"
+BE_UNIQUE_FLAG_COUNT = "unique_flag_count"
+BE_OBJECT_COUNT = "object_count"
+BE_PROCESSES = "processes"
+BE_DEPTH = "depth"
+BE_SYSTEMS = "machines"
+BE_CONNECTIONS = "connections"
 
 # Network
 CIDR_FIELD = "cidr"
@@ -736,6 +934,118 @@ ENDPORT_FIELD = "endPort"
 PROCESSES_FIELD = "processes"
 PROTO_FIELD = "protocol"
 TO_FIELD = "to"
+
+
+# Notifications
+NOTIF_TYPE_ALL = "all"
+NOTIF_TYPE_OBJECT = "object"
+NOTIF_TYPE_METRICS = "metrics"
+NOTIF_TYPE_DASHBOARD = "dashboard"
+NOTIF_TYPES = [
+    NOTIF_TYPE_ALL,
+    NOTIF_TYPE_OBJECT,
+    NOTIF_TYPE_METRICS,
+    NOTIF_TYPE_DASHBOARD,
+]
+NOTIF_TYPE_FIELD = "type"
+NOTIF_TMPL_TYPES = ["agent-health", "security", "operations", "guardian"]
+NOTIF_TMPL_MAP = {
+    "agent-health": "agent_health",
+    "security": "security",
+    "operations": "operations",
+    "guardian": "guardian",
+}
+DST_TYPE_ORG = "org_uid"
+DST_TYPE_EMAIL = "emails"
+DST_TYPE_SLACK = "slack"
+DST_TYPE_SNS = "sns"
+DST_TYPE_USERS = "users"
+DST_TYPE_WEBHOOK = "webhook"
+DST_NAME_EMAIL = "Email"
+DST_NAME_SLACK = "Slack"
+DST_NAME_SNS = "SNS"
+DST_NAME_WEBHOOK = "Webhook"
+DST_TYPES = [
+    DST_TYPE_EMAIL,
+    DST_TYPE_SLACK,
+    DST_TYPE_SNS,
+    DST_TYPE_WEBHOOK,
+]
+DST_NAMES = [
+    DST_NAME_EMAIL,
+    DST_NAME_SLACK,
+    DST_NAME_SNS,
+    DST_NAME_WEBHOOK,
+]
+DST_NAME_TO_TYPE = {
+    DST_NAME_EMAIL: DST_TYPE_EMAIL,
+    DST_NAME_SLACK: DST_TYPE_SLACK,
+    DST_NAME_SNS: DST_TYPE_SNS,
+    DST_NAME_WEBHOOK: DST_TYPE_WEBHOOK,
+}
+DST_TYPE_TO_NAME = {
+    DST_TYPE_EMAIL: DST_NAME_EMAIL,
+    DST_TYPE_SLACK: DST_NAME_SLACK,
+    DST_TYPE_SNS: DST_NAME_SNS,
+    DST_TYPE_WEBHOOK: DST_NAME_WEBHOOK,
+}
+DST_TYPE_TO_DESC = {
+    DST_TYPE_EMAIL: "A list of email addresses to send notifications to.",
+    DST_TYPE_SLACK: "A Slack hook URL to send notifications to.",
+    DST_TYPE_SNS: "An AWS sns endpoint to send notifications to.",
+    DST_TYPE_WEBHOOK: "A generic webhook URL to send notifications to.",
+}
+ROUTES_FIELD = "routes"
+TARGETS_FIELD = "targets"
+DST_DESCRIPTION = "description"
+DST_DATA = "data"
+DST_SNS_TOPIC_ARN = "sns_topic_arn"
+DST_SNS_CROSS_ACCOUNT_ROLE = "cross_account_iam_role"
+DST_WEBHOOK_URL = "url"
+DST_WEBHOOK_TLS_VAL = "no_tls_validation"
+DST_SLACK_URL = "url"
+ROUTE_TARGETS = "targets"
+ROUTE_DESTINATION = "destination"
+ROUTE_DATA = "data"
+ROUTE_DATA_ANA_SETTINGS = "analyticsSettings"
+ROUTE_DESCRIPTION = "description"
+ROUTE_EXPR = "expr"
+TGT_DESCRIPTION_FIELD = "description"
+TMPL_DESCRIPTION_FIELD = "description"
+TMPL_CONFIG_VALUES_FIELD = "configValues"
+
+NOTIF_ADDITIONAL_FIELDS = "additionalFields"
+NOTIF_DST_TGTS = "targets"
+NOTIF_DATA_FIELD = "data"
+NOTIF_CONDITION_FIELD = "condition"
+NOTIF_COOLDOWN_FIELD = "cooldown"
+NOTIF_COOLDOWN_BY_FIELD_FIELD = "byField"
+NOTIF_COOLDOWN_SECONDS_FIELD = "forSeconds"
+NOTIF_FOR_DURATION_FIELD = "forDuration"
+NOTIF_SETTINGS_FIELD = "analyticsConfiguration"
+NOTIF_NAME_FIELD = "name"
+NOTIF_INTERVAL_FIELD = "interval"
+NOTIF_TITLE_FIELD = "title"
+NOTIF_MESSAGE_FIELD = "message"
+NOTIF_ICON_FIELD = "icon"
+NOTIF_NOTIFY_FIELD = "notify"
+NOTIF_CREATE_TIME = "createTime"
+NOTIF_LAST_UPDATED = "lastUpdated"
+NOTIF_TEMPLATE_FIELD = "template"
+NOTIF_TARGET_FIELD = "target"
+NOTIF_DEFAULT_SCHEMA = "schemaType"
+NOTIF_SUB_SCHEMA = "subSchema"
+ANA_NOTIF_TYPE_AGENT_HEALTH = "agent_health"
+ANA_NOTIF_TYPE_CUSTOM = "custom"
+
+
+def get_dst_type(name):
+    return DST_NAME_TO_TYPE[name]
+
+
+def get_dst_name(type):
+    return DST_NAME_TO_TYPE[type]
+
 
 # Flags
 FLAG_CLASS = "class"
@@ -876,7 +1186,7 @@ def walk_up_tree(
     return rv
 
 
-def load_file(path: Path) -> Dict:
+def load_file(path: Path):
     try:
         with path.open("r") as f:
             try:
@@ -1526,7 +1836,7 @@ def make_uuid():
 
 
 def err_exit(message: str, exception: Exception = None):
-    if API_CALL:
+    if API_CALL or INTERACTIVE:
         raise Exception(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
     sys.exit(f"{WARNING_COLOR}Error: {message}{COLOR_END}")
 
@@ -1694,6 +2004,12 @@ def get_metadata_name(resource: Dict) -> Optional[str]:
     return name
 
 
+def get_metadata_type(resource: Dict) -> Optional[str]:
+    metadata = resource.get(METADATA_FIELD, {})
+    type = metadata.get(METADATA_TYPE_FIELD)
+    return type
+
+
 def slugify(value, allow_unicode=False):
     """
     Taken from https://github.com/django/django/blob/master/django/utils/text.py  # noqa E501
@@ -1786,6 +2102,13 @@ def set_api_call():
     disable_colorization()
 
 
+def set_interactive():
+    global INTERACTIVE, USE_LOG_VARS
+    INTERACTIVE = True
+    USE_LOG_VARS = True
+    disable_colorization()
+
+
 def set_debug():
     global DEBUG
     DEBUG = True
@@ -1818,3 +2141,116 @@ def is_public_dns(hostname: str) -> bool:
     if not is_private_dns(hostname):
         return True
     return False
+
+
+def is_redirected() -> bool:
+    return os.fstat(0) != os.fstat(1)
+
+
+def calc_age(time_float: float):
+    creation_timestamp = zulu.parse(time_float)
+    age_delta = zulu.now() - creation_timestamp
+    if age_delta.days > 0:
+        age = f"{age_delta.days}d"
+        return age
+    elif age_delta.seconds >= 3600:
+        age = f"{age_delta.seconds // 3600}h"
+        return age
+    else:
+        age = f"{age_delta.seconds//60}m"
+        return age
+
+
+TGT_NAME_VALID_SYMBOLS = ["-", "_"]
+NOTIF_NAME_VALID_SYMBOLS = ["-", "_"]
+
+TGT_NAME_ERROR_MSG = (
+    "Target name must contain only letters, numbers, and"
+    f" {TGT_NAME_VALID_SYMBOLS}. It must also be less than 64"
+    " characters."
+)
+
+NOTIF_CONF_NAME_ERROR_MSG = "Name must be less than 64 characters."
+
+
+def is_valid_tgt_name(input_string):
+    pattern = r"^[a-zA-Z0-9\-_]+$"
+
+    if re.match(pattern, input_string) and len(input_string) <= 64:
+        return True
+    else:
+        return False
+
+
+def is_valid_notification_name(input_string) -> str:
+    if len(input_string) <= 64:
+        return True
+    return False
+
+
+def valid_notification_name(input_string) -> str:
+    pattern = r"^[a-zA-Z0-9\-_]+$"
+    if re.match(pattern, input_string) and len(input_string) <= 64:
+        return input_string
+    raise click.UsageError(
+        "Notification name must contain only letters, numbers, and"
+        f" {NOTIF_NAME_VALID_SYMBOLS}. It must also be less than 64"
+        " characters."
+    )
+
+
+def valid_schema(input_string) -> str:
+    if " " in input_string:
+        raise click.UsageError("Schemas may not have spaces.")
+    return input_string
+
+
+def is_valid_email(email):
+    # Define a regular expression pattern for a valid email address
+    pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+
+    # Use the re.match function to check if the email matches the pattern
+    if re.match(pattern, email):
+        return True
+    else:
+        return False
+
+
+def is_valid_url(url):
+    try:
+        result = urlparse(url)
+        return all(
+            [result.scheme, result.netloc]
+        )  # Check if both scheme and network location are present
+    except ValueError:
+        return False
+
+
+def is_valid_slack_url(url: str):
+    try:
+        result = urlparse(url)
+        if not all(
+            [result.scheme, result.netloc]
+        ):  # Check if both scheme and network location are present
+            return False
+        if not url.startswith("https://hooks.slack.com/services/"):
+            return False
+        return True
+    except ValueError:
+        return False
+
+
+def encode_int(x, length=4):
+    b = int(x).to_bytes(length, byteorder="big")
+    return b64url(b).decode("ascii").strip("=")
+
+
+def build_ctx() -> str:
+    return f"{encode_int(time.time())}.{make_uuid()[:5]}"
+
+
+def is_guardian_obj(obj: Dict):
+    kind = obj.get(KIND_FIELD)
+    type = obj.get(METADATA_FIELD, {}).get(METADATA_TYPE_FIELD)
+    if kind in [BASELINE_KIND, POL_KIND] and type in GUARDIAN_POL_TYPES:
+        return True

@@ -17,7 +17,9 @@ from pydantic import (
 import spyctl.spyctl_lib as lib
 
 
-def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
+def valid_object(
+    data: Dict, verbose=True, allow_obj_list=True, interactive=False
+) -> bool:
     kind = data.get(lib.KIND_FIELD)
     if kind not in KIND_TO_SCHEMA:
         if lib.ITEMS_FIELD not in data:
@@ -31,21 +33,30 @@ def valid_object(data: Dict, verbose=True, allow_obj_list=True) -> bool:
             GuardianObjectListModel(**data)
         except ValidationError as e:
             if verbose:
-                lib.try_log(str(e), is_warning=True)
+                if interactive:
+                    return str(e)
+                else:
+                    lib.try_log(str(e), is_warning=True)
             return False
         for item in data[lib.ITEMS_FIELD]:
             if not valid_object(item, allow_obj_list=False):
                 return False
         return True
-    if kind == lib.POL_KIND:
-        type = data.get(lib.METADATA_FIELD, {}).get(lib.METADATA_TYPE_FIELD)
-        if type == lib.POL_TYPE_TRACE:
-            kind = (kind, type)
+    # Some validations depend on the type of the object in addition to the kind
+    tmp_kind = (
+        kind,
+        data.get(lib.METADATA_FIELD, {}).get(lib.METADATA_TYPE_FIELD),
+    )
+    if tmp_kind in KIND_TO_SCHEMA:
+        kind = tmp_kind
     try:
         KIND_TO_SCHEMA[kind](**data)
     except ValidationError as e:
         if verbose:
-            lib.try_log(str(e), is_warning=True)
+            if interactive:
+                return str(e)
+            else:
+                lib.try_log(str(e), is_warning=True)
         return False
     return True
 
@@ -63,6 +74,18 @@ def valid_context(context_data: Dict, verbose=True):
 def handle_show_schema(kind: str) -> str:
     object = KIND_TO_SCHEMA.get(kind)
     return object.schema_json()
+
+
+def valid_notification_target(tgt_data: Dict, interactive=False):
+    try:
+        NotificationTargetModel(**tgt_data)
+    except ValidationError as e:
+        if interactive:
+            return str(e)
+        else:
+            lib.try_log(str(e), is_warning=True)
+        return False
+    return True
 
 
 __PROC_IDS = {}
@@ -103,7 +126,16 @@ class ServiceSelectorModel(BaseModel):
 
 
 class MachineSelectorModel(BaseModel):
-    hostname: str = Field(alias=lib.HOSTNAME_FIELD)
+    hostname: Optional[Union[str, List[str]]] = Field(alias=lib.HOSTNAME_FIELD)
+    machine_uid: Optional[Union[str, List[str]]] = Field(
+        alias=lib.MACHINE_UID_FIELD
+    )
+
+    @root_validator(pre=True)
+    def ensure_one_exists(cls, values: Dict):
+        if not any([value for value in values.values()]):
+            raise ValueError("")
+        return values
 
     class Config:
         extra = Extra.forbid
@@ -202,6 +234,9 @@ class GuardianSelectorsModel(BaseModel):
         alias=lib.POD_SELECTOR_FIELD
     )
 
+    class Config:
+        extra = Extra.forbid
+
 
 class ActionSelectorsModel(BaseModel):
     namespace_selector: Optional[NamespaceSelectorModel] = Field(
@@ -239,6 +274,9 @@ class GuardianSpecOptionsModel(BaseModel):
 class DnsBlockModel(BaseModel):
     dns_selector: List[str] = Field(alias=lib.DNS_SELECTOR_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class CIDRModel(BaseModel):
     cidr: IPvAnyNetwork = Field(alias=lib.CIDR_FIELD)
@@ -268,9 +306,15 @@ class CIDRModel(BaseModel):
                     )
         return values
 
+    class Config:
+        extra = Extra.forbid
+
 
 class IpBlockModel(BaseModel):
     ip_block: CIDRModel = Field(alias=lib.IP_BLOCK_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class PortsModel(BaseModel):
@@ -287,6 +331,9 @@ class PortsModel(BaseModel):
                 f" {lib.PORT_FIELD}"
             )
         return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 class IngressNodeModel(BaseModel):
@@ -312,6 +359,7 @@ class IngressNodeModel(BaseModel):
 
     class Config:
         smart_union = True
+        extra = Extra.forbid
 
 
 class EgressNodeModel(BaseModel):
@@ -337,11 +385,17 @@ class EgressNodeModel(BaseModel):
 
     class Config:
         smart_union = True
+        extra = Extra.forbid
 
 
 class NetworkPolicyModel(BaseModel):
     ingress: List[IngressNodeModel] = Field(alias=lib.INGRESS_FIELD)
     egress: List[EgressNodeModel] = Field(alias=lib.EGRESS_FIELD)
+
+
+class DeviationNetworkPolicyModel(BaseModel):
+    ingress: Optional[List[IngressNodeModel]] = Field(alias=lib.INGRESS_FIELD)
+    egress: Optional[List[EgressNodeModel]] = Field(alias=lib.EGRESS_FIELD)
 
 
 # Process Models --------------------------------------------------------------
@@ -368,6 +422,33 @@ class ProcessNodeModel(SimpleProcessNodeModel):
             raise ValueError(f"Duplicate id '{v}' detected.")
         add_proc_id(v)
         return v
+
+    class Config:
+        extra = Extra.forbid
+
+
+class GuardDeviationProcessNodeModel(BaseModel):
+    id: str = Field(alias=lib.ID_FIELD)
+    children: Optional[List[ProcessNodeModel]] = Field(
+        alias=lib.CHILDREN_FIELD
+    )
+
+    @validator("id")
+    def validate_no_duplicate_ids(cls, v):
+        if in_proc_ids(v):
+            raise ValueError(f"Duplicate id '{v}' detected.")
+        add_proc_id(v)
+        return v
+
+    # class Config:
+    #     extra = Extra.forbid
+
+
+class GuardDeviationNodeModel(BaseModel):
+    policy_node: GuardDeviationProcessNodeModel = Field(alias="policyNode")
+
+    class Config:
+        extra = Extra.forbid
 
 
 # Actions Models --------------------------------------------------------------
@@ -557,6 +638,11 @@ class GuardianFingerprintGroupMetadataModel(BaseModel):
     )
 
 
+class GuardianDeviationMetadataModel(BaseModel):
+    type: str = Field(alias=lib.METADATA_TYPE_FIELD)
+    policy_uid: str = Field(alias="policy_uid")
+
+
 # Spec Models -----------------------------------------------------------------
 
 
@@ -580,6 +666,20 @@ class GuardianBaselineSpecModel(
 ):
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class GuardianDeviationSpecModel(
+    GuardianSelectorsModel, GuardianSpecOptionsModel
+):
+    process_policy: List[
+        Union[ProcessNodeModel, GuardDeviationNodeModel]
+    ] = Field(alias=lib.PROC_POLICY_FIELD)
+    network_policy: Optional[DeviationNetworkPolicyModel] = Field(
+        alias=lib.NET_POLICY_FIELD
+    )
 
     class Config:
         extra = Extra.forbid
@@ -619,6 +719,9 @@ class FingerprintGroupDataModel(BaseModel):
     cont_ids: Optional[List[str]] = Field(alias=lib.FPRINT_GRP_CONT_IDS_FIELD)
     machines: Optional[List[str]] = Field(alias=lib.FPRINT_GRP_MACHINES_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class GuardianFingerprintGroupModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
@@ -632,6 +735,20 @@ class GuardianFingerprintGroupModel(BaseModel):
 
     class Config:
         extra = Extra.ignore
+
+
+class GuardianDeviationModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.DEVIATION_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
+    metadata: GuardianDeviationMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: GuardianDeviationSpecModel = Field(alias=lib.SPEC_FIELD)
+
+    def __init__(self, **data: Any):
+        clear_proc_ids()
+        super().__init__(**data)
+        clear_proc_ids()
 
 
 class GuardianBaselineModel(BaseModel):
@@ -690,6 +807,275 @@ class GuardianObjectListModel(BaseModel):
 
 
 # -----------------------------------------------------------------------------
+# Notification Models ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+
+class DestinationSlackModel(BaseModel):
+    url: str = Field(alias=lib.DST_SLACK_URL)
+
+    @validator("url")
+    def valid_url(cls, url):
+        if not lib.is_valid_slack_url(url):
+            raise ValueError(
+                "Invalid url format. Example: https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"
+            )
+        return url
+
+    class Config:
+        extra = Extra.forbid
+
+
+class DestinationWebhookModel(BaseModel):
+    url: str = Field(alias=lib.DST_WEBHOOK_URL)
+    no_tls_validation: bool = Field(alias=lib.DST_WEBHOOK_TLS_VAL)
+
+    @validator("url")
+    def valid_url(cls, url):
+        if not lib.is_valid_url(url):
+            raise ValueError(
+                "Invalid url format. Example: https://my.url.example"
+            )
+        return url
+
+    class Config:
+        extra = Extra.forbid
+
+
+class DestinationSNSModel(BaseModel):
+    cross_account_iam_role: Optional[str] = Field(
+        alias=lib.DST_SNS_CROSS_ACCOUNT_ROLE
+    )
+    sns_topic_arn: str = Field(alias=lib.DST_SNS_TOPIC_ARN)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class AllDestinationsModel(BaseModel):
+    org_uid: Optional[str] = Field(alias=lib.DST_TYPE_ORG)
+    emails: Optional[List[str]] = Field(alias=lib.DST_TYPE_EMAIL)
+    users: Optional[List[str]] = Field(alias=lib.DST_TYPE_USERS)
+    slack: Optional[DestinationSlackModel] = Field(alias=lib.DST_TYPE_SLACK)
+    webhook: Optional[DestinationWebhookModel] = Field(
+        alias=lib.DST_TYPE_WEBHOOK
+    )
+    sns: Optional[DestinationSNSModel] = Field(alias=lib.DST_TYPE_SNS)
+
+    @validator("emails", each_item=True)
+    def valid_emails(cls, email):
+        if not lib.is_valid_email(email):
+            raise ValueError("Email format is invalid.")
+        return email
+
+    @root_validator(pre=True)
+    def ensure_not_none(cls, values):
+        for key, value in values.items():
+            if value is None:
+                raise ValueError(f"Field '{key}' cannot be None")
+        return values
+
+    @root_validator(pre=True)
+    def one_destination(cls, values: Dict):
+        count = 0
+        for dst_type in lib.DST_TYPES:
+            if dst_type in values:
+                count += 1
+        if count == 0:
+            raise ValueError(
+                f"One destination type is required. {lib.DST_TYPES}"
+            )
+        elif count > 1:
+            raise ValueError("Only one destination type is allowed.")
+        return values
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotificationTargetModel(AllDestinationsModel):
+    data: Optional[Dict] = Field(alias=lib.DST_DATA)
+    description: Optional[str] = Field(
+        alias=lib.DST_DESCRIPTION, max_length=128
+    )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotifTgtMetadataModel(BaseModel):
+    name: str = Field(alias=lib.METADATA_NAME_FIELD)
+    uid: str = Field(alias=lib.METADATA_UID_FIELD)
+    create_time: Optional[Union[float, int]] = Field(
+        alias=lib.METADATA_CREATE_TIME
+    )
+    update_time: Optional[Union[float, int]] = Field(
+        alias=lib.NOTIF_LAST_UPDATED
+    )
+
+
+class NotifTgtSpecModel(AllDestinationsModel):
+    pass
+
+
+class NotificationTgtResourceModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.TARGET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    metadata: NotifTgtMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: NotifTgtSpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotifAnaConfigMetadataModel(BaseModel):
+    name: str = Field(alias=lib.METADATA_NAME_FIELD)
+    uid: str = Field(alias=lib.METADATA_UID_FIELD)
+    notif_type: Literal[lib.NOTIF_TYPE_OBJECT] = Field(  # type: ignore
+        lib.METADATA_TYPE_FIELD
+    )
+    create_time: Optional[Union[float, int]] = Field(
+        alias=lib.METADATA_CREATE_TIME
+    )
+    update_time: Optional[Union[float, int]] = Field(
+        alias=lib.NOTIF_LAST_UPDATED
+    )
+
+
+class NotifAnaConfigMetricsMetadataModel(NotifAnaConfigMetadataModel):
+    notif_type: Literal[lib.NOTIF_TYPE_METRICS] = Field(  # type: ignore
+        lib.METADATA_TYPE_FIELD
+    )
+
+
+class NotifAdditionalFieldsModel(BaseModel):
+    details: Optional[Dict[str, str]]
+    linkback_text: Optional[str]
+    linkback_url: Optional[str]
+    slack_icon: Optional[str]
+
+    @root_validator(pre=True)
+    def ensure_not_none(cls, values):
+        for key, value in values.items():
+            if value is None:
+                raise ValueError(f"Field '{key}' cannot be None")
+        return values
+
+
+class NotifAdvancedCooldown(BaseModel):
+    by_field: Union[str, List[str]] = Field(
+        alias=lib.NOTIF_COOLDOWN_BY_FIELD_FIELD, min_items=1, min_length=1
+    )
+    for_seconds: int = Field(alias=lib.NOTIF_COOLDOWN_SECONDS_FIELD)
+
+
+class NotifAnaConfigSpecModel(BaseModel):
+    enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
+    condition: str = Field(alias=lib.NOTIF_CONDITION_FIELD)
+    message: str = Field(alias=lib.NOTIF_MESSAGE_FIELD)
+    target: Union[str, List[str]] = Field(
+        alias=lib.NOTIF_TARGET_FIELD, min_items=1, min_length=1
+    )
+    schema_type: str = Field(alias=lib.NOTIF_DEFAULT_SCHEMA)
+    sub_schema: Optional[str] = Field(alias=lib.NOTIF_SUB_SCHEMA)
+    title: str = Field(alias=lib.NOTIF_TITLE_FIELD)
+    additional_fields: Dict = Field(alias=lib.NOTIF_ADDITIONAL_FIELDS)
+    template: str = Field(alias=lib.NOTIF_TEMPLATE_FIELD)
+    cooldown: Optional[Union[int, NotifAdvancedCooldown]] = Field(
+        alias=lib.NOTIF_COOLDOWN_FIELD
+    )
+
+    @root_validator
+    def validate_condition(cls, values):
+        import spyctl.config.configs as cfg
+        import spyctl.api as api
+
+        ctx = cfg.get_current_context()
+        error = api.validate_search_query(
+            *ctx.get_api_data(), values["schema_type"], values["condition"]
+        )
+        if error and False:
+            raise ValueError(error)
+        return values
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotifAnaConfigMetricsSpecModel(NotifAnaConfigSpecModel):
+    for_duration: Optional[int] = Field(alias=lib.NOTIF_FOR_DURATION_FIELD)
+    schema_type: Literal[lib.EVENT_METRICS_PREFIX] = Field(  # type: ignore
+        alias=lib.NOTIF_DEFAULT_SCHEMA
+    )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotificationConfigModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.NOTIFICATION_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    metadata: NotifAnaConfigMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: NotifAnaConfigSpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotificationConfigMetricsModel(NotificationConfigModel):
+    metadata: NotifAnaConfigMetricsMetadataModel = Field(
+        alias=lib.METADATA_FIELD
+    )
+    spec: NotifAnaConfigMetricsSpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotificationRouteDataModel(BaseModel):
+    analytics_settings: Optional[NotificationConfigModel]
+
+
+class NotificationRouteModel(BaseModel):
+    targets: Optional[List[str]] = Field(alias=lib.ROUTE_TARGETS)
+    destination: Optional[NotificationConfigModel] = Field(
+        alias=lib.ROUTE_DESTINATION
+    )
+    data: Optional[Dict] = Field(alias=lib.ROUTE_DATA)
+    description: Optional[str] = Field(alias=lib.ROUTE_DESCRIPTION)
+    expr: Optional[Dict] = Field(alias=lib.ROUTE_EXPR)
+
+    class Config:
+        extra = Extra.forbid
+
+
+class NotificationPolicyModel(BaseModel):
+    targets: Optional[Dict[str, NotificationTargetModel]] = Field(
+        alias=lib.TARGETS_FIELD
+    )
+    routes: Optional[List[NotificationRouteModel]] = Field(
+        alias=lib.ROUTES_FIELD
+    )
+
+    @validator("targets")
+    def validate_target_name(cls, v):
+        for name in v:
+            if len(name) > 64:
+                raise ValueError(
+                    "Target name must be less than 64 characters."
+                )
+            if not lib.is_valid_tgt_name(name):
+                raise ValueError(
+                    "Target name must be only letters, numbers, and valid"
+                    f" symbols {lib.TGT_NAME_VALID_SYMBOLS}."
+                )
+        return v
+
+    class Config:
+        extra = Extra.forbid
+
+
+# -----------------------------------------------------------------------------
 # Suppression Models ----------------------------------------------------------
 # -----------------------------------------------------------------------------
 
@@ -712,6 +1098,9 @@ class SuppressionPolicySelectorsModel(BaseModel):
             # TODO fill out error
             raise ValueError("")
         return values
+
+    class Config:
+        extra = Extra.forbid
 
 
 # Metadata Models -------------------------------------------------------------
@@ -751,6 +1140,9 @@ class SuppressionPolicySpecModel(SuppressionPolicySelectorsModel):
         alias=lib.ALLOWED_FLAGS_FIELD
     )
 
+    class Config:
+        extra = Extra.forbid
+
 
 # Top-level Models ------------------------------------------------------------
 
@@ -760,6 +1152,9 @@ class SuppressionPolicyModel(BaseModel):
     kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
     metadata: SuppressionPolicyMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: SuppressionPolicySpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 # -----------------------------------------------------------------------------
@@ -785,6 +1180,9 @@ class ContextModel(BaseModel):
     )
     pods: Optional[Union[str, List[str]]] = Field(alias=lib.POD_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 # Metadata Models -------------------------------------------------------------
 
@@ -808,11 +1206,17 @@ class SecretModel(BaseModel):
     data: Optional[Dict[str, str]] = Field(alias=lib.DATA_FIELD)
     string_data: Optional[Dict[str, str]] = Field(alias=lib.STRING_DATA_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class ContextsModel(BaseModel):
     context_name: str = Field(alias=lib.CONTEXT_NAME_FIELD)
     secret: str = Field(alias=lib.SECRET_FIELD)
     context: ContextModel = Field(alias=lib.CONTEXT_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class ConfigModel(BaseModel):
@@ -822,6 +1226,9 @@ class ConfigModel(BaseModel):
     )
     contexts: List[ContextsModel] = Field(alias=lib.CONTEXTS_FIELD)
     current_context: str = Field(alias=lib.CURR_CONTEXT_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 # -----------------------------------------------------------------------------
@@ -848,6 +1255,9 @@ class UidListMetadataModel(BaseModel):
 class UidListDataModel(BaseModel):
     uids: List[str] = Field(alias=lib.UIDS_FIELD)
 
+    class Config:
+        extra = Extra.forbid
+
 
 class UidListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
@@ -856,6 +1266,9 @@ class UidListModel(BaseModel):
     )
     metadata: UidListMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: UidListDataModel = Field(alias=lib.DATA_FIELD)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class SpyderbatObject(BaseModel):
@@ -883,6 +1296,13 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     (lib.POL_KIND, lib.POL_TYPE_TRACE): SuppressionPolicyModel,
     lib.SECRET_KIND: SecretModel,
     lib.UID_LIST_KIND: UidListModel,
+    lib.DEVIATION_KIND: GuardianDeviationModel,
+    lib.NOTIFICATION_KIND: NotificationConfigModel,
+    (
+        lib.NOTIFICATION_KIND,
+        lib.NOTIF_TYPE_METRICS,
+    ): NotificationConfigMetricsModel,
+    lib.TARGET_KIND: NotificationTgtResourceModel,
 }
 
 

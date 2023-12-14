@@ -1,5 +1,5 @@
 import json
-from typing import Dict
+from typing import Dict, List
 
 import spyctl.api as api
 import spyctl.cli as cli
@@ -8,6 +8,8 @@ import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.spyctl_lib as lib
 import spyctl.commands.merge as m
+import spyctl.resources.notification_targets as nt
+import spyctl.resources.notifications_configs as nc
 
 
 def handle_apply(filename):
@@ -21,6 +23,10 @@ def handle_apply(filename):
             handle_apply_policy(resrc_data)
         else:
             cli.err_exit(f"Unrecognized policy type '{type}'.")
+    elif kind == lib.NOTIFICATION_KIND:
+        handle_apply_notification_config(resrc_data)
+    elif kind == lib.TARGET_KIND:
+        handle_apply_notification_target(resrc_data)
     else:
         cli.err_exit(f"The 'apply' command is not supported for {kind}")
 
@@ -78,6 +84,60 @@ def handle_matching_policies(policy: Dict, matching_policies: Dict[str, Dict]):
             ret_pol = merged.get_obj_data()
     ret_pol[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
     return sp.TraceSuppressionPolicy(ret_pol)
+
+
+def handle_apply_notification_target(notif_target: Dict):
+    ctx = cfg.get_current_context()
+    target = nt.Target(target_resource=notif_target)
+    notif_pol = api.get_notification_policy(*ctx.get_api_data())
+    targets: Dict = notif_pol.get(lib.TARGETS_FIELD, {})
+    old_tgt = None
+    for tgt_name, tgt_data in targets.items():
+        tgt_id = tgt_data.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+        if not tgt_id:
+            continue
+        if tgt_id == target.id:
+            old_tgt = {tgt_name: tgt_data}
+            break
+        if tgt_name == target.name:
+            cli.err_exit("Target names must be unique!")
+    if old_tgt:
+        tgt_name = next(iter(old_tgt))
+        targets.pop(tgt_name)
+    target.set_last_update_time()
+    new_tgt = target.as_target()
+    targets.update(**new_tgt)
+    notif_pol[lib.TARGETS_FIELD] = targets
+    api.put_notification_policy(*ctx.get_api_data(), notif_pol)
+    if old_tgt:
+        cli.try_log(f"Successfully updated Notification Target '{target.id}'")
+    else:
+        cli.try_log(f"Successfully applied Notification Target '{target.id}'")
+
+
+def handle_apply_notification_config(notif_config: Dict):
+    ctx = cfg.get_current_context()
+    config = nc.NotificationConfig(config_resource=notif_config)
+    notif_pol = api.get_notification_policy(*ctx.get_api_data())
+    routes: List[Dict] = notif_pol.get(lib.ROUTES_FIELD, [])
+    old_route_index = None
+    for i, route in enumerate(routes):
+        route_id = route.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+        if not route_id:
+            continue
+        if route_id == config.id:
+            old_route_index = i
+    if old_route_index is not None:
+        routes.pop(i)
+    config.set_last_updated()
+    new_route = config.route
+    routes.append(new_route)
+    notif_pol[lib.ROUTES_FIELD] = routes
+    api.put_notification_policy(*ctx.get_api_data(), notif_pol)
+    if old_route_index:
+        cli.try_log(f"Successfully updated Notification Config '{config.id}'")
+    else:
+        cli.try_log(f"Successfully applied Notification Config '{config.id}'")
 
 
 def check_suppression_policy_selector_hash(policy: Dict) -> Dict[str, Dict]:
