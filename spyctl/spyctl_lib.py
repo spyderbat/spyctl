@@ -2247,3 +2247,10 @@ def encode_int(x, length=4):
 
 def build_ctx() -> str:
     return f"{encode_int(time.time())}.{make_uuid()[:5]}"
+
+
+def is_guardian_obj(obj: Dict):
+    kind = obj.get(KIND_FIELD)
+    type = obj.get(METADATA_FIELD, {}).get(METADATA_TYPE_FIELD)
+    if kind in [BASELINE_KIND, POL_KIND] and type in GUARDIAN_POL_TYPES:
+        return True
