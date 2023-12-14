@@ -232,6 +232,8 @@ TEMPLATES = [
                     "Policy": "{{ policy_name }}",
                     "Policy UID": "{{ policy_uid }}",
                     "Policy Mode": "{{ policy_mode }}",
+                    "Cluster": "{{ __cluster__ }}",
+                    "Hostname": "{{ hostname }}",
                 },
                 "linkback_text": "View in Spyderbat",
                 "linkback_url": "{{ __linkback__ }}",
