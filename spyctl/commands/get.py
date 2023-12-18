@@ -692,6 +692,7 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
     has_matching = filters.pop("has_matching", False)
     file_output = filters.pop("output_to_file", False)
     get_deviations_count = filters.pop("get_deviations", False)
+    raw_data = filters.pop("raw_data", False)
     ctx = cfg.get_current_context()
     if files:
         policies = []
@@ -706,7 +707,7 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
                 continue
             policies.append(resource_data)
     else:
-        policies = api.get_policies(*ctx.get_api_data())
+        policies = api.get_policies(*ctx.get_api_data(), raw_data=raw_data)
     policies = filt.filter_policies(policies, **filters)
     if name_or_id:
         policies = filt.filter_obj(

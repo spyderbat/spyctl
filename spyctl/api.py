@@ -1086,7 +1086,7 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     return resp
 
 
-def get_policies(api_url, api_key, org_uid, params=None):
+def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     params = {} if params is None else params
     if lib.METADATA_TYPE_FIELD in params:
@@ -1099,14 +1099,17 @@ def get_policies(api_url, api_key, org_uid, params=None):
         resp = get(url, api_key, params)
         for pol_json in resp.iter_lines():
             pol_list = json.loads(pol_json)
-            for pol in pol_list:
-                uid = pol["uid"]
-                policy = json.loads(pol["policy"])
-                policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
-                    "valid_from"
-                ]
-                policies.append(policy)
+            if not raw_data:
+                for pol in pol_list:
+                    uid = pol["uid"]
+                    policy = json.loads(pol["policy"])
+                    policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
+                    policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
+                        "valid_from"
+                    ]
+                    policies.append(policy)
+            else:
+                policies.extend(pol_list)
     return policies
 
 
