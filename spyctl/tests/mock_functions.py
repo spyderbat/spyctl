@@ -511,7 +511,7 @@ def mock_get_fingerprints(
     yield mock_fingerprint
 
 
-def mock_get_policies(api_url, api_key, org_uid, params=None):
+def mock_get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
     mock_policy = {
         "apiVersion": "spyderbat/v1",
         "kind": "SpyderbatPolicy",
