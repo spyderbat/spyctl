@@ -51,7 +51,7 @@ REDFLAG_POL_OPTION_TO_SELECTORS_MAP = {
 def build_trace_suppression_policy(
     trace_summary: Dict = None,
     include_users: bool = False,
-    mode: str = lib.POL_MODE_AUDIT,
+    mode: str = lib.POL_MODE_ENFORCE,
     name: str = None,
     **selectors,
 ):
@@ -67,7 +67,7 @@ class TraceSuppressionPolicy:
     def __init__(
         self,
         obj: Dict = None,
-        mode: str = lib.POL_MODE_AUDIT,
+        mode: str = lib.POL_MODE_ENFORCE,
         name: str = None,
     ) -> None:
         if obj:
