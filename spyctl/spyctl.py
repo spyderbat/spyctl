@@ -1352,6 +1352,11 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                 ),
                 click.option(
+                    "--raw-data",
+                    is_flag=True,
+                    hidden=True,
+                ),
+                click.option(
                     "--get-deviations",
                     help="In the summary output, show deviations count for the"
                     " provided time window",
