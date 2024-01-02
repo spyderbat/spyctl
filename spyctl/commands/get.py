@@ -780,76 +780,79 @@ def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
 def handle_get_fingerprints(
     name_or_id, st, et, output, files: List[IO], latest, **filters
 ):
-    # TODO Support Fingerprints taking full advantage of the new
-    # way we stream API results.
     ctx = cfg.get_current_context()
     # Pop any extra options
-    pol_names_or_uids = filters.pop(lib.POLICY_UID_FIELD, None)
-    policy_coverage = filters.pop("policy_coverage", False)
     raw = filters.pop("raw_data", False)
-    # Retrieve fingerprints and filter based on desired scope
-    if files:
-        orig_fprints = __get_fingerprints_matching_files_scope(
-            name_or_id, files, latest, st, et, **filters
+    group_by = filters.pop("group_by", [])
+    sort_by = filters.pop("sort_by", [])
+    fprint_type = filters.pop(lib.TYPE_FIELD)
+    sources, filters = _af.Fingerprints.build_sources_and_filters(**filters)
+    name_or_id_expr = None
+    if name_or_id:
+        name_or_id_expr = _af.Fingerprints.generate_name_or_uid_expr(
+            name_or_id
         )
-    elif pol_names_or_uids:
-        orig_fprints = __get_fingerprints_matching_policies_scope(
-            name_or_id, pol_names_or_uids, latest, st, et, **filters
+    # Output in desired format
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_fprints.fprint_output_summary(
+            ctx,
+            fprint_type,
+            sources,
+            filters,
+            st,
+            et,
+            name_or_id_expr,
+            group_by=group_by,
+            sort_by=sort_by,
         )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        summary = spyctl_fprints.fprint_output_summary(
+            ctx,
+            fprint_type,
+            sources,
+            filters,
+            st,
+            et,
+            name_or_id_expr,
+            group_by=group_by,
+            sort_by=sort_by,
+            wide=True,
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
     else:
-        fprint_type = filters.get(lib.TYPE_FIELD)
-        sources, filters = _af.Fingerprints.build_sources_and_filters(
-            **filters
-        )
-        pipeline = _af.Fingerprints.generate_pipeline(
-            name_or_id, fprint_type, filters=filters
-        )
-        orig_fprints = list(
-            api.get_fingerprints(
+        if raw:
+            fprints = api.get_guardian_fingerprints(
                 *ctx.get_api_data(),
                 sources,
                 (st, et),
-                fprint_type=filters.get(lib.TYPE_FIELD),
-                pipeline=pipeline,
-                limit_mem=LIMIT_MEM,
+                fprint_type,
+                unique=True,
+                limit_mem=True,
+                expr=name_or_id_expr,
+                **filters,
             )
-        )
-    # Build fingerprint groups
-    if policy_coverage:
-        fprint_groups, coverage_percentage = __calc_policy_coverage(
-            orig_fprints
-        )
-    elif raw and (output == lib.OUTPUT_YAML or output == lib.OUTPUT_JSON):
-        fprint_groups = orig_fprints
-    else:
-        fprint_groups = spyctl_fprints.make_fingerprint_groups(orig_fprints)
-    # Output in desired format
-    if output == lib.OUTPUT_DEFAULT:
-        if policy_coverage:
-            summary = spyctl_fprints.fprint_grp_output_summary(
-                fprint_groups, True, coverage_percentage
-            )
+            for fprint in fprints:
+                cli.show(fprint, output, ndjson=NDJSON)
         else:
-            summary = spyctl_fprints.fprint_grp_output_summary(fprint_groups)
-        cli.show(summary, lib.OUTPUT_RAW)
-    elif output == lib.OUTPUT_WIDE:
-        if policy_coverage:
-            summary = spyctl_fprints.fprint_grp_output_wide(
-                fprint_groups, True, coverage_percentage
+            fprints = list(
+                api.get_guardian_fingerprints(
+                    *ctx.get_api_data(),
+                    sources,
+                    (st, et),
+                    fprint_type,
+                    unique=True,
+                    limit_mem=True,
+                    expr=name_or_id_expr,
+                    **filters,
+                )
             )
-        else:
-            summary = spyctl_fprints.fprint_grp_output_wide(fprint_groups)
-        cli.show(summary, lib.OUTPUT_RAW)
-    else:
-        if not raw:
+            fprint_groups = spyctl_fprints.make_fingerprint_groups(fprints)
             tmp_grps = []
             for grps in fprint_groups:
                 tmp_grps.extend(grps)
             fprint_groups = spyctl_fprints.fprint_groups_output(tmp_grps)
             cli.show(fprint_groups, output, ndjson=NDJSON)
-        else:
-            for fingerprint in fprint_groups:
-                cli.show(fingerprint, output, ndjson=NDJSON)
 
 
 # ----------------------------------------------------------------- #

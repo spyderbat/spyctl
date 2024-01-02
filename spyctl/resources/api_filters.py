@@ -73,6 +73,12 @@ def get_filtered_pol_uids(**filters) -> List[str]:
     return policy_uids
 
 
+def get_default_time_window(resource: str) -> str:
+    if resource == lib.FINGERPRINTS_RESOURCE:
+        return "90m"
+    return "24h"
+
+
 class API_Filter:
     property_map = (
         {}
@@ -109,6 +115,13 @@ class API_Filter:
                 }
             )
         return pipeline_items
+
+    @classmethod
+    def generate_name_or_uid_expr(
+        cls,
+        name_or_uid,
+    ):
+        return cls.__build_or_block(cls.name_or_uid_props, [name_or_uid])
 
     @classmethod
     def __generate_fprint_api_filters(
@@ -451,16 +464,25 @@ class Deviations(API_Filter):
 
 
 class Fingerprints(API_Filter):
+    # property_map = {
+    #     lib.MACHINES_FIELD: "muid",
+    #     lib.POD_FIELD: "pod_uid",
+    #     lib.CLUSTER_FIELD: "cluster_uid",
+    #     lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+    #     lib.CGROUP_FIELD: "cgroup",
+    #     lib.IMAGE_FIELD: "image",
+    #     lib.IMAGEID_FIELD: "image_id",
+    #     lib.CONTAINER_ID_FIELD: "container_id",
+    #     lib.CONTAINER_NAME_FIELD: "container_name",
+    #     lib.STATUS_FIELD: lib.STATUS_FIELD,
+    #     lib.ID_FIELD: lib.ID_FIELD,
+    # }
     property_map = {
-        lib.MACHINES_FIELD: "muid",
-        lib.POD_FIELD: "pod_uid",
         lib.CLUSTER_FIELD: "cluster_uid",
-        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        lib.NAMESPACE_FIELD: lib.METADATA_NAMESPACE_FIELD,
         lib.CGROUP_FIELD: "cgroup",
         lib.IMAGE_FIELD: "image",
         lib.IMAGEID_FIELD: "image_id",
-        lib.CONTAINER_ID_FIELD: "container_id",
-        lib.CONTAINER_NAME_FIELD: "container_name",
         lib.STATUS_FIELD: lib.STATUS_FIELD,
         lib.ID_FIELD: lib.ID_FIELD,
     }

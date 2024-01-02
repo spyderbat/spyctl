@@ -803,7 +803,9 @@ class GuardianObjectModel(BaseModel):
 
 class GuardianObjectListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    items: List[GuardianObjectModel] = Field(alias=lib.ITEMS_FIELD)
+    items: List[
+        Union[GuardianObjectModel, GuardianFingerprintGroupModel]
+    ] = Field(alias=lib.ITEMS_FIELD)
 
 
 # -----------------------------------------------------------------------------
