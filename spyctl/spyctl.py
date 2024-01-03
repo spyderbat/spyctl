@@ -1186,15 +1186,23 @@ class GetCommand(lib.ArgumentParametersCommand):
                     metavar="",
                 ),
                 click.option(
-                    "--unique",
+                    "--non-unique",
                     is_flag=True,
-                    help="Only return unique deviations in json or yaml"
-                    " output",
+                    help="By default json or yaml output will be unique. Set"
+                    " this flag to include all relevant deviations.",
                 ),
                 click.option(
                     "--raw-data",
                     is_flag=True,
                     help="Return the raw event_audit:guardian_deviation data.",
+                ),
+                click.option(
+                    "--include-irrelevant",
+                    is_flag=True,
+                    help="Return deviations tied to a policy even if they"
+                    " are no longer relevant. The default behavior is to"
+                    " exclude deviations that have already been merged into"
+                    " the policy.",
                 ),
             ],
         },

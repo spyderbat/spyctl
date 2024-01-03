@@ -641,6 +641,8 @@ class GuardianFingerprintGroupMetadataModel(BaseModel):
 class GuardianDeviationMetadataModel(BaseModel):
     type: str = Field(alias=lib.METADATA_TYPE_FIELD)
     policy_uid: str = Field(alias="policy_uid")
+    checksum: str = Field(alias=lib.CHECKSUM_FIELD)
+    uid: str = Field(alias=lib.METADATA_UID_FIELD)
 
 
 # Spec Models -----------------------------------------------------------------

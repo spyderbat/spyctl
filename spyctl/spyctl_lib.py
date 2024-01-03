@@ -1070,6 +1070,7 @@ CLUSTER_OPTION = "cluster"
 NAMESPACE_OPTION = "namespace"
 
 # deviations
+DEVIATION_FIELD = "deviation"
 DEVIATION_DESCRIPTION = "deviationDescription"
 
 # Templates

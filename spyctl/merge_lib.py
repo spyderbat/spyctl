@@ -77,20 +77,25 @@ class MergeObject:
         self.starting_yaml = yaml.dump(obj_data)
         self.merge_network = merge_network
         self.is_guardian = lib.is_guardian_obj(self.original_obj)
+        self.irrelevant_objects: Dict[
+            str, Set[str]
+        ] = {}  # kind -> Set(checksum or id) if checksum missing
+        self.relevant_objects: Dict[
+            str, Set[str]
+        ] = {}  # kind -> Set(checksum or id) if checksum missing
         # guardian spec merge settings
         self.__parse_disable_procs_settings(disable_procs)
         self.__parse_disable_conns_settings(disable_conns)
 
-    def symmetric_merge(self, other: Union["MergeObject", Dict]):
+    def symmetric_merge(self, other: Dict, check_irrelevant=False):
         global BASE_NODE_LIST, MERGING_NODE_LIST
         BASE_NODE_LIST = None
         MERGING_NODE_LIST = None
+        if (spec_cp := self.obj_data.get(lib.SPEC_FIELD)) and check_irrelevant:
+            spec_cp = deepcopy(self.obj_data[lib.SPEC_FIELD])
         for schema in self.schemas:
             data = self.obj_data.get(schema.field)
-            if isinstance(other, MergeObject):
-                other_data = other.obj_data.get(schema.field, {})
-            else:
-                other_data = other.get(schema.field, {})
+            other_data = other.get(schema.field, {})
             if (
                 not self.__merge_subfields(
                     data, other_data, schema, symmetric=True
@@ -98,22 +103,25 @@ class MergeObject:
                 and schema.field in self.obj_data
             ):
                 del self.obj_data[schema.field]
+        if spec_cp and check_irrelevant:
+            self.check_irrelevant_obj(spec_cp, other)
 
-    def asymmetric_merge(self, other: Union["MergeObject", Dict]):
+    def asymmetric_merge(self, other: Dict, check_irrelevant=False):
         global BASE_NODE_LIST, MERGING_NODE_LIST
         BASE_NODE_LIST = None
         MERGING_NODE_LIST = None
+        if (spec_cp := self.obj_data.get(lib.SPEC_FIELD)) and check_irrelevant:
+            spec_cp = deepcopy(self.obj_data[lib.SPEC_FIELD])
         for schema in self.schemas:
             data = self.obj_data.get(schema.field)
-            if isinstance(other, MergeObject):
-                other_data = other.obj_data.get(schema.field, {})
-            else:
-                other_data = other.get(schema.field, {})
+            other_data = other.get(schema.field, {})
             if (
                 not self.__merge_subfields(data, other_data, schema)
                 and schema.field in self.obj_data
             ):
                 del self.obj_data[schema.field]
+        if spec_cp and check_irrelevant:
+            self.check_irrelevant_obj(spec_cp, other)
 
     def is_valid_obj(self) -> bool:
         try:
@@ -122,6 +130,39 @@ class MergeObject:
         except Exception as e:
             cli.try_log(f"Merge created invalid object. {' '.join(e.args)}")
             return False
+
+    def check_irrelevant_obj(self, spec_cp: Dict, other: Dict):
+        checksum_or_id = self.__get_checksum_or_id(other)
+        other_kind = other[lib.KIND_FIELD]
+        if (
+            other_kind in self.relevant_objects
+            and checksum_or_id in self.relevant_objects[other_kind]
+        ):
+            return
+        if self.obj_data[lib.SPEC_FIELD] == spec_cp:
+            self.irrelevant_objects.setdefault(other_kind, set())
+            self.irrelevant_objects[other_kind].add(checksum_or_id)
+        else:
+            self.relevant_objects.setdefault(other_kind, set())
+            self.relevant_objects[other_kind].add(checksum_or_id)
+
+    def get_irrelevant_objects(self) -> Dict[str, Set[str]]:
+        return {k: list(v) for k, v in self.irrelevant_objects.items()}
+
+    def is_relevant_obj(self, other_kind: str, other: Union[Dict, str]):
+        if isinstance(other, str):
+            return other in self.relevant_objects.get(other_kind, set())
+        else:
+            checksum_or_id = self.__get_checksum_or_id(other)
+            return checksum_or_id in self.relevant_objects.get(
+                other_kind, set()
+            )
+
+    def __get_checksum_or_id(self, other: Dict) -> str:
+        rv = other[lib.METADATA_FIELD].get(lib.CHECKSUM_FIELD)
+        if not rv:
+            rv = other[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+        return rv
 
     @property
     def is_valid(self) -> bool:
@@ -553,6 +594,9 @@ class ProcessNodeList:
         self.proc_name_index: Dict[str, List[str]] = {}
         self.roots: List[ProcessNode] = []
         self.ids = set()
+        # Node lists from deviations or suggestions may
+        # be treated differently in some cases
+        self.dev_or_sug = False
         for node_data in nodes_data:
             root_node = self.__add_node(node_data)
             if len(root_node.eusers) == 0:
@@ -659,6 +703,7 @@ class ProcessNodeList:
         self, node_data: Dict, eusers=[], parent=None
     ) -> "ProcessNode":
         if "policyNode" in node_data:
+            self.dev_or_sug = True
             id = node_data["policyNode"]["id"]
             children = node_data["policyNode"].get(lib.CHILDREN_FIELD)
             if id not in BASE_NODE_LIST.ids:
@@ -682,9 +727,16 @@ class ProcessNodeList:
         self.proc_name_index.setdefault(proc_node.name, [])
         self.proc_name_index[proc_node.name].append(proc_node.id)
         if proc_node.id in self.ids:
-            raise InvalidMergeError(
-                f"Duplicate process id detected. ({proc_node.id})"
-            )
+            if not self.dev_or_sug:
+                raise InvalidMergeError(
+                    f"Duplicate process id detected. ({proc_node.id})"
+                )
+            else:
+                # deviations or suggestions can have ids that already exist in
+                # the base policy, so we need to generate a new id for the
+                # deviation
+                new_id = self.__unique_id(proc_node.id)
+                proc_node.id = new_id
         self.ids.add(proc_node.id)
         for child_data in node_data.get(lib.CHILDREN_FIELD, []):
             self.__add_node(child_data, proc_node.eusers, proc_node.id)

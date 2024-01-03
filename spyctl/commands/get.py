@@ -390,8 +390,9 @@ def handle_get_deployments(name_or_id, st, et, output, **filters):
 
 
 def handle_get_deviations(name_or_id: str, st, et, output, **filters):
-    unique = filters.pop("unique", False)
+    unique = not filters.pop("non_unique", False)  # Default is unique
     raw_data = filters.pop("raw_data", False)
+    include_irrelevant = filters.pop("include_irrelevant", False)
     ctx = cfg.get_current_context()
     sources, filters = _af.Deviations.build_sources_and_filters(**filters)
     if _af.POLICIES_CACHE:
@@ -412,6 +413,10 @@ def handle_get_deviations(name_or_id: str, st, et, output, **filters):
                 ],
                 name_or_id,
             )
+            sources = [
+                policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                for policy in policies
+            ]
         else:
             policies = [
                 policy
@@ -435,6 +440,8 @@ def handle_get_deviations(name_or_id: str, st, et, output, **filters):
             get_deviations_count=True,
             suppress_msg=True,
             dev_name_or_uid=dev_uid,
+            dev_filters=filters,
+            include_irrelevant=include_irrelevant,
         )
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
@@ -449,6 +456,8 @@ def handle_get_deviations(name_or_id: str, st, et, output, **filters):
             disable_pbar_on_first=not lib.is_redirected(),
             unique=unique,
             raw_data=raw_data,
+            include_irrelevant=include_irrelevant,
+            policies=policies,
         ):
             cli.show(deviation, output, ndjson=NDJSON)
 

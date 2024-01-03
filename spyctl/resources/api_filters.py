@@ -3,7 +3,7 @@ filtering.
 """
 
 from copy import deepcopy
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Iterable
 
 import spyctl.api as api
 import spyctl.config.configs as cfg
@@ -79,8 +79,39 @@ def get_default_time_window(resource: str) -> str:
     return "24h"
 
 
+def add_and_to_pipeline_filter(pipeline: List[Dict], filter: Dict):
+    for item in pipeline:
+        if "filter" in item:
+            filter_clause = item["filter"]
+            if "and" not in filter_clause:
+                return
+            filter_clause["and"].append(filter)
+            return
+
+
+def generate_not_clause(properties: Iterable, values: Iterable) -> Dict:
+    not_clause = {"not": {"and": []}}
+    for property, value in zip(properties, values):
+        not_clause["not"]["and"].append(generate_filter_value(property, value))
+    return not_clause
+
+
+def generate_filter_value(property, value: str) -> Dict:
+    if isinstance(value, int) or isinstance(value, float):
+        rv = {"property": property, "equals": value}
+    elif "*" in value or "?" in value:
+        value = lib.simple_glob_to_regex(value)
+        rv = {"property": property, "re_match": value}
+    else:
+        rv = {"property": property, "equals": value}
+    return rv
+
+
 class API_Filter:
     property_map = (
+        {}
+    )  # property -> field name on object (. notation for nested fields)
+    not_property_map = (  # for not equals
         {}
     )  # property -> field name on object (. notation for nested fields)
     name_or_uid_props: []  # properties in the property_map that are related to name_or_id filtering
@@ -139,27 +170,25 @@ class API_Filter:
                 )
             )
         for key, values in filters.items():
-            if isinstance(values, list) and len(values) > 1:
-                and_items.append(cls.__build_or_block([key], values))
+            if property := cls.__build_property(key):
+                if isinstance(values, list) and len(values) > 1:
+                    and_items.append(cls.__build_or_block([key], values))
+                else:
+                    if isinstance(values, list):
+                        value = values[0]
+                    else:
+                        value = values
+                    and_items.append(generate_filter_value(property, value))
+            elif property := cls.__build_not_property(key):
+                if isinstance(values, str):
+                    value = [values]
+                for value in values:
+                    and_items.append(
+                        {"not": generate_filter_value(property, value)}
+                    )
             else:
-                if isinstance(values, list):
-                    value = values[0]
-                else:
-                    value = values
-                property = cls.__build_property(key)
-                if not property:
-                    continue
-                if isinstance(value, int) or isinstance(value, float):
-                    and_items.append({"property": property, "equals": value})
-                elif "*" in value or "?" in value:
-                    value = lib.simple_glob_to_regex(value)
-                    and_items.append({"property": property, "re_match": value})
-                else:
-                    and_items.append({"property": property, "equals": value})
-        if len(and_items) > 1:
-            rv = {"filter": {"and": and_items}}
-        else:
-            rv = {"filter": and_items[0]}
+                continue
+        rv = {"filter": {"and": and_items}}
         return rv
 
     @classmethod
@@ -187,6 +216,10 @@ class API_Filter:
     @classmethod
     def __build_property(cls, key: str):
         return cls.property_map[key]
+
+    @classmethod
+    def __build_not_property(cls, key: str):
+        return cls.not_property_map[key]
 
     @classmethod
     def build_sources_and_filters(cls, **filters) -> Tuple[List[str], Dict]:
@@ -419,6 +452,9 @@ class Deviations(API_Filter):
     property_map = {
         lib.ID_FIELD: lib.ID_FIELD,
         lib.POLICIES_FIELD: lib.BE_POL_UID_FIELD,
+    }
+    not_property_map = {
+        f"not_{lib.CHECKSUM_FIELD}": lib.CHECKSUM_FIELD,
     }
     name_or_uid_props = [lib.ID_FIELD]
     source_type = SOURCE_TYPE_POL

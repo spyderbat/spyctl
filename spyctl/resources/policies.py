@@ -266,6 +266,8 @@ def policies_summary_output(
     get_deviations_count: bool = False,
     suppress_msg=False,
     dev_name_or_uid=None,
+    dev_filters={},
+    include_irrelevant=False,
 ):
     output_list = []
     if get_deviations_count:
@@ -283,7 +285,12 @@ def policies_summary_output(
     deviation_counts = {}
     if get_deviations_count:
         deviation_counts = get_deviation_counts(
-            policies, time, suppress_msg, dev_name_or_uid
+            policies,
+            time,
+            suppress_msg,
+            dev_name_or_uid,
+            dev_filters=dev_filters,
+            include_irrelevant=include_irrelevant,
         )
     for policy in policies:
         data.append(
@@ -365,7 +372,12 @@ def get_deviation_counts(
     time: Tuple[float, float],
     suppress_msg=False,
     dev_name_or_uid=None,
+    dev_filters={},
+    include_irrelevant=False,
 ) -> Dict:
+    import spyctl.commands.merge as merge
+    import spyctl.resources.deviations as spyctl_dev
+
     if not suppress_msg:
         cli.try_log(
             f"Getting policy deviations from {lib.epoch_to_zulu(time[0])} to"
@@ -373,24 +385,71 @@ def get_deviation_counts(
         )
     rv: Dict[str, List[Set, int]] = {}
     ctx = cfg.get_current_context()
-    policy_uids = [
-        policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+    policy_uids = {
+        policy[lib.METADATA_FIELD].get(
+            lib.METADATA_UID_FIELD
+        ): merge.get_merge_object(
+            lib.POL_KIND, policy, True, "check_deviations"
+        )
         for policy in policies
-    ]
-    pipeline = _af.Deviations.generate_count_pipeline(dev_name_or_uid)
-    checksums = set()
-    for count_obj in api.get_deviations(
-        *ctx.get_api_data(),
-        policy_uids,
+    }  # policy uid -> merge object
+    # checksum_filters: List[Tuple[str, str]] = []
+    # if not include_irrelevant:
+    #     # Here we retrieve unique deviations for each policy
+    #     # and check if the deviation makes any changes to
+    #     # the policy. If it doesn't we can filter it out
+    #     # for the count because its not a relevant deviation.
+    #     cli.try_log("Checking for relevant deviations")
+    pipeline = _af.Deviations.generate_pipeline(
+        dev_name_or_uid, filters=dev_filters
+    )
+    for deviation in spyctl_dev.get_deviations_stream(
+        ctx,
+        list(policy_uids),
         time,
         pipeline,
+        True,
+        disable_pbar_on_first=not lib.is_redirected(),
+        raw_data=True,
+        policies=policies,
+        include_irrelevant=include_irrelevant,
     ):
-        uid = count_obj["policy_uid"]
-        checksums.update(count_obj["counts"])
-        if uid not in rv:
-            rv[uid] = [set(), 0]
-        rv[uid][0].update(count_obj["counts"])
-        rv[uid][1] += sum(count_obj["counts"].values())
+        checksum = deviation[lib.CHECKSUM_FIELD]
+        pol_uid = deviation["policy_uid"]
+        if pol_uid not in rv:
+            rv[pol_uid] = [set(), 0]
+        rv[pol_uid][0].add(checksum)
+        rv[pol_uid][1] += 1
+    #     m_obj = policy_uids[pol_uid]
+    #     m_obj.asymmetric_merge(
+    #         deviation[lib.DEVIATION_FIELD], check_irrelevant=True
+    #     )
+    #     if not m_obj.is_relevant_obj(lib.DEVIATION_KIND, checksum):
+    #         checksum_filters.append((checksum, pol_uid))
+    #     cli.try_log("Getting deviation counts")
+    # pipeline = _af.Deviations.generate_count_pipeline(dev_name_or_uid)
+    # for checksum_filter in checksum_filters:
+    #     # This adds a clause to the pipeline filter to filter out
+    #     # the checksums we know are not relevant to the policy.
+    #     _af.add_and_to_pipeline_filter(
+    #         pipeline,
+    #         _af.generate_not_clause(
+    #             [lib.CHECKSUM_FIELD, "policy_uid"], checksum_filter
+    #         ),
+    #     )
+    # checksums = set()
+    # for count_obj in api.get_deviations(
+    #     *ctx.get_api_data(),
+    #     list(policy_uids),
+    #     time,
+    #     pipeline,
+    # ):
+    #     uid = count_obj["policy_uid"]
+    #     checksums.update(count_obj["counts"])
+    #     if uid not in rv:
+    #         rv[uid] = [set(), 0]
+    #     rv[uid][0].update(count_obj["counts"])
+    #     rv[uid][1] += sum(count_obj["counts"].values())
     return rv
 
 

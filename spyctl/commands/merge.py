@@ -408,6 +408,7 @@ def merge_resource(
     merge_network=True,
     ctx: cfgs.Context = None,
     latest=False,
+    check_irrelevant=False,
 ) -> Optional[m_lib.MergeObject]:
     if target == with_obj:
         cli.try_log(
@@ -431,7 +432,7 @@ def merge_resource(
             if is_type_mismatch(target, target_name, src_cmd, w_obj):
                 continue
             try:
-                merge_obj.asymmetric_merge(w_obj)
+                merge_obj.asymmetric_merge(w_obj, check_irrelevant)
             except m_lib.InvalidMergeError as e:
                 cli.try_log(
                     f"Unable to {src_cmd} with invalid object. {w_obj}",
