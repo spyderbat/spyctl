@@ -1,12 +1,11 @@
 import json
 import sys
-from typing import Dict, List, Tuple, Callable, Union, Generator, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
 
 import requests
 import tqdm
 import zulu
-import json
 
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
@@ -235,11 +234,12 @@ def retrieve_data(
     schema: str,
     time: Tuple[float, float],
     raise_notfound=False,
-    pipeline=None,
-    url="api/v1/source/query/",
+    pipeline: List = None,
+    url: str = "api/v1/source/query/",
     disable_pbar=False,
     limit_mem=True,
     disable_pbar_on_first=False,
+    api_data: Dict = None,
 ):
     """This is the defacto data retrieval function. Most queries that don't
     target the SQL db can be executed with this function. It enforces limited
@@ -257,9 +257,9 @@ def retrieve_data(
         time (Tuple[float, float]): A tuple with (starting time, ending time)
         raise_notfound (bool, optional): Error to raise if the API throws an
             404 error. Defaults to False.
-        pipeline (_type_, optional): Filtering done by the api.
+        pipeline (list, optional): Filtering done by the api.
             Defaults to None.
-        url (_type_, optional): Alternative url path (ex. f"{api_url}/{url}").
+        url (str, optional): Alternative url path (ex. f"{api_url}/{url}").
             Defaults to "api/v1/source/query/".
         disable_pbar (bool, optional): Does not show the progress bar if set
             to True. Defaults to False.
@@ -268,6 +268,7 @@ def retrieve_data(
             Defaults to True.
         disable_pbar_on_first (bool, optional): Closes and clears the progress
             bar after first item is returned. Defaults to False.
+        api_data (dict, optional): Alternative data to pass to the API.
 
     Yields:
         Iterator[dict]: An iterator over retrieved objects.
@@ -313,6 +314,7 @@ def retrieve_data(
             raise_notfound,
             pipeline,
             url,
+            api_data,
         ),
         disable_pbar=disable_pbar,
         pbar_tracker=progress_bar_tracker,
@@ -345,6 +347,7 @@ def get_filtered_data(
     raise_notfound=False,
     pipeline=None,
     url="api/v1/source/query/",
+    api_data=None,
 ) -> Optional[requests.Response]:
     """This function formats and makes a post request following the
     "source query" format. If a pipeline is not provided, this function will
@@ -370,18 +373,22 @@ def get_filtered_data(
         Response: The http response from the request.
     """
     url = f"{api_url}/{url}"
-    data = {
-        "start_time": time[0],
-        "end_time": time[1],
-        "data_type": datatype,
-        "pipeline": [{"filter": {"schema": schema}}, {"latest_model": {}}],
-    }
-    if org_uid:
-        data["org_uid"] = org_uid
-    if pipeline:
-        data["pipeline"] = pipeline
-    if source:
-        data["src_uid"] = source
+    if not api_data:
+        data = {
+            "start_time": time[0],
+            "end_time": time[1],
+            "data_type": datatype,
+            "pipeline": [{"filter": {"schema": schema}}, {"latest_model": {}}],
+        }
+        if org_uid:
+            data["org_uid"] = org_uid
+        if pipeline:
+            data["pipeline"] = pipeline
+        if source:
+            data["src_uid"] = source
+    else:
+        api_data["src_uid"] = source
+        data = api_data
     try:
         return post(url, data, api_key, raise_notfound)
     except NotFoundException:
@@ -824,6 +831,51 @@ def get_fingerprints(
         __log_interrupt()
 
 
+def get_guardian_fingerprints(
+    api_url,
+    api_key,
+    org_uid,
+    sources,
+    time,
+    fprint_type=None,
+    unique=False,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+    expr=None,
+    **filters,
+):
+    if fprint_type == lib.POL_TYPE_SVC:
+        fprint_type = "linux_svc"
+    api_data = {
+        "org_uid": org_uid,
+        "start_time": time[0],
+        "end_time": time[1],
+        "fingerprint_type": fprint_type,
+        "unique": False,
+        "expr": expr,
+        **filters,
+    }
+    url = "api/v1/fingerprint/guardian/query"
+    try:
+        for fingerprint in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            sources,
+            None,
+            None,
+            time,
+            pipeline=None,
+            url=url,
+            disable_pbar_on_first=disable_pbar_on_first,
+            api_data=api_data,
+            limit_mem=limit_mem,
+        ):
+            yield fingerprint
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
 def get_machines(
     api_url,
     api_key,
@@ -1086,7 +1138,7 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     return resp
 
 
-def get_policies(api_url, api_key, org_uid, params=None):
+def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     params = {} if params is None else params
     if lib.METADATA_TYPE_FIELD in params:
@@ -1099,14 +1151,17 @@ def get_policies(api_url, api_key, org_uid, params=None):
         resp = get(url, api_key, params)
         for pol_json in resp.iter_lines():
             pol_list = json.loads(pol_json)
-            for pol in pol_list:
-                uid = pol["uid"]
-                policy = json.loads(pol["policy"])
-                policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
-                    "valid_from"
-                ]
-                policies.append(policy)
+            if not raw_data:
+                for pol in pol_list:
+                    uid = pol["uid"]
+                    policy = json.loads(pol["policy"])
+                    policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
+                    policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
+                        "valid_from"
+                    ]
+                    policies.append(policy)
+            else:
+                policies.extend(pol_list)
     return policies
 
 
