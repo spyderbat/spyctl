@@ -5,6 +5,7 @@ on: push
 jobs:
   build:
     name: Build Spyctl distribution
+    if: startsWith(github.ref, 'refs/tags/') && github.ref_name == 'master'
     runs-on: ubuntu-latest
     environment:
         name: publish-pypi
@@ -31,7 +32,7 @@ jobs:
 
   publish-to-pypi:
     name: Publish Spyctl distribution to PyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    if: startsWith(github.ref, 'refs/tags/') && github.ref_name == 'master' # only publish to PyPI on tag pushes
     needs:
     - build
     runs-on: ubuntu-latest
