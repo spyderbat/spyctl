@@ -1070,6 +1070,7 @@ CLUSTER_OPTION = "cluster"
 NAMESPACE_OPTION = "namespace"
 
 # deviations
+DEVIATION_FIELD = "deviation"
 DEVIATION_DESCRIPTION = "deviationDescription"
 
 # Templates
@@ -1625,7 +1626,9 @@ def api_log(*args, **kwargs):
         err_exit("Broken Pipe")
 
 
-def time_inp(time_str: str, cap_one_day=False) -> int:
+def time_inp(time_str: str, cap_one_day=False) -> Optional[int]:
+    if time_str is None:
+        return None
     past_seconds = 0
     epoch_time = None
     try:
