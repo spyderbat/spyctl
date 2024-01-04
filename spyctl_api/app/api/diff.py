@@ -1,5 +1,5 @@
 import json
-from typing import List, Union, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 import spyctl.schemas_v2 as schemas
 from fastapi import APIRouter, BackgroundTasks
@@ -45,10 +45,12 @@ class DiffHandlerInput(BaseModel):
     content_type: Optional[Literal["text", "json"]] = Field(
         default="string", title="The content type of the diff data"
     )
+    include_irrelevant: Optional[bool] = False
 
 
 class DiffHandlerOutput(BaseModel):
     diff_data: str
+    irrelevant: Optional[Dict[str, List[str]]]
 
 
 @router.post("/diff")
@@ -68,6 +70,9 @@ def diff(
         i.api_url,
         i.full_diff,
         i.content_type,
+        i.include_irrelevant,
     )
     output = cmd_diff.diff(cmd_input)
-    return DiffHandlerOutput(diff_data=output.diff_data)
+    return DiffHandlerOutput(
+        diff_data=output.diff_data, irrelevant=output.irrelevant
+    )
