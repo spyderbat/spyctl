@@ -1459,7 +1459,12 @@ def __log_interrupt():
 
 def api_diff(api_url, api_key, org_uid, obj, d_objs):
     url = f"{api_url}/api/v1/org/{org_uid}/spyctl/diff/"
-    data = {"diff_objects": json.dumps([d_objs]), "object": json.dumps(obj)}
+    data = {
+        "diff_objects": json.dumps(d_objs),
+        "object": json.dumps(obj),
+        "include_irrelevant": True,
+        "content_type": "text",
+    }
     resp = post(url, data, api_key)
     diff_data = resp.json()["diff_data"]
     return diff_data
