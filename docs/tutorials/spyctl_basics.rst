@@ -116,8 +116,11 @@ Basic Usage
 ===========
 
 Now that you have configured a |context| for your organization you can use Spyctl
-to view and manage your Spyderbat |resources|. In this section you will learn about the
-``get`` command.
+to view and manage your Spyderbat |resources|.
+
+Spyctl has numerious useful commands like ``get``, ``delete``, ``create``, ``diff`` etc. To know aout the various spyctl commands use: ``spyctl --help``.
+
+In this section though, let's learn about one such useful command i.e the ``get`` command. 
 
 The 'get' Command
 -----------------
@@ -128,30 +131,69 @@ To retrieve data from the Spyderbat API, you can use the ``get`` command:
 
     $ spyctl get RESOURCE [OPTIONS] [NAME_OR_ID]
 
-To retrieve the list of |machs| with the |s_na| installed, issue the
-following command:
+For some resources retrieved from the databases, a time range can be specified:
+
+* Connections
+* Containers
+* Agents
+
+Example:
+
+.. code-block:: console
+
+    $ spyctl get connections -t 3h -e 1h
+
+The ``t`` flag specifies the start time, whereas the ``e`` specifies the end time for the resource data query.
+
+For other resources, time ranges are not applicable:
+
+* Clusters
+* Machines
+* Policies
+
+To get a full list of resources with some usage examples use the 
+spyctl get ``help`` flag:
+
+.. code-block:: console
+
+    $ spyctl get --help
+    
+To retrieve the list of |machs| with the |s_na| installed, use the
+command below. By default, this displays a table of information about the resources you retrieved. 
 
 .. code-block:: console
 
     $ spyctl get machines
 
-By default, this displays a table of information about the resources you retrieved. It is
-possible to output these resources in other formats:
+It is possible to output these resources in other formats: 
 
 .. code-block:: console
 
     $ spyctl get machines -o yaml
 
-This will combine all of the retrieved resources into a single yaml document. If you wish
-to retrieve a specific object you may also supply a name or id with the command:
+The JSON output formatter is organized as a collection of key-value pairs using ``json`` option.
 
 .. code-block:: console
 
-    $ spyctl get machines -o yaml NAME_OR_ID
+    $ spyctl get machines -o json 
 
+Using the ndjson, each JSON object is separated by a newline character, 
+allowing for easy parsing and streaming of JSON data one object at a time.
 
-.. note::
-    A full list of resources can be found here: :ref:`Resources`
+.. code-block:: console
+
+    $ spyctl get machines -o json --ndjson
+
+For some of the resources like ``spydertraces`` you can also get the ``wide`` output with additional fields using the wide option.
+
+If you wish to retrieve a specific object you may also supply a ``name`` or ``id`` with the command:
+
+.. code-block:: console
+
+    $ spyctl get machines -o json NAME_OR_ID
+
+To know about all the available options for various commands, you can use the ``spyctl <command> --help``
+
 
 .. _Baselining_Workflow:
 
