@@ -45,7 +45,7 @@ class DiffHandlerInput(BaseModel):
     content_type: Optional[Literal["text", "json"]] = Field(
         default="string", title="The content type of the diff data"
     )
-    check_irrelevant: Optional[bool] = False
+    include_irrelevant: Optional[bool] = False
 
 
 class DiffHandlerOutput(BaseModel):
@@ -70,7 +70,7 @@ def diff(
         i.api_url,
         i.full_diff,
         i.content_type,
-        i.check_irrelevant,
+        i.include_irrelevant,
     )
     output = cmd_diff.diff(cmd_input)
     return DiffHandlerOutput(
