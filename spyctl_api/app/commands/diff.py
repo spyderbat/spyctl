@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from typing import Dict, List, Optional
+import logging
 
 from spyctl.commands.merge import merge_resource
 
@@ -31,6 +32,7 @@ class DiffOutput:
 
 
 def diff(i: DiffInput) -> DiffOutput:
+    print(f"debug diff -- check_irrelevant: {i.check_irrelevant}")
     spyctl_ctx = app_lib.generate_spyctl_context(
         i.org_uid, i.api_key, i.api_url
     )
@@ -50,6 +52,9 @@ def diff(i: DiffInput) -> DiffOutput:
     else:
         diff_obj = False
     diff_data = merge_data.get_diff(i.full_diff, diff_obj)
+    print(
+        f"debug diff -- has irrelevant objects: {len(merge_data.get_irrelevant_objects()) > 0}",
+    )
     irrelevant = None
     if i.check_irrelevant:
         irrelevant = merge_data.get_irrelevant_objects()
