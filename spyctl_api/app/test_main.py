@@ -84,7 +84,7 @@ def test_diff():
         "api_key": API_KEY,
         "api_url": API_URL,
         "content_type": "json",
-        "check_irrelevant": True,
+        "include_irrelevant": True,
     }
     response = client.post("/api/v1/diff", json=data)
     assert response.status_code == 200
@@ -95,7 +95,7 @@ def test_diff():
         "api_key": API_KEY,
         "api_url": API_URL,
         "content_type": "json",
-        "check_irrelevant": True,
+        "include_irrelevant": True,
     }
     response = client.post("/api/v1/diff", json=data)
     assert response.status_code == 200
