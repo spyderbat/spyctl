@@ -35,3 +35,11 @@ jobs:
       deployment: deu-prod
       environment: deu_prod_api
     secrets: inherit
+
+  mum-prod-build:
+    if: github.base_ref == 'production_api'
+    uses: ./.github/workflows/reusable-build-dry-run.yaml
+    with:
+      deployment: mum-prod
+      environment: mum_prod_api
+    secrets: inherit
