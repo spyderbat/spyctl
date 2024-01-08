@@ -8,7 +8,7 @@ jobs:
   build:
     name: Build Spyctl distribution
     # Handled by environment
-    if: github.ref_name == 'master-test'
+    # if: github.ref_name == 'master-test'
     runs-on: ubuntu-latest
     environment:
       name: publish-test-pypi
@@ -36,7 +36,7 @@ jobs:
   publish-to-testpypi:
     name: Publish Spyctl distribution to TestPyPI
     # Handled by environment
-    if: github.ref_name == 'master-test'
+    # if: github.ref_name == 'master-test'
     needs:
     - build
     runs-on: ubuntu-latest
