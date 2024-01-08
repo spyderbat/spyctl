@@ -14,7 +14,7 @@ dynamic = ["version"]
 
 description = "A command line tool for viewing and managing Spyderbat Resources"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = {file = "LICENSE"}
 keywords = ["spyctl", "spyderbat", "kubectl", "kubernetes"]
 authors = [
