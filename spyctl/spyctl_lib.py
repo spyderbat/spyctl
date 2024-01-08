@@ -1442,6 +1442,7 @@ class ArgumentParametersCommand(CustomCommand):
         self.unspecific = True
 
     def parse_args(self, ctx, args: List[str]) -> List[str]:
+        self.__reset_params()
         args_cpy = args.copy()
         parser = self.make_parser(ctx)
         parser.ignore_unknown_options = True
@@ -1461,7 +1462,6 @@ class ArgumentParametersCommand(CustomCommand):
                     if argument_value == value_option:
                         self.argument_value = str(value_option)
                         for arg_maker in obj["args"]:
-                            # single use, parse args twice will make dupes
                             arg_maker(self)
                         break
         return super().parse_args(ctx, args)
@@ -1502,6 +1502,9 @@ class ArgumentParametersCommand(CustomCommand):
             else:
                 with formatter.section(f"Options for {self.argument_value}"):
                     formatter.write_dl(specif_opts)
+
+    def __reset_params(self):
+        self.params = self.params[: self.base_param_count]
 
 
 class MutuallyExclusiveOption(click.Option):
