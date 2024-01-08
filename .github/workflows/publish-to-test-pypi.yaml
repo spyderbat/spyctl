@@ -1,9 +1,6 @@
 name: Publish Spyctl to TestPyPI
 
-on: 
-  push:
-    tags:
-      - "v*.*.*"
+on: push
 
 jobs:
   build:
