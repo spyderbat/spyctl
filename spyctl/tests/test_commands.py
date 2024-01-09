@@ -4,6 +4,7 @@ import unittest.mock as mock
 from fnmatch import fnmatch
 from itertools import groupby
 from pathlib import Path
+from typing import Tuple
 
 import pytest
 from click.testing import CliRunner
@@ -62,10 +63,10 @@ def test_get_namespaces():
     get_resource("namespaces", TWOHOURS + OUTYML)
 
 
-TWOHOURS = ("-t", "2h")
-OUTYML = ("-o", "yaml")
-MINS_30 = ("-t", "30m")
-MINS_5 = ("-t", "5m")
+TWOHOURS = ["-t", "2h"]
+OUTYML = ["-o", "yaml"]
+MINS_30 = ["-t", "30m"]
+MINS_5 = ["-t", "5m"]
 
 
 def remove_timestamps(str_list):
@@ -124,7 +125,7 @@ resources = (
     "spyctl.commands.get.api",
     get_clusters=mock_func.mock_get_clusters,
     get_deployments=mock_func.mock_get_deployments,
-    get_fingerprints=mock_func.mock_get_fingerprints,
+    get_guardian_fingerprints=mock_func.mock_get_guardian_fingerprints,
     get_namespaces=mock_func.mock_get_namespaces,
     get_nodes=mock_func.mock_get_nodes,
     get_opsflags=mock_func.mock_get_opsflags,
@@ -136,6 +137,10 @@ resources = (
 @mock.patch.multiple(
     "spyctl.resources.deployments.api",
     get_deployments=mock_func.mock_get_deployments,
+)
+@mock.patch.multiple(
+    "spyctl.resources.fingerprints.api",
+    get_guardian_fingerprints=mock_func.mock_get_guardian_fingerprints,
 )
 @mock.patch.multiple(
     "spyctl.resources.flags.api",
@@ -156,19 +161,20 @@ resources = (
 )
 @pytest.mark.parametrize("resource", resources)
 def test_get_resources(resource):
+    args = get_args(resource)
     if resource not in ["opsflags", "fingerprints"]:
         time_range = MINS_30
     else:
         time_range = TWOHOURS
     output = OUTYML
-    table = get_resource(resource, time_range)
+    table = get_resource(resource, args + time_range)
     comparison_line, ids = process_table_response(table)
     for name_or_id in ids:
-        single = get_resource(resource, time_range + (name_or_id,))
+        single = get_resource(resource, args + time_range + [name_or_id])
         first_output = remove_timestamps(single.splitlines()[1].split())
         assert first_output == comparison_line
     time_range = MINS_5
-    get_resource(resource, time_range + output)
+    get_resource(resource, args + time_range + output)
 
 
 def get_resource(resource, args=[], print_output=False):
@@ -178,6 +184,13 @@ def get_resource(resource, args=[], print_output=False):
         print(response.output)
     assert response.exit_code == 0
     return response.stdout
+
+
+SPECIAL_GET_ARGS = {"fingerprints": ["--type", "linux-service"]}
+
+
+def get_args(resource: str) -> Tuple:
+    return SPECIAL_GET_ARGS.get(resource, [])
 
 
 resources_dir = Path(__file__).parent / "test_resources"

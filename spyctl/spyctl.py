@@ -25,6 +25,7 @@ from spyctl.commands.describe import handle_describe
 from spyctl.commands.edit import handle_edit
 from spyctl.commands.logs import handle_logs
 from spyctl.commands.test_notification import handle_test_notification
+import spyctl.resources.api_filters as api_filters
 
 MAIN_EPILOG = (
     "\b\n"
@@ -1185,15 +1186,23 @@ class GetCommand(lib.ArgumentParametersCommand):
                     metavar="",
                 ),
                 click.option(
-                    "--unique",
+                    "--non-unique",
                     is_flag=True,
-                    help="Only return unique deviations in json or yaml"
-                    " output",
+                    help="By default json or yaml output will be unique. Set"
+                    " this flag to include all relevant deviations.",
                 ),
                 click.option(
                     "--raw-data",
                     is_flag=True,
                     help="Return the raw event_audit:guardian_deviation data.",
+                ),
+                click.option(
+                    "--include-irrelevant",
+                    is_flag=True,
+                    help="Return deviations tied to a policy even if they"
+                    " are no longer relevant. The default behavior is to"
+                    " exclude deviations that have already been merged into"
+                    " the policy.",
                 ),
             ],
         },
@@ -1234,56 +1243,13 @@ class GetCommand(lib.ArgumentParametersCommand):
             "resource": [lib.FINGERPRINTS_RESOURCE],
             "args": [
                 click.option(
-                    "-l",
-                    "--latest",
-                    help="Starting time of the query is set to the"
-                    f" '{lib.LATEST_TIMESTAMP_FIELD}'"
-                    f" field the input resource's '{lib.METADATA_FIELD}' and replaces"
-                    " --start-time. [Requires '--filename' option to be set]",
-                    is_flag=True,
-                ),
-                click.option(
-                    "-f",
-                    "--filename",
-                    help="Input file to create filters from. Used if you want"
-                    " to get fingerprints related to another resource."
-                    " E.g. the Fingerprint Groups for a given Baseline file.",
-                    metavar="",
-                    type=lib.FileList(),
-                    cls=lib.MutuallyExclusiveEatAll,
-                    mutually_exclusive=["policy"],
-                ),
-                click.option(
-                    "-p",
-                    "--policy",
-                    help="Policy uid to build filters from. This will download"
-                    " a policy from the spyderbat backend, then filter"
-                    " Fingerprints based on the policy's selectors.",
-                    metavar="",
-                    is_flag=False,
-                    flag_value=m.ALL,
-                    default=None,
-                    type=lib.ListParam(),
-                    cls=lib.MutuallyExclusiveOption,
-                    mutually_exclusive=["filename"],
-                ),
-                click.option(
-                    "-c",
-                    "--policy-coverage",
-                    is_flag=True,
-                    help="Gets the fingerprints that are not covered by"
-                    " existing applied policy. Gives a percentage of coverage"
-                    " for the total amount of Fingerprint Groups in the"
-                    " returned by the query, and lists the ones that still"
-                    " require a policy.",
-                ),
-                click.option(
                     "-T",
                     "--type",
                     type=click.Choice(
                         [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC],
                         case_sensitive=False,
                     ),
+                    required=True,
                     help="The type of fingerprint to return.",
                 ),
                 click.option(
@@ -1291,6 +1257,24 @@ class GetCommand(lib.ArgumentParametersCommand):
                     is_flag=True,
                     help="When outputting to yaml or json, this outputs the"
                     " raw fingerprint data, instead of the fingerprint groups",
+                ),
+                click.option(
+                    "--group-by",
+                    type=lib.ListParam(),
+                    metavar="",
+                    help="Group by fields in the fingerprint, comma delimited. Such as"
+                    " cluster_name,namespace. At a basic level"
+                    " fingerprints are always grouped by image + image_id."
+                    " This option allows you to group by additional fields.",
+                ),
+                click.option(
+                    "--sort-by",
+                    metavar="",
+                    type=lib.ListParam(),
+                    help="Group by fields in the fingerprint, comma delimited. Such as"
+                    " cluster_name,namespace. At a basic level"
+                    " fingerprints are always grouped by image + image_id."
+                    " This option allows you to group by additional fields.",
                 ),
             ],
         },
@@ -1350,6 +1334,11 @@ class GetCommand(lib.ArgumentParametersCommand):
                     help="Should output policies to a file. Unique filename"
                     " created from the name in each policy's metadata.",
                     is_flag=True,
+                ),
+                click.option(
+                    "--raw-data",
+                    is_flag=True,
+                    hidden=True,
                 ),
                 click.option(
                     "--get-deviations",
@@ -1457,7 +1446,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     "--start-time",
     "st",
     help="Start time of the query. Default is 24 hours ago.",
-    default="24h",
+    default=None,
     type=lib.time_inp,
 )
 @click.option(
@@ -1551,6 +1540,8 @@ def get(
     Note: Long time ranges or "get" commands in a context consisting of
     multiple machines can take a long time.
     """
+    if st is None:
+        st = lib.time_inp(api_filters.get_default_time_window(resource))
     filters = {
         key: value for key, value in filters.items() if value is not None
     }

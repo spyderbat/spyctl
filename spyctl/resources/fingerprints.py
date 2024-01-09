@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Generator, Set
 import re
 
 import zulu
@@ -7,6 +7,10 @@ from tabulate import tabulate
 import spyctl.cli as cli
 import spyctl.spyctl_lib as lib
 import spyctl.merge_lib as m_lib
+import spyctl.filter_resource as filt
+from dataclasses import dataclass, field
+import spyctl.config.configs as cfg
+import spyctl.api as api
 
 FPRINT_KIND = lib.FPRINT_KIND
 FPRINT_TYPE_CONT = lib.POL_TYPE_CONT
@@ -275,54 +279,316 @@ class ServiceFingerprintGroup(FingerprintGroup):
         return rv
 
 
-def fprint_grp_output_summary(
-    fingerprint_groups: Tuple,
-    coverage=False,
-    coverage_percentage: float = None,
-) -> str:
-    cont_fprint_grps, svc_fprint_grps = fingerprint_groups
-    output_list = []
-    if coverage:
-        percentage = round(coverage_percentage * 100)
-        output_list.append(
-            f"Policy coverage for queried fingerprints: {percentage}%"
-        )
-        if len(cont_fprint_grps) + len(svc_fprint_grps) > 0:
-            output_list.append(
-                f"{lib.WARNING_COLOR}The fingerprints below are not covered by"
-                f" a policy:{lib.COLOR_END}"
-            )
-    if len(cont_fprint_grps) > 0:
-        container_headers = [
-            "IMAGE",
-            "SHORT_IMAGEID",
-            "CONTAINERS",
-            "MACHINES",
+@dataclass
+class ContainerSumData:
+    image_and_tag: str
+    image_id: str
+    latest_timestamp: float
+    covered_count: int = 0
+    count: int = 0
+    images: Set[str] = field(default_factory=set)
+    repos: Set[str] = field(default_factory=set)
+    additional_fields: Dict[str, str] = field(default_factory=dict)
+
+    def update_image(self, image: str):
+        image_components = image.split("/")
+        repo = "/".join(image_components[:-1])
+        self.images.add(image)
+        if not repo:
+            repo = "NO_REPO"
+        self.repos.add(repo)
+
+    def update_latest_timestamp(self, timestamp):
+        if timestamp > self.latest_timestamp:
+            self.latest_timestamp = timestamp
+
+    def get_data(self):
+        repos = list(self.repos)
+        if len(repos) == 1:
+            repo = repos[0]
+            if len(repo) > 30:
+                repo = repo[:27] + "..."
+        else:
+            repo = f"MULTIPLE ({len(repos)})"
+        return [
+            self.image_and_tag,
+            self.image_id.strip("sha256:")[:12],
+            repo,
+            f"{self.covered_count}/{self.count}",
+            lib.epoch_to_zulu(self.latest_timestamp),
+            *list(self.additional_fields.values()),
+        ]
+
+    def get_wide_data(self):
+        full_images = "\n".join(sorted(self.images))
+        return [
+            self.image_and_tag,
+            self.image_id,
+            full_images,
+            f"{self.covered_count}/{self.count}",
+            lib.epoch_to_zulu(self.latest_timestamp),
+            *list(self.additional_fields.values()),
+        ]
+
+    @classmethod
+    def extract_image_name_and_tag(cls, image: str) -> str:
+        image_components = image.split("/")
+        name_and_tag = image_components[-1]
+        return name_and_tag
+
+    @classmethod
+    def get_headers(cls, group_by: List[str] = []) -> List[str]:
+        headers = [
+            "IMAGE_NAME:TAG",
+            "IMAGEID",
+            "REPO",
+            "COVERED_BY_POLICY",
             "LATEST_TIMESTAMP",
         ]
-        container_data = []
-        for fprint_grp in cont_fprint_grps:
-            container_data.append(cont_grp_output_data(fprint_grp))
-        container_data.sort(key=lambda x: [x[0]])
-        container_tbl = tabulate(
-            container_data, container_headers, tablefmt="plain"
-        )
-        output_list.append(container_tbl)
-    if len(svc_fprint_grps) > 0:
-        service_headers = [
+        if group_by:
+            headers.extend([field.upper() for field in group_by])
+        return headers
+
+    @classmethod
+    def get_wide_headers(cls, group_by: List[str] = []) -> List[str]:
+        headers = [
+            "IMAGE_NAME:TAG",
+            "IMAGEID",
+            "REPO/IMAGE_NAME:TAG",
+            "COVERED_BY_POLICY",
+            "LATEST_TIMESTAMP",
+        ]
+        if group_by:
+            headers.extend([field.upper() for field in group_by])
+        return headers
+
+
+@dataclass
+class ServiceSumData:
+    cgroup: str
+    latest_timestamp: float
+    covered_count: int = 0
+    count: int = 0
+    additional_fields: Dict[str, str] = field(default_factory=dict)
+
+    def update_latest_timestamp(self, timestamp):
+        if timestamp > self.latest_timestamp:
+            self.latest_timestamp = timestamp
+
+    def get_data(self):
+        service_name = self.cgroup.split("/")[-1]
+        cgroup = self.cgroup
+        if len(cgroup) > 30:
+            cgroup = cgroup[:27] + "..."
+        return [
+            service_name,
+            cgroup,
+            f"{self.covered_count}/{self.count}",
+            lib.epoch_to_zulu(self.latest_timestamp),
+            *list(self.additional_fields.values()),
+        ]
+
+    def get_wide_data(self):
+        service_name = self.cgroup.split("/")[-1]
+        return [
+            service_name,
+            self.cgroup,
+            f"{self.covered_count}/{self.count}",
+            lib.epoch_to_zulu(self.latest_timestamp),
+            *list(self.additional_fields.values()),
+        ]
+
+    @classmethod
+    def get_headers(cls, group_by: List[str] = []) -> List[str]:
+        headers = [
+            "SERVICE_NAME",
             "CGROUP",
-            "MACHINES",
+            "COVERED_BY_POLICY",
             "LATEST_TIMESTAMP",
         ]
-        service_data = []
-        for fprint_grp in svc_fprint_grps:
-            service_data.append(svc_grp_output_data(fprint_grp))
-        service_data.sort(key=lambda x: x[0])
-        service_tbl = tabulate(service_data, service_headers, tablefmt="plain")
-        if len(output_list) > 0:
-            service_tbl = "\n" + service_tbl
-        output_list.append(service_tbl)
-    return "\n".join(output_list)
+        if group_by:
+            headers.extend([field.upper() for field in group_by])
+        return headers
+
+    @classmethod
+    def get_wide_headers(cls, group_by: List[str] = []) -> List[str]:
+        headers = [
+            "SERVICE_NAME",
+            "CGROUP",
+            "COVERED_BY_POLICY",
+            "LATEST_TIMESTAMP",
+        ]
+        if group_by:
+            headers.extend([field.upper() for field in group_by])
+        return headers
+
+
+def fprint_output_summary(
+    ctx: cfg.Context,
+    fprint_type: str,
+    sources,
+    filters,
+    st,
+    et,
+    name_or_id_expr,
+    group_by: List[str] = [],
+    sort_by: List[str] = [],
+    wide=False,
+) -> str:
+    fingerprints = api.get_guardian_fingerprints(
+        *ctx.get_api_data(),
+        sources,
+        (st, et),
+        fprint_type,
+        unique=True,
+        limit_mem=True,
+        expr=name_or_id_expr,
+        **filters,
+    )
+    if fprint_type == FPRINT_TYPE_CONT:
+        summary = __cont_fprint_summary(fingerprints, wide, group_by, sort_by)
+    elif fprint_type == FPRINT_TYPE_SVC:
+        summary = __svc_fprint_summary(fingerprints, wide, group_by, sort_by)
+    else:
+        cli.err_exit("Invalid fingerprint type for summary.")
+    return summary
+
+
+def __cont_fprint_summary(
+    fingerprints: Generator[Dict, None, None],
+    wide: bool,
+    group_by: List[str],
+    sort_by: List[str] = [],
+) -> str:
+    if wide:
+        container_headers = ContainerSumData.get_wide_headers(group_by)
+    else:
+        container_headers = ContainerSumData.get_headers(group_by)
+    sort_by = [field.upper() for field in sort_by]
+    for col in sort_by:
+        if col not in container_headers:
+            avail_headers = "\n\t".join(container_headers)
+            cli.err_exit(
+                f"Invalid sort by field: {col}. Options are: \n\t"
+                f"{avail_headers}"
+            )
+    container_data: Dict[Tuple, ContainerSumData] = {}
+    for fprint in fingerprints:
+        image_name_and_tag = ContainerSumData.extract_image_name_and_tag(
+            fprint[lib.IMAGE_FIELD]
+        )
+        image_id = fprint["image_id"]
+        key = [image_name_and_tag, image_id]
+        for f in group_by:
+            key.append(filt.get_field_value(f, fprint))
+        key = tuple(key)
+        if (
+            fprint[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+            == FPRINT_TYPE_CONT
+        ):
+            if key not in container_data:
+                container_data[key] = ContainerSumData(
+                    image_name_and_tag,
+                    fprint["image_id"],
+                    fprint["time"],
+                    1 if fprint.get("covered_by_policy") else 0,
+                    1,
+                    additional_fields={
+                        field: filt.get_field_value(field, fprint)
+                        for field in group_by
+                    },
+                )
+                container_data[key].update_image(fprint[lib.IMAGE_FIELD])
+            else:
+                container_data[key].update_image(fprint[lib.IMAGE_FIELD])
+                container_data[key].update_latest_timestamp(fprint["time"])
+                container_data[key].count += 1
+                if fprint.get("covered_by_policy"):
+                    container_data[key].covered_count += 1
+    if wide:
+        row_data = [data.get_wide_data() for data in container_data.values()]
+    else:
+        row_data = [data.get_data() for data in container_data.values()]
+    if sort_by:
+        row_data.sort(
+            key=lambda row: [
+                row[container_headers.index(col)] for col in sort_by
+            ]
+        )
+    else:
+        row_data.sort(key=lambda x: [x[0]])
+    container_tbl = tabulate(
+        row_data,
+        container_headers,
+        tablefmt="plain",
+    )
+    return container_tbl
+
+
+def __svc_fprint_summary(
+    fingerprints: Generator[Dict, None, None],
+    wide: bool,
+    group_by: List[str],
+    sort_by: List[str] = [],
+) -> str:
+    service_headers = [
+        "CGROUP",
+        "MACHINES",
+        "LATEST_TIMESTAMP",
+    ]
+    if wide:
+        service_headers = ServiceSumData.get_wide_headers(group_by)
+    else:
+        service_headers = ServiceSumData.get_headers(group_by)
+
+    for col in sort_by:
+        if col not in service_headers:
+            avail_headers = "\n\t".join(service_headers)
+            cli.err_exit(
+                f"Invalid sort by field: {col}. Options are: \n\t"
+                f"{avail_headers}"
+            )
+
+    service_data: Dict[Tuple, ServiceSumData] = {}
+
+    grp_by_fields = [lib.CGROUP_FIELD] + group_by
+    for fprint in fingerprints:
+        key = tuple([filt.get_field_value(f, fprint) for f in grp_by_fields])
+        if key not in service_data:
+            service_data[key] = ServiceSumData(
+                fprint[lib.CGROUP_FIELD],
+                fprint["time"],
+                1 if fprint.get("covered_by_policy") else 0,
+                1,
+                {
+                    field: filt.get_field_value(field, fprint)
+                    for field in group_by
+                },
+            )
+        else:
+            service_data[key].update_latest_timestamp(fprint["time"])
+            service_data[key].count += 1
+            if fprint.get("covered_by_policy"):
+                service_data[key].covered_count += 1
+
+    if wide:
+        row_data = [data.get_wide_data() for data in service_data.values()]
+    else:
+        row_data = [data.get_data() for data in service_data.values()]
+    if sort_by:
+        row_data.sort(
+            key=lambda row: [
+                row[service_headers.index(col)] for col in sort_by
+            ]
+        )
+    else:
+        row_data.sort(key=lambda x: [x[0]])
+    service_tbl = tabulate(
+        row_data,
+        service_headers,
+        tablefmt="plain",
+    )
+    return service_tbl
 
 
 def fprint_grp_output_wide(

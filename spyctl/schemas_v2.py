@@ -641,6 +641,8 @@ class GuardianFingerprintGroupMetadataModel(BaseModel):
 class GuardianDeviationMetadataModel(BaseModel):
     type: str = Field(alias=lib.METADATA_TYPE_FIELD)
     policy_uid: str = Field(alias="policy_uid")
+    checksum: str = Field(alias=lib.CHECKSUM_FIELD)
+    uid: str = Field(alias=lib.METADATA_UID_FIELD)
 
 
 # Spec Models -----------------------------------------------------------------
@@ -803,7 +805,9 @@ class GuardianObjectModel(BaseModel):
 
 class GuardianObjectListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    items: List[GuardianObjectModel] = Field(alias=lib.ITEMS_FIELD)
+    items: List[
+        Union[GuardianObjectModel, GuardianFingerprintGroupModel]
+    ] = Field(alias=lib.ITEMS_FIELD)
 
 
 # -----------------------------------------------------------------------------

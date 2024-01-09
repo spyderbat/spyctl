@@ -185,7 +185,7 @@ TEMPLATES = [
     },
     {
         "display_name": "SSH Login Detection",
-        "id": "nc_tmpl:00000008",
+        "id": "nc_tmpl:000000008",
         "description": "Send a notification when Spyderbat detects an interactive SSH login.",
         "type": "security",
         "config": {
@@ -208,6 +208,35 @@ TEMPLATES = [
             },
         },
     },
+    # {
+    #     "display_name": "Unique Spydertraces",
+    #     "id": "nc_tmpl:000000010",
+    #     "description": "Send a notification when we see a unique spydertraces. This config is best used when tuning Spyderbat. You can investigate and suppress unique spydertraces to clear up your dashboards. (1 week cooldown per unique spydertrace)",
+    #     "type": "security",
+    #     "config": {
+    #         "schema_type": "model_spydertrace",
+    #         "condition": 'suppressed = false AND NOT(trigger_short_name ~= "policy_violation*")',
+    #         "cooldown": {
+    #             "byField": ["trigger_ancestors", "trigger_class"],
+    #             "forSeconds": 604800,
+    #         },
+    #         "title": "Unique Spydertrace Detected",
+    #         "message": "Unique Spydertrace detected. Investigate using the link below and/or suppress via spyctl using:\n"
+    #         "```spyctl suppress trace -i {{ id }}```\n"
+    #         "\n{{ __origin__ }}\n",
+    #         "additional_fields": {
+    #             "details": {
+    #                 "Time": "{{ __hr_time__ }}",
+    #                 "Trigger": "{{ trigger_short_name }}",
+    #                 "Trigger Ancestors": "{{ trigger_ancestors }}",
+    #                 "Trigger Class": "{{ trigger_class }}",
+    #             },
+    #             "linkback_text": "View in Spyderbat",
+    #             "linkback_url": "{{ __linkback__ }}",
+    #             "slack_icon": ":mag_right:",
+    #         },
+    #     },
+    # },
     {
         "display_name": "Guardian Deviation",
         "id": "nc_tmpl:000000009",
@@ -234,6 +263,33 @@ TEMPLATES = [
                     "Policy Mode": "{{ policy_mode }}",
                     "Cluster": "{{ __cluster__ }}",
                     "Hostname": "{{ hostname }}",
+                },
+                "linkback_text": "View in Spyderbat",
+                "linkback_url": "{{ __linkback__ }}",
+                "slack_icon": ":warning:",
+            },
+        },
+    },
+    {
+        "display_name": "Agent in Error or Critical State",
+        "id": "nc_tmpl:000000010",
+        "description": "Send a notification when an agent is in error or critical state. (1 day cooldown)",
+        "type": "agent_health",
+        "config": {
+            "schema_type": "model_agent",
+            "condition": "status = 'Error' OR status = 'Critical'",
+            "cooldown": {
+                "byField": ["id", "status"],
+                "forSeconds": 86400,
+            },
+            "title": "Spyderbat Agent in {{ status }} State",
+            "message": "This Nano Agent is in a degraded state and may not be sending all necessary data.\n\n{{ __origin__ }}",
+            "additional_fields": {
+                "details": {
+                    "Hostname": "{{ hostname }}",
+                    "Time": "{{ __hr_time__ }}",
+                    "Source UID": "{{ muid }}",
+                    "Cluster": "{{ __cluster__ }}",
                 },
                 "linkback_text": "View in Spyderbat",
                 "linkback_url": "{{ __linkback__ }}",
