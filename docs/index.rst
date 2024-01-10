@@ -6,7 +6,7 @@
 Spyctl
 ==========================
 
-Release v\ |version|. (:ref:`Installation <install>`)
+Release v\ |version|. (`Installation <https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/spyctl-getting-started>`_)
 
 .. image:: https://img.shields.io/github/downloads/spyderbat/spyctl/total
    :alt: GitHub all releases
@@ -28,30 +28,28 @@ Release v\ |version|. (:ref:`Installation <install>`)
 
 **Spyctl** is a tool for viewing and managing Spyderbat Resources.
 
+Getting Started
+---------------
+
+Installation: `Spyctl Getting Started <https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/spyctl-getting-started>`_
+
+Configuration: `Spyctl Initial Configuration <https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/spyctl-getting-started/initial-configuration>`_
 
 Understanding Spyctl
-----------------------
+--------------------
 
 Learn about Spyctl and its fundamental concepts.
 
 .. toctree::
    :maxdepth: 1
 
-   getting_started/getting_started
-   tutorials/tutorials
+   commands
+
+Tutorials:
+
+* `Basics Tutorial <https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/tutorials/basics-tutorial>`_
 
 Reference
 ---------
 
-.. toctree::
-   :maxdepth: 1
-
-   user/configuration
-   user/resources
-   user/spyderbat_concepts
-   user/commands
-
-Indices and Tables
--------------------
-
-* :ref:`search`
+Full Spyderbat Documentation: `<https://docs.spyderbat.com/>`_
