@@ -18,6 +18,8 @@ import spyctl.commands.update as u
 import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
+import spyctl.resources.api_filters as api_filters
+import spyctl.resources.policy_ruleset as p_rules
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
@@ -25,7 +27,6 @@ from spyctl.commands.describe import handle_describe
 from spyctl.commands.edit import handle_edit
 from spyctl.commands.logs import handle_logs
 from spyctl.commands.test_notification import handle_test_notification
-import spyctl.resources.api_filters as api_filters
 
 MAIN_EPILOG = (
     "\b\n"
@@ -524,6 +525,21 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
     )
 
 
+@create.command("cluster-policy", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-n",
+    "--name",
+    help="Optional name for the Cluster Policy, if not provided, a name will"
+    " be generated automatically.",
+    metavar="",
+    required=True,
+)
+def create_cluster_policy(name):
+    """Create a Cluster Policy yaml document and accompanying rulesets, outputted to stdout"""  # noqa: E501
+    pass
+
+
 @create.command(
     "notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG
 )
@@ -531,8 +547,7 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
 @click.option(
     "-n",
     "--name",
-    help="A name for the target. Used by other resources to refer to the configured target destination.",
-    metavar="",
+    help="A name for the target. Used by other resources to refer to the configured target destination.",  # noqa: E501
     required=True,
 )
 @click.option(
@@ -562,14 +577,14 @@ def create_notif_tgt(name, type, output):
 @click.option(
     "-T",
     "--target",
-    help="The name or ID of a notification target. Tells the config where to send notifications.",
+    help="The name or ID of a notification target. Tells the config where to send notifications.",  # noqa: E501
     metavar="",
     required=True,
 )
 @click.option(
     "-P",
     "--template",
-    help="The name or ID of a notification configuration template. If omitted, the config will be completely custom.",
+    help="The name or ID of a notification configuration template. If omitted, the config will be completely custom.",  # noqa: E501
     metavar="",
     default="CUSTOM",
 )
@@ -657,6 +672,70 @@ def create_policy(
         lib.disable_colorization()
     c.handle_create_guardian_policy(
         filename, output, name, mode, disable_procs, disable_conns, api
+    )
+
+
+@create.command("policy-ruleset", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
+    "-n",
+    "--name",
+    help="Optional name for the Guardian Policy, if not provided, a name will"
+    " be generated automatically",
+    metavar="",
+)
+@click.option(
+    "-g",
+    "--generate-rules",
+    help="Generate all or some types of rules for the policy ruleset.",
+    metavar="",
+    is_flag=True,
+)
+@click.option(
+    "-T",
+    "--type",
+    help="The type of policy rule to create.",
+    metavar="",
+    type=click.Choice(p_rules.POLICY_RULE_TYPES, case_sensitive=False),
+)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Time to start generating statements from. Default is 1.5 hours ago.",
+    default="1.5h",
+    metavar="",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="Time to stop generating statements from. Default is now.",
+    default=time.time(),
+    metavar="",
+    type=lib.time_inp,
+)
+@click.option(
+    "--cluster",
+    help="Name or Spyderbat ID of Kubernetes cluster.",
+    metavar="",
+)
+def create_policy_ruleset(
+    output, name, generate_rules, type, st, et, **filters
+):
+    """Create a Policy Rule to be used in cluster policies."""
+    filters = {
+        key: value for key, value in filters.items() if value is not None
+    }
+    c.handle_create_policy_ruleset(
+        output, name, generate_rules, type, (st, et), **filters
     )
 
 
@@ -1262,7 +1341,7 @@ class GetCommand(lib.ArgumentParametersCommand):
                     "--group-by",
                     type=lib.ListParam(),
                     metavar="",
-                    help="Group by fields in the fingerprint, comma delimited. Such as"
+                    help="Group by fields in the fingerprint, comma delimited. Such as"  # noqa: E501
                     " cluster_name,namespace. At a basic level"
                     " fingerprints are always grouped by image + image_id."
                     " This option allows you to group by additional fields.",
@@ -1271,7 +1350,7 @@ class GetCommand(lib.ArgumentParametersCommand):
                     "--sort-by",
                     metavar="",
                     type=lib.ListParam(),
-                    help="Group by fields in the fingerprint, comma delimited. Such as"
+                    help="Group by fields in the fingerprint, comma delimited. Such as"  # noqa: E501
                     " cluster_name,namespace. At a basic level"
                     " fingerprints are always grouped by image + image_id."
                     " This option allows you to group by additional fields.",
@@ -1291,13 +1370,13 @@ class GetCommand(lib.ArgumentParametersCommand):
                 click.option(
                     "--remote-port",
                     lib.REMOTE_PORT,
-                    help="The port number on the remote side of the connection.",
+                    help="The port number on the remote side of the connection.",  # noqa: E501
                     type=click.INT,
                 ),
                 click.option(
                     "--local-port",
                     lib.LOCAL_PORT,
-                    help="The port number on the local side of the connection.",
+                    help="The port number on the local side of the connection.",  # noqa: E501
                     type=click.INT,
                 ),
             ],

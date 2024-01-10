@@ -118,6 +118,13 @@ class ContainerSelectorModel(BaseModel):
         extra = Extra.forbid
 
 
+class ClusterSelectorModel(BaseModel):
+    cluster: Union[str, List[str]] = Field(alias=lib.CLUSTER_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
 class ServiceSelectorModel(BaseModel):
     cgroup: str = Field(alias=lib.CGROUP_FIELD)
 
@@ -822,7 +829,7 @@ class DestinationSlackModel(BaseModel):
     def valid_url(cls, url):
         if not lib.is_valid_slack_url(url):
             raise ValueError(
-                "Invalid url format. Example: https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"
+                "Invalid url format. Example: https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"  # noqa: E501
             )
         return url
 
@@ -924,7 +931,9 @@ class NotifTgtSpecModel(AllDestinationsModel):
 
 class NotificationTgtResourceModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.TARGET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    kind: Literal[lib.TARGET_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     metadata: NotifTgtMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifTgtSpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -1018,7 +1027,9 @@ class NotifAnaConfigMetricsSpecModel(NotifAnaConfigSpecModel):
 
 class NotificationConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.NOTIFICATION_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    kind: Literal[lib.NOTIFICATION_KIND] = Field(  # type: ignore
+        alias=lib.KIND_FIELD
+    )
     metadata: NotifAnaConfigMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifAnaConfigSpecModel = Field(alias=lib.SPEC_FIELD)
 
