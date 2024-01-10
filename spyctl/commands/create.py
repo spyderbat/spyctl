@@ -1,15 +1,16 @@
-from typing import Dict, List, Optional, IO
+from typing import IO, Dict, List, Optional
 
+import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
 import spyctl.resources.baselines as b
-import spyctl.resources.policies as p
-import spyctl.resources.suppression_policies as sp
 import spyctl.resources.notification_targets as nt
 import spyctl.resources.notifications_configs as nc
+import spyctl.resources.policies as p
+import spyctl.resources.policy_ruleset as prs
+import spyctl.resources.suppression_policies as sp
 import spyctl.search as search
 import spyctl.spyctl_lib as lib
-import spyctl.api as api
 
 
 def handle_create_baseline(
@@ -91,6 +92,15 @@ def handle_create_suppression_policy(
         handle_create_trace_suppression_policy(
             id, include_users, output, mode, name, do_api, **selectors
         )
+
+
+def handle_create_policy_ruleset(
+    output, name, generate_rules, type, time, **filters
+):
+    ruleset = prs.generate_ruleset(name, type, generate_rules, time, **filters)
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
+    cli.show(ruleset.as_dict(), output)
 
 
 def handle_create_trace_suppression_policy(
