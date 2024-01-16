@@ -52,7 +52,7 @@ pytimeparse==1.1.8
     # via zulu
 pyyaml==6.0.1
     # via spyctl
-readthedocs-sphinx-search==0.3.1
+readthedocs-sphinx-search==0.3.2
     # via -r requirements.in
 requests==2.31.0
     # via
