@@ -214,10 +214,7 @@ def get_object_by_id(
             "query_from": 0,
             "query_size": 1,
         }
-    url = (
-        f"{api_url}/api/v1/source/query/"
-        "?ui_tag=SearchLoadAllSchemaTypesInOneQuery"
-    )
+    url = f"{api_url}/api/v1/source/query/" "?ui_tag=SearchLoadAllSchemaTypesInOneQuery"
     return post(url, data, api_key)
 
 
@@ -479,9 +476,7 @@ def threadpool_progress_bar(
             yield task.result()
 
 
-def time_blocks(
-    time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS
-) -> List[Tuple]:
+def time_blocks(time_tup: Tuple, max_time_range=MAX_TIME_RANGE_SECS) -> List[Tuple]:
     """Takes a time tuple (start, end) in epoch time and converts
     it to smaller chunks if necessary.
 
@@ -570,8 +565,7 @@ def get_sources(api_url, api_key, org_uid) -> List[Dict]:
     for machine in machines.values():
         if (
             zulu.Zulu.parse(machine["last_data"]) >= AUTO_HIDE_TIME
-            or zulu.Zulu.parse(machine["last_stored_chunk_end_time"])
-            >= AUTO_HIDE_TIME
+            or zulu.Zulu.parse(machine["last_stored_chunk_end_time"]) >= AUTO_HIDE_TIME
         ) and "runtime_details" in machine:
             rv.append(machine)
     return rv
@@ -765,8 +759,7 @@ def get_deviations(
     try:
         datatype = lib.DATATYPE_AUDIT
         schema = (
-            f"{lib.EVENT_AUDIT_PREFIX}:"
-            f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
+            f"{lib.EVENT_AUDIT_PREFIX}:" f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
         )
         url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
         for deviation in retrieve_data(
@@ -1064,6 +1057,37 @@ def get_processes(
         __log_interrupt()
 
 
+def get_replicaset(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_REPLICASET_PREFIX
+        for replicaset in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield replicaset
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
 def get_redflags(
     api_url,
     api_key,
@@ -1207,10 +1231,7 @@ def get_audit_events(
 ) -> List[Dict]:
     audit_events = []
     if msg_type:
-        schema = (
-            f"{lib.EVENT_AUDIT_PREFIX}:"
-            f"{lib.EVENT_AUDIT_SUBTYPE_MAP[msg_type]}"
-        )
+        schema = f"{lib.EVENT_AUDIT_PREFIX}:" f"{lib.EVENT_AUDIT_SUBTYPE_MAP[msg_type]}"
     else:
         schema = lib.EVENT_AUDIT_PREFIX
     url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
@@ -1425,9 +1446,7 @@ def get_sources_data_for_agents(api_url, api_key, org_uid) -> Dict:
     return rv
 
 
-def validate_search_query(
-    api_url, api_key, org_uid, schema_type: str, query: str
-):
+def validate_search_query(api_url, api_key, org_uid, schema_type: str, query: str):
     url = f"{api_url}/api/v1/org/{org_uid}/search/validate"
     data = {
         "context_uid": lib.build_ctx(),
