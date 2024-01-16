@@ -1064,6 +1064,37 @@ def get_processes(
         __log_interrupt()
 
 
+def get_replicaset(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_REPLICASET_PREFIX
+        for replicaset in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield replicaset
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
 def get_daemonsets(
     api_url,
     api_key,
