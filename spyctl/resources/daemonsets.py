@@ -35,8 +35,7 @@ def daemonsets_output_summary(
         headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
-
-    print("\n""D/C/R = desired/current/ready pod replicas" "\n")
+    # print("\n""D/C/R = desired/current/ready pod replicas" "\n")
     return rv
 
 
