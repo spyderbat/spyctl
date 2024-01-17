@@ -592,13 +592,12 @@ def handle_get_processes(name_or_id, st, et, output, **filters):
 
 
 def handle_get_replicasets(name_or_id, st, et, output, **filters):
-    print("Testing replicasets")
     ctx = cfg.get_current_context()
     sources, filters = _af.ReplicaSet.build_sources_and_filters(**filters)
     pipeline = _af.ReplicaSet.generate_pipeline(name_or_id, filters=filters)
     if output == lib.OUTPUT_DEFAULT:
         summary = (
-            spyctl_replicaset.replicaset_output_summary(  # summary always an empty list
+            spyctl_replicaset.replicaset_output_summary(
                 ctx, sources, (st, et), pipeline, LIMIT_MEM
             )
         )
