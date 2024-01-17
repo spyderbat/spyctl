@@ -596,19 +596,22 @@ def handle_get_replicasets(name_or_id, st, et, output, **filters):
     sources, filters = _af.ReplicaSet.build_sources_and_filters(**filters)
     pipeline = _af.ReplicaSet.generate_pipeline(name_or_id, filters=filters)
     if output == lib.OUTPUT_DEFAULT:
-        summary = (
-            spyctl_replicaset.replicaset_output_summary(
-                ctx, sources, (st, et), pipeline, LIMIT_MEM
-            )
+        summary = spyctl_replicaset.replicaset_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
         )
         cli.show(summary, lib.OUTPUT_RAW)
     elif output == lib.OUTPUT_WIDE:
         __wide_not_supported()
     else:
-        summary = spyctl_replicaset.replicaset_output_summary(
-            ctx, sources, (st, et), pipeline, LIMIT_MEM
-        )
-        cli.show(summary, lib.OUTPUT_RAW)
+        for replicaset in api.get_replicaset(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(replicaset, output, ndjson=NDJSON)
 
 
 def handle_get_redflags(name_or_id, st, et, output, **filters):
