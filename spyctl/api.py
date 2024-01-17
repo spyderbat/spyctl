@@ -1068,7 +1068,6 @@ def get_daemonsets(
     disable_pbar_on_first: bool = False,
 ) -> Generator[Dict, None, None]:
     try:
-        # print(api_url, api_key, org_uid, clusters, time)
         datatype = lib.DATATYPE_K8S
         schema = lib.MODEL_DAEMONSET_PREFIX
         for daemonset in retrieve_data(
@@ -1080,6 +1079,7 @@ def get_daemonsets(
             schema,
             time,
             pipeline=pipeline,
+            raise_notfound=True,
             limit_mem=limit_mem,
             disable_pbar_on_first=disable_pbar_on_first,
         ):
