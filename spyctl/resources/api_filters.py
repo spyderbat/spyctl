@@ -620,7 +620,7 @@ class ReplicaSet(API_Filter):
         lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
     }
     name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
-    source_type = SOURCE_TYPE_CLUID_POCO
+    source_type = SOURCE_TYPE_CLUID_BASE
 
     @classmethod
     def generate_pipeline(cls, name_or_uid=None, latest_model=True, filters={}) -> List:
