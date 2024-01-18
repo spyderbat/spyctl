@@ -118,12 +118,15 @@ resources = (
     "namespaces",  # doesn't output a table
     "redflags",
     "opsflags",
-)
+    "daemonsets"
+)        
+
 
 
 @mock.patch.multiple(
     "spyctl.commands.get.api",
     get_clusters=mock_func.mock_get_clusters,
+    get_daemonsets=mock_func.mock_get_daemonsets,
     get_deployments=mock_func.mock_get_deployments,
     get_guardian_fingerprints=mock_func.mock_get_guardian_fingerprints,
     get_namespaces=mock_func.mock_get_namespaces,
@@ -159,6 +162,11 @@ resources = (
     "spyctl.resources.pods.api",
     get_pods=mock_func.mock_get_pods,
 )
+@mock.patch.multiple(
+    "spyctl.resources.daemonsets.api",
+    get_daemonsets=mock_func.mock_get_daemonsets,
+)
+
 @pytest.mark.parametrize("resource", resources)
 def test_get_resources(resource):
     args = get_args(resource)

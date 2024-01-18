@@ -211,6 +211,317 @@ def mock_get_deployments(
     yield mock_deployment
 
 
+def mock_get_daemonsets(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+):
+    mock_daemonset = {
+        {
+            "schema": "model_k8s_daemonset::1.0.0",
+            "id": "daemonset:cqP418TptGU:ZUAFGw:Z9myV9IFES",
+            "status": "active",
+            "version": 1705561101,
+            "time": 1705564817.1045487,
+            "valid_from": 1698694427.761691,
+            "expire_at": 1705568399.999999,
+            "cluster_uid": "clus:c888",
+            "cluid": "clus:c888",
+            "clusterid": "ce8bddb9",
+            "cluster_name": "int-k8s",
+            "kind": "DaemonSet",
+            "metadata": {
+                "annotations": {"deprecated.daemonset.template.generation": "3"},
+                "creationTimestamp": "2023-02-02T23:47:46Z",
+                "generation": 3,
+                "labels": {
+                    "app.kubernetes.io/component": "csi-driver",
+                    "app.kubernetes.io/managed-by": "EKS",
+                    "app.kubernetes.io/name": "aws-ebs-csi-driver",
+                    "app.kubernetes.io/version": "1.25.0",
+                },
+                "name": "ebs-csi-node-windows",
+                "namespace": "kube-system",
+                "resourceVersion": "97366641",
+                "uid": "xxxxxxx-xxx-xxxx-xxxx-xxxxxxxxxx",
+            },
+            "kuid": "xxxxxxx-xxx-xxxx-xxxx-xxxxxxxxxx",
+            "spec": {
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app": "ebs-csi-node",
+                        "app.kubernetes.io/name": "aws-ebs-csi-driver",
+                    }
+                },
+                "template": {
+                    "metadata": {
+                        "creationTimestamp": "2023-02-02T15:06:38Z",
+                        "labels": {
+                            "app": "ebs-csi-node",
+                            "app.kubernetes.io/component": "csi-driver",
+                            "app.kubernetes.io/managed-by": "EKS",
+                            "app.kubernetes.io/name": "aws-ebs-csi-driver",
+                            "app.kubernetes.io/version": "1.25.0",
+                        },
+                    },
+                    "spec": {
+                        "affinity": {
+                            "nodeAffinity": {
+                                "requiredDuringSchedulingIgnoredDuringExecution": {
+                                    "nodeSelectorTerms": [
+                                        {
+                                            "matchExpressions": [
+                                                {
+                                                    "key": "eks.amazonaws.com/compute-type",
+                                                    "operator": "NotIn",
+                                                    "values": ["fargate"],
+                                                },
+                                                {
+                                                    "key": "node.kubernetes.io/instance-type",
+                                                    "operator": "NotIn",
+                                                    "values": [
+                                                        "a1.medium",
+                                                        "a1.large",
+                                                    ],
+                                                },
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        "containers": [
+                            {
+                                "args": [
+                                    "node",
+                                    "--endpoint=$(CSI_ENDPOINT)",
+                                    "--logging-format=text",
+                                    "--v=2",
+                                ],
+                                "env": [
+                                    {
+                                        "name": "CSI_ENDPOINT",
+                                        "value": "unix:/csi/csi.sock",
+                                    },
+                                    {
+                                        "name": "CSI_NODE_NAME",
+                                        "valueFrom": {
+                                            "fieldRef": {
+                                                "apiVersion": "v1",
+                                                "fieldPath": "spec.nodeName",
+                                            }
+                                        },
+                                    },
+                                ],
+                                "image": "aws-ebs-csi-driver:v1.25.0",
+                                "imagePullPolicy": "IfNotPresent",
+                                "lifecycle": {
+                                    "preStop": {
+                                        "exec": {
+                                            "command": [
+                                                "/bin/aws-ebs-csi-driver",
+                                                "pre-stop-hook",
+                                            ]
+                                        }
+                                    }
+                                },
+                                "livenessProbe": {
+                                    "failureThreshold": 5,
+                                    "httpGet": {
+                                        "path": "/healthz",
+                                        "port": "healthz",
+                                        "scheme": "HTTP",
+                                    },
+                                    "initialDelaySeconds": 10,
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 3,
+                                },
+                                "name": "ebs-plugin",
+                                "ports": [
+                                    {
+                                        "containerPort": 9808,
+                                        "name": "healthz",
+                                        "protocol": "TCP",
+                                    }
+                                ],
+                                "resources": {
+                                    "limits": {"memory": "256Mi"},
+                                    "requests": {"cpu": "10m", "memory": "400Mi"},
+                                },
+                                "securityContext": {
+                                    "windowsOptions": {
+                                        "runAsUserName": "ContainerAdministrator"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "C:\\var\\lib\\kubelet",
+                                        "mountPropagation": "None",
+                                        "name": "kubelet-dir",
+                                    },
+                                    {"mountPath": "C:\\csi", "name": "plugin-dir"},
+                                    {
+                                        "mountPath": "\\\\.\\pipe\\csi-proxy-disk-v1",
+                                        "name": "csi-proxy-disk-pipe",
+                                    },
+                                    {
+                                        "mountPath": "\\\\.\\pipe\\csi-proxy-volume-v1",
+                                        "name": "csi-proxy-volume-pipe",
+                                    },
+                                    {
+                                        "mountPath": "\\\\.\\pipe\\csi-proxy-filesystem-v1",
+                                        "name": "csi-proxy-filesystem-pipe",
+                                    },
+                                ],
+                            },
+                            {
+                                "args": [
+                                    "--csi-address=$(ADDRESS)",
+                                    "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
+                                    "--v=2",
+                                ],
+                                "env": [
+                                    {"name": "ADDRESS", "value": "unix:/csi/csi.sock"},
+                                    {
+                                        "name": "DRIVER_REG_SOCK_PATH",
+                                        "value": "C:\\var\\lib\\kubelet\\plugins\\ebs.csi.aws.com\\csi.sock",
+                                    },
+                                ],
+                                "image": "csi-node-driver-registrar:v2.9.1-eks-1-28-9",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "exec": {
+                                        "command": [
+                                            "/csi-node-driver-registrar.exe",
+                                            "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
+                                            "--mode=kubelet-registration-probe",
+                                        ]
+                                    },
+                                    "failureThreshold": 3,
+                                    "initialDelaySeconds": 30,
+                                    "periodSeconds": 90,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 15,
+                                },
+                                "name": "node-driver-registrar",
+                                "resources": {
+                                    "limits": {"memory": "256Mi"},
+                                    "requests": {"cpu": "10m", "memory": "40Mi"},
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {"mountPath": "C:\\csi", "name": "plugin-dir"},
+                                    {
+                                        "mountPath": "C:\\registration",
+                                        "name": "registration-dir",
+                                    },
+                                    {
+                                        "mountPath": "C:\\var\\lib\\kubelet\\plugins\\ebs.csi.aws.com",
+                                        "name": "probe-dir",
+                                    },
+                                ],
+                            },
+                            {
+                                "args": ["--csi-address=unix:/csi/csi.sock"],
+                                "image": "livenessprobe:v2.11.0-eks-1-28-9",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "liveness-probe",
+                                "resources": {
+                                    "limits": {"memory": "256Mi"},
+                                    "requests": {"cpu": "10m", "memory": "40Mi"},
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {"mountPath": "C:\\csi", "name": "plugin-dir"}
+                                ],
+                            },
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {"kubernetes.io/os": "windows"},
+                        "priorityClassName": "system-node-critical",
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {},
+                        "serviceAccount": "ebs-csi-node-sa",
+                        "serviceAccountName": "ebs-csi-node-sa",
+                        "terminationGracePeriodSeconds": 30,
+                        "tolerations": [{"operator": "Exists"}],
+                        "volumes": [
+                            {
+                                "hostPath": {
+                                    "path": "C:\\var\\lib\\kubelet",
+                                    "type": "Directory",
+                                },
+                                "name": "kubelet-dir",
+                            },
+                            {
+                                "hostPath": {
+                                    "path": "C:\\var\\lib\\kubelet\\plugins\\ebs.csi.aws.com",
+                                    "type": "DirectoryOrCreate",
+                                },
+                                "name": "plugin-dir",
+                            },
+                            {
+                                "hostPath": {
+                                    "path": "C:\\var\\lib\\kubelet\\plugins_registry",
+                                    "type": "Directory",
+                                },
+                                "name": "registration-dir",
+                            },
+                            {
+                                "hostPath": {
+                                    "path": "\\\\.\\pipe\\csi-proxy-disk-v1",
+                                    "type": "",
+                                },
+                                "name": "csi-proxy-disk-pipe",
+                            },
+                            {
+                                "hostPath": {
+                                    "path": "\\\\.\\pipe\\csi-proxy-volume-v1",
+                                    "type": "",
+                                },
+                                "name": "csi-proxy-volume-pipe",
+                            },
+                            {
+                                "hostPath": {
+                                    "path": "\\\\.\\pipe\\csi-proxy-filesystem-v1",
+                                    "type": "",
+                                },
+                                "name": "csi-proxy-filesystem-pipe",
+                            },
+                            {"emptyDir": {}, "name": "probe-dir"},
+                        ],
+                    },
+                },
+                "updateStrategy": {
+                    "rollingUpdate": {"maxSurge": 0, "maxUnavailable": "10%"},
+                    "type": "RollingUpdate",
+                },
+            },
+            "k8s_status": {
+                "currentNumberScheduled": 0,
+                "desiredNumberScheduled": 0,
+                "numberMisscheduled": 0,
+                "numberReady": 0,
+                "observedGeneration": 3,
+            },
+            "is_causee": False,
+        }
+    }
+    yield mock_daemonset
+
+
 def mock_get_namespaces(
     api_url,
     api_key,
@@ -471,9 +782,7 @@ def mock_get_fingerprints(
             "version": 1689423128,
         },
         "spec": {
-            "serviceSelector": {
-                "cgroup": "systemd:/system.slice/update-motd.service"
-            },
+            "serviceSelector": {"cgroup": "systemd:/system.slice/update-motd.service"},
             "machineSelector": {"hostname": "mock_machine"},
             "processPolicy": [
                 {
@@ -545,9 +854,7 @@ def mock_get_guardian_fingerprints(
             "version": 1689423128,
         },
         "spec": {
-            "serviceSelector": {
-                "cgroup": "systemd:/system.slice/update-motd.service"
-            },
+            "serviceSelector": {"cgroup": "systemd:/system.slice/update-motd.service"},
             "machineSelector": {"hostname": "mock_machine"},
             "processPolicy": [
                 {
