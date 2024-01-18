@@ -108,17 +108,27 @@ def generate_filter_value(property, value: str) -> Dict:
 
 
 class API_Filter:
-    property_map = (
-        {}
-    )  # property -> field name on object (. notation for nested fields)
-    not_property_map = (  # for not equals
-        {}
-    )  # property -> field name on object (. notation for nested fields)
-    name_or_uid_props: []  # properties in the property_map that are related to name_or_id filtering
+    # property -> field name on object
+    # (. notation for nested fields)
+    property_map = {}
+
+    # for not equals
+    # property -> field name on object
+    # (. notation for nested fields)
+    not_property_map = {}
+
+    # properties in the property_map that are
+    # related to name_or_id filtering
+    name_or_uid_props = []
+
+    # property -> callable that takes the filter value
+    # and turns it into something more useable.
+    # Ex. cluster name to cluster uid
     values_helper = {
         lib.CLUSTER_FIELD: get_filtered_cluids,
         lib.MACHINE_SELECTOR_FIELD: get_filtered_muids,
-    }  # property -> callable that takes the filter value and turns it into something more useable. Ex. cluster name to cluster uid
+    }
+
     source_type = SOURCE_TYPE_MUID
     alternate_source_type = None
 
@@ -342,7 +352,10 @@ class AgentMetrics(API_Filter):
     def generate_pipeline(
         cls, name_or_uid=None, type=None, latest_model=True, filters={}
     ) -> List:
-        schema = f"{lib.EVENT_METRICS_PREFIX}:{lib.EVENT_METRIC_SUBTYPE_MAP['agent']}"
+        schema = (
+            f"{lib.EVENT_METRICS_PREFIX}:"
+            f"{lib.EVENT_METRIC_SUBTYPE_MAP['agent']}"
+        )
         return super(AgentMetrics, cls).generate_pipeline(
             schema, name_or_uid, latest_model, filters
         )
@@ -433,7 +446,9 @@ class Deployments(API_Filter):
         lib.ID_FIELD: lib.ID_FIELD,
         lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
-        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        ),
     }
     name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
@@ -504,7 +519,9 @@ class Fingerprints(API_Filter):
     #     lib.MACHINES_FIELD: "muid",
     #     lib.POD_FIELD: "pod_uid",
     #     lib.CLUSTER_FIELD: "cluster_uid",
-    #     lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+    #     lib.NAMESPACE_FIELD: (
+    #       f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+    # ),
     #     lib.CGROUP_FIELD: "cgroup",
     #     lib.IMAGE_FIELD: "image",
     #     lib.IMAGEID_FIELD: "image_id",
@@ -568,7 +585,9 @@ class Namespaces(API_Filter):
         lib.ID_FIELD: lib.ID_FIELD,
         lib.BE_KUID_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_UID_FIELD}",
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
-        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
     }
     name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
@@ -595,7 +614,9 @@ class Nodes(API_Filter):
         lib.ID_FIELD: lib.ID_FIELD,
         lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
-        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
     }
     name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
@@ -631,7 +652,9 @@ class Pods(API_Filter):
         lib.ID_FIELD: lib.ID_FIELD,
         lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
-        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
     }
     name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
     source_type = SOURCE_TYPE_CLUID_POCO
@@ -642,6 +665,28 @@ class Pods(API_Filter):
     ) -> List:
         schema = lib.MODEL_POD_PREFIX
         return super(Pods, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
+class ReplicaSet(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_REPLICASET_PREFIX
+        return super(ReplicaSet, cls).generate_pipeline(
             schema, name_or_uid, latest_model, filters
         )
 

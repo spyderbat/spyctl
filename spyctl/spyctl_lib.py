@@ -242,6 +242,11 @@ SPYDERTRACE_SUMMARY_RESOURCE = Aliases(
     "spydertrace-summary",
     "spydertrace-summaries",
 )
+REPLICASET_RESOURCE = Aliases(
+    ["replicaset", "replicasets", "rs", "replica"],
+    "replicaset",
+    "replicasets",
+)
 SUPPRESSION_POLICY_RESOURCE = Aliases(
     [
         "suppression-policy",
@@ -569,9 +574,9 @@ MODEL_MACHINE_PREFIX = "model_machine"
 MODEL_NAMESPACE_PREFIX = "model_k8s_namespace"
 MODEL_NODE_PREFIX = "model_k8s_node"
 MODEL_POD_PREFIX = "model_k8s_pod"
+MODEL_REPLICASET_PREFIX = "model_k8s_replicaset"
 MODEL_PROCESS_PREFIX = "model_process"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
-
 MODEL_FINGERPRINT_SUBTYPE_MAP = {
     "container": "container",
     "linux-service": "linux_svc",
