@@ -14,6 +14,7 @@ import spyctl.resources.connection_bundles as spyctl_cb
 import spyctl.resources.containers as spyctl_cont
 import spyctl.resources.deployments as spyctl_deployments
 import spyctl.resources.deviations as spyctl_dev
+import spyctl.resources.daemonsets as spyctl_daemonset
 import spyctl.resources.fingerprints as spyctl_fprints
 import spyctl.resources.flags as spyctl_flags
 import spyctl.resources.machines as spyctl_machines
@@ -72,6 +73,8 @@ def handle_get(
         handle_get_deployments(name_or_id, st, et, output, **filters)
     elif resource == lib.DEVIATIONS_RESOURCE:
         handle_get_deviations(name_or_id, st, et, output, **filters)
+    elif resource == lib.DAEMONSET_RESOURCE:
+        handle_get_daemonsets(name_or_id, st, et, output, **filters)
     elif resource == lib.FINGERPRINTS_RESOURCE:
         handle_get_fingerprints(
             name_or_id, st, et, output, file, latest, **filters
@@ -584,6 +587,29 @@ def handle_get_pods(name_or_id, st, et, output, **filters):
             not lib.is_redirected(),
         ):
             cli.show(pod, output, ndjson=NDJSON)
+
+
+def handle_get_daemonsets(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Daemonsets.build_sources_and_filters(**filters)
+    pipeline = _af.Daemonsets.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_daemonset.daemonsets_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for daemonset in api.get_daemonsets(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(daemonset, output, ndjson=NDJSON)
 
 
 def handle_get_processes(name_or_id, st, et, output, **filters):

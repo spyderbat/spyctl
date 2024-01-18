@@ -716,6 +716,26 @@ class Processes(API_Filter):
         )
 
 
+class Daemonsets(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_DAEMONSET_PREFIX
+        return super(Daemonsets, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
 class RedFlags(API_Filter):
     property_map = {
         lib.ID_FIELD: lib.ID_FIELD,

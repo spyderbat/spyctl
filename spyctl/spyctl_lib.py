@@ -134,6 +134,11 @@ DEVIATIONS_RESOURCE = Aliases(
     "deviation",
     "deviations",
 )
+DAEMONSET_RESOURCE = Aliases(
+    ["daemonset", "daemonsets", "daemon", "ds"],
+    "daemonset",
+    "daemonsets",
+)
 FINGERPRINT_GROUP_RESOURCE = Aliases(
     ["fingerprint-group", "fingerprint-groups", "fprint-group", "fg"],
     "fingerprint-group",
@@ -577,6 +582,7 @@ MODEL_POD_PREFIX = "model_k8s_pod"
 MODEL_REPLICASET_PREFIX = "model_k8s_replicaset"
 MODEL_PROCESS_PREFIX = "model_process"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
+MODEL_DAEMONSET_PREFIX = "model_k8s_daemonset"
 MODEL_FINGERPRINT_SUBTYPE_MAP = {
     "container": "container",
     "linux-service": "linux_svc",
