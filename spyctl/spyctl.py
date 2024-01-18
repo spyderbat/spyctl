@@ -1484,6 +1484,7 @@ def get(
     - Connections
     - Connection Bundles
     - Containers
+    - Daemonsets
     - Deployments
     - Deviations
     - Fingerprints
@@ -1493,6 +1494,7 @@ def get(
     - Pods
     - Processes
     - RedFlags
+    - Replicasets
     - Spydertraces
     - Agents
 
