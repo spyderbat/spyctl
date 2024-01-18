@@ -5,9 +5,6 @@ import spyctl.config.configs as cfg
 import spyctl.resources.api_filters as af
 import spyctl.spyctl_lib as lib
 
-POLICY_RULE_TYPE_CLUST = "cluster"
-POLICY_RULE_TYPES = [POLICY_RULE_TYPE_CLUST]
-
 CLUSTER_RULESET_RULE_TYPE_CONT = "container"
 CLUSTER_RULESET_RULE_TYPES = [CLUSTER_RULESET_RULE_TYPE_CONT]
 
@@ -52,8 +49,6 @@ class DetectedImage:
         self.namespaces = set()
 
     def add_namespace(self, namespace: Optional[str]):
-        if not namespace:
-            namespace = NO_NS
         self.namespaces.add(namespace)
 
     def namespaces_match(self, other_namespaces: set) -> bool:
@@ -61,9 +56,10 @@ class DetectedImage:
 
 
 class ContainerRules(RulesObject):
-    def __init__(self, verb="allow"):
+    def __init__(self, verb="allow", include_namespaces=False):
         super().__init__(verb)
         self.images: Dict[str, DetectedImage] = {}
+        self.include_namespaces = include_namespaces
 
     def add_container(self, container: Dict):
         image = container["image"]
@@ -71,7 +67,7 @@ class ContainerRules(RulesObject):
         namespace = namespaces_labels.get(NS_LABEL, container.get("namespace"))
         if not namespace:
             lib.try_log(
-                f"Container {container['container_name']} with from {image} has no namespace.. skipping",
+                f"Container {container['container_name']} with from {image} has no namespace.. skipping",  # noqa: E501
                 is_warning=True,
             )
             return
@@ -82,12 +78,26 @@ class ContainerRules(RulesObject):
         return rv
 
     def __aggregate_images(self):
+        if self.include_namespaces:
+            rv = self.__agg_images_by_ns()
+        else:
+            rv = [
+                {
+                    "verb": self.verb,
+                    lib.IMAGE_FIELD: sorted(
+                        sorted([image.image for image in self.images.values()])
+                    ),
+                }
+            ]
+        return rv
+
+    def __agg_images_by_ns(self):
+        rv = []
         agg: Dict[Tuple, List[str]] = {}
         for image in self.images.values():
             namespaces = tuple(sorted(image.namespaces))
             agg.setdefault(namespaces, [])
             agg[namespaces].append(image.image)
-        rv = []
         for namespaces, images in agg.items():
             rv.append(
                 {
@@ -112,44 +122,41 @@ class ContainerRules(RulesObject):
         rv.sort(key=sort_key)
         return rv
 
-    def __add_image(self, image, namespace=None):
-        self.images.setdefault(image, DetectedImage(image))
-        self.images[image].add_namespace(namespace)
+    def __add_image(self, image, namespace):
+        dti = self.images.setdefault(image, DetectedImage(image))
+        dti.add_namespace(namespace)
 
 
-class PolicyRuleset:
-    def __init__(self, name: str, ruleset_type: str, cluster: str = None):
+class ClusterRuleset:
+    def __init__(self, name: str, cluster: str = None):
         self.name = name
-        self.ruleset_type = ruleset_type
         self.rules: Dict[str, Dict] = {}  # verb -> type -> RulesObject
         self.cluster = cluster
 
-    def add_rules(self, verb: str, rules_type: str) -> RulesObject:
+    def add_rules(
+        self, verb: str, rules_type: str, include_namespaces: bool
+    ) -> RulesObject:
         rules = self.rules.get(verb, {}).get(rules_type)
         if rules:
             return rules
         if rules_type == CLUSTER_RULESET_RULE_TYPE_CONT:
-            rules = ContainerRules(verb)
+            rules = ContainerRules(verb, include_namespaces)
             self.rules.setdefault(verb, {})[rules_type] = rules
             return rules
         else:
             lib.err_exit(f"Unknown rules type: {rules_type}")
 
     def as_dict(self):
-        if self.ruleset_type == POLICY_RULE_TYPE_CLUST:
-            return self.__as_cluster_ruleset_dict()
-        else:
-            lib.err_exit(f"Unknown ruleset type: {self.ruleset_type}")
+        return self.__as_cluster_ruleset_dict()
 
     def __as_cluster_ruleset_dict(self):
         if not self.cluster:
             lib.err_exit("Cluster name or UID is required for cluster ruleset")
         rv = {
             lib.API_FIELD: lib.API_VERSION,
-            lib.KIND_FIELD: lib.POLICY_RULESET_RESOURCE.kind,
+            lib.KIND_FIELD: lib.CLUSTER_RULESET_RESOURCE.kind,
             lib.METADATA_FIELD: {
                 lib.NAME_FIELD: self.name,
-                lib.METADATA_TYPE_FIELD: self.ruleset_type,
             },
             lib.SPEC_FIELD: {
                 lib.RULES_FIELD: self.__compile_rules(),
@@ -170,22 +177,19 @@ def create_blank_ruleset(name: str):
     pass
 
 
-def generate_ruleset(
-    name: str, ruleset_type: str, generate_rules, time, **filters
-) -> PolicyRuleset:
-    ruleset = PolicyRuleset(name, ruleset_type)
+def create_ruleset(
+    name: str, generate_rules, time, **filters
+) -> ClusterRuleset:
+    ruleset = ClusterRuleset(name)
     if generate_rules:
-        if ruleset_type == POLICY_RULE_TYPE_CLUST:
-            generate_cluster_ruleset(
-                ruleset, CLUSTER_RULESET_RULE_TYPES, time, **filters
-            )
-        else:
-            lib.err_exit(f"Unknown ruleset type: {ruleset_type}")
+        generate_cluster_ruleset(
+            ruleset, CLUSTER_RULESET_RULE_TYPES, time, **filters
+        )
     return ruleset
 
 
 def generate_cluster_ruleset(
-    ruleset: PolicyRuleset, rule_types, time, **filters
+    ruleset: ClusterRuleset, rule_types, time, **filters
 ):
     cluster = filters.get(lib.CLUSTER_OPTION)
     if not cluster:
@@ -199,13 +203,20 @@ def generate_cluster_ruleset(
     return ruleset
 
 
-def generate_container_rules(ruleset: PolicyRuleset, time, **filters):
+def generate_container_rules(ruleset: ClusterRuleset, time, **filters):
+    filters = filters.copy()
+    include_namespaces = False
+    if namespaces := filters.get(lib.NAMESPACE_OPTION, []):
+        include_namespaces = True
+        if "__all__" in namespaces:
+            # We don't need to filter for specific namespaces at this point
+            filters.pop(lib.NAMESPACE_OPTION)
     ctx = cfg.get_current_context()
     sources, filters = af.Containers.build_sources_and_filters(**filters)
-    pipeline = af.Containers.generate_pipeline(filters)
+    pipeline = af.Containers.generate_pipeline(filters=filters)
     lib.try_log("Generating container rules...")
     container_rules: ContainerRules = ruleset.add_rules(
-        "allow", CLUSTER_RULESET_RULE_TYPE_CONT
+        "allow", CLUSTER_RULESET_RULE_TYPE_CONT, include_namespaces
     )
     for container in api.get_containers(
         *ctx.get_api_data(), sources, time, pipeline, limit_mem=True

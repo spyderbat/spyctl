@@ -7,7 +7,7 @@ import spyctl.resources.baselines as b
 import spyctl.resources.notification_targets as nt
 import spyctl.resources.notifications_configs as nc
 import spyctl.resources.policies as p
-import spyctl.resources.policy_ruleset as prs
+import spyctl.resources.cluster_ruleset as crs
 import spyctl.resources.suppression_policies as sp
 import spyctl.search as search
 import spyctl.spyctl_lib as lib
@@ -94,10 +94,10 @@ def handle_create_suppression_policy(
         )
 
 
-def handle_create_policy_ruleset(
-    output, name, generate_rules, type, time, **filters
+def handle_create_cluster_ruleset(
+    output, name, generate_rules, time, **filters
 ):
-    ruleset = prs.generate_ruleset(name, type, generate_rules, time, **filters)
+    ruleset = crs.create_ruleset(name, generate_rules, time, **filters)
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(ruleset.as_dict(), output)
