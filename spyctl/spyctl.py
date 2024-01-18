@@ -19,7 +19,6 @@ import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
 import spyctl.resources.api_filters as api_filters
-import spyctl.resources.policy_ruleset as p_rules
 import spyctl.spyctl_lib as lib
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
@@ -675,7 +674,7 @@ def create_policy(
     )
 
 
-@create.command("policy-ruleset", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@create.command("cluster-ruleset", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-o",
@@ -686,7 +685,7 @@ def create_policy(
 @click.option(
     "-n",
     "--name",
-    help="Optional name for the Guardian Policy, if not provided, a name will"
+    help="Optional name for the Cluster Ruleset, if not provided, a name will"
     " be generated automatically",
     metavar="",
 )
@@ -696,13 +695,6 @@ def create_policy(
     help="Generate all or some types of rules for the policy ruleset.",
     metavar="",
     is_flag=True,
-)
-@click.option(
-    "-T",
-    "--type",
-    help="The type of policy rule to create.",
-    metavar="",
-    type=click.Choice(p_rules.POLICY_RULE_TYPES, case_sensitive=False),
 )
 @click.option(
     "-t",
@@ -723,19 +715,32 @@ def create_policy(
     type=lib.time_inp,
 )
 @click.option(
+    "-C",
     "--cluster",
     help="Name or Spyderbat ID of Kubernetes cluster.",
     metavar="",
 )
-def create_policy_ruleset(
-    output, name, generate_rules, type, st, et, **filters
-):
+@click.option(
+    "-N",
+    "--namespace",
+    is_flag=False,
+    flag_value="__all__",
+    default=None,
+    metavar="",
+    type=lib.ListParam(),
+    help="Generate ruleset for all or some namespaces. If not provided, the"
+    " ruleset will be generated for the cluster without namespace"
+    " context. Supplying this option with no arguments will generate the"
+    " ruleset with namespace context. If one or more namespaces are supplied,"
+    " the ruleset will generate for only the namespace(s) provided.",
+)
+def create_policy_ruleset(output, name, generate_rules, st, et, **filters):
     """Create a Policy Rule to be used in cluster policies."""
     filters = {
         key: value for key, value in filters.items() if value is not None
     }
-    c.handle_create_policy_ruleset(
-        output, name, generate_rules, type, (st, et), **filters
+    c.handle_create_cluster_ruleset(
+        output, name, generate_rules, (st, et), **filters
     )
 
 

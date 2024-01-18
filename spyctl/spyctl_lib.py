@@ -243,21 +243,19 @@ POLICIES_RESOURCE = Aliases(
     "policies",
     kind=POL_KIND,
 )
-POLICY_RULESET_RESOURCE = Aliases(
+CLUSTER_RULESET_RESOURCE = Aliases(
     [
-        "policy-ruleset",
-        "policy-rulesets",
-        "policy-rules",
-        "policy-rule",
-        "policy-rs",
-        "pol_rs",
-        "prs",
-        "ruleset",
-        "rulesets",
+        "cluster-ruleset",
+        "cluster-rulesets",
+        "cluster-rules",
+        "cluster-rule",
+        "cluster-rs",
+        "clus_rs",
+        "crs",
     ],
-    "policy-ruleset",
-    "policy-rulesets",
-    kind="PolicyRuleset",
+    "cluster-ruleset",
+    "cluster-rulesets",
+    kind="ClusterRuleset",
 )
 PROCESSES_RESOURCE = Aliases(
     [
