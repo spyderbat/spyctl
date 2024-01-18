@@ -29,7 +29,7 @@ def replicaset_output_summary(
     ):
         data.append(replicaset_summary_data(replicaset))
     rv = tabulate(
-        sorted(data, key=lambda x: [x[5]]),
+        sorted(data, key=lambda x: [x[2], x[5]]),
         headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
