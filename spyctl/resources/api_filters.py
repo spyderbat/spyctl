@@ -448,7 +448,7 @@ class Deployments(API_Filter):
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
         lib.NAMESPACE_FIELD: (
             f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
-        )
+        ),
     }
     name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE

@@ -45,7 +45,9 @@ LIMIT_MEM = True
 NDJSON = False
 
 
-def handle_get(resource, name_or_id, st, et, file, latest, exact, output, **filters):
+def handle_get(
+    resource, name_or_id, st, et, file, latest, exact, output, **filters
+):
     global LIMIT_MEM, NDJSON
     # If latest_model is true we won't limit memory usage
     LIMIT_MEM = not filters.pop("latest_model", False)
@@ -71,7 +73,9 @@ def handle_get(resource, name_or_id, st, et, file, latest, exact, output, **filt
     elif resource == lib.DEVIATIONS_RESOURCE:
         handle_get_deviations(name_or_id, st, et, output, **filters)
     elif resource == lib.FINGERPRINTS_RESOURCE:
-        handle_get_fingerprints(name_or_id, st, et, output, file, latest, **filters)
+        handle_get_fingerprints(
+            name_or_id, st, et, output, file, latest, **filters
+        )
     elif resource == lib.MACHINES_RESOURCE:
         handle_get_machines(name_or_id, st, et, output, **filters)
     elif resource == lib.NAMESPACES_RESOURCE:
@@ -146,7 +150,9 @@ def handle_get_notification_configs(name_or_id, output: str, **filters: Dict):
     else:
         if not full_policy:
             for route in routes:
-                config = route.get(lib.DATA_FIELD, {}).get(lib.NOTIF_SETTINGS_FIELD)
+                config = route.get(lib.DATA_FIELD, {}).get(
+                    lib.NOTIF_SETTINGS_FIELD
+                )
                 if config:
                     cli.show(config, output, ndjson=NDJSON)
                 else:
@@ -155,7 +161,9 @@ def handle_get_notification_configs(name_or_id, output: str, **filters: Dict):
             cli.show(n_pol, output, ndjson=NDJSON)
 
 
-def handle_get_notification_targets(name_or_id: str, output: str, **filters: Dict):
+def handle_get_notification_targets(
+    name_or_id: str, output: str, **filters: Dict
+):
     ctx = cfg.get_current_context()
     n_pol = api.get_notification_policy(*ctx.get_api_data())
     if n_pol is None or not isinstance(n_pol, dict):
@@ -216,7 +224,9 @@ def handle_get_agents(
     raw_metrics_json: bool = filters.pop("raw_metrics_json", False)
     include_latest_metrics = not filters.pop("health_only", False)
     sources, filters = _af.Agents.build_sources_and_filters(**filters)
-    pipeline = _af.Agents.generate_pipeline(name_or_id, None, True, filters=filters)
+    pipeline = _af.Agents.generate_pipeline(
+        name_or_id, None, True, filters=filters
+    )
     if usage_csv_file:
         agent_st = __st_at_least_2hrs(st)
         agents = list(
@@ -334,8 +344,12 @@ def handle_get_connections(name_or_id, st, et, output, **filters):
 
 def handle_get_conn_buns(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
-    sources, filters = _af.ConnectionBundles.build_sources_and_filters(**filters)
-    pipeline = _af.ConnectionBundles.generate_pipeline(name_or_id, filters=filters)
+    sources, filters = _af.ConnectionBundles.build_sources_and_filters(
+        **filters
+    )
+    pipeline = _af.ConnectionBundles.generate_pipeline(
+        name_or_id, filters=filters
+    )
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_cb.conn_bun_summary_output(
             ctx, sources, (st, et), pipeline, LIMIT_MEM
@@ -390,7 +404,9 @@ def handle_get_deviations(name_or_id: str, st, et, output, **filters):
         policies = api.get_policies(*ctx.get_api_data())
     sources_set = set(sources)
     if name_or_id:
-        dev_uid = name_or_id if name_or_id.strip("*").startswith("audit:") else None
+        dev_uid = (
+            name_or_id if name_or_id.strip("*").startswith("audit:") else None
+        )
         if not dev_uid:
             policies = filt.filter_obj(
                 policies,
@@ -408,14 +424,16 @@ def handle_get_deviations(name_or_id: str, st, et, output, **filters):
             policies = [
                 policy
                 for policy in policies
-                if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] in sources_set
+                if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+                in sources_set
             ]
     else:
         dev_uid = None
         policies = [
             policy
             for policy in policies
-            if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] in sources_set
+            if policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+            in sources_set
         ]
     pipeline = _af.Deviations.generate_pipeline(dev_uid, filters=filters)
     if output == lib.OUTPUT_DEFAULT:
@@ -686,7 +704,9 @@ def handle_get_notif_config_templates(name_or_id: str, output, **filters):
                 templates.append(tmpl)
     if tmpl_type:
         templates = [
-            tmpl for tmpl in templates if tmpl.type == lib.NOTIF_TMPL_MAP.get(tmpl_type)
+            tmpl
+            for tmpl in templates
+            if tmpl.type == lib.NOTIF_TMPL_MAP.get(tmpl_type)
         ]
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_notif.notif_config_tmpl_summary_output(templates)
@@ -739,9 +759,13 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
             if output != lib.OUTPUT_JSON:
                 output = lib.OUTPUT_YAML
             out_fn = lib.unique_fn(out_fn, output)
-            cli.show(policy, output, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn)
+            cli.show(
+                policy, output, dest=lib.OUTPUT_DEST_FILE, output_fn=out_fn
+            )
     elif has_matching:
-        policies, no_match_pols = __calculate_has_matching_fprints(policies, st, et)
+        policies, no_match_pols = __calculate_has_matching_fprints(
+            policies, st, et
+        )
         summary = spyctl_policies.policies_summary_output(
             policies, has_matching, no_match_pols
         )
@@ -800,7 +824,9 @@ def handle_get_fingerprints(
     sources, filters = _af.Fingerprints.build_sources_and_filters(**filters)
     name_or_id_expr = None
     if name_or_id:
-        name_or_id_expr = _af.Fingerprints.generate_name_or_uid_expr(name_or_id)
+        name_or_id_expr = _af.Fingerprints.generate_name_or_uid_expr(
+            name_or_id
+        )
     # Output in desired format
     if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_fprints.fprint_output_summary(
@@ -895,7 +921,9 @@ def handle_agent_usage_csv(agents: List[Dict], st, et, metrics_csv_file: IO):
         *ctx.get_api_data(), sources, (st, et), pipeline
     ):
         metrics_csv_file.write(
-            spy_agents.usage_line(metrics_record, agent_map.get(metrics_record["ref"]))
+            spy_agents.usage_line(
+                metrics_record, agent_map.get(metrics_record["ref"])
+            )
         )
 
 
@@ -913,7 +941,9 @@ def handle_agent_usage_json(agents: List[Dict], st, et):
         not lib.is_redirected(),
     ):
         cli.show(
-            spy_agents.usage_dict(metrics_record, agent_map.get(metrics_record["ref"])),
+            spy_agents.usage_dict(
+                metrics_record, agent_map.get(metrics_record["ref"])
+            ),
             lib.OUTPUT_JSON,
             ndjson=NDJSON,
         )
@@ -990,7 +1020,9 @@ def __calc_policy_coverage(
             not_matching=True,
             **filters,
         )
-    uncovered_fprint_groups = spyctl_fprints.make_fingerprint_groups(uncovered_fprints)
+    uncovered_fprint_groups = spyctl_fprints.make_fingerprint_groups(
+        uncovered_fprints
+    )
     uncovered_tot = 0
     for groups in uncovered_fprint_groups:
         uncovered_tot += len(groups)
@@ -1098,7 +1130,9 @@ def __get_fingerprints_matching_policies_scope(
 
 
 def __get_latest_timestamp(obj: Dict):
-    latest_timestamp = obj.get(lib.METADATA_FIELD, {}).get(lib.LATEST_TIMESTAMP_FIELD)
+    latest_timestamp = obj.get(lib.METADATA_FIELD, {}).get(
+        lib.LATEST_TIMESTAMP_FIELD
+    )
     if not latest_timestamp:
         cli.err_exit(
             f"Resource has no {lib.LATEST_TIMESTAMP_FIELD} field in"
@@ -1128,7 +1162,8 @@ def __get_policies_from_option(pol_names_or_uids: List[str]) -> List[Dict]:
             )
             if len(pols) == 0:
                 cli.try_log(
-                    "Unable to locate policy with name or UID" f" {pol_name_or_uid}",
+                    "Unable to locate policy with name or UID"
+                    f" {pol_name_or_uid}",
                     is_warning=True,
                 )
                 continue
