@@ -143,12 +143,12 @@ jobs:
       run: |
         curl -request POST \
           --header 'Content-type: application/json' \
-          --url ${{ secrets.SLACK_HOOK }} \
+          --url ${{ secrets.RELEASE_CHANNEL_WEBHOOK }} \
           --data '{"text": "*Spyctl API* released to *'"${{ inputs.deployment }}"'*. *Commit Hash*: ${{ steps.sha_var.outputs.sha_short }} *Author*: ${{ github.event.head_commit.author.name }} "}'
     - name: Failure
       if: ${{ failure() }}
       run: |
         curl --request POST \
-        --url ${{ secrets.SLACK_HOOK }} \
+        --url ${{ secrets.RELEASE_CHANNEL_WEBHOOK  }} \
         --header 'content-type: application/json' \
         --data '{"text": "*Spyctl API* release failure from branch '"${{ inputs.deployment }}"' "}'
