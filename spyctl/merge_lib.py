@@ -457,13 +457,13 @@ class ProcessNode:
 
     def symmetrical_in(self, other) -> bool:
         if isinstance(other, __class__):
+            if not self.__match_exes(other.exes):
+                return False
             wildcard_name = make_wildcard([self.name, other.name])
             if (
                 not fnmatch.fnmatch(other.name, self.name)
                 and not wildcard_name
             ):
-                return False
-            if not self.__match_exes(other.exes):
                 return False
             return True
         return False
