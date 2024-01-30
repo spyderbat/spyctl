@@ -6,10 +6,9 @@
 <h1 align="center">Spyctl</h1>
 
 Spyctl, is a command-line utility for viewing and managing Spyderbat Resources. It provides basic
-mechanisms for retrieving and uploading data via the Spyderbat API.
+mechanisms for retrieving and uploading data via the [Spyderbat API](https://api.spyderbat.com/openapi.pdf).
 
-Spyctl is the answer for those wanting a command-line solution for interacting fully with their Spyderbat
-environment.
+Spyctl is the answer for those wanting a command-line solution to interact with Spyderbat.
 
 ---
 
@@ -19,9 +18,9 @@ environment.
 
 ## Getting Started <a name = "getting_started"></a>
 
-Follow the [Getting Started Guide](https://spyctl.readthedocs.io/en/latest/getting_started/getting_started.html)
+Follow the [Getting Started Guide](https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/spyctl-getting-started)
 
-Or if you already have Spyctl installed try the [Basics Tutorial](https://github.com/spyderbat/spyctl/blob/master/docs/tutorials/spyctl_basics.rst)
+Or if you already have Spyctl installed try the [Basics Tutorial](https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/tutorials/basics-tutorial)
 
 ## Support <a name = "support"></a>
 
