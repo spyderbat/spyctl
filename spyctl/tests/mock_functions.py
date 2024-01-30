@@ -507,6 +507,81 @@ def mock_get_fingerprints(
         "version": 1689423128,
         "checksum": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "valid_to": 1689423288.2522442,
+        "covered_by_policy": True,
+    }
+    yield mock_fingerprint
+
+
+def mock_get_guardian_fingerprints(
+    api_url,
+    api_key,
+    org_uid,
+    sources,
+    time,
+    fprint_type=None,
+    unique=False,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+    expr=None,
+    **filters,
+):
+    mock_fingerprint = {
+        "expire_at": 1689425999.999999,
+        "id": "fprint:linux-service:xxxxxxxxxxx:update-motd.service:xxxxxx:xxxx",
+        "cgroup": "systemd:/system.slice/update-motd.service",
+        "muid": "mach:xxxxxxxxxxx",
+        "apiVersion": "spyderbat/v1",
+        "kind": "SpyderbatFingerprint",
+        "metadata": {
+            "name": "update-motd.service",
+            "id": "fprint:linux-service:xxxxxxxxxxx:update-motd.service:xxxxxx:xxxx",
+            "type": "linux-service",
+            "checksum": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org_uid": "spyderbatuid",
+            "muid": "mach:xxxxxxxxxxx",
+            "root": "proc:xxxxxxxxxxx:xxxxxx:9785",
+            "firstTimestamp": 1689423122.9874985,
+            "latestTimestamp": 1689423288.2522442,
+            "version": 1689423128,
+        },
+        "spec": {
+            "serviceSelector": {
+                "cgroup": "systemd:/system.slice/update-motd.service"
+            },
+            "machineSelector": {"hostname": "mock_machine"},
+            "processPolicy": [
+                {
+                    "name": "update-motd",
+                    "exe": ["/usr/bin/bash"],
+                    "id": "update-motd_0",
+                    "euser": ["root"],
+                }
+            ],
+            "networkPolicy": {
+                "ingress": [],
+                "egress": [
+                    {
+                        "to": [{"ipBlock": {"cidr": "1.1.1.1/32"}}],
+                        "processes": ["yum_0"],
+                        "ports": [{"protocol": "TCP", "port": 80}],
+                    },
+                ],
+            },
+        },
+        "root_puid": "proc:xxxxxxxxxxx:xxxxxx:9785",
+        "service_name": "update-motd.service",
+        "proc_fprint_len": 18,
+        "ingress_len": 0,
+        "egress_len": 3,
+        "schema": "model_fingerprint:linux_svc:1.0.0",
+        "status": "closed",
+        "time": 1689423288.2522442,
+        "valid_from": 1689423122.9874985,
+        "last_seen": 1689423126.8817828,
+        "version": 1689423128,
+        "checksum": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "valid_to": 1689423288.2522442,
+        "covered_by_policy": True,
     }
     yield mock_fingerprint
 

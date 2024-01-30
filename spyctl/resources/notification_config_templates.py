@@ -270,4 +270,31 @@ TEMPLATES = [
             },
         },
     },
+    {
+        "display_name": "Agent in Error or Critical State",
+        "id": "nc_tmpl:000000010",
+        "description": "Send a notification when an agent is in error or critical state. (1 day cooldown)",
+        "type": "agent_health",
+        "config": {
+            "schema_type": "model_agent",
+            "condition": "status = 'Error' OR status = 'Critical'",
+            "cooldown": {
+                "byField": ["id", "status"],
+                "forSeconds": 86400,
+            },
+            "title": "Spyderbat Agent in {{ status }} State",
+            "message": "This Nano Agent is in a degraded state and may not be sending all necessary data.\n\n{{ __origin__ }}",
+            "additional_fields": {
+                "details": {
+                    "Hostname": "{{ hostname }}",
+                    "Time": "{{ __hr_time__ }}",
+                    "Source UID": "{{ muid }}",
+                    "Cluster": "{{ __cluster__ }}",
+                },
+                "linkback_text": "View in Spyderbat",
+                "linkback_url": "{{ __linkback__ }}",
+                "slack_icon": ":warning:",
+            },
+        },
+    },
 ]
