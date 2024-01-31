@@ -446,10 +446,15 @@ def apply_file_edits(resource, file: IO):
 
     """
     extension = ".json" if file.name.endswith(".json") else ".yaml"
-    if extension == ".json":
-        file.write(json.dumps(resource, sort_keys=False, indent=2))
-    else:
-        file.write(yaml.dump(resource, sort_keys=False))
+    try:
+        file.close()
+        with open(file.name, "w", encoding="UTF-8") as f:
+            if extension == ".json":
+                f.write(json.dumps(resource, sort_keys=False, indent=2))
+            else:
+                f.write(yaml.dump(resource, sort_keys=False))
+    except Exception as e:
+        cli.err_exit(f"Unable to write output to {file.name}", exception=e)
     cli.try_log(f"Successfully edited resource file '{file.name}'")
 
 
