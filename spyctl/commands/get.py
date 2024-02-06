@@ -847,7 +847,9 @@ def handle_get_fingerprints(
     group_by = filters.pop("group_by", [])
     sort_by = filters.pop("sort_by", [])
     fprint_type = filters.pop(lib.TYPE_FIELD)
-    sources, filters = _af.Fingerprints.build_sources_and_filters(**filters)
+    sources, filters = _af.Fingerprints.build_sources_and_filters(
+        use_property_fields=True, **filters
+    )
     name_or_id_expr = None
     if name_or_id:
         name_or_id_expr = _af.Fingerprints.generate_name_or_uid_expr(
