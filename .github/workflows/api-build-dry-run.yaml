@@ -13,7 +13,7 @@ jobs:
     secrets: inherit
 
   integration2-build:
-    if: github.base_ref == 'integration2_api'
+    if: github.base_ref == 'integration_api'
     uses: ./.github/workflows/reusable-build-dry-run.yaml
     with:
       deployment: integration2
