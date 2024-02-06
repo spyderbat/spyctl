@@ -232,11 +232,27 @@ class API_Filter:
         return cls.not_property_map[key]
 
     @classmethod
-    def build_sources_and_filters(cls, **filters) -> Tuple[List[str], Dict]:
+    def build_sources_and_filters(
+        cls, use_property_fields=False, **filters
+    ) -> Tuple[List[str], Dict]:
+        """
+        Builds and returns a tuple containing the sources and filters based on the given parameters.
+
+        Args:
+            use_property_fields (bool): Flag indicating whether to use property fields in the filters. False when using
+                the filters to build a pipeline. True when using the filters standalone.
+            **filters: Additional filters to be applied.
+
+        Returns:
+            Tuple[List[str], Dict]: A tuple containing the sources (list of strings) and filters (dictionary).
+
+        """
         ctx = cfg.get_current_context()
         ctx_filters = deepcopy(ctx.get_filters())
         sources = cls.__get_sources(ctx_filters, filters)
         filters = cls.__get_filters(ctx_filters, filters)
+        if use_property_fields:
+            filters = {cls.__build_property(k): v for k, v in filters.items()}
         return sources, filters
 
     @classmethod
@@ -534,7 +550,7 @@ class Fingerprints(API_Filter):
         lib.CLUSTER_FIELD: "cluster_uid",
         lib.NAMESPACE_FIELD: lib.METADATA_NAMESPACE_FIELD,
         lib.CGROUP_FIELD: "cgroup",
-        lib.IMAGE_FIELD: "image",
+        lib.IMAGE_FIELD: "image_name",
         lib.IMAGEID_FIELD: "image_id",
         lib.STATUS_FIELD: lib.STATUS_FIELD,
         lib.ID_FIELD: lib.ID_FIELD,
