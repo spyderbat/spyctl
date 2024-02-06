@@ -11,6 +11,14 @@ jobs:
       deployment: integration
       environment: integration_api
     secrets: inherit
+
+  integration2-build:
+    if: github.ref_name == 'integration_api'
+    uses: ./.github/workflows/reusable-build-deploy.yaml
+    with:
+      deployment: integration2
+      environment: integration2_api
+    secrets: inherit
   
   staging-build:
     if: github.ref_name == 'staging_api'

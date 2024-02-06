@@ -11,6 +11,14 @@ jobs:
       deployment: integration
       environment: integration_api
     secrets: inherit
+
+  integration2-build:
+    if: github.base_ref == 'integration2_api'
+    uses: ./.github/workflows/reusable-build-dry-run.yaml
+    with:
+      deployment: integration2
+      environment: integration2_api
+    secrets: inherit
   
   staging-build:
     if: github.base_ref == 'staging_api'
