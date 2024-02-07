@@ -5,9 +5,6 @@ import spyctl.config.configs as cfg
 import spyctl.resources.api_filters as af
 import spyctl.spyctl_lib as lib
 
-CLUSTER_RULESET_RULE_TYPE_CONT = "container"
-CLUSTER_RULESET_RULE_TYPES = [CLUSTER_RULESET_RULE_TYPE_CONT]
-
 NS_LABEL = "kubernetes.io/metadata.name"
 
 
@@ -103,9 +100,11 @@ class ContainerRules(RulesObject):
                 {
                     lib.NAMESPACE_SELECTOR_FIELD: {
                         lib.MATCH_LABELS_FIELD: {
-                            "kubernetes.io/metadata.name": namespaces[0]
-                            if len(namespaces) == 1
-                            else list(sorted(namespaces))
+                            "kubernetes.io/metadata.name": (
+                                namespaces[0]
+                                if len(namespaces) == 1
+                                else list(sorted(namespaces))
+                            )
                         }
                     },
                     "verb": self.verb,
@@ -133,13 +132,19 @@ class ClusterRuleset:
         self.rules: Dict[str, Dict] = {}  # verb -> type -> RulesObject
         self.cluster = cluster
 
+        if not name:
+            if cluster:
+                self.name = f"{cluster}-cluster-ruleset"
+            else:
+                self.name = "default-ruleset"
+
     def add_rules(
         self, verb: str, rules_type: str, include_namespaces: bool
     ) -> RulesObject:
         rules = self.rules.get(verb, {}).get(rules_type)
         if rules:
             return rules
-        if rules_type == CLUSTER_RULESET_RULE_TYPE_CONT:
+        if rules_type == lib.RULES_TYPE_CONTAINER:
             rules = ContainerRules(verb, include_namespaces)
             self.rules.setdefault(verb, {})[rules_type] = rules
             return rules
@@ -157,6 +162,7 @@ class ClusterRuleset:
             lib.KIND_FIELD: lib.CLUSTER_RULESET_RESOURCE.kind,
             lib.METADATA_FIELD: {
                 lib.NAME_FIELD: self.name,
+                lib.TYPE_FIELD: lib.RULESET_TYPE_CLUS,
             },
             lib.SPEC_FIELD: {
                 lib.RULES_FIELD: self.__compile_rules(),
@@ -180,10 +186,10 @@ def create_blank_ruleset(name: str):
 def create_ruleset(
     name: str, generate_rules, time, **filters
 ) -> ClusterRuleset:
-    ruleset = ClusterRuleset(name)
+    ruleset = ClusterRuleset(name, filters.get(lib.CLUSTER_OPTION))
     if generate_rules:
         generate_cluster_ruleset(
-            ruleset, CLUSTER_RULESET_RULE_TYPES, time, **filters
+            ruleset, lib.CLUSTER_RULESET_RULE_TYPES, time, **filters
         )
     return ruleset
 
@@ -196,9 +202,9 @@ def generate_cluster_ruleset(
         lib.err_exit("Cluster name or UID is required for cluster ruleset")
     ruleset.cluster = cluster
     if not rule_types:
-        rule_types = CLUSTER_RULESET_RULE_TYPES
+        rule_types = lib.CLUSTER_RULESET_RULE_TYPES
     for rule_type in rule_types:
-        if rule_type == CLUSTER_RULESET_RULE_TYPE_CONT:
+        if rule_type == lib.RULES_TYPE_CONTAINER:
             generate_container_rules(ruleset, time, **filters)
     return ruleset
 
@@ -216,7 +222,7 @@ def generate_container_rules(ruleset: ClusterRuleset, time, **filters):
     pipeline = af.Containers.generate_pipeline(filters=filters)
     lib.try_log("Generating container rules...")
     container_rules: ContainerRules = ruleset.add_rules(
-        "allow", CLUSTER_RULESET_RULE_TYPE_CONT, include_namespaces
+        "allow", lib.RULES_TYPE_CONTAINER, include_namespaces
     )
     for container in api.get_containers(
         *ctx.get_api_data(), sources, time, pipeline, limit_mem=True

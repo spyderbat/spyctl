@@ -92,6 +92,7 @@ POL_KIND = "SpyderbatPolicy"
 SUP_POL_KIND_ALIAS = "SuppressionPolicy"
 TARGET_KIND = "NotificationTarget"
 UID_LIST_KIND = "UidList"
+RULESET_KIND = "SpyderbatRuleset"
 
 # Resource Aliases
 AGENT_RESOURCE = Aliases(
@@ -255,7 +256,7 @@ CLUSTER_RULESET_RESOURCE = Aliases(
     ],
     "cluster-ruleset",
     "cluster-rulesets",
-    kind="ClusterRuleset",
+    kind=RULESET_KIND,
 )
 PROCESSES_RESOURCE = Aliases(
     [
@@ -811,6 +812,10 @@ METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"
 METADATA_UID_FIELD = "uid"
 METADATA_CREATE_TIME = "creationTimestamp"
+METADATA_CREATED_BY = "createdBy"
+METADATA_LAST_UPDATE_TIME = "lastUpdatedTimestamp"
+METADATA_LAST_UPDATED_BY = "lastUpdatedBy"
+METADATA_VERSION_FIELD = "version"
 METADATA_NAMESPACE_FIELD = "namespace"
 METADATA_S_CHECKSUM_FIELD = "selectorHash"
 METADATA_START_TIME_FIELD = "startTime"
@@ -852,9 +857,16 @@ SUP_POL_SELECTOR_FIELDS = [
 TRACE_SUMMARY_FIELD = "trace_summary"
 
 # Policy Rulesets
+RULESET_TYPE_CLUS = "cluster"
+RULESET_TYPES = [RULESET_TYPE_CLUS]
 RULESETS_FIELD = "rulesets"
 RULES_FIELD = "rules"
-CONTAINER_RULES_FIELD = "containerRules"
+RULES_TYPE_CONTAINER = "container"
+CLUSTER_RULESET_RULE_TYPES = [RULES_TYPE_CONTAINER]
+RULE_VERB_ALLOW = "allow"
+RULE_VERB_DENY = "deny"
+RULE_VERBS = [RULE_VERB_ALLOW, RULE_VERB_DENY]
+RULE_VERB_FIELD = "verb"
 
 NOT_AVAILABLE = "N/A"
 # Fingerprint Groups
