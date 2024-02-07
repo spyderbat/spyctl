@@ -1297,6 +1297,20 @@ def put_ruleset_update(api_url, api_key, org_uid, ruleset: Dict):
     return resp
 
 
+def get_rulesets(api_url, api_key, org_uid, params=None, raw_data=False):
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    params = {} if params is None else params
+    resp = get(url, api_key, params)
+    rulesets = []
+    for ruleset_json in resp.iter_lines():
+        ruleset = json.loads(ruleset_json)
+        if not raw_data:
+            rulesets.append(ruleset["ruleset"])
+        else:
+            rulesets.append(ruleset)
+    return rulesets
+
+
 # ----------------------------------------------------------------- #
 #               Policy Workflow Source-Based Resources              #
 # ----------------------------------------------------------------- #

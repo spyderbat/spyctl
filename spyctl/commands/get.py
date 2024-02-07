@@ -26,6 +26,7 @@ import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
 import spyctl.resources.replicasets as spyctl_replicaset
+import spyctl.resources.rulesets as spyctl_ruleset
 import spyctl.resources.spydertraces as spyctl_spytrace
 import spyctl.resources.suppression_policies as s_pol
 import spyctl.resources.sources as spyctl_src
@@ -63,6 +64,10 @@ def handle_get(
         handle_get_agents(name_or_id, st, et, output, **filters)
     elif resource == lib.CLUSTERS_RESOURCE:
         handle_get_clusters(name_or_id, output, **filters)
+    elif resource == lib.CLUSTER_RULESET_RESOURCE:
+        handle_get_rulesets(
+            name_or_id, lib.RULESET_TYPE_CLUS, output, **filters
+        )
     elif resource == lib.CONNECTIONS_RESOURCE:
         handle_get_connections(name_or_id, st, et, output, **filters)
     elif resource == lib.CONNECTION_BUN_RESOURCE:
@@ -831,6 +836,27 @@ def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
         policies = s_pol.s_policies_summary_output(policies)
         output = lib.OUTPUT_RAW
     cli.show(policies, output)
+
+
+def handle_get_rulesets(name_or_id: str, rs_type: str, output: str, **_):
+    ctx = cfg.get_current_context()
+    params = {"type": rs_type}
+    rulesets = api.get_rulesets(*ctx.get_api_data(), params)
+    if name_or_id:
+        rulesets = filt.filter_obj(
+            rulesets,
+            [
+                [lib.METADATA_FIELD, lib.NAME_FIELD],
+                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+            ],
+            name_or_id,
+        )
+    if output == lib.OUTPUT_DEFAULT or output == lib.OUTPUT_WIDE:
+        summary = spyctl_ruleset.rulesets_summary_output(rulesets)
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        for ruleset in rulesets:
+            cli.show(ruleset, output, ndjson=NDJSON)
 
 
 # ----------------------------------------------------------------- #

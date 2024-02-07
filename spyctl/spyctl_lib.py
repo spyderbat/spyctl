@@ -348,6 +348,7 @@ EDIT_RESOURCES: List[str] = [
 GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
+    CLUSTER_RULESET_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
     CONNECTION_BUN_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
