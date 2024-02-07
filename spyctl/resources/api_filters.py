@@ -550,7 +550,7 @@ class Fingerprints(API_Filter):
         lib.CLUSTER_FIELD: "cluster_uid",
         lib.NAMESPACE_FIELD: lib.METADATA_NAMESPACE_FIELD,
         lib.CGROUP_FIELD: "cgroup",
-        lib.IMAGE_FIELD: "image_name",
+        lib.IMAGE_FIELD: "image",
         lib.IMAGEID_FIELD: "image_id",
         lib.STATUS_FIELD: lib.STATUS_FIELD,
         lib.ID_FIELD: lib.ID_FIELD,

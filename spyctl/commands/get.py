@@ -850,6 +850,10 @@ def handle_get_fingerprints(
     sources, filters = _af.Fingerprints.build_sources_and_filters(
         use_property_fields=True, **filters
     )
+    # Hacky -- need to fix this in the API code
+    if "image" in filters:
+        value = filters.pop("image")
+        filters["image_name"] = value
     name_or_id_expr = None
     if name_or_id:
         name_or_id_expr = _af.Fingerprints.generate_name_or_uid_expr(
