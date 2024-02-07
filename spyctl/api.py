@@ -1283,6 +1283,20 @@ def put_policy_update(api_url, api_key, org_uid, pol_uid, data: Dict):
     return resp
 
 
+def post_new_ruleset(api_url, api_key, org_uid, ruleset: Dict):
+    data = {"ruleset": ruleset}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    resp = post(url, data, api_key)
+    return resp
+
+
+def put_ruleset_update(api_url, api_key, org_uid, ruleset: Dict):
+    data = {"ruleset": ruleset}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    resp = put(url, data, api_key)
+    return resp
+
+
 # ----------------------------------------------------------------- #
 #               Policy Workflow Source-Based Resources              #
 # ----------------------------------------------------------------- #

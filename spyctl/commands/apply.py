@@ -27,6 +27,8 @@ def handle_apply(filename):
         handle_apply_notification_config(resrc_data)
     elif kind == lib.TARGET_KIND:
         handle_apply_notification_target(resrc_data)
+    elif kind == lib.RULESET_KIND:
+        handle_apply_ruleset(resrc_data)
     else:
         cli.err_exit(f"The 'apply' command is not supported for {kind}")
 
@@ -84,6 +86,20 @@ def handle_matching_policies(policy: Dict, matching_policies: Dict[str, Dict]):
             ret_pol = merged.get_obj_data()
     ret_pol[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
     return sp.TraceSuppressionPolicy(ret_pol)
+
+
+def handle_apply_ruleset(ruleset: Dict):
+    ctx = cfg.get_current_context()
+    uid = ruleset[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+    if uid:
+        resp = api.put_ruleset_update(*ctx.get_api_data(), uid, ruleset)
+        if resp.status_code == 200:
+            cli.try_log(f"Successfully updated ruleset {uid}")
+    else:
+        resp = api.post_new_ruleset(*ctx.get_api_data(), ruleset)
+        if resp and resp.json():
+            uid = resp.json().get("uid", "")
+            cli.try_log(f"Successfully applied new ruleset with uid: {uid}")
 
 
 def handle_apply_notification_target(notif_target: Dict):
