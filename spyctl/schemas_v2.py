@@ -1,3 +1,7 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+
 from __future__ import annotations
 
 import ipaddress
@@ -96,7 +100,9 @@ __PROC_IDS = {}
 
 
 class MatchLabelsModel(BaseModel):
-    match_labels: Dict[str, str] = Field(alias=lib.MATCH_LABELS_FIELD)
+    match_labels: Dict[str, Union[str, list]] = Field(
+        alias=lib.MATCH_LABELS_FIELD
+    )
 
     class Config:
         extra = Extra.forbid
@@ -683,9 +689,9 @@ class GuardianBaselineSpecModel(
 class GuardianDeviationSpecModel(
     GuardianSelectorsModel, GuardianSpecOptionsModel
 ):
-    process_policy: List[
-        Union[ProcessNodeModel, GuardDeviationNodeModel]
-    ] = Field(alias=lib.PROC_POLICY_FIELD)
+    process_policy: List[Union[ProcessNodeModel, GuardDeviationNodeModel]] = (
+        Field(alias=lib.PROC_POLICY_FIELD)
+    )
     network_policy: Optional[DeviationNetworkPolicyModel] = Field(
         alias=lib.NET_POLICY_FIELD
     )
@@ -812,9 +818,9 @@ class GuardianObjectModel(BaseModel):
 
 class GuardianObjectListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    items: List[
-        Union[GuardianObjectModel, GuardianFingerprintGroupModel]
-    ] = Field(alias=lib.ITEMS_FIELD)
+    items: List[Union[GuardianObjectModel, GuardianFingerprintGroupModel]] = (
+        Field(alias=lib.ITEMS_FIELD)
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -1091,6 +1097,67 @@ class NotificationPolicyModel(BaseModel):
 
 
 # -----------------------------------------------------------------------------
+# Ruleset Models --------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+
+class RuleModel(BaseModel):
+    verb: Literal[tuple(lib.RULE_VERBS)] = Field(alias=lib.RULE_VERB_FIELD)
+
+
+class ContainerRule(RuleModel):
+    namespace_selector: Optional[NamespaceSelectorModel] = Field(
+        alias=lib.NAMESPACE_SELECTOR_FIELD
+    )
+    image: list[str] = Field(alias=lib.IMAGE_FIELD)
+
+
+class CLusterRulesModel(BaseModel):
+    container_rules: list[ContainerRule] = Field(
+        alias=lib.RULES_TYPE_CONTAINER
+    )
+
+
+class RulesetMetadataModel(BaseModel):
+    name: str = Field(alias=lib.METADATA_NAME_FIELD)
+    type: Literal[tuple(lib.RULESET_TYPES)] = Field(  # type: ignore
+        alias=lib.METADATA_TYPE_FIELD
+    )
+    create_time: Optional[Union[int, float]] = Field(
+        alias=lib.METADATA_CREATE_TIME
+    )
+    created_by: Optional[str] = Field(alias=lib.METADATA_CREATED_BY)
+    last_updated: Optional[Union[int, float]] = Field(
+        alias=lib.METADATA_LAST_UPDATE_TIME
+    )
+    last_updated_by: Optional[str] = Field(alias=lib.METADATA_LAST_UPDATED_BY)
+    version: Optional[str] = Field(alias=lib.METADATA_VERSION_FIELD)
+    uid: Optional[str] = Field(alias=lib.METADATA_UID_FIELD)
+
+    @validator("name")
+    def validate_name(cls, v):
+        if " " in v:
+            raise ValueError("Name cannot contain spaces.")
+        if len(v) > 64:
+            raise ValueError("Name must be less than 64 characters.")
+        return v
+
+
+class RulesetPolicySpecModel(BaseModel):
+    rules: CLusterRulesModel = Field(alias=lib.RULES_FIELD)
+
+
+class RulesetModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.RULESET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    metadata: RulesetMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: RulesetPolicySpecModel = Field(alias=lib.SPEC_FIELD)
+
+    class Config:
+        extra = Extra.ignore
+
+
+# -----------------------------------------------------------------------------
 # Suppression Models ----------------------------------------------------------
 # -----------------------------------------------------------------------------
 
@@ -1318,6 +1385,7 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
         lib.NOTIF_TYPE_METRICS,
     ): NotificationConfigMetricsModel,
     lib.TARGET_KIND: NotificationTgtResourceModel,
+    lib.CLUSTER_RULESET_RESOURCE.kind: RulesetModel,
 }
 
 
