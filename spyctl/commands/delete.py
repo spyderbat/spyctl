@@ -28,15 +28,8 @@ def handle_delete(resource, name_or_id):
 
 def handle_delete_ruleset(name_or_id):
     ctx = cfg.get_current_context()
-    params = {"name_contains": name_or_id}
+    params = {"name_or_uid_contains": name_or_id}
     rulesets = api.get_rulesets(*ctx.get_api_data(), params=params)
-    if not rulesets:
-        try:
-            rs = api.get_ruleset(*ctx.get_api_data(), name_or_id)
-            if rs:
-                rulesets = [rs]
-        except api.NotFoundException:
-            pass
     if not rulesets:
         cli.err_exit(f"No rulesets matching '{name_or_id}'")
     for rs in rulesets:

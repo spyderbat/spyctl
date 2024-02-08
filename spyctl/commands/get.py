@@ -848,16 +848,9 @@ def handle_get_rulesets(name_or_id: str, rs_type: str, output: str, **filters):
         "type": rs_type,
         "from_archive": from_archive,
     }
-    rulesets = api.get_rulesets(*ctx.get_api_data(), params)
     if name_or_id:
-        rulesets = filt.filter_obj(
-            rulesets,
-            [
-                [lib.METADATA_FIELD, lib.NAME_FIELD],
-                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-            ],
-            name_or_id,
-        )
+        params["name_or_uid_contains"] = name_or_id.strip("*")
+    rulesets = api.get_rulesets(*ctx.get_api_data(), params)
     if version:
         rulesets = [
             rs

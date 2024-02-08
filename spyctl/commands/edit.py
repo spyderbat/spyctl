@@ -6,16 +6,15 @@ from typing import IO, Callable, Dict
 import click
 import yaml
 
-import spyctl.api as api
-import spyctl.cli as cli
 import spyctl.config.configs as cfg
 import spyctl.filter_resource as filt
-import spyctl.resources.policies as p
-import spyctl.resources.suppression_policies as sp
 import spyctl.resources.notification_targets as nt
 import spyctl.resources.notifications_configs as nc
+import spyctl.resources.policies as p
+import spyctl.resources.suppression_policies as sp
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from spyctl import api, cli
 
 EDIT_PROMPT = (
     "# Please edit the object below. Lines beginning with a '#' will be ignored,\n"
@@ -42,7 +41,9 @@ def handle_edit(resource=None, name_or_id=None, file: IO = None):
     else:
         if not resource or not name_or_id:
             cli.err_exit("Must specify resource and name or id.")
-        if resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
+        if resource == lib.CLUSTER_RULESET_RESOURCE:
+            handle_edit_ruleset(name_or_id)
+        elif resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
             handle_edit_notif_config(name_or_id)
         elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
             handle_edit_notif_tgt(name_or_id)
@@ -68,6 +69,7 @@ KIND_TO_RESOURCE_TYPE: Dict[str, str] = {
     lib.DEVIATION_KIND: lib.DEVIATIONS_RESOURCE.name,
     lib.NOTIFICATION_KIND: lib.NOTIFICATION_CONFIGS_RESOURCE.name,
     lib.TARGET_KIND: lib.NOTIFICATION_TARGETS_RESOURCE.name,
+    lib.RULESET_KIND: "ruleset",
 }
 
 
@@ -99,6 +101,25 @@ def handle_edit_file(file: IO):
         resource_type,
         schemas.KIND_TO_SCHEMA[kind],
         apply_file_edits,
+    )
+
+
+def handle_edit_ruleset(name_or_id):
+    ctx = cfg.get_current_context()
+    params = {"name_or_uid_contains": name_or_id}
+    rulesets = api.get_rulesets(*ctx.get_api_data(), params=params)
+    if not rulesets:
+        cli.err_exit(f"No rulesets matching '{name_or_id}'")
+    if len(rulesets) > 1:
+        cli.err_exit(f"Ruleset '{name_or_id}' is ambiguous, use full UID.")
+    ruleset = rulesets[0]
+    resource_yaml = yaml.dump(ruleset, sort_keys=False)
+    edit_resource(
+        resource_yaml,
+        ruleset[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
+        "ruleset",
+        schemas.KIND_TO_SCHEMA[lib.RULESET_KIND],
+        apply_ruleset_edits,
     )
 
 
@@ -217,7 +238,7 @@ def handle_edit_policy(name_or_id):
         name_or_id,
     )
     if len(policies) > 1:
-        cli.err_exit(f"Policy '{name_or_id}' is ambiguous, use ID.")
+        cli.err_exit(f"Policy '{name_or_id}' is ambiguous, use full UID.")
     if not policies:
         cli.err_exit(f"No Policies matching '{name_or_id}'.")
     policy = policies[0]
@@ -426,6 +447,12 @@ def apply_policy_edits(edit_dict: Dict, policy_id: str):
     _, api_data = p.get_data_for_api_call(policy)
     api.put_policy_update(*ctx.get_api_data(), policy_id, api_data)
     cli.try_log(f"Successfully edited Policy '{policy_id}'")
+
+
+def apply_ruleset_edits(edit_dict: Dict, ruleset_id: str):
+    ctx = cfg.get_current_context()
+    api.put_ruleset_update(*ctx.get_api_data(), edit_dict)
+    cli.try_log(f"Successfully edited Ruleset '{ruleset_id}'")
 
 
 def apply_suppression_policy_edits(edit_dict: Dict, policy_id: str):
