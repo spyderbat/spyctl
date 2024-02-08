@@ -23,8 +23,13 @@ def rulesets_summary_output(rulesets: List[Dict]):
                 rs[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
                 rs[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD],
                 rs[lib.METADATA_FIELD][lib.METADATA_VERSION_FIELD],
-                rs[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME],
-                rs[lib.METADATA_FIELD][lib.METADATA_LAST_UPDATE_TIME],
+                lib.epoch_to_zulu(
+                    rs[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME]
+                ),
+                lib.epoch_to_zulu(
+                    rs[lib.METADATA_FIELD][lib.METADATA_LAST_UPDATE_TIME]
+                ),
             ]
         )
-    return tabulate(data, headers=SUMMARY_HEADERS)
+    data.sort(key=lambda x: x[1])
+    return tabulate(data, headers=SUMMARY_HEADERS, tablefmt="plain")

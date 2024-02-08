@@ -92,7 +92,7 @@ def handle_apply_ruleset(ruleset: Dict):
     ctx = cfg.get_current_context()
     uid = ruleset[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     if uid:
-        resp = api.put_ruleset_update(*ctx.get_api_data(), uid, ruleset)
+        resp = api.put_ruleset_update(*ctx.get_api_data(), ruleset)
         if resp.status_code == 200:
             cli.try_log(f"Successfully updated ruleset {uid}")
     else:

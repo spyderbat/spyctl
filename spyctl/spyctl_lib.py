@@ -331,6 +331,7 @@ def get_plural_name_from_alias(alias: str):
 
 
 DEL_RESOURCES: List[str] = [
+    CLUSTER_RULESET_RESOURCE.name,
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
     NOTIFICATION_CONFIGS_RESOURCE.name,

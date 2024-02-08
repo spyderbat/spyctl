@@ -838,9 +838,16 @@ def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
     cli.show(policies, output)
 
 
-def handle_get_rulesets(name_or_id: str, rs_type: str, output: str, **_):
+def handle_get_rulesets(name_or_id: str, rs_type: str, output: str, **filters):
     ctx = cfg.get_current_context()
-    params = {"type": rs_type}
+    from_archive = filters.pop("from_archive", False)
+    version = filters.pop("version", None)
+    if version:
+        from_archive = True
+    params = {
+        "type": rs_type,
+        "from_archive": from_archive,
+    }
     rulesets = api.get_rulesets(*ctx.get_api_data(), params)
     if name_or_id:
         rulesets = filt.filter_obj(
@@ -851,7 +858,13 @@ def handle_get_rulesets(name_or_id: str, rs_type: str, output: str, **_):
             ],
             name_or_id,
         )
-    if output == lib.OUTPUT_DEFAULT or output == lib.OUTPUT_WIDE:
+    if version:
+        rulesets = [
+            rs
+            for rs in rulesets
+            if rs[lib.METADATA_FIELD][lib.VERSION_FIELD] == version
+        ]
+    if output in [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE]:
         summary = spyctl_ruleset.rulesets_summary_output(rulesets)
         cli.show(summary, lib.OUTPUT_RAW)
     else:

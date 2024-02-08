@@ -1109,11 +1109,11 @@ class ContainerRule(RuleModel):
     namespace_selector: Optional[NamespaceSelectorModel] = Field(
         alias=lib.NAMESPACE_SELECTOR_FIELD
     )
-    image: list[str] = Field(alias=lib.IMAGE_FIELD)
+    image: List[str] = Field(alias=lib.IMAGE_FIELD)
 
 
 class CLusterRulesModel(BaseModel):
-    container_rules: list[ContainerRule] = Field(
+    container_rules: List[ContainerRule] = Field(
         alias=lib.RULES_TYPE_CONTAINER
     )
 

@@ -5,7 +5,7 @@ filtering.
 from copy import deepcopy
 from typing import Dict, List, Tuple, Union, Iterable
 
-import spyctl.api as api
+from spyctl import api
 import spyctl.config.configs as cfg
 import spyctl.filter_resource as filt
 import spyctl.spyctl_lib as lib

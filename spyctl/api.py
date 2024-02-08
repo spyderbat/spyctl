@@ -1231,6 +1231,12 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     return resp
 
 
+def delete_ruleset(api_url, api_key, org_uid, ruleset_uid):
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/{ruleset_uid}"
+    resp = delete(url, api_key)
+    return resp
+
+
 def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     params = {} if params is None else params
@@ -1303,12 +1309,22 @@ def get_rulesets(api_url, api_key, org_uid, params=None, raw_data=False):
     resp = get(url, api_key, params)
     rulesets = []
     for ruleset_json in resp.iter_lines():
-        ruleset = json.loads(ruleset_json)
-        if not raw_data:
-            rulesets.append(ruleset["ruleset"])
-        else:
-            rulesets.append(ruleset)
+        ruleset_list = json.loads(ruleset_json)
+        for ruleset in ruleset_list:
+            if not raw_data:
+                rulesets.append(ruleset["ruleset"])
+            else:
+                rulesets.append(ruleset)
     return rulesets
+
+
+def get_ruleset(api_url, api_key, org_uid, ruleset_uid) -> Optional[Dict]:
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/{ruleset_uid}"
+    resp = get(url, api_key, raise_notfound=True)
+    for ruleset_json in resp.iter_lines():
+        ruleset = json.loads(ruleset_json)
+        if ruleset:
+            return ruleset["ruleset"]
 
 
 # ----------------------------------------------------------------- #

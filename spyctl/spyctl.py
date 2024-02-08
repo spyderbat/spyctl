@@ -1432,6 +1432,22 @@ class GetCommand(lib.ArgumentParametersCommand):
                 ),
             ],
         },
+        {
+            "resource": [lib.CLUSTER_RULESET_RESOURCE],
+            "args": [
+                click.option(
+                    "--from-archive",
+                    is_flag=True,
+                    help="Retrieve archived ruleset versions.",
+                ),
+                click.option(
+                    "--version",
+                    type=click.INT,
+                    help="Retrieve archived rulesets with a specific version.",
+                    metavar="",
+                ),
+            ],
+        },
     ]
 
 
