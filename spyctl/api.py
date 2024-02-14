@@ -1252,12 +1252,7 @@ def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
             pol_list = json.loads(pol_json)
             if not raw_data:
                 for pol in pol_list:
-                    uid = pol["uid"]
-                    policy = json.loads(pol["policy"])
-                    policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                    policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
-                        "valid_from"
-                    ]
+                    policy = pol["policy"]
                     policies.append(policy)
             else:
                 policies.extend(pol_list)
@@ -1277,8 +1272,11 @@ def get_policy(api_url, api_key, org_uid, pol_uid):
     return policies
 
 
-def post_new_policy(api_url, api_key, org_uid, data: Dict):
+def post_new_policy(api_url, api_key, org_uid, policy: Dict):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
+    data = {
+        "policy": policy,
+    }
     resp = post(url, data, api_key)
     return resp
 

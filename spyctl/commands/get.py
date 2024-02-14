@@ -759,6 +759,10 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
     file_output = filters.pop("output_to_file", False)
     get_deviations_count = filters.pop("get_deviations", False)
     raw_data = filters.pop("raw_data", False)
+    from_archive = filters.pop("from_archive", False)
+    version = filters.pop("version", None)
+    if version:
+        from_archive = True
     ctx = cfg.get_current_context()
     if files:
         policies = []
@@ -772,18 +776,32 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
                 )
                 continue
             policies.append(resource_data)
+        policies = filt.filter_policies(policies, **filters)
+        if name_or_id:
+            policies = filt.filter_obj(
+                policies,
+                [
+                    [lib.METADATA_FIELD, lib.NAME_FIELD],
+                    [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+                ],
+                name_or_id,
+            )
     else:
-        policies = api.get_policies(*ctx.get_api_data(), raw_data=raw_data)
-    policies = filt.filter_policies(policies, **filters)
-    if name_or_id:
-        policies = filt.filter_obj(
-            policies,
-            [
-                [lib.METADATA_FIELD, lib.NAME_FIELD],
-                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-            ],
-            name_or_id,
+        params = {
+            "name_or_uid_contains": (
+                name_or_id.strip("*") if name_or_id else None
+            ),
+            "from_archive": from_archive,
+        }
+        policies = api.get_policies(
+            *ctx.get_api_data(), raw_data=raw_data, params=params
         )
+    if version:
+        policies = [
+            pol
+            for pol in policies
+            if pol[lib.METADATA_FIELD][lib.VERSION_FIELD] == version
+        ]
     if file_output:
         for policy in policies:
             out_fn = lib.find_resource_filename(policy, "policy_output")

@@ -35,14 +35,13 @@ def handle_apply(filename):
 
 def handle_apply_policy(policy: Dict):
     ctx = cfg.get_current_context()
-    policy = p.Policy(policy)
-    uid, api_data = p.get_data_for_api_call(policy)
+    uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     if uid:
-        resp = api.put_policy_update(*ctx.get_api_data(), uid, api_data)
+        resp = api.put_policy_update(*ctx.get_api_data(), uid, policy)
         if resp.status_code == 200:
             cli.try_log(f"Successfully updated policy {uid}")
     else:
-        resp = api.post_new_policy(*ctx.get_api_data(), api_data)
+        resp = api.post_new_policy(*ctx.get_api_data(), policy)
         if resp and resp.text:
             uid = json.loads(resp.text).get("uid", "")
             cli.try_log(f"Successfully applied new policy with uid: {uid}")

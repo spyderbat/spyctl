@@ -118,7 +118,7 @@ CLUSTERS_RESOURCE = Aliases(
     ["clusters", "cluster", "clust", "clusts", "clus"], "cluster", "clusters"
 )
 CONTAINER_RESOURCE = Aliases(
-    ["container", "containers", "cont" "c"],
+    ["container", "containers", "cont", "c"],
     "container",
     "containers",
 )
@@ -229,6 +229,26 @@ NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
+CONTAINER_POL_RESOURCE = Aliases(
+    [
+        "container-policy",
+        "container-policies",
+        "cont-pol",
+    ],
+    "container-policy",
+    "container-policies",
+    kind=POL_KIND,
+)
+LINUX_SVC_POL_RESOURCE = Aliases(
+    [
+        "linux-svc-policy",
+        "linux-svc-policies",
+        "lsvc-pol",
+    ],
+    "linux-svc-policy",
+    "linux-svc-policies",
+    kind=POL_KIND,
+)
 POLICIES_RESOURCE = Aliases(
     [
         "policies",
@@ -256,6 +276,16 @@ CLUSTER_RULESET_RESOURCE = Aliases(
     ],
     "cluster-ruleset",
     "cluster-rulesets",
+    kind=RULESET_KIND,
+)
+RULESETS_RESOURCE = Aliases(
+    [
+        "ruleset",
+        "rulesets",
+        "rs",
+    ],
+    "ruleset",
+    "rulesets",
     kind=RULESET_KIND,
 )
 PROCESSES_RESOURCE = Aliases(
@@ -342,10 +372,13 @@ DESC_RESOURCES: List[str] = [
 ]
 EDIT_RESOURCES: List[str] = [
     CLUSTER_RULESET_RESOURCE.name,
-    POLICIES_RESOURCE.name,
-    SUPPRESSION_POLICY_RESOURCE.name,
+    CONTAINER_POL_RESOURCE.name,
+    LINUX_SVC_POL_RESOURCE.name,
     NOTIFICATION_CONFIGS_RESOURCE.name,
     NOTIFICATION_TARGETS_RESOURCE.name,
+    POLICIES_RESOURCE.name,
+    RULESETS_RESOURCE.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
 ]
 GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,

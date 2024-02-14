@@ -1430,6 +1430,17 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " provided time window",
                     is_flag=True,
                 ),
+                click.option(
+                    "--from-archive",
+                    is_flag=True,
+                    help="Retrieve archived ruleset versions.",
+                ),
+                click.option(
+                    "--version",
+                    type=click.INT,
+                    help="Retrieve archived rulesets with a specific version.",
+                    metavar="",
+                ),
             ],
         },
         {

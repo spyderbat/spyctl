@@ -101,25 +101,13 @@ def handle_delete_notif_tgt(name_or_id):
 
 def handle_delete_policy(name_or_uid):
     ctx = cfg.get_current_context()
-
-    policies = api.get_policies(*ctx.get_api_data())
-    policies = [
-        (
-            p[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
-            p[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
-        )
-        for p in filt.filter_obj(
-            policies,
-            [
-                [lib.METADATA_FIELD, lib.METADATA_NAME_FIELD],
-                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-            ],
-            name_or_uid,
-        )
-    ]
+    params = {"name_or_uid_contains": name_or_uid}
+    policies = api.get_policies(*ctx.get_api_data(), params=params)
     if len(policies) == 0:
         cli.err_exit(f"No policies matching name_or_uid '{name_or_uid}'")
-    for uid, name in policies:
+    for policy in policies:
+        name = policy[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
+        uid = policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
         perform_delete = cli.query_yes_no(
             f"Are you sure you want to delete policy '{name} - {uid}' from"
             " Spyderbat?"
