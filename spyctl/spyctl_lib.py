@@ -206,6 +206,8 @@ NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
+ROLES_RESOURCE = Aliases(["roles", "role"], "role", "roles")
+CLUSTERROLES_RESOURCE = Aliases(["clusterroles", "clusterrole"], "clusterrole", "clusterroles")
 POLICIES_RESOURCE = Aliases(
     [
         "policies",
@@ -580,6 +582,8 @@ MODEL_NAMESPACE_PREFIX = "model_k8s_namespace"
 MODEL_NODE_PREFIX = "model_k8s_node"
 MODEL_POD_PREFIX = "model_k8s_pod"
 MODEL_REPLICASET_PREFIX = "model_k8s_replicaset"
+MODEL_K8S_ROLE_PREFIX = "model_k8s_role:"
+MODEL_K8S_CLUSTERROLE_PREFIX = "model_k8s_clusterrole:"
 MODEL_PROCESS_PREFIX = "model_process"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
 MODEL_DAEMONSET_PREFIX = "model_k8s_daemonset"
