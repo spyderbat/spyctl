@@ -6,15 +6,15 @@ import spyctl.spyctl_lib as lib
 
 SUMMARY_HEADERS = [
     "NAME",
+    "KIND/ROLE",
     "CREATED_AT",
     "STATUS",
     "AGE",
-    "NAMESPACE",
     "CLUSTER",
 ]
 
 
-def role_output_summary(
+def clusterrolebinding_output_summary(
     ctx: cfg.Context,
     clusters: List[str],
     time: Tuple[float, float],
@@ -22,31 +22,34 @@ def role_output_summary(
     limit_mem=False,
 ) -> str:
     data = []
-    for role in api.get_role(
+    for crb in api.get_clusterrolebinding(
         *ctx.get_api_data(), clusters, time, pipeline, limit_mem
     ):
-        data.append(role_summary_data(role))
+        data.append(clusterrolebinding_summary_data(crb))
     rv = tabulate(
-        sorted(data, key=lambda x: [x[0], x[3], x[4]]),
+        sorted(data, key=lambda x: [x[0], x[4]]),
         headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
     return rv
 
 
-def role_summary_data(role: Dict) -> List[str]:
-    cluster_name = role["cluster_name"]
-    meta = role[lib.METADATA_FIELD]
+def clusterrolebinding_summary_data(crb: Dict) -> List[str]:
+    cluster_name = crb["cluster_name"]
+    meta = crb[lib.METADATA_FIELD]
     name = meta["name"]
-    namespace = meta["namespace"]
-    k8s_status = role["status"]
+    k8s_status = crb["status"]
     created_at = meta[lib.METADATA_CREATE_TIME]
+    if "roleRef" in crb:
+        role = crb["roleRef"]["name"]
+        kind = crb["roleRef"]["kind"]
+        role_name = kind + "/" + role
     rv = [
         name,
+        role_name,
         created_at,
         k8s_status,
         lib.calc_age(lib.to_timestamp(meta[lib.METADATA_CREATE_TIME])),
-        namespace,
         cluster_name,
     ]
     return rv

@@ -1188,6 +1188,68 @@ def get_clusterrole(
         __log_interrupt()
 
 
+def get_rolebinding(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_ROLEBINDING_PREFIX
+        for rolebinding in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield rolebinding
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
+def get_clusterrolebinding(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_CLUSTERROLE_BINDING_PREFIX
+        for crb in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield crb
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
 def get_redflags(
     api_url,
     api_key,

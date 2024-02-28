@@ -4,13 +4,7 @@ import spyctl.config.configs as cfg
 from tabulate import tabulate
 import spyctl.spyctl_lib as lib
 
-SUMMARY_HEADERS = [
-    "NAME",
-    "CREATED_AT"
-    "STATUS",
-    "AGE",
-    "CLUSTER"
-]
+SUMMARY_HEADERS = ["NAME", "CREATED_AT", "STATUS", "AGE", "CLUSTER"]
 
 
 def clusterrole_output_summary(
@@ -26,7 +20,7 @@ def clusterrole_output_summary(
     ):
         data.append(clusterrole_summary_data(clusterrole))
     rv = tabulate(
-        sorted(data, key=lambda x: x[1]),
+        sorted(data, key=lambda x: [x[0], x[3]]),
         headers=SUMMARY_HEADERS,
         tablefmt="plain",
     )
@@ -37,16 +31,13 @@ def clusterrole_summary_data(clusterrole: Dict) -> List[str]:
     cluster_name = clusterrole["cluster_name"]
     meta = clusterrole[lib.METADATA_FIELD]
     name = meta["name"]
-    k8s_status = clusterrole[lib.BE_K8S_STATUS]
+    k8s_status = clusterrole["status"]
     created_at = meta[lib.METADATA_CREATE_TIME]
-    # valid_from = clusterrole["valid_from"]
     rv = [
         name,
         created_at,
         k8s_status,
         lib.calc_age(lib.to_timestamp(meta[lib.METADATA_CREATE_TIME])),
-        cluster_name
+        cluster_name,
     ]
     return rv
-
-

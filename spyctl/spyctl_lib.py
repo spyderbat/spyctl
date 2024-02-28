@@ -207,7 +207,18 @@ OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
 ROLES_RESOURCE = Aliases(["roles", "role"], "role", "roles")
-CLUSTERROLES_RESOURCE = Aliases(["clusterroles", "clusterrole"], "clusterrole", "clusterroles")
+CLUSTERROLES_RESOURCE = Aliases(
+    ["clusterroles", "clusterrole"], "clusterrole", "clusterroles"
+)
+ROLEBINDING_RESOURCE = Aliases(
+    ["rolebinding", "rolebindings", "rb"], "rolebinding", "rolebindings"
+)
+CLUSTERROLE_BINDING_RESOURCE = Aliases(
+    ["clusterrolebinding", "clusterrolebindings", "crb"],
+    "clusterrolebinding",
+    "clusterrolebindings",
+)
+
 POLICIES_RESOURCE = Aliases(
     [
         "policies",
@@ -583,6 +594,8 @@ MODEL_NODE_PREFIX = "model_k8s_node"
 MODEL_POD_PREFIX = "model_k8s_pod"
 MODEL_REPLICASET_PREFIX = "model_k8s_replicaset"
 MODEL_K8S_ROLE_PREFIX = "model_k8s_role:"
+MODEL_ROLEBINDING_PREFIX = "model_k8s_rolebinding:"
+MODEL_CLUSTERROLE_BINDING_PREFIX = "model_k8s_clusterrolebinding"
 MODEL_K8S_CLUSTERROLE_PREFIX = "model_k8s_clusterrole:"
 MODEL_PROCESS_PREFIX = "model_process"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
