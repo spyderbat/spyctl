@@ -236,15 +236,19 @@ class API_Filter:
         cls, use_property_fields=False, **filters
     ) -> Tuple[List[str], Dict]:
         """
-        Builds and returns a tuple containing the sources and filters based on the given parameters.
+        Builds and returns a tuple containing the sources
+        and filters based on the given parameters.
 
         Args:
-            use_property_fields (bool): Flag indicating whether to use property fields in the filters. False when using
-                the filters to build a pipeline. True when using the filters standalone.
+            use_property_fields (bool):
+            Flag indicating whether to use property fields in the filters.
+            False when using the filters to build a pipeline.
+            True when using the filters standalone.
             **filters: Additional filters to be applied.
 
         Returns:
-            Tuple[List[str], Dict]: A tuple containing the sources (list of strings) and filters (dictionary).
+            Tuple[List[str], Dict]: A tuple containing the sources
+            (list of strings) and filters (dictionary).
 
         """
         ctx = cfg.get_current_context()
@@ -825,7 +829,9 @@ class Daemonsets(API_Filter):
         lib.ID_FIELD: lib.ID_FIELD,
         lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
-        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
     }
     name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE
