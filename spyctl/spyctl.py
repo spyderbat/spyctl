@@ -35,9 +35,7 @@ MAIN_EPILOG = (
     "command.\n"
     'Use "spyctl --version" for version information'
 )
-SUB_EPILOG = (
-    'Use "spyctl <command> --help" for more information about a given command.'
-)
+SUB_EPILOG = 'Use "spyctl <command> --help" for more information about a given command.'
 
 DEFAULT_START_TIME = 1614811600
 
@@ -176,9 +174,7 @@ def current_context(force_global):
     "-o",
     "--output",
     default=lib.OUTPUT_DEFAULT,
-    type=click.Choice(
-        [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE], case_sensitive=False
-    ),
+    type=click.Choice([lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE], case_sensitive=False),
 )
 @click.option(
     "-g",
@@ -207,9 +203,7 @@ def get_contexts(force_global, force_workspace, output, name=None):
     config init\" for more details.
     """
     if force_global and force_workspace:
-        cli.try_log(
-            "Both global and workspace flags set; defaulting to global"
-        )
+        cli.try_log("Both global and workspace flags set; defaulting to global")
     cfgs.get_contexts(name, force_global, force_workspace, output)
 
 
@@ -220,9 +214,7 @@ def get_contexts(force_global, force_workspace, output, name=None):
     "-o",
     "--output",
     default=lib.OUTPUT_DEFAULT,
-    type=click.Choice(
-        lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
-    ),
+    type=click.Choice(lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False),
 )
 def get_api_secrets(output, name=None):
     """Describe one or many apisecrets."""
@@ -378,9 +370,7 @@ def set_context(name, secret, force_global, use_ctx, **context):
     """Set a context entry in a spyctl configuration file, or update an
     existing one.
     """
-    context = {
-        key: value for key, value in context.items() if value is not None
-    }
+    context = {key: value for key, value in context.items() if value is not None}
     cfgs.set_context(name, secret, force_global, use_ctx, **context)
 
 
@@ -457,9 +447,7 @@ def view(force_global, force_workspace, output):
     other workspace configuration files from cwd to root.
     """
     if force_global and force_workspace:
-        cli.try_log(
-            "Both global and workspace flags set; defaulting to global"
-        )
+        cli.try_log("Both global and workspace flags set; defaulting to global")
     cfgs.view_config(force_global, force_workspace, output)
 
 
@@ -521,14 +509,10 @@ def create():
 )
 def create_baseline(filename, output, name, disable_procs, disable_conns):
     """Create a Baseline from a file, outputted to stdout"""
-    c.handle_create_baseline(
-        filename, output, name, disable_procs, disable_conns
-    )
+    c.handle_create_baseline(filename, output, name, disable_procs, disable_conns)
 
 
-@create.command(
-    "notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG
-)
+@create.command("notification-target", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
 @click.option(
     "-n",
@@ -554,13 +538,9 @@ def create_notif_tgt(name, type, output):
     c.handle_create_notif_tgt(name, type, output)
 
 
-@create.command(
-    "notification-config", cls=lib.CustomCommand, epilog=SUB_EPILOG
-)
+@create.command("notification-config", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True)
-@click.option(
-    "-n", "--name", help="A name for the config.", metavar="", required=True
-)
+@click.option("-n", "--name", help="A name for the config.", metavar="", required=True)
 @click.option(
     "-T",
     "--target",
@@ -784,9 +764,7 @@ def create_suppression_policy(
     """Create a Suppression Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
-    selectors = {
-        key: value for key, value in selectors.items() if value is not None
-    }
+    selectors = {key: value for key, value in selectors.items() if value is not None}
     org_uid = selectors.pop(lib.CMD_ORG_FIELD, None)
     api_key = selectors.pop(lib.API_KEY_FIELD, None)
     api_url = selectors.pop(lib.API_URL_FIELD, "https://api.spyderbat.com")
@@ -1135,8 +1113,7 @@ class GetCommand(lib.ArgumentParametersCommand):
                 click.option(
                     "--severity",
                     lib.FLAG_SEVERITY,
-                    help="Only show flags with the given"
-                    " severity or higher.",
+                    help="Only show flags with the given" " severity or higher.",
                 ),
             ],
         },
@@ -1431,9 +1408,7 @@ class GetCommand(lib.ArgumentParametersCommand):
     "-o",
     "--output",
     default=lib.OUTPUT_DEFAULT,
-    type=click.Choice(
-        lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False
-    ),
+    type=click.Choice(lib.OUTPUT_CHOICES + [lib.OUTPUT_WIDE], case_sensitive=False),
 )
 @click.option(
     "-E",
@@ -1546,9 +1521,7 @@ def get(
     """
     if st is None:
         st = lib.time_inp(api_filters.get_default_time_window(resource))
-    filters = {
-        key: value for key, value in filters.items() if value is not None
-    }
+    filters = {key: value for key, value in filters.items() if value is not None}
     g.handle_get(
         resource,
         name_or_id,
@@ -2066,22 +2039,15 @@ def validate(file, colorize, api):
     help="Exact match for NAME_OR_ID. This command's default behavior"
     "displays any resource that contains the NAME_OR_ID.",
 )
-def export(
-    resource,
-    exact=False,
-    name_or_id=None
-):
-    """ Export Spyderbat Resources for later use to import.
-    """
-    x.handle_export(
-        resource,
-        name_or_id,
-        exact
-    )
+def export(resource, exact=False, name_or_id=None):
+    """Export Spyderbat Resources for later use to import."""
+    x.handle_export(resource, name_or_id, exact)
+
 
 # ----------------------------------------------------------------- #
 #                         Import Subcommand                          #
 # ----------------------------------------------------------------- #
+
 
 @main.command("import", cls=lib.CustomCommand, epilog=SUB_EPILOG)
 @click.help_option("-h", "--help", hidden=True, is_eager=True)
@@ -2091,11 +2057,11 @@ def export(
     help="Filename containing policies to import.",
     metavar="",
     type=click.File(),
-    required=True
+    required=True,
 )
 def spy_import(filename):
     """Import previously exported policies by file name
-       into a new organization context."""
+    into a new organization context."""
     i.handle_import(filename)
 
 

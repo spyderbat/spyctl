@@ -6,11 +6,8 @@ import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
 import spyctl.resources.suppression_policies as s_pol
 
-def handle_export(
-        resource: str,
-        name_or_id: str | None,
-        exact: bool
-) -> None:
+
+def handle_export(resource: str, name_or_id: str | None, exact: bool) -> None:
 
     if name_or_id and not exact:
         name_or_id = name_or_id + "*" if name_or_id[-1] != "*" else name_or_id
@@ -39,8 +36,12 @@ def handle_export_suppression_policies(name_or_id: str | None) -> None:
         )
     for policy in policies:
         metadata: dict = {}
-        metadata[lib.METADATA_NAME_FIELD] = policy[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
-        metadata[lib.METADATA_TYPE_FIELD] = policy[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+        metadata[lib.METADATA_NAME_FIELD] = policy[lib.METADATA_FIELD][
+            lib.METADATA_NAME_FIELD
+        ]
+        metadata[lib.METADATA_TYPE_FIELD] = policy[lib.METADATA_FIELD][
+            lib.METADATA_TYPE_FIELD
+        ]
         policy[lib.METADATA_FIELD] = metadata
     policies = s_pol.s_policies_output(policies)
     cli.show(policies, lib.OUTPUT_YAML)
