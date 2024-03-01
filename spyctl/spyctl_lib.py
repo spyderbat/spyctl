@@ -329,6 +329,11 @@ GET_RESOURCES: List[str] = [
     CONTAINER_RESOURCE.name_plural,
     SPYDERTRACE_RESOURCE.name_plural,
 ]
+
+EXPORT_RESOURCES: List[str] = [
+    SUPPRESSION_POLICY_RESOURCE.name_plural,
+]
+
 LOGS_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -493,6 +498,19 @@ class ListDictParam(click.ParamType):
         if rv_dict:
             rv.append(rv_dict)
         return rv
+
+
+class ExportResourcesParam(click.ParamType):
+    name = "export_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in EXPORT_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
 
 
 class FileList(click.File):
