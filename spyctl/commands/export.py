@@ -1,4 +1,4 @@
-import click
+from typing import Optional
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
@@ -7,7 +7,7 @@ import spyctl.filter_resource as filt
 import spyctl.resources.suppression_policies as s_pol
 
 
-def handle_export(resource: str, name_or_id: str | None, exact: bool) -> None:
+def handle_export(resource: str, name_or_id: Optional[str], exact: bool) -> None:
 
     if name_or_id and not exact:
         name_or_id = name_or_id + "*" if name_or_id[-1] != "*" else name_or_id
@@ -19,7 +19,7 @@ def handle_export(resource: str, name_or_id: str | None, exact: bool) -> None:
         cli.err_exit(f"The 'export' command is not supported for {resource}")
 
 
-def handle_export_suppression_policies(name_or_id: str | None) -> None:
+def handle_export_suppression_policies(name_or_id: Optional[str]) -> None:
     ctx = cfg.get_current_context()
     policies = api.get_policies(
         *ctx.get_api_data(),
