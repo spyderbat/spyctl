@@ -676,9 +676,9 @@ class GuardianBaselineSpecModel(
 class GuardianDeviationSpecModel(
     GuardianSelectorsModel, GuardianSpecOptionsModel
 ):
-    process_policy: List[
-        Union[ProcessNodeModel, GuardDeviationNodeModel]
-    ] = Field(alias=lib.PROC_POLICY_FIELD)
+    process_policy: List[Union[ProcessNodeModel, GuardDeviationNodeModel]] = (
+        Field(alias=lib.PROC_POLICY_FIELD)
+    )
     network_policy: Optional[DeviationNetworkPolicyModel] = Field(
         alias=lib.NET_POLICY_FIELD
     )
@@ -805,9 +805,9 @@ class GuardianObjectModel(BaseModel):
 
 class GuardianObjectListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    items: List[
-        Union[GuardianObjectModel, GuardianFingerprintGroupModel]
-    ] = Field(alias=lib.ITEMS_FIELD)
+    items: List[Union[GuardianObjectModel, GuardianFingerprintGroupModel]] = (
+        Field(alias=lib.ITEMS_FIELD)
+    )
 
 
 # -----------------------------------------------------------------------------

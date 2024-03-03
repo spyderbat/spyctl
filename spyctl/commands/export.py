@@ -7,7 +7,9 @@ import spyctl.filter_resource as filt
 import spyctl.resources.suppression_policies as s_pol
 
 
-def handle_export(resource: str, name_or_id: Optional[str], exact: bool) -> None:
+def handle_export(
+    resource: str, name_or_id: Optional[str], exact: bool
+) -> None:
 
     if name_or_id and not exact:
         name_or_id = name_or_id + "*" if name_or_id[-1] != "*" else name_or_id

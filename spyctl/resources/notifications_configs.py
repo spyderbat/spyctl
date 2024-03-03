@@ -212,9 +212,9 @@ def __load_notif_configs() -> List[NotificationConfigTemplate]:
     return rv
 
 
-NOTIF_CONFIG_TEMPLATES: List[
-    NotificationConfigTemplate
-] = __load_notif_configs()
+NOTIF_CONFIG_TEMPLATES: List[NotificationConfigTemplate] = (
+    __load_notif_configs()
+)
 
 
 def notif_config_tmpl_summary_output(
