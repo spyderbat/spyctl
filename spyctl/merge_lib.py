@@ -77,12 +77,12 @@ class MergeObject:
         self.starting_yaml = yaml.dump(obj_data)
         self.merge_network = merge_network
         self.is_guardian = lib.is_guardian_obj(self.original_obj)
-        self.irrelevant_objects: Dict[
-            str, Set[str]
-        ] = {}  # kind -> Set(checksum or id) if checksum missing
-        self.relevant_objects: Dict[
-            str, Set[str]
-        ] = {}  # kind -> Set(checksum or id) if checksum missing
+        self.irrelevant_objects: Dict[str, Set[str]] = (
+            {}
+        )  # kind -> Set(checksum or id) if checksum missing
+        self.relevant_objects: Dict[str, Set[str]] = (
+            {}
+        )  # kind -> Set(checksum or id) if checksum missing
         # guardian spec merge settings
         self.__parse_disable_procs_settings(disable_procs)
         self.__parse_disable_conns_settings(disable_conns)
