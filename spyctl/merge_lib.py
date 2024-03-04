@@ -2420,7 +2420,8 @@ def list_diffs(
 
 def guardian_object_diff(original_data: Dict, other_data: Dict):
     """
-    Calculate the difference between two guardian objects. This is an alternative
+    Calculate the difference between two guardian objects.
+    This is an alternative
     output to string-based diffs focusing specifically on the process, and
     connection nodes within the guardian objects.
 
@@ -2500,7 +2501,8 @@ def guardian_procs_diff(original_spec, other_spec):
                 match_proc = other_proc
                 break
         if not match_proc:
-            # If the process is removed, document the node and all of its children as removed
+            # If the process is removed, document
+            # the node and all of its children as removed
             diff_proc = deepcopy(orig_proc)
             guardian_proc_set_removed(diff_proc)
             rv.append(diff_proc)

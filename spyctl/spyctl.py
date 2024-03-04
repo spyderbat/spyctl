@@ -1483,6 +1483,8 @@ def get(
     \b
     Some resources are retrieved from from databases where a time range can
     be specified:
+    - ClusterRoles
+    - ClusterRoleBindings
     - Connections
     - Connection Bundles
     - Containers
@@ -1497,6 +1499,8 @@ def get(
     - Processes
     - RedFlags
     - Replicasets
+    - Roles
+    - RoleBindings
     - Spydertraces
     - Agents
 
