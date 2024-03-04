@@ -319,6 +319,8 @@ EDIT_RESOURCES: List[str] = [
 GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
+    CLUSTERROLES_RESOURCE.name_plural,
+    CLUSTERROLE_BINDING_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
     CONNECTION_BUN_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
@@ -336,6 +338,8 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
+    ROLES_RESOURCE.name_plural,
+    ROLEBINDING_RESOURCE.name_plural,
     SOURCES_RESOURCE.name_plural,
     # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
     SUPPRESSION_POLICY_RESOURCE.name_plural,
