@@ -236,15 +236,19 @@ class API_Filter:
         cls, use_property_fields=False, **filters
     ) -> Tuple[List[str], Dict]:
         """
-        Builds and returns a tuple containing the sources and filters based on the given parameters.
+        Builds and returns a tuple containing the sources
+        and filters based on the given parameters.
 
         Args:
-            use_property_fields (bool): Flag indicating whether to use property fields in the filters. False when using
-                the filters to build a pipeline. True when using the filters standalone.
+            use_property_fields (bool):
+            Flag indicating whether to use property fields in the filters.
+            False when using the filters to build a pipeline.
+            True when using the filters standalone.
             **filters: Additional filters to be applied.
 
         Returns:
-            Tuple[List[str], Dict]: A tuple containing the sources (list of strings) and filters (dictionary).
+            Tuple[List[str], Dict]: A tuple containing the sources
+            (list of strings) and filters (dictionary).
 
         """
         ctx = cfg.get_current_context()
@@ -707,6 +711,94 @@ class ReplicaSet(API_Filter):
         )
 
 
+class Role(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_K8S_ROLE_PREFIX
+        return super(Role, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
+class ClusterRole(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_K8S_CLUSTERROLE_PREFIX
+        return super(ClusterRole, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
+class RoleBinding(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_ROLEBINDING_PREFIX
+        return super(RoleBinding, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
+class ClusterRoleBinding(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_CLUSTERROLE_BINDING_PREFIX
+        return super(ClusterRoleBinding, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
 class Processes(API_Filter):
     property_map = {
         lib.ID_FIELD: lib.ID_FIELD,
@@ -737,7 +829,9 @@ class Daemonsets(API_Filter):
         lib.ID_FIELD: lib.ID_FIELD,
         lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
         lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
-        lib.NAMESPACE_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
     }
     name_or_uid_props = [lib.ID_FIELD, lib.NAME_FIELD, lib.BE_KUID_FIELD]
     source_type = SOURCE_TYPE_CLUID_BASE

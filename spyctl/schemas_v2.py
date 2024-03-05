@@ -705,8 +705,8 @@ class GuardianDeviationSpecModel(
 
 class GuardianFingerprintModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.FPRINT_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.FPRINT_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -740,8 +740,8 @@ class FingerprintGroupDataModel(BaseModel):
 
 class GuardianFingerprintGroupModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.FPRINT_GROUP_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.FPRINT_GROUP_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianFingerprintGroupMetadataModel = Field(
         alias=lib.METADATA_FIELD
@@ -754,8 +754,8 @@ class GuardianFingerprintGroupModel(BaseModel):
 
 class GuardianDeviationModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.DEVIATION_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.DEVIATION_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianDeviationMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianDeviationSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -768,8 +768,8 @@ class GuardianDeviationModel(BaseModel):
 
 class GuardianBaselineModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.BASELINE_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.BASELINE_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -835,7 +835,9 @@ class DestinationSlackModel(BaseModel):
     def valid_url(cls, url):
         if not lib.is_valid_slack_url(url):
             raise ValueError(
-                "Invalid url format. Example: https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"  # noqa: E501
+                "Invalid url format. "
+                "Example: https://hooks.slack.com/services/"
+                "xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"
             )
         return url
 
@@ -937,8 +939,8 @@ class NotifTgtSpecModel(AllDestinationsModel):
 
 class NotificationTgtResourceModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.TARGET_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.TARGET_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: NotifTgtMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifTgtSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -1033,8 +1035,8 @@ class NotifAnaConfigMetricsSpecModel(NotifAnaConfigSpecModel):
 
 class NotificationConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.NOTIFICATION_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.NOTIFICATION_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: NotifAnaConfigMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifAnaConfigSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -1281,8 +1283,8 @@ class SecretMetadataModel(BaseModel):
 
 class SecretModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.SECRET_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.SECRET_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: SecretMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: Optional[Dict[str, str]] = Field(alias=lib.DATA_FIELD)
@@ -1303,8 +1305,8 @@ class ContextsModel(BaseModel):
 
 class ConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.CONFIG_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.CONFIG_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     contexts: List[ContextsModel] = Field(alias=lib.CONTEXTS_FIELD)
     current_context: str = Field(alias=lib.CURR_CONTEXT_FIELD)
@@ -1343,8 +1345,8 @@ class UidListDataModel(BaseModel):
 
 class UidListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.UID_LIST_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.UID_LIST_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: UidListMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: UidListDataModel = Field(alias=lib.DATA_FIELD)
@@ -1354,8 +1356,8 @@ class UidListModel(BaseModel):
 
 
 class SpyderbatObject(BaseModel):
-    api_version: Literal[lib.API_VERSION] = Field(  # type: ignore
-        alias=lib.API_FIELD
+    api_version: Literal[lib.API_VERSION] = (  # type: ignore
+        Field(alias=lib.API_FIELD)
     )
     kind: str = Field(alias=lib.KIND_FIELD)
 

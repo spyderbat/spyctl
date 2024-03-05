@@ -16,6 +16,8 @@ import spyctl.commands.show_schema as sh_s
 import spyctl.commands.suppress as sup
 import spyctl.commands.update as u
 import spyctl.commands.validate as v
+import spyctl.commands.export as x
+import spyctl.commands.spy_import as i
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
 import spyctl.resources.api_filters as api_filters
@@ -1592,6 +1594,8 @@ def get(
     \b
     Some resources are retrieved from from databases where a time range can
     be specified:
+    - ClusterRoles
+    - ClusterRoleBindings
     - Connections
     - Connection Bundles
     - Containers
@@ -1606,6 +1610,8 @@ def get(
     - Processes
     - RedFlags
     - Replicasets
+    - Roles
+    - RoleBindings
     - Spydertraces
     - Agents
 
@@ -2156,6 +2162,49 @@ def validate(file, colorize, api):
     if not colorize:
         lib.disable_colorization()
     v.handle_validate(file, api)
+
+
+# ----------------------------------------------------------------- #
+#                          Export Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("export", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.ExportResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-E",
+    "--exact",
+    "--exact-match",
+    is_flag=True,
+    help="Exact match for NAME_OR_ID. This command's default behavior"
+    "displays any resource that contains the NAME_OR_ID.",
+)
+def export(resource, exact=False, name_or_id=None):
+    """Export Spyderbat Resources for later use to import."""
+    x.handle_export(resource, name_or_id, exact)
+
+
+# ----------------------------------------------------------------- #
+#                         Import Subcommand                         #
+# ----------------------------------------------------------------- #
+
+
+@main.command("import", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True, is_eager=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename containing policies to import.",
+    metavar="",
+    type=click.File(),
+    required=True,
+)
+def spy_import(filename):
+    """Import previously exported policies by file name
+    into a new organization context."""
+    i.handle_import(filename)
 
 
 if __name__ == "__main__":

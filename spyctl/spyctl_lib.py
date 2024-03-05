@@ -249,6 +249,19 @@ LINUX_SVC_POL_RESOURCE = Aliases(
     "linux-svc-policies",
     kind=POL_KIND,
 )
+ROLES_RESOURCE = Aliases(["roles", "role"], "role", "roles")
+CLUSTERROLES_RESOURCE = Aliases(
+    ["clusterroles", "clusterrole"], "clusterrole", "clusterroles"
+)
+ROLEBINDING_RESOURCE = Aliases(
+    ["rolebinding", "rolebindings", "rb"], "rolebinding", "rolebindings"
+)
+CLUSTERROLE_BINDING_RESOURCE = Aliases(
+    ["clusterrolebinding", "clusterrolebindings", "crb"],
+    "clusterrolebinding",
+    "clusterrolebindings",
+)
+
 POLICIES_RESOURCE = Aliases(
     [
         "policies",
@@ -384,6 +397,8 @@ GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
     CLUSTER_RULESET_RESOURCE.name_plural,
+    CLUSTERROLES_RESOURCE.name_plural,
+    CLUSTERROLE_BINDING_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
     CONNECTION_BUN_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
@@ -401,12 +416,19 @@ GET_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name_plural,
     PROCESSES_RESOURCE.name_plural,
     REDFLAGS_RESOURCE.name_plural,
+    ROLES_RESOURCE.name_plural,
+    ROLEBINDING_RESOURCE.name_plural,
     SOURCES_RESOURCE.name_plural,
     # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
     SUPPRESSION_POLICY_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
     SPYDERTRACE_RESOURCE.name_plural,
 ]
+
+EXPORT_RESOURCES: List[str] = [
+    SUPPRESSION_POLICY_RESOURCE.name_plural,
+]
+
 LOGS_RESOURCES: List[str] = [POLICIES_RESOURCE.name]
 VAL_RESOURCES: List[str] = [
     BASELINES_RESOURCE.name,
@@ -573,6 +595,19 @@ class ListDictParam(click.ParamType):
         return rv
 
 
+class ExportResourcesParam(click.ParamType):
+    name = "export_resources"
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> List["CompletionItem"]:
+        return [
+            CompletionItem(resrc_name)
+            for resrc_name in EXPORT_RESOURCES
+            if resrc_name.startswith(incomplete)
+        ]
+
+
 class FileList(click.File):
     def convert(
         self,
@@ -658,6 +693,10 @@ MODEL_NAMESPACE_PREFIX = "model_k8s_namespace"
 MODEL_NODE_PREFIX = "model_k8s_node"
 MODEL_POD_PREFIX = "model_k8s_pod"
 MODEL_REPLICASET_PREFIX = "model_k8s_replicaset"
+MODEL_K8S_ROLE_PREFIX = "model_k8s_role:"
+MODEL_ROLEBINDING_PREFIX = "model_k8s_rolebinding:"
+MODEL_CLUSTERROLE_BINDING_PREFIX = "model_k8s_clusterrolebinding"
+MODEL_K8S_CLUSTERROLE_PREFIX = "model_k8s_clusterrole:"
 MODEL_PROCESS_PREFIX = "model_process"
 MODEL_SPYDERTRACE_PREFIX = "model_spydertrace"
 MODEL_DAEMONSET_PREFIX = "model_k8s_daemonset"

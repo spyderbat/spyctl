@@ -77,12 +77,12 @@ class MergeObject:
         self.starting_yaml = yaml.dump(obj_data)
         self.merge_network = merge_network
         self.is_guardian = lib.is_guardian_obj(self.original_obj)
-        self.irrelevant_objects: Dict[
-            str, Set[str]
-        ] = {}  # kind -> Set(checksum or id) if checksum missing
-        self.relevant_objects: Dict[
-            str, Set[str]
-        ] = {}  # kind -> Set(checksum or id) if checksum missing
+        self.irrelevant_objects: Dict[str, Set[str]] = (
+            {}
+        )  # kind -> Set(checksum or id) if checksum missing
+        self.relevant_objects: Dict[str, Set[str]] = (
+            {}
+        )  # kind -> Set(checksum or id) if checksum missing
         # guardian spec merge settings
         self.__parse_disable_procs_settings(disable_procs)
         self.__parse_disable_conns_settings(disable_conns)
@@ -2420,7 +2420,8 @@ def list_diffs(
 
 def guardian_object_diff(original_data: Dict, other_data: Dict):
     """
-    Calculate the difference between two guardian objects. This is an alternative
+    Calculate the difference between two guardian objects.
+    This is an alternative
     output to string-based diffs focusing specifically on the process, and
     connection nodes within the guardian objects.
 
@@ -2500,7 +2501,8 @@ def guardian_procs_diff(original_spec, other_spec):
                 match_proc = other_proc
                 break
         if not match_proc:
-            # If the process is removed, document the node and all of its children as removed
+            # If the process is removed, document
+            # the node and all of its children as removed
             diff_proc = deepcopy(orig_proc)
             guardian_proc_set_removed(diff_proc)
             rv.append(diff_proc)
