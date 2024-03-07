@@ -18,7 +18,6 @@ import spyctl.commands.update as u
 import spyctl.commands.validate as v
 import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
-import spyctl.resources.api_filters as api_filters
 import spyctl.spyctl_lib as lib
 from spyctl import api, cli
 from spyctl.commands.apply import handle_apply
