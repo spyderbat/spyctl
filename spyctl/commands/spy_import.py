@@ -8,14 +8,14 @@ def handle_import(filename):
     for resrc_data in all_data[lib.ITEMS_FIELD]:
         kind = resrc_data.get(lib.KIND_FIELD)
         if kind == lib.POL_KIND:
-            type = resrc_data[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-            if type in lib.SUPPRESSION_POL_TYPES:
-                try:
-                    apply.handle_apply_suppression_policy(resrc_data)
-                except Exception as e:
-                    cli.try_log(
-                        "Failed to apply suppression policy: "
-                        f"{resrc_data[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]}"
-                    )
+            r_type = resrc_data[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+            if r_type in lib.SUPPRESSION_POL_TYPES:
+                apply.handle_apply_suppression_policy(resrc_data)
             else:
                 cli.err_exit(f"Unsupported import policy type '{type}'.")
+        elif kind == lib.NOTIFICATION_KIND:
+            apply.handle_apply_notification_config(resrc_data)
+        elif kind == lib.TARGET_KIND:
+            apply.handle_apply_notification_target(resrc_data)
+        else:
+            cli.err_exit(f"Unsupported import kind '{kind}'.")

@@ -128,7 +128,7 @@ def handle_apply_notification_config(notif_config: Dict):
         if route_id == config.id:
             old_route_index = i
     if old_route_index is not None:
-        routes.pop(i)
+        routes.pop(old_route_index)
     config.set_last_updated()
     new_route = config.route
     routes.append(new_route)
