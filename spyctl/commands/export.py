@@ -8,6 +8,7 @@ import spyctl.resources.suppression_policies as s_pol
 import spyctl.resources.notifications_configs as n_configs
 import spyctl.resources.notification_targets as n_targets
 
+
 def handle_export(
     resource: str, name_or_id: Optional[str], exact: bool
 ) -> None:
@@ -70,9 +71,9 @@ def handle_export_notification_configs(name_or_id: Optional[str]) -> None:
         notif_settings = data.get(lib.NOTIF_SETTINGS_FIELD)
         if notif_settings is None:
             continue
-        targets = notif_settings.get(
-                    lib.SPEC_FIELD, {}).get(
-                        lib.NOTIF_TARGET_FIELD, [])
+        targets = notif_settings.get(lib.SPEC_FIELD, {}).get(
+            lib.NOTIF_TARGET_FIELD, []
+        )
         if isinstance(targets, list):
             target_names_in_configs |= set(targets)
         else:
@@ -95,8 +96,8 @@ def handle_export_notification_configs(name_or_id: Optional[str]) -> None:
 
     exported = {
         lib.API_FIELD: lib.API_VERSION,
-        lib.ITEMS_FIELD: [target.as_dict() for target in targets_to_export] +
-                         [config.as_dict() for config in configs_to_export]
+        lib.ITEMS_FIELD: [target.as_dict() for target in targets_to_export]
+        + [config.as_dict() for config in configs_to_export],
     }
 
     cli.show(exported, lib.OUTPUT_YAML)
