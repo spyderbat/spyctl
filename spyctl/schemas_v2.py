@@ -1,12 +1,12 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
+# pylint: disable=missing-function-docstring,no-self-argument
+
 
 from __future__ import annotations
 
 import ipaddress
 from typing import Any, Dict, List, Optional, Union
-from typing_extensions import Literal
 
 from pydantic import (
     BaseModel,
@@ -17,6 +17,7 @@ from pydantic import (
     root_validator,
     validator,
 )
+from typing_extensions import Literal
 
 import spyctl.spyctl_lib as lib
 
@@ -76,8 +77,8 @@ def valid_context(context_data: Dict, verbose=True):
 
 
 def handle_show_schema(kind: str) -> str:
-    object = KIND_TO_SCHEMA.get(kind)
-    return object.schema_json()
+    obj = KIND_TO_SCHEMA.get(kind)
+    return obj.schema_json()
 
 
 def valid_notification_target(tgt_data: Dict, interactive=False):
@@ -212,20 +213,27 @@ class ProcessSelectorModel(BaseModel):
 
 # This is a reused validator ensuring that the objects have a required selector
 def validate_selectors(_, values):
-    type = getattr(values["metadata"], "type", "")
-    if type == lib.POL_TYPE_CONT:
+    pol_type = getattr(values["metadata"], "type", "")
+    if pol_type == lib.POL_TYPE_CONT:
         s_val = getattr(values["spec"], "container_selector", None)
         if not s_val:
             raise ValueError(
                 f"Type is '{lib.POL_TYPE_CONT}' and no "
                 f"'{lib.CONT_SELECTOR_FIELD}' found in {lib.SPEC_FIELD}"
             )
-    else:
+    elif pol_type == lib.POL_TYPE_SVC:
         s_val = getattr(values["spec"], "service_selector", None)
         if not s_val:
             raise ValueError(
                 f"Type is '{lib.POL_TYPE_SVC}' and no "
                 f"'{lib.SVC_SELECTOR_FIELD}' found in {lib.SPEC_FIELD}"
+            )
+    elif pol_type == lib.POL_TYPE_CLUS:
+        s_val = getattr(values["spec"], "cluster_selector", None)
+        if not s_val:
+            raise ValueError(
+                f"Type is '{lib.POL_TYPE_CLUS}' and no "
+                f"'{lib.CLUS_SELECTOR_FIELD}' found in {lib.SPEC_FIELD}"
             )
     return values
 
@@ -245,6 +253,15 @@ class GuardianSelectorsModel(BaseModel):
     )
     pod_selector: Optional[PodSelectorModel] = Field(
         alias=lib.POD_SELECTOR_FIELD
+    )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class ClusterPolicySelectorsModel(BaseModel):
+    cluster_selector: ClusterSelectorModel = Field(
+        alias=lib.CLUS_SELECTOR_FIELD
     )
 
     class Config:
@@ -661,13 +678,18 @@ class GuardianDeviationMetadataModel(BaseModel):
 # Spec Models -----------------------------------------------------------------
 
 
-class GuardianPolicySpecModel(
-    GuardianSelectorsModel, GuardianSpecOptionsModel
-):
+class GuardianPolicySpecFieldsModel(BaseModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
     mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
         alias=lib.POL_MODE_FIELD
     )
+
+
+class GuardianPolicySpecModel(
+    GuardianSelectorsModel,
+    GuardianSpecOptionsModel,
+    GuardianPolicySpecFieldsModel,
+):
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
     response: GuardianResponseModel = Field(alias=lib.RESPONSE_FIELD)
@@ -700,13 +722,22 @@ class GuardianDeviationSpecModel(
         extra = Extra.forbid
 
 
+class ClusterPolicySpecModel(
+    ClusterPolicySelectorsModel, GuardianPolicySpecFieldsModel
+):
+    rulesets: List[str] = Field(alias=lib.RULESETS_FIELD)
+
+    class Config:
+        extra = Extra.forbid
+
+
 # Top-level Models ------------------------------------------------------------
 
 
 class GuardianFingerprintModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.FPRINT_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.FPRINT_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -740,8 +771,8 @@ class FingerprintGroupDataModel(BaseModel):
 
 class GuardianFingerprintGroupModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.FPRINT_GROUP_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.FPRINT_GROUP_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianFingerprintGroupMetadataModel = Field(
         alias=lib.METADATA_FIELD
@@ -754,8 +785,8 @@ class GuardianFingerprintGroupModel(BaseModel):
 
 class GuardianDeviationModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.DEVIATION_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.DEVIATION_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianDeviationMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianDeviationSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -768,8 +799,8 @@ class GuardianDeviationModel(BaseModel):
 
 class GuardianBaselineModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.BASELINE_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.BASELINE_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: GuardianBaselineSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -785,6 +816,20 @@ class GuardianBaselineModel(BaseModel):
 
     class Config:
         extra = Extra.ignore
+
+
+class ClusterPolicyModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: ClusterPolicySpecModel = Field(alias=lib.SPEC_FIELD)
+
+    _selector_validator = root_validator(
+        allow_reuse=True, skip_on_failure=True
+    )(validate_selectors)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class GuardianPolicyModel(BaseModel):
@@ -835,7 +880,9 @@ class DestinationSlackModel(BaseModel):
     def valid_url(cls, url):
         if not lib.is_valid_slack_url(url):
             raise ValueError(
-                "Invalid url format. Example: https://hooks.slack.com/services/xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"  # noqa: E501
+                "Invalid url format. "
+                "Example: https://hooks.slack.com/services/"
+                "xxxxxxxxxxx/xxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxx"
             )
         return url
 
@@ -937,8 +984,8 @@ class NotifTgtSpecModel(AllDestinationsModel):
 
 class NotificationTgtResourceModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.TARGET_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.TARGET_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: NotifTgtMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifTgtSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -1006,8 +1053,8 @@ class NotifAnaConfigSpecModel(BaseModel):
 
     @root_validator
     def validate_condition(cls, values):
-        import spyctl.config.configs as cfg
         import spyctl.api as api
+        import spyctl.config.configs as cfg
 
         ctx = cfg.get_current_context()
         error = api.validate_search_query(
@@ -1033,8 +1080,8 @@ class NotifAnaConfigMetricsSpecModel(NotifAnaConfigSpecModel):
 
 class NotificationConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.NOTIFICATION_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.NOTIFICATION_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: NotifAnaConfigMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: NotifAnaConfigSpecModel = Field(alias=lib.SPEC_FIELD)
@@ -1102,18 +1149,18 @@ class NotificationPolicyModel(BaseModel):
 
 
 class RuleModel(BaseModel):
-    verb: Literal[tuple(lib.RULE_VERBS)] = Field(alias=lib.RULE_VERB_FIELD)
+    verb: Literal[tuple(lib.RULE_VERBS)] = Field(alias=lib.RULE_VERB_FIELD)  # type: ignore  # noqa: E501
 
 
 class ContainerRule(RuleModel):
     namespace_selector: Optional[NamespaceSelectorModel] = Field(
         alias=lib.NAMESPACE_SELECTOR_FIELD
     )
-    image: list[str] = Field(alias=lib.IMAGE_FIELD)
+    image: List[str] = Field(alias=lib.IMAGE_FIELD)
 
 
 class CLusterRulesModel(BaseModel):
-    container_rules: list[ContainerRule] = Field(
+    container_rules: List[ContainerRule] = Field(
         alias=lib.RULES_TYPE_CONTAINER
     )
 
@@ -1149,7 +1196,7 @@ class RulesetPolicySpecModel(BaseModel):
 
 class RulesetModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.RULESET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    kind: Literal[lib.RULESET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore  # noqa: E501
     metadata: RulesetMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: RulesetPolicySpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -1177,8 +1224,7 @@ class SuppressionPolicySelectorsModel(BaseModel):
             for field, value in values.items()
             if field.endswith("selector")
         ):
-            # TODO fill out error
-            raise ValueError("")
+            raise ValueError("Selectors must have values.")
         return values
 
     class Config:
@@ -1281,8 +1327,8 @@ class SecretMetadataModel(BaseModel):
 
 class SecretModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.SECRET_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.SECRET_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: SecretMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: Optional[Dict[str, str]] = Field(alias=lib.DATA_FIELD)
@@ -1303,8 +1349,8 @@ class ContextsModel(BaseModel):
 
 class ConfigModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.CONFIG_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.CONFIG_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     contexts: List[ContextsModel] = Field(alias=lib.CONTEXTS_FIELD)
     current_context: str = Field(alias=lib.CURR_CONTEXT_FIELD)
@@ -1343,8 +1389,8 @@ class UidListDataModel(BaseModel):
 
 class UidListModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.UID_LIST_KIND] = Field(  # type: ignore
-        alias=lib.KIND_FIELD
+    kind: Literal[lib.UID_LIST_KIND] = (  # type: ignore
+        Field(alias=lib.KIND_FIELD)
     )
     metadata: UidListMetadataModel = Field(alias=lib.METADATA_FIELD)
     data: UidListDataModel = Field(alias=lib.DATA_FIELD)
@@ -1354,8 +1400,8 @@ class UidListModel(BaseModel):
 
 
 class SpyderbatObject(BaseModel):
-    api_version: Literal[lib.API_VERSION] = Field(  # type: ignore
-        alias=lib.API_FIELD
+    api_version: Literal[lib.API_VERSION] = (  # type: ignore
+        Field(alias=lib.API_FIELD)
     )
     kind: str = Field(alias=lib.KIND_FIELD)
 
@@ -1376,6 +1422,7 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     lib.FPRINT_KIND: GuardianFingerprintModel,
     lib.POL_KIND: GuardianPolicyModel,
     (lib.POL_KIND, lib.POL_TYPE_TRACE): SuppressionPolicyModel,
+    (lib.POL_KIND, lib.POL_TYPE_CLUS): ClusterPolicyModel,
     lib.SECRET_KIND: SecretModel,
     lib.UID_LIST_KIND: UidListModel,
     lib.DEVIATION_KIND: GuardianDeviationModel,
@@ -1390,14 +1437,12 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
 
 
 def clear_proc_ids():
-    global __PROC_IDS
     __PROC_IDS.clear()
 
 
-def in_proc_ids(id: str) -> bool:
-    return id in __PROC_IDS
+def in_proc_ids(proc_id: str) -> bool:
+    return proc_id in __PROC_IDS
 
 
-def add_proc_id(id: str):
-    global __PROC_IDS
-    __PROC_IDS[id] = True
+def add_proc_id(proc_id: str):
+    __PROC_IDS[proc_id] = True

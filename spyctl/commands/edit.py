@@ -6,16 +6,13 @@ from typing import IO, Callable, Dict
 import click
 import yaml
 
-import spyctl.api as api
-import spyctl.cli as cli
 import spyctl.config.configs as cfg
-import spyctl.filter_resource as filt
-import spyctl.resources.policies as p
-import spyctl.resources.suppression_policies as sp
 import spyctl.resources.notification_targets as nt
 import spyctl.resources.notifications_configs as nc
+import spyctl.resources.policies as p
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from spyctl import api, cli
 
 EDIT_PROMPT = (
     "# Please edit the object below. Lines beginning with a '#' will be ignored,\n"
@@ -42,14 +39,22 @@ def handle_edit(resource=None, name_or_id=None, file: IO = None):
     else:
         if not resource or not name_or_id:
             cli.err_exit("Must specify resource and name or id.")
-        if resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
+        if resource == lib.CLUSTER_RULESET_RESOURCE:
+            handle_edit_ruleset(name_or_id)
+        elif resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
             handle_edit_notif_config(name_or_id)
         elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
             handle_edit_notif_tgt(name_or_id)
+        elif resource == lib.RULESETS_RESOURCE:
+            handle_edit_ruleset(name_or_id)
+        elif resource == lib.CONTAINER_POL_RESOURCE:
+            handle_edit_policy(name_or_id, lib.POL_TYPE_CONT)
+        elif resource == lib.LINUX_SVC_POL_RESOURCE:
+            handle_edit_policy(name_or_id, lib.POL_TYPE_SVC)
         elif resource == lib.POLICIES_RESOURCE:
             handle_edit_policy(name_or_id)
         elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
-            handle_edit_suppression_policy(name_or_id)
+            handle_edit_policy(name_or_id, lib.POL_TYPE_TRACE)
         else:
             cli.err_exit(
                 f"The 'edit' command is not supported for '{resource}'"
@@ -68,6 +73,7 @@ KIND_TO_RESOURCE_TYPE: Dict[str, str] = {
     lib.DEVIATION_KIND: lib.DEVIATIONS_RESOURCE.name,
     lib.NOTIFICATION_KIND: lib.NOTIFICATION_CONFIGS_RESOURCE.name,
     lib.TARGET_KIND: lib.NOTIFICATION_TARGETS_RESOURCE.name,
+    lib.RULESET_KIND: "ruleset",
 }
 
 
@@ -99,6 +105,29 @@ def handle_edit_file(file: IO):
         resource_type,
         schemas.KIND_TO_SCHEMA[kind],
         apply_file_edits,
+    )
+
+
+def handle_edit_ruleset(name_or_id, rs_type=None):
+    ctx = cfg.get_current_context()
+    params = {
+        "type": rs_type,
+        "name_or_uid_contains": name_or_id,
+    }
+    rulesets = api.get_rulesets(*ctx.get_api_data(), params=params)
+    if not rulesets:
+        desc = f" {rs_type} " if rs_type else " "
+        cli.err_exit(f"No{desc}rulesets matching '{name_or_id}'")
+    if len(rulesets) > 1:
+        cli.err_exit(f"Ruleset '{name_or_id}' is ambiguous, use full UID.")
+    ruleset = rulesets[0]
+    resource_yaml = yaml.dump(ruleset, sort_keys=False)
+    edit_resource(
+        resource_yaml,
+        ruleset[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
+        "ruleset",
+        schemas.KIND_TO_SCHEMA[lib.RULESET_KIND],
+        apply_ruleset_edits,
     )
 
 
@@ -196,7 +225,7 @@ def handle_edit_notif_tgt(name_or_id):
     )
 
 
-def handle_edit_policy(name_or_id):
+def handle_edit_policy(name_or_id, pol_type=None):
     """
     Handle the editing of a policy based on the given name or ID.
 
@@ -207,19 +236,16 @@ def handle_edit_policy(name_or_id):
         None
     """
     ctx = cfg.get_current_context()
-    policies = api.get_policies(*ctx.get_api_data())
-    policies = filt.filter_obj(
-        policies,
-        [
-            [lib.METADATA_FIELD, lib.NAME_FIELD],
-            [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-        ],
-        name_or_id,
-    )
+    params = {
+        "type": pol_type,
+        "name_or_uid_contains": name_or_id,
+    }
+    policies = api.get_policies(*ctx.get_api_data(), params=params)
     if len(policies) > 1:
-        cli.err_exit(f"Policy '{name_or_id}' is ambiguous, use ID.")
+        cli.err_exit(f"Policy '{name_or_id}' is ambiguous, use full UID.")
     if not policies:
-        cli.err_exit(f"No Policies matching '{name_or_id}'.")
+        desc = f" {pol_type} " if pol_type else " "
+        cli.err_exit(f"No{desc}policies matching '{name_or_id}'.")
     policy = policies[0]
     resource_yaml = yaml.dump(policy, sort_keys=False)
     edit_resource(
@@ -228,47 +254,6 @@ def handle_edit_policy(name_or_id):
         lib.POLICIES_RESOURCE.name,
         schemas.KIND_TO_SCHEMA[lib.POL_KIND],
         apply_policy_edits,
-    )
-
-
-def handle_edit_suppression_policy(name_or_id):
-    """
-    Handle the editing of a suppression policy based on the given name or ID.
-
-    Args:
-        name_or_id (str): The name or ID of the suppression policy to be
-            edited.
-
-    Returns:
-        None
-    """
-    ctx = cfg.get_current_context()
-    policies = api.get_policies(
-        *ctx.get_api_data(),
-        params={lib.METADATA_TYPE_FIELD: lib.POL_TYPE_TRACE},
-    )
-    policies = filt.filter_obj(
-        policies,
-        [
-            [lib.METADATA_FIELD, lib.NAME_FIELD],
-            [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-        ],
-        name_or_id,
-    )
-    if len(policies) > 1:
-        cli.err_exit(
-            f"Suppression Policy '{name_or_id}' is ambiguous, use ID."
-        )
-    if not policies:
-        cli.err_exit(f"No Suppression Policies matching '{name_or_id}'.")
-    policy = policies[0]
-    resource_yaml = yaml.dump(policy, sort_keys=False)
-    edit_resource(
-        resource_yaml,
-        policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
-        lib.SUPPRESSION_POLICY_RESOURCE.name,
-        schemas.KIND_TO_SCHEMA[(lib.POL_KIND, lib.POL_TYPE_TRACE)],
-        apply_suppression_policy_edits,
     )
 
 
@@ -301,7 +286,7 @@ def edit_resource(
             )
         else:
             try:
-                with open(temp_file, "r") as f:
+                with open(temp_file, "r", encoding="UTF-8") as f:
                     tmp_yaml = f.read()
                 edit_yaml = click.edit(tmp_yaml, extension=".yaml")
             except Exception as e:
@@ -322,7 +307,7 @@ def edit_resource(
                 error,
                 resource_id,
             )
-            with open(temp_file, "w") as f:
+            with open(temp_file, "w", encoding="UTF-8") as f:
                 f.write(edit_yaml)
             cli.try_log(f"Edit failed, edits saved to {temp_file}")
             exit(1)
@@ -361,14 +346,14 @@ def apply_config_edits(edit_dict: Dict, config_id: str):
     routes = notif_pol.get(lib.ROUTES_FIELD, [])
     edit_index = None
     for i, route in enumerate(routes):
-        id = route.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
-        if id == config_id:
+        cfg_id = route.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+        if cfg_id == config_id:
             edit_index = i
             break
     if edit_index is None:
         cli.err_exit(f"Unable to locate config with id '{config_id}'")
     config.set_last_updated()
-    routes[i] = config.route
+    routes[edit_index] = config.route
     notif_pol[lib.ROUTES_FIELD] = routes
     api.put_notification_policy(*ctx.get_api_data(), notif_pol)
     cli.try_log(f"Successfully edited Notification Config '{config.id}'")
@@ -422,18 +407,18 @@ def apply_policy_edits(edit_dict: Dict, policy_id: str):
         policy_id (str): The ID of the policy to be edited.
     """
     ctx = cfg.get_current_context()
-    policy = p.Policy(edit_dict)
-    _, api_data = p.get_data_for_api_call(policy)
-    api.put_policy_update(*ctx.get_api_data(), policy_id, api_data)
-    cli.try_log(f"Successfully edited Policy '{policy_id}'")
+    pol_type = edit_dict[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+    _, api_data = p.get_data_for_api_call(edit_dict)
+    api.put_policy_update(*ctx.get_api_data(), api_data)
+    cli.try_log(
+        f"Successfully edited {__pol_resrc_name(pol_type)} '{policy_id}'"
+    )
 
 
-def apply_suppression_policy_edits(edit_dict: Dict, policy_id: str):
+def apply_ruleset_edits(edit_dict: Dict, ruleset_id: str):
     ctx = cfg.get_current_context()
-    policy = sp.TraceSuppressionPolicy(edit_dict)
-    _, api_data = sp.get_data_for_api_call(policy)
-    api.put_policy_update(*ctx.get_api_data(), policy_id, api_data)
-    cli.try_log(f"Successfully edited Suppression Policy '{policy_id}'")
+    api.put_ruleset_update(*ctx.get_api_data(), edit_dict)
+    cli.try_log(f"Successfully edited Ruleset '{ruleset_id}'")
 
 
 def apply_file_edits(resource, file: IO):
@@ -486,3 +471,16 @@ def __add_error_comments(
     error_prompt += error + "\n#\n"
     rv = EDIT_PROMPT + error_prompt + yaml_string
     return rv
+
+
+POL_TYPE_TO_RESOURCE_NAME: Dict[str, str] = {
+    lib.POL_TYPE_TRACE: lib.SUPPRESSION_POLICY_RESOURCE.name,
+    lib.POL_TYPE_SVC: lib.LINUX_SVC_POL_RESOURCE.name,
+    lib.POL_TYPE_CONT: lib.CONTAINER_POL_RESOURCE.name,
+}
+
+
+def __pol_resrc_name(policy_type: str) -> str:
+    return POL_TYPE_TO_RESOURCE_NAME.get(
+        policy_type, lib.POLICIES_RESOURCE.name
+    )

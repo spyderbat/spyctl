@@ -4,22 +4,41 @@ from typing import Dict, List
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
-import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.spyctl_lib as lib
 import spyctl.commands.merge as m
 import spyctl.resources.notification_targets as nt
 import spyctl.resources.notifications_configs as nc
 
+APPLY_PRIORITY = {
+    lib.RULESET_KIND: 100,
+    lib.POL_KIND: 50,
+}
+
+
+def apply_priority(resrc: Dict) -> int:
+    kind = resrc.get(lib.KIND_FIELD)
+    return APPLY_PRIORITY.get(kind, 0)
+
 
 def handle_apply(filename):
     resrc_data = lib.load_resource_file(filename)
+    if lib.ITEMS_FIELD in resrc_data:
+        for resrc in resrc_data[lib.ITEMS_FIELD]:
+            # Sort resource items by priority
+            resrc_data[lib.ITEMS_FIELD].sort(key=apply_priority, reverse=True)
+            __handle_apply(resrc)
+    else:
+        __handle_apply(resrc_data)
+
+
+def __handle_apply(resrc_data: Dict):
     kind = resrc_data.get(lib.KIND_FIELD)
     if kind == lib.POL_KIND:
-        type = resrc_data[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-        if type in lib.SUPPRESSION_POL_TYPES:
+        pol_type = resrc_data[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+        if pol_type in lib.SUPPRESSION_POL_TYPES:
             handle_apply_suppression_policy(resrc_data)
-        elif type in lib.GUARDIAN_POL_TYPES:
+        elif pol_type in lib.GUARDIAN_POL_TYPES:
             handle_apply_policy(resrc_data)
         else:
             cli.err_exit(f"Unrecognized policy type '{type}'.")
@@ -27,20 +46,21 @@ def handle_apply(filename):
         handle_apply_notification_config(resrc_data)
     elif kind == lib.TARGET_KIND:
         handle_apply_notification_target(resrc_data)
+    elif kind == lib.RULESET_KIND:
+        handle_apply_ruleset(resrc_data)
     else:
         cli.err_exit(f"The 'apply' command is not supported for {kind}")
 
 
 def handle_apply_policy(policy: Dict):
     ctx = cfg.get_current_context()
-    policy = p.Policy(policy)
-    uid, api_data = p.get_data_for_api_call(policy)
+    uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     if uid:
-        resp = api.put_policy_update(*ctx.get_api_data(), uid, api_data)
+        resp = api.put_policy_update(*ctx.get_api_data(), uid, policy)
         if resp.status_code == 200:
             cli.try_log(f"Successfully updated policy {uid}")
     else:
-        resp = api.post_new_policy(*ctx.get_api_data(), api_data)
+        resp = api.post_new_policy(*ctx.get_api_data(), policy)
         if resp and resp.text:
             uid = json.loads(resp.text).get("uid", "")
             cli.try_log(f"Successfully applied new policy with uid: {uid}")
@@ -86,6 +106,20 @@ def handle_matching_policies(policy: Dict, matching_policies: Dict[str, Dict]):
     return sp.TraceSuppressionPolicy(ret_pol)
 
 
+def handle_apply_ruleset(ruleset: Dict):
+    ctx = cfg.get_current_context()
+    uid = ruleset[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+    if uid:
+        resp = api.put_ruleset_update(*ctx.get_api_data(), ruleset)
+        if resp.status_code == 200:
+            cli.try_log(f"Successfully updated ruleset {uid}")
+    else:
+        resp = api.post_new_ruleset(*ctx.get_api_data(), ruleset)
+        if resp and resp.json():
+            uid = resp.json().get("uid", "")
+            cli.try_log(f"Successfully applied new ruleset with uid: {uid}")
+
+
 def handle_apply_notification_target(notif_target: Dict):
     ctx = cfg.get_current_context()
     target = nt.Target(target_resource=notif_target)
@@ -128,7 +162,7 @@ def handle_apply_notification_config(notif_config: Dict):
         if route_id == config.id:
             old_route_index = i
     if old_route_index is not None:
-        routes.pop(i)
+        routes.pop(old_route_index)
     config.set_last_updated()
     new_route = config.route
     routes.append(new_route)

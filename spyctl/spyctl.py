@@ -6,13 +6,13 @@ from pathlib import Path
 
 import click
 
-import spyctl.api as api
-import spyctl.cli as cli
 import spyctl.commands.create as c
 import spyctl.commands.diff as d
+import spyctl.commands.export as x
 import spyctl.commands.get as g
 import spyctl.commands.merge as m
 import spyctl.commands.show_schema as sh_s
+import spyctl.commands.spy_import as i
 import spyctl.commands.suppress as sup
 import spyctl.commands.update as u
 import spyctl.commands.validate as v
@@ -20,12 +20,14 @@ import spyctl.config.configs as cfgs
 import spyctl.config.secrets as s
 import spyctl.resources.api_filters as api_filters
 import spyctl.spyctl_lib as lib
+from spyctl import api, cli
 from spyctl.commands.apply import handle_apply
 from spyctl.commands.delete import handle_delete
 from spyctl.commands.describe import handle_describe
 from spyctl.commands.edit import handle_edit
 from spyctl.commands.logs import handle_logs
 from spyctl.commands.test_notification import handle_test_notification
+from spyctl.resources import api_filters
 
 MAIN_EPILOG = (
     "\b\n"
@@ -529,14 +531,83 @@ def create_baseline(filename, output, name, disable_procs, disable_conns):
 @click.option(
     "-n",
     "--name",
-    help="Optional name for the Cluster Policy, if not provided, a name will"
-    " be generated automatically.",
+    help="Name for the Cluster Policy.",
     metavar="",
     required=True,
 )
-def create_cluster_policy(name):
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
+    "-m",
+    "--mode",
+    type=click.Choice(lib.POL_MODES),
+    default=lib.POL_MODE_AUDIT,
+    metavar="",
+    help="This determines what the policy should do when applied and enabled."
+    " Default is audit mode. Audit mode will generate log messages when a"
+    " violation occurs and when it would have taken an action, but it will not"
+    " actually take an action or generate a violation flag. Enforce mode"
+    " will take actions, generate flags, and also generate audit events.",
+    hidden=False,
+)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Time to start generating statements from. Default is 1.5 hours ago.",
+    default="1.5h",
+    metavar="",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="Time to stop generating statements from. Default is now.",
+    default=time.time(),
+    metavar="",
+    type=lib.time_inp,
+)
+@click.option(
+    "-g",
+    "--no-ruleset-gen",
+    "no_rs_gen",
+    help="Does not generate rulesets for the cluster policies if set.",
+    metavar="",
+    is_flag=True,
+)
+@click.option(
+    "-C",
+    "--cluster",
+    help="Name or Spyderbat ID of Kubernetes cluster.",
+    metavar="",
+    type=lib.ListParam(),
+)
+@click.option(
+    "-N",
+    "--namespace",
+    is_flag=False,
+    flag_value="__all__",
+    default=None,
+    metavar="",
+    type=lib.ListParam(),
+    help="Generate ruleset for all or some namespaces. If not provided, the"
+    " ruleset will be generated for the cluster(s) without namespace"
+    " context. Supplying this option with no arguments will generate the"
+    " ruleset with namespace context. If one or more namespaces are supplied,"
+    " the ruleset will generate for only the namespace(s) provided.",
+)
+def create_cluster_policy(
+    name, output, mode, st, et, no_rs_gen, cluster, namespace
+):
     """Create a Cluster Policy yaml document and accompanying rulesets, outputted to stdout"""  # noqa: E501
-    pass
+    c.handle_create_cluster_policy(
+        name, mode, output, st, et, no_rs_gen, cluster, namespace
+    )
 
 
 @create.command(
@@ -1430,6 +1501,33 @@ class GetCommand(lib.ArgumentParametersCommand):
                     " provided time window",
                     is_flag=True,
                 ),
+                click.option(
+                    "--from-archive",
+                    is_flag=True,
+                    help="Retrieve archived ruleset versions.",
+                ),
+                click.option(
+                    "--version",
+                    type=click.INT,
+                    help="Retrieve archived rulesets with a specific version.",
+                    metavar="",
+                ),
+            ],
+        },
+        {
+            "resource": [lib.CLUSTER_RULESET_RESOURCE],
+            "args": [
+                click.option(
+                    "--from-archive",
+                    is_flag=True,
+                    help="Retrieve archived ruleset versions.",
+                ),
+                click.option(
+                    "--version",
+                    type=click.INT,
+                    help="Retrieve archived rulesets with a specific version.",
+                    metavar="",
+                ),
             ],
         },
     ]
@@ -1565,6 +1663,8 @@ def get(
     \b
     Some resources are retrieved from from databases where a time range can
     be specified:
+    - ClusterRoles
+    - ClusterRoleBindings
     - Connections
     - Connection Bundles
     - Containers
@@ -1579,6 +1679,8 @@ def get(
     - Processes
     - RedFlags
     - Replicasets
+    - Roles
+    - RoleBindings
     - Spydertraces
     - Agents
 
@@ -2129,6 +2231,49 @@ def validate(file, colorize, api):
     if not colorize:
         lib.disable_colorization()
     v.handle_validate(file, api)
+
+
+# ----------------------------------------------------------------- #
+#                          Export Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@main.command("export", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.ExportResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-E",
+    "--exact",
+    "--exact-match",
+    is_flag=True,
+    help="Exact match for NAME_OR_ID. This command's default behavior"
+    "displays any resource that contains the NAME_OR_ID.",
+)
+def export(resource, exact=False, name_or_id=None):
+    """Export Spyderbat Resources for later use to import."""
+    x.handle_export(resource, name_or_id, exact)
+
+
+# ----------------------------------------------------------------- #
+#                         Import Subcommand                         #
+# ----------------------------------------------------------------- #
+
+
+@main.command("import", cls=lib.CustomCommand, epilog=SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True, is_eager=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename containing policies to import.",
+    metavar="",
+    type=click.File(),
+    required=True,
+)
+def spy_import(filename):
+    """Import previously exported policies by file name
+    into a new organization context."""
+    i.handle_import(filename)
 
 
 if __name__ == "__main__":

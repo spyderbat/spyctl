@@ -1,10 +1,9 @@
-import spyctl.api as api
-import spyctl.cli as cli
-import spyctl.config.configs as cfg
-import spyctl.spyctl_lib as lib
-import spyctl.filter_resource as filt
-import spyctl.resources.notification_targets as nt
 from typing import Dict, List
+
+import spyctl.config.configs as cfg
+import spyctl.filter_resource as filt
+import spyctl.spyctl_lib as lib
+from spyctl import api, cli
 
 INTERACTIVE_SUPPORTED = [
     lib.NOTIFICATION_TARGETS_RESOURCE,
@@ -13,7 +12,9 @@ INTERACTIVE_SUPPORTED = [
 
 
 def handle_delete(resource, name_or_id):
-    if resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
+    if resource == lib.CLUSTER_RULESET_RESOURCE:
+        handle_delete_ruleset(name_or_id)
+    elif resource == lib.NOTIFICATION_CONFIGS_RESOURCE:
         handle_delete_notif_config(name_or_id)
     elif resource == lib.NOTIFICATION_TARGETS_RESOURCE:
         handle_delete_notif_tgt(name_or_id)
@@ -23,6 +24,28 @@ def handle_delete(resource, name_or_id):
         handle_delete_suppression_policy(name_or_id)
     else:
         cli.err_exit(f"The 'delete' command is not supported for '{resource}'")
+
+
+def handle_delete_ruleset(name_or_id):
+    ctx = cfg.get_current_context()
+    params = {"name_or_uid_contains": name_or_id}
+    rulesets = api.get_rulesets(*ctx.get_api_data(), params=params)
+    if not rulesets:
+        cli.err_exit(f"No rulesets matching '{name_or_id}'")
+    for rs in rulesets:
+        name = rs[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
+        uid = rs[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+        perform_delete = cli.query_yes_no(
+            f"Are you sure you want to delete ruleset '{name} - {uid}' from Spyderbat?"
+        )
+        if perform_delete:
+            api.delete_ruleset(
+                *ctx.get_api_data(),
+                rs[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
+            )
+            cli.try_log(f"Successfully deleted ruleset '{name} - {uid}'")
+        else:
+            cli.try_log(f"Skipping delete of '{name} -- {uid}'")
 
 
 def handle_delete_notif_config(name_or_id):
@@ -78,25 +101,13 @@ def handle_delete_notif_tgt(name_or_id):
 
 def handle_delete_policy(name_or_uid):
     ctx = cfg.get_current_context()
-
-    policies = api.get_policies(*ctx.get_api_data())
-    policies = [
-        (
-            p[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
-            p[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD],
-        )
-        for p in filt.filter_obj(
-            policies,
-            [
-                [lib.METADATA_FIELD, lib.METADATA_NAME_FIELD],
-                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-            ],
-            name_or_uid,
-        )
-    ]
+    params = {"name_or_uid_contains": name_or_uid}
+    policies = api.get_policies(*ctx.get_api_data(), params=params)
     if len(policies) == 0:
         cli.err_exit(f"No policies matching name_or_uid '{name_or_uid}'")
-    for uid, name in policies:
+    for policy in policies:
+        name = policy[lib.METADATA_FIELD][lib.METADATA_NAME_FIELD]
+        uid = policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
         perform_delete = cli.query_yes_no(
             f"Are you sure you want to delete policy '{name} - {uid}' from"
             " Spyderbat?"

@@ -26,9 +26,14 @@ import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
 import spyctl.resources.replicasets as spyctl_replicaset
+import spyctl.resources.rulesets as spyctl_ruleset
+import spyctl.resources.roles as spyctl_roles
+import spyctl.resources.clusterrole as spyctl_clusterroles
 import spyctl.resources.spydertraces as spyctl_spytrace
 import spyctl.resources.suppression_policies as s_pol
 import spyctl.resources.sources as spyctl_src
+import spyctl.resources.rolebinding as spyctl_rolebinding
+import spyctl.resources.clusterrolebinding as spyctl_crb
 import spyctl.spyctl_lib as lib
 
 ALL = "all"
@@ -63,6 +68,10 @@ def handle_get(
         handle_get_agents(name_or_id, st, et, output, **filters)
     elif resource == lib.CLUSTERS_RESOURCE:
         handle_get_clusters(name_or_id, output, **filters)
+    elif resource == lib.CLUSTER_RULESET_RESOURCE:
+        handle_get_rulesets(
+            name_or_id, lib.RULESET_TYPE_CLUS, output, **filters
+        )
     elif resource == lib.CONNECTIONS_RESOURCE:
         handle_get_connections(name_or_id, st, et, output, **filters)
     elif resource == lib.CONNECTION_BUN_RESOURCE:
@@ -101,6 +110,10 @@ def handle_get(
         handle_get_processes(name_or_id, st, et, output, **filters)
     elif resource == lib.REDFLAGS_RESOURCE:
         handle_get_redflags(name_or_id, st, et, output, **filters)
+    elif resource == lib.ROLES_RESOURCE:
+        handle_get_roles(name_or_id, st, et, output, **filters)
+    elif resource == lib.CLUSTERROLES_RESOURCE:
+        handle_get_clusterroles(name_or_id, st, et, output, **filters)
     elif resource == lib.REPLICASET_RESOURCE:
         handle_get_replicasets(name_or_id, st, et, output, **filters)
     elif resource == lib.SOURCES_RESOURCE:
@@ -109,6 +122,10 @@ def handle_get(
         handle_get_spydertraces(name_or_id, st, et, output, **filters)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_get_suppression_policies(name_or_id, st, et, output, **filters)
+    elif resource == lib.ROLEBINDING_RESOURCE:
+        handle_get_rolebinding(name_or_id, st, et, output, **filters)
+    elif resource == lib.CLUSTERROLE_BINDING_RESOURCE:
+        handle_get_clusterrolebinding(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
@@ -658,6 +675,102 @@ def handle_get_replicasets(name_or_id, st, et, output, **filters):
             cli.show(replicaset, output, ndjson=NDJSON)
 
 
+def handle_get_roles(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Role.build_sources_and_filters(**filters)
+    pipeline = _af.Role.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_roles.role_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for role in api.get_role(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(role, output, ndjson=NDJSON)
+
+
+def handle_get_clusterroles(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.ClusterRole.build_sources_and_filters(**filters)
+    pipeline = _af.ClusterRole.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_clusterroles.clusterrole_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for clusterrole in api.get_clusterrole(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(clusterrole, output, ndjson=NDJSON)
+
+
+def handle_get_rolebinding(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.RoleBinding.build_sources_and_filters(**filters)
+    pipeline = _af.RoleBinding.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_rolebinding.rolebinding_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for rolebinding in api.get_rolebinding(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(rolebinding, output, ndjson=NDJSON)
+
+
+def handle_get_clusterrolebinding(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.ClusterRoleBinding.build_sources_and_filters(
+        **filters
+    )
+    pipeline = _af.ClusterRoleBinding.generate_pipeline(
+        name_or_id, filters=filters
+    )
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_crb.clusterrolebinding_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for crb in api.get_clusterrolebinding(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(crb, output, ndjson=NDJSON)
+
+
 def handle_get_redflags(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     sources, filters = _af.RedFlags.build_sources_and_filters(**filters)
@@ -754,6 +867,10 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
     file_output = filters.pop("output_to_file", False)
     get_deviations_count = filters.pop("get_deviations", False)
     raw_data = filters.pop("raw_data", False)
+    from_archive = filters.pop("from_archive", False)
+    version = filters.pop("version", None)
+    if version:
+        from_archive = True
     ctx = cfg.get_current_context()
     if files:
         policies = []
@@ -767,18 +884,32 @@ def handle_get_policies(name_or_id, output, files, st, et, **filters):
                 )
                 continue
             policies.append(resource_data)
+        policies = filt.filter_policies(policies, **filters)
+        if name_or_id:
+            policies = filt.filter_obj(
+                policies,
+                [
+                    [lib.METADATA_FIELD, lib.NAME_FIELD],
+                    [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
+                ],
+                name_or_id,
+            )
     else:
-        policies = api.get_policies(*ctx.get_api_data(), raw_data=raw_data)
-    policies = filt.filter_policies(policies, **filters)
-    if name_or_id:
-        policies = filt.filter_obj(
-            policies,
-            [
-                [lib.METADATA_FIELD, lib.NAME_FIELD],
-                [lib.METADATA_FIELD, lib.METADATA_UID_FIELD],
-            ],
-            name_or_id,
+        params = {
+            "name_or_uid_contains": (
+                name_or_id.strip("*") if name_or_id else None
+            ),
+            "from_archive": from_archive,
+        }
+        policies = api.get_policies(
+            *ctx.get_api_data(), raw_data=raw_data, params=params
         )
+    if version:
+        policies = [
+            pol
+            for pol in policies
+            if pol[lib.METADATA_FIELD][lib.VERSION_FIELD] == version
+        ]
     if file_output:
         for policy in policies:
             out_fn = lib.find_resource_filename(policy, "policy_output")
@@ -833,6 +964,33 @@ def handle_get_suppression_policies(name_or_id, st, et, output, **filters):
     cli.show(policies, output)
 
 
+def handle_get_rulesets(name_or_id: str, rs_type: str, output: str, **filters):
+    ctx = cfg.get_current_context()
+    from_archive = filters.pop("from_archive", False)
+    version = filters.pop("version", None)
+    if version:
+        from_archive = True
+    params = {
+        "type": rs_type,
+        "from_archive": from_archive,
+    }
+    if name_or_id:
+        params["name_or_uid_contains"] = name_or_id.strip("*")
+    rulesets = api.get_rulesets(*ctx.get_api_data(), params)
+    if version:
+        rulesets = [
+            rs
+            for rs in rulesets
+            if rs[lib.METADATA_FIELD][lib.VERSION_FIELD] == version
+        ]
+    if output in [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE]:
+        summary = spyctl_ruleset.rulesets_summary_output(rulesets)
+        cli.show(summary, lib.OUTPUT_RAW)
+    else:
+        for ruleset in rulesets:
+            cli.show(ruleset, output, ndjson=NDJSON)
+
+
 # ----------------------------------------------------------------- #
 #               Policy Workflow Source-Based Resources              #
 # ----------------------------------------------------------------- #
@@ -850,6 +1008,10 @@ def handle_get_fingerprints(
     sources, filters = _af.Fingerprints.build_sources_and_filters(
         use_property_fields=True, **filters
     )
+    # Hacky -- need to fix this in the API code
+    if "image" in filters:
+        value = filters.pop("image")
+        filters["image_name"] = value
     name_or_id_expr = None
     if name_or_id:
         name_or_id_expr = _af.Fingerprints.generate_name_or_uid_expr(

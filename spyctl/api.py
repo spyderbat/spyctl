@@ -1126,6 +1126,130 @@ def get_replicaset(
         __log_interrupt()
 
 
+def get_role(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_K8S_ROLE_PREFIX
+        for roles in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield roles
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
+def get_clusterrole(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_K8S_ROLE_PREFIX
+        for clusterrole in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield clusterrole
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
+def get_rolebinding(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_ROLEBINDING_PREFIX
+        for rolebinding in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield rolebinding
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
+def get_clusterrolebinding(
+    api_url,
+    api_key,
+    org_uid,
+    clusters,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = lib.MODEL_CLUSTERROLE_BINDING_PREFIX
+        for crb in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            clusters,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield crb
+    except KeyboardInterrupt:
+        __log_interrupt()
+
+
 def get_redflags(
     api_url,
     api_key,
@@ -1155,37 +1279,6 @@ def get_redflags(
             disable_pbar_on_first=disable_pbar_on_first,
         ):
             yield redflag
-    except KeyboardInterrupt:
-        __log_interrupt()
-
-
-def get_replicaset(
-    api_url,
-    api_key,
-    org_uid,
-    clusters,
-    time,
-    pipeline=None,
-    limit_mem: bool = False,
-    disable_pbar_on_first: bool = False,
-) -> Generator[Dict, None, None]:
-    try:
-        datatype = lib.DATATYPE_K8S
-        schema = lib.MODEL_REPLICASET_PREFIX
-        for replicaset in retrieve_data(
-            api_url,
-            api_key,
-            org_uid,
-            clusters,
-            datatype,
-            schema,
-            time,
-            raise_notfound=True,
-            pipeline=pipeline,
-            limit_mem=limit_mem,
-            disable_pbar_on_first=disable_pbar_on_first,
-        ):
-            yield replicaset
     except KeyboardInterrupt:
         __log_interrupt()
 
@@ -1231,6 +1324,12 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     return resp
 
 
+def delete_ruleset(api_url, api_key, org_uid, ruleset_uid):
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/{ruleset_uid}"
+    resp = delete(url, api_key)
+    return resp
+
+
 def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     params = {} if params is None else params
@@ -1246,12 +1345,7 @@ def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
             pol_list = json.loads(pol_json)
             if not raw_data:
                 for pol in pol_list:
-                    uid = pol["uid"]
-                    policy = json.loads(pol["policy"])
-                    policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                    policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
-                        "valid_from"
-                    ]
+                    policy = pol["policy"]
                     policies.append(policy)
             else:
                 policies.extend(pol_list)
@@ -1271,8 +1365,11 @@ def get_policy(api_url, api_key, org_uid, pol_uid):
     return policies
 
 
-def post_new_policy(api_url, api_key, org_uid, data: Dict):
+def post_new_policy(api_url, api_key, org_uid, policy: Dict):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
+    data = {
+        "policy": policy,
+    }
     resp = post(url, data, api_key)
     return resp
 
@@ -1281,6 +1378,44 @@ def put_policy_update(api_url, api_key, org_uid, pol_uid, data: Dict):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
     resp = put(url, data, api_key)
     return resp
+
+
+def post_new_ruleset(api_url, api_key, org_uid, ruleset: Dict):
+    data = {"ruleset": ruleset}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    resp = post(url, data, api_key)
+    return resp
+
+
+def put_ruleset_update(api_url, api_key, org_uid, ruleset: Dict):
+    data = {"ruleset": ruleset}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    resp = put(url, data, api_key)
+    return resp
+
+
+def get_rulesets(api_url, api_key, org_uid, params=None, raw_data=False):
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    params = {} if params is None else params
+    resp = get(url, api_key, params)
+    rulesets = []
+    for ruleset_json in resp.iter_lines():
+        ruleset_list = json.loads(ruleset_json)
+        for ruleset in ruleset_list:
+            if not raw_data:
+                rulesets.append(ruleset["ruleset"])
+            else:
+                rulesets.append(ruleset)
+    return rulesets
+
+
+def get_ruleset(api_url, api_key, org_uid, ruleset_uid) -> Optional[Dict]:
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/{ruleset_uid}"
+    resp = get(url, api_key, raise_notfound=True)
+    for ruleset_json in resp.iter_lines():
+        ruleset = json.loads(ruleset_json)
+        if ruleset:
+            return ruleset["ruleset"]
 
 
 # ----------------------------------------------------------------- #

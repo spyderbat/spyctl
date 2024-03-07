@@ -18,9 +18,9 @@ Spyctl is the answer for those wanting a command-line solution to interact with 
 
 ## Getting Started <a name = "getting_started"></a>
 
-Follow the [Getting Started Guide](https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/spyctl-getting-started)
+Follow the [Installation Guide](https://docs.spyderbat.com/installation/spyctl)
 
-Or if you already have Spyctl installed try the [Basics Tutorial](https://docs.spyderbat.com/spyctl-and-spyderbat-guardian/tutorials/basics-tutorial)
+Or if you already have Spyctl installed explore the [Tutorials](https://docs.spyderbat.com/tutorials) section of the Spyderbat Docs
 
 ## Support <a name = "support"></a>
 
