@@ -545,19 +545,6 @@ class SuppressionPolTypeParam(click.ParamType):
         ]
 
 
-class LabelParam(click.ParamType):
-    def convert(
-        self,
-        value: Any,
-        param: Optional[click.Parameter],
-        ctx: Optional[click.Context],
-    ) -> Any:
-        rv = label_input_to_dict()
-        if rv is None:
-            self.fail("Invalid label input", param, ctx)
-        return value
-
-
 class ListParam(click.ParamType):
     def convert(
         self,
@@ -806,6 +793,7 @@ TEMPLATE_FIELD = "template"
 
 
 # Selectors
+CLUS_SELECTOR_FIELD = "clusterSelector"
 CONT_SELECTOR_FIELD = "containerSelector"
 DNS_SELECTOR_FIELD = "dnsSelector"
 MACHINE_SELECTOR_FIELD = "machineSelector"
@@ -843,9 +831,10 @@ BE_POL_UID_FIELD = (
 )
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "linux-service"
+POL_TYPE_CLUS = "cluster"
 POL_TYPE_TRACE = "trace"
 SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
-GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
+GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC, POL_TYPE_CLUS]
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
 POL_MODE_ENFORCE = "enforce"
 POL_MODE_AUDIT = "audit"

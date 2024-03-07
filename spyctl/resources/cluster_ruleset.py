@@ -184,7 +184,7 @@ def create_blank_ruleset(name: str):
 
 
 def create_ruleset(
-    name: str, generate_rules, time, **filters
+    name: str, generate_rules: bool, time, **filters
 ) -> ClusterRuleset:
     ruleset = ClusterRuleset(name, filters.get(lib.CLUSTER_OPTION))
     if generate_rules:

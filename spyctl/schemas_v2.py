@@ -1,12 +1,11 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
+# pylint: disable=missing-function-docstring,no-self-argument
 
 from __future__ import annotations
 
 import ipaddress
 from typing import Any, Dict, List, Optional, Union
-from typing_extensions import Literal
 
 from pydantic import (
     BaseModel,
@@ -17,6 +16,7 @@ from pydantic import (
     root_validator,
     validator,
 )
+from typing_extensions import Literal
 
 import spyctl.spyctl_lib as lib
 
@@ -76,8 +76,8 @@ def valid_context(context_data: Dict, verbose=True):
 
 
 def handle_show_schema(kind: str) -> str:
-    object = KIND_TO_SCHEMA.get(kind)
-    return object.schema_json()
+    obj = KIND_TO_SCHEMA.get(kind)
+    return obj.schema_json()
 
 
 def valid_notification_target(tgt_data: Dict, interactive=False):
@@ -212,20 +212,27 @@ class ProcessSelectorModel(BaseModel):
 
 # This is a reused validator ensuring that the objects have a required selector
 def validate_selectors(_, values):
-    type = getattr(values["metadata"], "type", "")
-    if type == lib.POL_TYPE_CONT:
+    pol_type = getattr(values["metadata"], "type", "")
+    if pol_type == lib.POL_TYPE_CONT:
         s_val = getattr(values["spec"], "container_selector", None)
         if not s_val:
             raise ValueError(
                 f"Type is '{lib.POL_TYPE_CONT}' and no "
                 f"'{lib.CONT_SELECTOR_FIELD}' found in {lib.SPEC_FIELD}"
             )
-    else:
+    elif pol_type == lib.POL_TYPE_SVC:
         s_val = getattr(values["spec"], "service_selector", None)
         if not s_val:
             raise ValueError(
                 f"Type is '{lib.POL_TYPE_SVC}' and no "
                 f"'{lib.SVC_SELECTOR_FIELD}' found in {lib.SPEC_FIELD}"
+            )
+    elif pol_type == lib.POL_TYPE_CLUS:
+        s_val = getattr(values["spec"], "cluster_selector", None)
+        if not s_val:
+            raise ValueError(
+                f"Type is '{lib.POL_TYPE_CLUS}' and no "
+                f"'{lib.CLUS_SELECTOR_FIELD}' found in {lib.SPEC_FIELD}"
             )
     return values
 
@@ -245,6 +252,15 @@ class GuardianSelectorsModel(BaseModel):
     )
     pod_selector: Optional[PodSelectorModel] = Field(
         alias=lib.POD_SELECTOR_FIELD
+    )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class ClusterPolicySelectorsModel(BaseModel):
+    cluster_selector: ClusterSelectorModel = Field(
+        alias=lib.CLUS_SELECTOR_FIELD
     )
 
     class Config:
@@ -661,13 +677,18 @@ class GuardianDeviationMetadataModel(BaseModel):
 # Spec Models -----------------------------------------------------------------
 
 
-class GuardianPolicySpecModel(
-    GuardianSelectorsModel, GuardianSpecOptionsModel
-):
+class GuardianPolicySpecFieldsModel(BaseModel):
     enabled: Optional[bool] = Field(alias=lib.ENABLED_FIELD)
     mode: Literal[tuple(lib.POL_MODES)] = Field(  # type: ignore
         alias=lib.POL_MODE_FIELD
     )
+
+
+class GuardianPolicySpecModel(
+    GuardianSelectorsModel,
+    GuardianSpecOptionsModel,
+    GuardianPolicySpecFieldsModel,
+):
     process_policy: List[ProcessNodeModel] = Field(alias=lib.PROC_POLICY_FIELD)
     network_policy: NetworkPolicyModel = Field(alias=lib.NET_POLICY_FIELD)
     response: GuardianResponseModel = Field(alias=lib.RESPONSE_FIELD)
@@ -695,6 +716,15 @@ class GuardianDeviationSpecModel(
     network_policy: Optional[DeviationNetworkPolicyModel] = Field(
         alias=lib.NET_POLICY_FIELD
     )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class ClusterPolicySpecModel(
+    ClusterPolicySelectorsModel, GuardianPolicySpecFieldsModel
+):
+    rulesets: List[str] = Field(alias=lib.RULESETS_FIELD)
 
     class Config:
         extra = Extra.forbid
@@ -785,6 +815,20 @@ class GuardianBaselineModel(BaseModel):
 
     class Config:
         extra = Extra.ignore
+
+
+class ClusterPolicyModel(BaseModel):
+    api_version: str = Field(alias=lib.API_FIELD)
+    kind: Literal[lib.POL_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    metadata: GuardianMetadataModel = Field(alias=lib.METADATA_FIELD)
+    spec: ClusterPolicySpecModel = Field(alias=lib.SPEC_FIELD)
+
+    _selector_validator = root_validator(
+        allow_reuse=True, skip_on_failure=True
+    )(validate_selectors)
+
+    class Config:
+        extra = Extra.forbid
 
 
 class GuardianPolicyModel(BaseModel):
@@ -1008,8 +1052,8 @@ class NotifAnaConfigSpecModel(BaseModel):
 
     @root_validator
     def validate_condition(cls, values):
-        import spyctl.config.configs as cfg
         import spyctl.api as api
+        import spyctl.config.configs as cfg
 
         ctx = cfg.get_current_context()
         error = api.validate_search_query(
@@ -1104,7 +1148,7 @@ class NotificationPolicyModel(BaseModel):
 
 
 class RuleModel(BaseModel):
-    verb: Literal[tuple(lib.RULE_VERBS)] = Field(alias=lib.RULE_VERB_FIELD)
+    verb: Literal[tuple(lib.RULE_VERBS)] = Field(alias=lib.RULE_VERB_FIELD)  # type: ignore  # noqa: E501
 
 
 class ContainerRule(RuleModel):
@@ -1151,7 +1195,7 @@ class RulesetPolicySpecModel(BaseModel):
 
 class RulesetModel(BaseModel):
     api_version: str = Field(alias=lib.API_FIELD)
-    kind: Literal[lib.RULESET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore
+    kind: Literal[lib.RULESET_KIND] = Field(alias=lib.KIND_FIELD)  # type: ignore  # noqa: E501
     metadata: RulesetMetadataModel = Field(alias=lib.METADATA_FIELD)
     spec: RulesetPolicySpecModel = Field(alias=lib.SPEC_FIELD)
 
@@ -1179,8 +1223,7 @@ class SuppressionPolicySelectorsModel(BaseModel):
             for field, value in values.items()
             if field.endswith("selector")
         ):
-            # TODO fill out error
-            raise ValueError("")
+            raise ValueError("Selectors must have values.")
         return values
 
     class Config:
@@ -1378,6 +1421,7 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
     lib.FPRINT_KIND: GuardianFingerprintModel,
     lib.POL_KIND: GuardianPolicyModel,
     (lib.POL_KIND, lib.POL_TYPE_TRACE): SuppressionPolicyModel,
+    (lib.POL_KIND, lib.POL_TYPE_CLUS): ClusterPolicyModel,
     lib.SECRET_KIND: SecretModel,
     lib.UID_LIST_KIND: UidListModel,
     lib.DEVIATION_KIND: GuardianDeviationModel,
@@ -1392,14 +1436,12 @@ KIND_TO_SCHEMA: Dict[str, BaseModel] = {
 
 
 def clear_proc_ids():
-    global __PROC_IDS
     __PROC_IDS.clear()
 
 
-def in_proc_ids(id: str) -> bool:
-    return id in __PROC_IDS
+def in_proc_ids(proc_id: str) -> bool:
+    return proc_id in __PROC_IDS
 
 
-def add_proc_id(id: str):
-    global __PROC_IDS
-    __PROC_IDS[id] = True
+def add_proc_id(proc_id: str):
+    __PROC_IDS[proc_id] = True

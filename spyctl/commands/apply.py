@@ -4,22 +4,41 @@ from typing import Dict, List
 import spyctl.api as api
 import spyctl.cli as cli
 import spyctl.config.configs as cfg
-import spyctl.resources.policies as p
 import spyctl.resources.suppression_policies as sp
 import spyctl.spyctl_lib as lib
 import spyctl.commands.merge as m
 import spyctl.resources.notification_targets as nt
 import spyctl.resources.notifications_configs as nc
 
+APPLY_PRIORITY = {
+    lib.RULESET_KIND: 100,
+    lib.POL_KIND: 50,
+}
+
+
+def apply_priority(resrc: Dict) -> int:
+    kind = resrc.get(lib.KIND_FIELD)
+    return APPLY_PRIORITY.get(kind, 0)
+
 
 def handle_apply(filename):
     resrc_data = lib.load_resource_file(filename)
+    if lib.ITEMS_FIELD in resrc_data:
+        for resrc in resrc_data[lib.ITEMS_FIELD]:
+            # Sort resource items by priority
+            resrc_data[lib.ITEMS_FIELD].sort(key=apply_priority, reverse=True)
+            __handle_apply(resrc)
+    else:
+        __handle_apply(resrc_data)
+
+
+def __handle_apply(resrc_data: Dict):
     kind = resrc_data.get(lib.KIND_FIELD)
     if kind == lib.POL_KIND:
-        type = resrc_data[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-        if type in lib.SUPPRESSION_POL_TYPES:
+        pol_type = resrc_data[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+        if pol_type in lib.SUPPRESSION_POL_TYPES:
             handle_apply_suppression_policy(resrc_data)
-        elif type in lib.GUARDIAN_POL_TYPES:
+        elif pol_type in lib.GUARDIAN_POL_TYPES:
             handle_apply_policy(resrc_data)
         else:
             cli.err_exit(f"Unrecognized policy type '{type}'.")

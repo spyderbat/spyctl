@@ -9,6 +9,7 @@ import spyctl.resources.notifications_configs as nc
 import spyctl.resources.policies as p
 import spyctl.resources.cluster_ruleset as crs
 import spyctl.resources.suppression_policies as sp
+import spyctl.resources.cluster_policies as cp
 import spyctl.search as search
 import spyctl.spyctl_lib as lib
 
@@ -30,6 +31,24 @@ def handle_create_baseline(
     if output == lib.OUTPUT_DEFAULT:
         output = lib.OUTPUT_YAML
     cli.show(baseline, output)
+
+
+def handle_create_cluster_policy(
+    name: str,
+    mode: str,
+    output: str,
+    st: float,
+    et: float,
+    no_rs_gen: bool,
+    cluster: str = None,
+    namespace: List[str] = None,
+):
+    policy = cp.create_cluster_policy(
+        name, mode, st, et, no_rs_gen, cluster, namespace
+    )
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
+    cli.show(policy, output)
 
 
 def handle_create_guardian_policy(
