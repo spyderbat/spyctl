@@ -2,6 +2,7 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring,no-self-argument
 
+
 from __future__ import annotations
 
 import ipaddress
