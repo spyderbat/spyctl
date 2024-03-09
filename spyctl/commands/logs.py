@@ -137,7 +137,7 @@ def show_policy_logs(
         if full:
             log = json.dumps(event)
         else:
-            log = event["description"]
+            log = event["message"]
         msg = f"{ts}{log}"
         cli.show(msg, lib.OUTPUT_RAW)
 

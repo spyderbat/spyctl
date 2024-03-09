@@ -795,10 +795,7 @@ def get_deviations(
 ) -> Generator[Dict, None, None]:
     try:
         datatype = lib.DATATYPE_AUDIT
-        schema = (
-            f"{lib.EVENT_AUDIT_PREFIX}:"
-            f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
-        )
+        schema = lib.EVENT_DEVIATION_PREFIX
         url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
         for deviation in retrieve_data(
             api_url,
@@ -1336,7 +1333,7 @@ def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
     if lib.METADATA_TYPE_FIELD in params:
         types = [params[lib.METADATA_TYPE_FIELD]]
     else:
-        types = [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC]
+        types = [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC, lib.POL_TYPE_CLUS]
     policies = []
     for type in types:
         params[lib.METADATA_TYPE_FIELD] = type
@@ -1436,11 +1433,10 @@ def get_audit_events(
     audit_events = []
     if msg_type:
         schema = (
-            f"{lib.EVENT_AUDIT_PREFIX}:"
-            f"{lib.EVENT_AUDIT_SUBTYPE_MAP[msg_type]}"
+            f"{lib.EVENT_LOG_PREFIX}:" f"{lib.EVENT_LOG_SUBTYPE_MAP[msg_type]}"
         )
     else:
-        schema = lib.EVENT_AUDIT_PREFIX
+        schema = lib.EVENT_LOG_PREFIX
     url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
     for resp in threadpool_progress_bar_time_blocks(
         [src_uid],

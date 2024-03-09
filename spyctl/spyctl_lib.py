@@ -652,20 +652,20 @@ SCHEMA_FIELD = "schema"
 
 # Spyderbat Event Schema Prefix'
 EVENT_METRICS_PREFIX = "event_metric"
-EVENT_AUDIT_PREFIX = "event_audit"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
 EVENT_REDFLAG_PREFIX = "event_redflag"
+EVENT_DEVIATION_PREFIX = "event_deviation"
+EVENT_LOG_PREFIX = "event_log"
 
 EVENT_METRIC_SUBTYPE_MAP = {
     "agent": "agent",
     "machine": "machine",
 }
 
-EVENT_AUDIT_SUBTYPE_MAP = {
+EVENT_LOG_SUBTYPE_MAP = {
     "deviation": "guardian_deviation",
     "action": "guardian_action",
-    "redflag": "guardian_redflag",
-    "opsflag": "guardian_opsflag",
+    "redflag": "guardian_flag",
 }
 
 # Spyderbat Model Schema Prefix'
