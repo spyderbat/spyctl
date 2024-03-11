@@ -1,20 +1,22 @@
+"""Handles the merge command for spyctl."""
+
+import time
 from typing import IO, Dict, List, Optional, Union
 
-import spyctl.api as api
-import spyctl.cli as cli
-import spyctl.commands.apply as apply
-import spyctl.commands.get as get
+import click
+
 import spyctl.config.configs as cfgs
 import spyctl.filter_resource as filt
 import spyctl.merge_lib as m_lib
 import spyctl.resources.baselines as b
-import spyctl.resources.policies as p
-import spyctl.resources.suppression_policies as sp
 import spyctl.resources.deviations as dev
-import spyctl.resources.api_filters as _af
-import spyctl.spyctl_lib as lib
-import spyctl.schemas_v2 as schemas
+import spyctl.resources.policies as p
 import spyctl.resources.resources_lib as r_lib
+import spyctl.resources.suppression_policies as sp
+import spyctl.schemas_v2 as schemas
+import spyctl.spyctl_lib as lib
+from spyctl import api, cli
+from spyctl.commands import apply
 
 POLICIES = None
 FINGERPRINTS = None
@@ -23,6 +25,260 @@ MATCHING = "matching"
 ALL = "all"
 
 YES_EXCEPT = False
+
+# ----------------------------------------------------------------- #
+#                         Merge Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@click.command("merge", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Target file(s) of the merge.",
+    metavar="",
+    type=lib.FileList(),
+    cls=lib.MutuallyExclusiveEatAll,
+    mutually_exclusive=["policy"],
+)
+@click.option(
+    "-p",
+    "--policy",
+    is_flag=False,
+    flag_value=ALL,
+    default=None,
+    help="Target policy name(s) or uid(s) of the merge. If supplied with no"
+    " argument, set to 'all'.",
+    metavar="",
+    type=lib.ListParam(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["filename"],
+)
+@click.option(
+    "-w",
+    "--with-file",
+    "with_file",
+    help="File to merge into target.",
+    metavar="",
+    type=click.File(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_policy"],
+)
+@click.option(
+    "-P",
+    "--with-policy",
+    "with_policy",
+    help="Policy uid to merge with target. If supplied with no argument then"
+    " spyctl will attempt to find a policy matching the uid in the"
+    " target's metadata.",
+    metavar="",
+    is_flag=False,
+    flag_value=MATCHING,
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_file"],
+)
+@click.option(
+    "-l",
+    "--latest",
+    is_flag=True,
+    help=f"Merge file with latest records using the value of"
+    f" '{lib.LATEST_TIMESTAMP_FIELD}' in the target's '{lib.METADATA_FIELD}'."
+    " This replaces --start-time.",
+    metavar="",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Start time of the query for fingerprints to merge."
+    " Only used if --latest, --with-file, and --with-policy are not set."
+    " Default is 24 hours ago.",
+    default="24h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query for fingerprints to merge."
+    " Only used if --with-file and --with-policy are not set."
+    " Default is now.",
+    default=time.time(),
+    type=lib.time_inp,
+)
+@click.option(
+    "-O",
+    "--output-to-file",
+    help="Should output merge to a file. Unique filename created from the name"
+    " in the object's metadata.",
+    is_flag=True,
+)
+@click.option(
+    "--full-diff",
+    is_flag=True,
+    help="A diff summary is shown by default, set this flag to show the full"
+    " object when viewing a diff following a merge. (All changes to the object"
+    " are shown in the summary).",
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["yes_except"],
+)
+@click.option(
+    "-Y",
+    "--yes-except",
+    "--assume-yes-except-review",
+    is_flag=True,
+    help='Automatic yes to merge prompts; assume "yes" as answer to all merge'
+    " prompts but still prompts review of policy updates before applying.",
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["yes"],
+)
+@click.option(
+    "--include-network/--exclude-network",
+    help="Include or exclude network data in the merge."
+    " Default is to include network data in the merge.",
+    default=True,
+)
+@click.option(
+    "-a",
+    "--api",
+    "use_api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
+@lib.colorization_option
+def merge(
+    filename,
+    policy,
+    output,
+    st,
+    et,
+    include_network,
+    colorize,
+    yes=False,
+    yes_except=False,
+    with_file=None,
+    with_policy=None,
+    latest=False,
+    output_to_file=False,
+    use_api=False,
+    full_diff=False,
+):
+    """Merge target Baselines and Policies with other Resources.
+
+      Merging in Spyctl requires a target Resource (e.g. a Baseline or Policy
+    document you are maintaining) and a Resource to merge into the target.
+    A target can either be a local file supplied using the -f option or a policy
+    you've applied to the Spyderbat Backend supplied with the -p option.
+    By default, target's are merged with deviations if they are applied policies,
+    otherwise they are merged with relevant* Fingerprints from the last 24
+    hours to now. Targets may also be merged with local files with the -w option
+    or with data from an existing applied policy using the -P option.
+
+      When merging a single local file with another resource, the output will
+    be sent to stdout. WARNING: Do not redirect output to the same file you
+    used as input. You may use the -O flag to output the merged data to a
+    unique file with a name generate by Spyctl.
+
+      When bulk merging local files, the output for each merge operation will
+    be outputted to unique files generated by Spyctl (the same as supplying the
+    -O flag mentioned above).
+
+      When merging existing applied policies in bulk or individually, the default
+    destination for the output will be to apply it directly to the Spyderbat Backend (you
+    will have a chance to review the merge before any changes are applied).
+    This removes the requirement to deal with local files when managing policies. However,
+    it is a good idea to back up policies in a source-control repository. You can also
+    use the -O operation to send the output of this merge to a local file.
+
+    \b
+    Examples:
+      # merge a local policy file with data from the last
+      # 24hrs to now:
+      spyctl merge -f policy.yaml\n
+    \b
+      # merge a local policy file with data from its
+      # latestTimestamp field to now:
+      spyctl merge -f policy.yaml --latest\n
+    \b
+      # merge an existing applied policy with data from the
+      # last 24hrs to now:
+      spyctl merge -p <NAME_OR_UID>\n
+    \b
+      # Bulk merge all existing policies with data from the
+      # last 24hrs to now:
+      spyctl merge -p\n
+    \b
+      # Bulk merge multiple policies with data from the
+      # last 24hrs to now:
+      spyctl merge -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
+    \b
+      # Bulk merge all files in cwd matching a pattern with data
+      # from the last 24hrs to now:
+      spyctl merge -f *.yaml\n
+    \b
+      # merge an existing applied policy with a local file:
+      spyctl merge -p <NAME_OR_UID> --with-file fingerprints.yaml\n
+    \b
+      # merge a local file with data from an existing applied policy
+      spyctl merge -f policy.yaml -P <NAME_OR_UID>\n
+    \b
+      # merge a local file with a valid UID in its metadata with the matching
+      # policy in the Spyderbat Backend
+      spyctl merge -f policy.yaml -P
+
+    * Each policy has one or more Selectors in its spec field,
+    relevant Fingerprints are those that match those Selectors.
+
+    For time field options such as --start-time and --end-time you can
+    use (m) for minutes, (h) for hours (d) for days, and (w) for weeks back
+    from now or provide timestamps in epoch format.
+
+    Note: Long time ranges or "get" commands in a context consisting of
+    multiple machines can take a long time.
+    """  # noqa E501
+    if yes or yes_except:
+        cli.set_yes_option()
+    if not colorize:
+        lib.disable_colorization()
+    if output == lib.OUTPUT_DEFAULT:
+        output = lib.OUTPUT_YAML
+    handle_merge(
+        filename,
+        policy,
+        with_file,
+        with_policy,
+        st,
+        et,
+        latest,
+        output,
+        output_to_file,
+        yes_except,
+        include_network,
+        use_api,
+        full_diff,
+    )
+
+
+# ----------------------------------------------------------------- #
+#                         Merge Handlers                            #
+# ----------------------------------------------------------------- #
 
 
 def handle_merge(
@@ -38,7 +294,6 @@ def handle_merge(
     yes_except: bool = False,
     merge_network: bool = True,
     do_api=False,
-    force_fprints=False,
     full_diff=False,
 ):
     if do_api:
@@ -84,7 +339,6 @@ def handle_merge(
                 st,
                 et,
                 latest,
-                with_fingerprints=force_fprints,
             )
             # If we have something to merge, add to actions
             if with_obj:
@@ -125,7 +379,6 @@ def handle_merge(
                     et,
                     latest,
                     output_dest,
-                    with_fingerprints=force_fprints,
                 )
                 # If we have something to merge, add to actions
                 if with_obj:
@@ -196,7 +449,6 @@ def handle_merge(
                     et,
                     latest,
                     output_dest,
-                    with_fingerprints=force_fprints,
                 )
                 if with_obj:
                     merged_obj = merge_resource(
@@ -240,9 +492,7 @@ def get_with_obj(
     et,
     latest,
     dest: str = "",
-    with_fingerprints=False,
 ) -> Optional[Union[Dict, List[Dict], bool]]:
-    global FINGERPRINTS
     target_uid = target.get(lib.METADATA_FIELD, {}).get(lib.METADATA_UID_FIELD)
     if dest == lib.OUTPUT_DEST_API:
         apply_disclaimer = (
@@ -289,27 +539,6 @@ def get_with_obj(
                 f" '{pol_name} - {pol_uid}'?{apply_disclaimer}"
             ):
                 return False
-    elif with_fingerprints or not target.get(lib.METADATA_FIELD, {}).get(
-        lib.METADATA_UID_FIELD
-    ):
-        if latest:
-            st = get_latest_timestamp(target)
-            if FINGERPRINTS is not None:
-                cli.try_log("--latest flag set, re-downloading fingerprints..")
-                FINGERPRINTS = None
-        if not cli.query_yes_no(
-            f"Merge {target_name} with relevant Fingerprints from"
-            f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
-            f"{apply_disclaimer}"
-        ):
-            return False
-        if FINGERPRINTS is None:
-            with_obj = get_with_fingerprints(target, st, et, latest)
-            cli.try_log(f"Filtering fingerprints for {target_name}")
-            with_obj = filter_fingerprints(target, with_obj)
-        else:
-            cli.try_log(f"Filtering fingerprints for {target_name}")
-            with_obj = filter_fingerprints(target, FINGERPRINTS)
     else:
         if latest:
             st = get_latest_timestamp(target)
@@ -352,35 +581,6 @@ def get_latest_timestamp(target: Dict) -> float:
             " 24hrs."
         )
     return st
-
-
-def get_with_fingerprints(target: Dict, st, et, latest) -> List[Dict]:
-    global FINGERPRINTS
-    ctx = cfgs.get_current_context()
-    if latest:
-        filters = lib.selectors_to_filters(target)
-        muids = get.get_muids_scope(**filters)
-        if muids:
-            filters[lib.MACHINES_FIELD] = muids
-        pipeline = _af.Fingerprints.generate_pipeline(filters=filters)
-        fingerprints = list(
-            api.get_fingerprints(
-                *ctx.get_api_data(),
-                [ctx.global_source],
-                time=(st, et),
-                pipeline=pipeline,
-            )
-        )
-    else:
-        fingerprints = list(
-            api.get_fingerprints(
-                *ctx.get_api_data(),
-                [ctx.global_source],
-                time=(st, et),
-            )
-        )
-    FINGERPRINTS = fingerprints
-    return fingerprints
 
 
 def get_with_deviations(uid: str, st, et) -> List[Dict]:
@@ -439,7 +639,7 @@ def merge_resource(
                     *e.args,
                 )
     else:
-        raise Exception(
+        raise ValueError(
             f"Bug found, attempting to {src_cmd} with invalid object"
         )
     if target[lib.SPEC_FIELD] == merge_obj.get_obj_data().get(lib.SPEC_FIELD):

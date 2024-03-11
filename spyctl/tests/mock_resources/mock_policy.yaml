@@ -1,0 +1,171 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatPolicy
+metadata:
+  createdBy: test.user@spyderbat.com
+  creationTimestamp: 1707860605
+  lastUpdatedBy: test.user@spyderbat.com
+  lastUpdatedTimestamp: 1707860605
+  latestTimestamp: 1690465318
+  name: spyderbat-test
+  selectorHash: 75bfea09952cd21b69fa706c9b8cdb4f
+  type: container
+  uid: pol:VRQaaJkukIl6Au1C0PrT
+  version: 1
+spec:
+  containerSelector:
+    image: '*spyderbat-demo*'
+  enabled: true
+  mode: enforce
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: rsvp-svc-prod
+  networkPolicy:
+    egress:
+    - ports:
+      - port: 27017
+        protocol: TCP
+      processes:
+      - python_1
+      to:
+      - dnsSelector:
+        - mongodb.rsvp-svc-prod.svc.cluster.local
+    - ports:
+      - port: 27017
+        protocol: TCP
+      processes:
+      - python_0
+      to:
+      - dnsSelector:
+        - mongodb.rsvp-svc-prod.svc.cluster.local
+    - ports:
+      - port: 27017
+        protocol: TCP
+      processes:
+      - python_3
+      to:
+      - dnsSelector:
+        - mongodb.rsvp-svc-prod.svc.cluster.local
+    - ports:
+      - port: 27017
+        protocol: TCP
+      processes:
+      - python_1
+      to:
+      - ipBlock:
+          cidr: 10.100.66.198/32
+    - ports:
+      - port: 27017
+        protocol: TCP
+      processes:
+      - python_0
+      to:
+      - ipBlock:
+          cidr: 10.100.66.198/32
+    - ports:
+      - port: 27017
+        protocol: TCP
+      processes:
+      - python_2
+      to:
+      - dnsSelector:
+        - mongodb.rsvp-svc-prod.svc.cluster.local
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 192.168.4.229/32
+      - ipBlock:
+          cidr: 192.168.26.23/32
+      - ipBlock:
+          cidr: 192.168.31.148/32
+      - ipBlock:
+          cidr: 192.168.33.128/32
+      - ipBlock:
+          cidr: 192.168.35.38/32
+      - ipBlock:
+          cidr: 192.168.73.218/32
+      - ipBlock:
+          cidr: 192.168.78.61/32
+      ports:
+      - port: 5000
+        protocol: TCP
+      processes:
+      - python_1
+      - python_3
+  podSelector:
+    matchLabels:
+      app: rsvp
+      env: prod
+      name: rsvp-web
+      tier: frontend
+  processPolicy:
+  - children:
+    - children:
+      - children:
+        - children:
+          - exe:
+            - /bin/uname
+            id: uname_1
+            name: uname
+          exe:
+          - /bin/dash
+          id: sh_2
+          name: sh
+        exe:
+        - /usr/local/bin/python3.7
+        id: python_1
+        name: python
+      - children:
+        - exe:
+          - /bin/uname
+          id: uname_0
+          name: uname
+        exe:
+        - /bin/dash
+        id: sh_1
+        name: sh
+      exe:
+      - /usr/local/bin/python3.7
+      id: python_0
+      name: python
+    euser:
+    - root
+    exe:
+    - /bin/dash
+    id: sh_0
+    name: sh
+  - children:
+    - children:
+      - children:
+        - exe:
+          - /bin/uname
+          id: uname_3
+          name: uname
+        exe:
+        - /bin/dash
+        id: sh_3
+        name: sh
+      exe:
+      - /usr/local/bin/python3.7
+      id: python_3
+      name: python
+    - children:
+      - exe:
+        - /bin/uname
+        id: uname_2
+        name: uname
+      exe:
+      - /bin/dash
+      id: sh_4
+      name: sh
+    euser:
+    - root
+    exe:
+    - /usr/local/bin/python3.7
+    id: python_2
+    name: python
+  response:
+    actions: []
+    default:
+    - makeRedFlag:
+        severity: high
+

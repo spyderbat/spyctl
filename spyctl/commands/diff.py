@@ -1,13 +1,238 @@
+"""Handles the 'diff' subcommand for spyctl."""
+
+import time
 from typing import IO, Dict, List, Optional, Union
 
-import spyctl.api as api
-import spyctl.cli as cli
+import click
+
+import spyctl.commands.merge as merge_cmd
 import spyctl.config.configs as cfgs
 import spyctl.filter_resource as filt
+import spyctl.merge_lib as m_lib
 import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
-import spyctl.commands.merge as merge_cmd
-import spyctl.merge_lib as m_lib
+from spyctl import api, cli
+
+# ----------------------------------------------------------------- #
+#                          Diff Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@click.command("diff", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Target file(s) of the diff.",
+    metavar="",
+    type=lib.FileList(),
+    cls=lib.MutuallyExclusiveEatAll,
+    mutually_exclusive=["policy"],
+)
+@click.option(
+    "-p",
+    "--policy",
+    is_flag=False,
+    flag_value="all",
+    default=None,
+    help="Target policy name(s) or uid(s) of the diff. If supplied with no"
+    " argument, set to 'all'.",
+    metavar="",
+    type=lib.ListParam(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["filename"],
+)
+@click.option(
+    "-w",
+    "--with-file",
+    "with_file",
+    help="File to diff with target.",
+    metavar="",
+    type=click.File(),
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_policy"],
+)
+@click.option(
+    "-P",
+    "--with-policy",
+    "with_policy",
+    help="Policy uid to diff with target. If supplied with no argument then"
+    " spyctl will attempt to find a policy matching the uid in the target's"
+    " metadata.",
+    metavar="",
+    is_flag=False,
+    flag_value="matching",
+    cls=lib.MutuallyExclusiveOption,
+    mutually_exclusive=["with_file"],
+)
+@click.option(
+    "-l",
+    "--latest",
+    is_flag=True,
+    help=f"Diff target with latest records using the value of"
+    f" '{lib.LATEST_TIMESTAMP_FIELD}' in '{lib.METADATA_FIELD}'."
+    " This replaces --start-time.",
+    metavar="",
+)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Start time of the query for fingerprints to diff."
+    " Only used if --latest, --with-file, --with-policy are not set."
+    " Default is 24 hours ago.",
+    default="24h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query for fingerprints to diff."
+    " Only used if --with-file, and --with-policy are not set."
+    " Default is now.",
+    default=time.time(),
+    type=lib.time_inp,
+)
+@click.option(
+    "--full-diff",
+    is_flag=True,
+    help="A diff summary is shown by default, set this flag to show the full"
+    " object when viewing a diff. (All changes to the object"
+    " are shown in the summary).",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=lib.OUTPUT_DEFAULT,
+    type=click.Choice(lib.OUTPUT_CHOICES, case_sensitive=False),
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+@click.option(
+    "--include-network/--exclude-network",
+    help="Include or exclude network data in the diff."
+    " Default is to include network data in the diff.",
+    default=True,
+)
+@click.option(
+    "-a",
+    "--api",
+    "use_api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
+@lib.colorization_option
+def diff(
+    filename,
+    policy,
+    st,
+    et,
+    include_network,
+    colorize,
+    output,
+    yes=False,
+    with_file=None,
+    with_policy=None,
+    latest=False,
+    use_api=False,
+    full_diff=False,
+):
+    """Diff target Baselines and Policies with other Resources.
+
+      Diff'ing in Spyctl requires a target Resource (e.g. a Baseline or Policy
+    document you are maintaining) and a Resource to diff with the target.
+    A target can be either a local file supplied using the -f option or a policy
+    you've applied to the Spyderbat Backend supplied with the -p option.
+    By default, target's are diff'd with deviations if they are applied policies,
+    otherwise they are diff'd with relevant* Fingerprints from the last 24
+    hours to now. Targets may also be diff'd with local files with the -w option
+    or with data from an existing applied policy using the -P option.
+
+      The output of a diff shows you any lines that would be added to or removed
+    from your target Resource as a result of a Merge. diffs may also be performed
+    in bulk. Bulk diffs are outputted to a pager like 'less' or 'more'.
+
+      To maintain a target Resource effectively, the goal should be to get to
+    get to a point where the diff no longer displays added or removed lines (other
+    than timestamps).
+
+    \b
+    Examples:
+      # diff a local policy file with data from the last
+      # 24hrs to now:
+      spyctl diff -f policy.yaml\n
+    \b
+      # diff a local policy file with data from its
+      # latestTimestamp field to now:
+      spyctl diff -f policy.yaml --latest\n
+    \b
+      # diff an existing applied policy with data from the
+      # last 24hrs to now:
+      spyctl diff -p <NAME_OR_UID>\n
+    \b
+      # Bulk diff all existing policies with data from the
+      # last 24hrs to now:
+      spyctl diff -p\n
+    \b
+      # Bulk diff multiple policies with data from the
+      # last 24hrs to now:
+      spyctl diff -p <NAME_OR_UID1>,<NAME_OR_UID2>\n
+    \b
+      # Bulk diff all files in cwd matching a pattern with relevant*
+      # Fingerprints from the last 24hrs to now:
+      spyctl diff -f *.yaml\n
+    \b
+      # diff an existing applied policy with a local file:
+      spyctl diff -p <NAME_OR_UID> --with-file fingerprints.yaml\n
+    \b
+      # diff a local file with data from an existing applied policy
+      spyctl diff -f policy.yaml -P <NAME_OR_UID>\n
+    \b
+      # diff a local file with a valid UID in its metadata with the matching
+      # policy in the Spyderbat Backend
+      spyctl diff -f policy.yaml -P
+
+    * Each policy has one or more Selectors in its spec field,
+    relevant Fingerprints are those that match those Selectors.
+
+    For time field options such as --start-time and --end-time you can
+    use (m) for minutes, (h) for hours (d) for days, and (w) for weeks back
+    from now or provide timestamps in epoch format.
+
+    Note: Long time ranges or "get" commands in a context consisting of
+    multiple machines can take a long time.
+    """  # noqa E501
+    if yes:
+        cli.set_yes_option()
+    if not colorize:
+        lib.disable_colorization()
+    handle_diff(
+        filename,
+        policy,
+        with_file,
+        with_policy,
+        st,
+        et,
+        latest,
+        include_network,
+        use_api,
+        full_diff,
+        output,
+    )
+
+
+# ----------------------------------------------------------------- #
+#                          Diff Handlers                            #
+# ----------------------------------------------------------------- #
 
 POLICIES = None
 FINGERPRINTS = None
@@ -26,7 +251,6 @@ def handle_diff(
     latest,
     merge_network=True,
     do_api=False,
-    force_fprints=False,
     full_diff=False,
     output=lib.OUTPUT_DEFAULT,
 ):
@@ -69,7 +293,6 @@ def handle_diff(
                 st,
                 et,
                 latest,
-                force_fprints,
             )
             if with_obj:
                 diff_resource(
@@ -87,9 +310,7 @@ def handle_diff(
                 cli.try_log(
                     f"{file.name} has nothing to diff with... skipping."
                 )
-                merge_obj = __nothing_to_diff_with(target_name, target, latest)
-                if merge_obj:
-                    handle_output(merge_obj, pager, full_diff=full_diff)
+                __nothing_to_diff_with(target_name, target, latest)
     elif policy_target:
         pager = (
             True
@@ -111,7 +332,6 @@ def handle_diff(
                     st,
                     et,
                     latest,
-                    force_fprints,
                 )
                 if with_obj:
                     diff_resource(
@@ -126,11 +346,7 @@ def handle_diff(
                 elif with_obj is False:
                     continue
                 else:
-                    merge_obj = __nothing_to_diff_with(
-                        target_name, target, latest
-                    )
-                    if merge_obj:
-                        handle_output(merge_obj, pager, full_diff=full_diff)
+                    __nothing_to_diff_with(target_name, target, latest)
         else:
             targets = {}
             for pol_name_or_uid in policy_target:
@@ -174,7 +390,6 @@ def handle_diff(
                     st,
                     et,
                     latest,
-                    force_fprints,
                 )
                 if with_obj:
                     diff_resource(
@@ -189,11 +404,7 @@ def handle_diff(
                 elif with_obj is False:
                     continue
                 else:
-                    merge_obj = __nothing_to_diff_with(
-                        target_name, target, latest
-                    )
-                    if merge_obj:
-                        handle_output(merge_obj, pager, full_diff=full_diff)
+                    __nothing_to_diff_with(target_name, target, latest)
     else:
         cli.err_exit("No target of the diff.")
 
@@ -206,9 +417,7 @@ def get_with_obj(
     st,
     et,
     latest,
-    with_fingerprints=False,
 ) -> Optional[Union[Dict, List[Dict]]]:
-    global FINGERPRINTS
     target_uid = target.get(lib.METADATA_FIELD, {}).get(lib.METADATA_UID_FIELD)
     if with_file:
         with_obj = load_with_file(with_file)
@@ -247,36 +456,6 @@ def get_with_obj(
                 f" '{pol_name} - {pol_uid}'?"
             ):
                 return False
-    elif with_fingerprints or not target.get(lib.METADATA_FIELD, {}).get(
-        lib.METADATA_UID_FIELD
-    ):
-        if latest:
-            latest_timestamp = target.get(lib.METADATA_FIELD, {}).get(
-                lib.LATEST_TIMESTAMP_FIELD
-            )
-            if latest_timestamp is not None:
-                st = lib.time_inp(latest_timestamp)
-            else:
-                cli.err_exit(
-                    f"No {lib.LATEST_TIMESTAMP_FIELD} found in provided"
-                    f" resource {lib.METADATA_FIELD} field. Defaulting to"
-                    " 24hrs."
-                )
-            if FINGERPRINTS is not None:
-                cli.try_log("--latest flag set, re-downloading fingerprints..")
-                FINGERPRINTS = None
-        if not cli.query_yes_no(
-            f"diff {target_name} with relevant Fingerprints from"
-            f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
-        ):
-            return False
-        if FINGERPRINTS is None:
-            with_obj = get_with_fingerprints(target, st, et, latest)
-            cli.try_log(f"Filtering fingerprints for {target_name}")
-            with_obj = filter_fingerprints(target, with_obj)
-        else:
-            cli.try_log(f"Filtering fingerprints for {target_name}")
-            with_obj = filter_fingerprints(target, FINGERPRINTS)
     else:
         if latest:
             st = merge_cmd.get_latest_timestamp(target)
@@ -285,7 +464,11 @@ def get_with_obj(
             f" {lib.epoch_to_zulu(st)} to {lib.epoch_to_zulu(et)}?"
         ):
             return False
-        uid = target[lib.METADATA_FIELD][lib.METADATA_UID_FIELD]
+        uid = target[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
+        if not uid:
+            cli.err_exit(
+                f"Target {target_name} has not been applied, no deviations to diff with"  # noqa
+            )
         with_obj = merge_cmd.get_with_deviations(uid, st, et)
     return with_obj
 
@@ -297,7 +480,6 @@ def load_target_file(target_file: IO) -> Dict:
 
 def get_target_policy(target_uid) -> Optional[Dict]:
     rv = p.get_policy_by_uid(target_uid, POLICIES)
-    filt.filter_policies()
     return rv
 
 
@@ -368,12 +550,6 @@ def __nothing_to_diff_with(
             f" update '{lib.LATEST_TIMESTAMP_FIELD}' field on merge."
         )
         return
-        merge_object = merge_cmd.get_merge_object(
-            target[lib.KIND_FIELD], target, True, src_cmd
-        )
-        merge_object.update_latest_timestamp()
-        return merge_object
-    else:
-        cli.try_log(
-            f"{name.capitalize()} has nothing to {src_cmd} with... skipping."
-        )
+    cli.try_log(
+        f"{name.capitalize()} has nothing to {src_cmd} with... skipping."
+    )

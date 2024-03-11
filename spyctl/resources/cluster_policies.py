@@ -5,7 +5,7 @@ kubernetes cluster.
 
 from typing import Dict, List
 
-import spyctl.resources.cluster_ruleset as crs
+import spyctl.resources.cluster_rulesets as crs
 import spyctl.resources.clusters as c
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib

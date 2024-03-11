@@ -1,16 +1,112 @@
+"""Handles the logs subcommand for spyctl."""
+
+# pylint: disable=broad-exception-caught
+
 import binascii
 import json
+import time
 from base64 import urlsafe_b64decode as b64url_d
 from base64 import urlsafe_b64encode as b64url
 from time import sleep
-import time
 from typing import Dict, List, Tuple
 
-import spyctl.api as api
-import spyctl.cli as cli
+import click
+
 import spyctl.config.configs as cfg
 import spyctl.filter_resource as filt
 import spyctl.spyctl_lib as lib
+from spyctl import api, cli
+
+# ----------------------------------------------------------------- #
+#                         Logs Subcommand                           #
+# ----------------------------------------------------------------- #
+
+
+@click.command("logs", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.LogsResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--follow",
+    is_flag=True,
+    metavar="",
+    default=False,
+    help="Specify if the logs should be streamed",
+)
+@click.option(
+    "-t",
+    "--start-time",
+    "st",
+    help="Get logs since this time. Default is 24 hours ago.",
+    metavar="",
+    default="24h",
+    type=lib.time_inp,
+)
+@click.option(
+    "-e",
+    "--end-time",
+    "et",
+    help="End time of the query. Default is now.",
+    metavar="",
+    default=time.time(),
+    type=lib.time_inp,
+)
+@click.option(
+    "--tail",
+    help="Lines of recent log file to display. Defaults to -1.",
+    metavar="",
+    default=-1,
+    type=click.INT,
+)
+@click.option(
+    "--timestamps",
+    is_flag=True,
+    help="Include timestamps on each line in the log output.",
+    metavar="",
+    default=False,
+)
+@click.option(
+    "--full",
+    is_flag=True,
+    help="Show the full log, not just the description.",
+    metavar="",
+)
+@click.option(
+    "--since-iterator",
+    help="Retrieve all logs since the provided iterator.",
+    metavar="",
+)
+def logs(
+    resource,
+    name_or_id,
+    follow,
+    st,
+    et,
+    tail,
+    timestamps,
+    full,
+    since_iterator,
+):
+    """Print the logs for a specified resource. Default behavior is to
+    print out the logs for the last 24 hours.
+    """
+    handle_logs(
+        resource,
+        name_or_id,
+        follow,
+        st,
+        et,
+        tail,
+        timestamps,
+        full,
+        since_iterator,
+    )
+
+
+# ----------------------------------------------------------------- #
+#                          Logs Handlers                            #
+# ----------------------------------------------------------------- #
 
 
 def handle_logs(
@@ -64,12 +160,12 @@ def handle_policy_logs(
     if not follow:
         if since_iterator:
             st, since_id = decode_audit_iterator(since_iterator)
-            time = (st, et)
+            log_time = (st, et)
         else:
-            time = (st, et)
+            log_time = (st, et)
             since_id = None
         audit_events = api.get_audit_events_tail(
-            *ctx.get_api_data(), time, policy_uid, tail, since_id=since_id
+            *ctx.get_api_data(), log_time, policy_uid, tail, since_id=since_id
         )
         show_policy_logs(audit_events, timestamps, full)
         if audit_events:
@@ -142,9 +238,9 @@ def show_policy_logs(
         cli.show(msg, lib.OUTPUT_RAW)
 
 
-def encode_audit_iterator(time: float, id: str):
-    time -= 60
-    iterator_bytes = f"{time}|{id}".encode("ascii")
+def encode_audit_iterator(log_time: float, log_id: str):
+    log_time -= 60
+    iterator_bytes = f"{log_time}|{log_id}".encode("ascii")
     iterator = b64url(iterator_bytes).decode("ascii").strip("=")
     return iterator
 
@@ -159,7 +255,7 @@ def decode_audit_iterator(iterator: str):
             except binascii.Error:
                 b = b64url_d(iterator)
         iterator_str = b.decode("ascii")
-        time, id = iterator_str.split("|")
+        log_time, log_id = iterator_str.split("|")
     except Exception:
         cli.err_exit("Unable to parse iterator")
-    return float(time), id
+    return float(log_time), log_id

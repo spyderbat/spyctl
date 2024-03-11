@@ -141,6 +141,12 @@ CONNECTION_BUN_RESOURCE = Aliases(
     "connection-bundle",
     "connection-bundles",
 )
+CLUSTER_POLICY_RESOURCE = Aliases(
+    ["cluster-policy", "cluster-policies", "clus-pol", "cp"],
+    "cluster-policy",
+    "cluster-policies",
+    kind=POL_KIND,
+)
 DEPLOYMENTS_RESOURCE = Aliases(
     ["deployments", "deployment", "deploys", "deploy"],
     "deployment",
@@ -443,12 +449,17 @@ RESOURCES_WITH_SCHEMAS = [
     FINGERPRINTS_RESOURCE.name,
     FINGERPRINT_GROUP_RESOURCE.name,
     POLICIES_RESOURCE.name,
+    CLUSTER_POLICY_RESOURCE.name,
     SECRETS_ALIAS.name,
     SUPPRESSION_POLICY_RESOURCE.name,
     UID_LIST_RESOURCE.name,
 ]
 
 CMD_ORG_FIELD = "org"
+
+SUB_EPILOG = (
+    'Use "spyctl <command> --help" for more information about a given command.'
+)
 
 
 def tmp_context_options(function):

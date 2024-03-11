@@ -1,6 +1,27 @@
-import spyctl.cli as cli
+"""Handle the show-schema subcommand for spyctl."""
+
+import click
+
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from spyctl import cli
+
+# ----------------------------------------------------------------- #
+#                      ShowSchema Subcommand                        #
+# ----------------------------------------------------------------- #
+
+
+@click.command("show-schema", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("kind", type=click.Choice(lib.RESOURCES_WITH_SCHEMAS))
+def show_schema(kind):
+    "Display the schema of a specific resource"
+    handle_show_schema(kind)
+
+
+# ----------------------------------------------------------------- #
+#                       Show Schema Handlers                        #
+# ----------------------------------------------------------------- #
 
 
 def handle_show_schema(resource: str):
@@ -24,6 +45,8 @@ def __kind_helper(resource: str):
         return lib.POL_KIND
     if resource == lib.SECRETS_ALIAS:
         return lib.SECRET_KIND
+    if resource == lib.CLUSTER_POLICY_RESOURCE:
+        return (lib.POL_KIND, lib.POL_TYPE_CLUS)
     if resource == lib.SUPPRESSION_POLICY_RESOURCE:
         return (lib.POL_KIND, lib.POL_TYPE_TRACE)
     if resource == lib.UID_LIST_RESOURCE:

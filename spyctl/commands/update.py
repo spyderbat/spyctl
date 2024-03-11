@@ -1,14 +1,63 @@
-# A hidden command, used by support to assist with migrating documents
-# that need to be updated
+"""
+A hidden command, used by support to assist with migrating documents
+that need to be updated
+"""
 
-from typing import Optional
-import spyctl.api as api
-import spyctl.config.configs as cfg
-import yaml
 from pathlib import Path
+from typing import Optional
+
+import click
+import yaml
+
+import spyctl.config.configs as cfg
 import spyctl.resources.policies as p
 import spyctl.spyctl_lib as lib
-import spyctl.commands.apply as apply
+from spyctl import api
+from spyctl.commands import apply
+
+# ----------------------------------------------------------------- #
+#                    Hidden Update Subcommand                       #
+# ----------------------------------------------------------------- #
+
+
+@click.group(
+    "update", cls=lib.CustomSubGroup, hidden=True, epilog=lib.SUB_EPILOG
+)
+@click.help_option("-h", "--help", hidden=True)
+def update():
+    pass
+
+
+@update.command("response-actions", cls=lib.CustomCommand)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-b",
+    "--backup-file",
+    "backup_file",
+    help="location to place policy backups",
+    type=click.Path(exists=True, writable=True, file_okay=False),
+)
+def update_response_actions(backup_file=None):
+    u.handle_update_response_actions(backup_file)
+
+
+@update.command("policy-modes", cls=lib.CustomCommand)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-b",
+    "--backup-file",
+    "backup_file",
+    help="location to place policy backups",
+    required=True,
+    type=click.Path(exists=True, writable=True, file_okay=False),
+)
+def update_policy_modes(backup_file=None):
+    u.handle_update_policy_modes(backup_file)
+
+
+# ----------------------------------------------------------------- #
+#                         Update Handlers                           #
+# ----------------------------------------------------------------- #
 
 
 def handle_update_response_actions(backup_dir: Optional[str]):
@@ -98,4 +147,4 @@ def handle_update_policy_modes(backup_dir: Optional[str]):
             f" '{mode}'"
         )
         policy[lib.SPEC_FIELD][lib.POL_MODE_FIELD] = mode
-        apply.handle_apply_suppression_policy(policy)
+        apply.handle_apply_policy(policy)
