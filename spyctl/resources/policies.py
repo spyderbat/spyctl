@@ -32,6 +32,22 @@ POLICY_META_MERGE_SCHEMA = m_lib.MergeSchema(
 )
 POLICY_MERGE_SCHEMAS = [POLICY_META_MERGE_SCHEMA, m_lib.SPEC_MERGE_SCHEMA]
 
+POLICY_SUB_TYPES = {lib.POL_TYPE_TRACE: "suppression"}
+
+
+def get_policy_subtype(pol_type: str) -> str:
+    """
+    Returns the subtype of a policy based on its type.
+
+    Args:
+        pol_type (str): The type of the policy.
+
+    Returns:
+        str: The subtype of the policy. If the subtype is not found, it
+            returns "guardian".
+    """
+    return POLICY_SUB_TYPES.get(pol_type, "guardian")
+
 
 class InvalidPolicyError(Exception):
     pass
@@ -276,11 +292,12 @@ def policies_summary_output(
             "NAME",
             "STATUS",
             "TYPE",
+            "VERSION",
             "CREATE_TIME",
             "DEVIATIONS_(UNIQ/TOT)",
         ]
     else:
-        headers = ["UID", "NAME", "STATUS", "TYPE", "CREATE_TIME"]
+        headers = ["UID", "NAME", "STATUS", "TYPE", "VERSION", "CREATE_TIME"]
     data = []
     deviation_counts = {}
     if get_deviations_count:
@@ -334,6 +351,7 @@ def policy_summary_data(
         policy[lib.METADATA_FIELD][lib.NAME_FIELD],
         status,
         policy[lib.METADATA_FIELD][lib.TYPE_FIELD],
+        policy[lib.METADATA_FIELD][lib.VERSION_FIELD],
         create_time,
     ]
     if get_deviations_count:

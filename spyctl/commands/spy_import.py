@@ -1,21 +1,40 @@
+"""Handles the import subcommand for spyctl."""
+
+import click
+
 import spyctl.spyctl_lib as lib
-import spyctl.cli as cli
-import spyctl.commands.apply as apply
+from spyctl.commands import apply
+
+# ----------------------------------------------------------------- #
+#                         Import Subcommand                         #
+# ----------------------------------------------------------------- #
+
+
+@click.command("import", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True, is_eager=True)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename containing policies to import.",
+    metavar="",
+    type=click.File(),
+    required=True,
+)
+def spy_import(filename):
+    """Import previously exported policies by file name
+    into a new organization context."""
+    handle_import(filename)
 
 
 def handle_import(filename):
-    all_data = lib.load_resource_file(filename)
-    for resrc_data in all_data[lib.ITEMS_FIELD]:
-        kind = resrc_data.get(lib.KIND_FIELD)
-        if kind == lib.POL_KIND:
-            r_type = resrc_data[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-            if r_type in lib.SUPPRESSION_POL_TYPES:
-                apply.handle_apply_suppression_policy(resrc_data)
-            else:
-                cli.err_exit(f"Unsupported import policy type '{type}'.")
-        elif kind == lib.NOTIFICATION_KIND:
-            apply.handle_apply_notification_config(resrc_data)
-        elif kind == lib.TARGET_KIND:
-            apply.handle_apply_notification_target(resrc_data)
-        else:
-            cli.err_exit(f"Unsupported import kind '{kind}'.")
+    """
+    Handles the import of a file. Essentially a wrapper for the
+    actual apply command.
+
+    Args:
+        filename (str): The name of the file to import.
+
+    Returns:
+        None
+    """
+    apply.handle_apply(filename)

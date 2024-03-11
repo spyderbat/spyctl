@@ -203,14 +203,16 @@ def test_create():
         ["create", "policy", "-f", resources_dir / "test_baseline.yaml"],
     )
     assert response.exit_code == 0
-    with open(resources_dir / "test_policy.yaml", "r") as f:
+    with open(resources_dir / "test_policy.yaml", "r", encoding="utf-8") as f:
         assert response.output.strip("\n") == f.read().strip("\n")
     response = runner.invoke(
         spyctl.main,
-        ["create", "baseline", "-f", resources_dir / "test_fprint_group.yaml"],
+        ["create", "policy", "-f", resources_dir / "test_fprint_group.yaml"],
     )
     assert response.exit_code == 0
-    with open(resources_dir / "test_baseline.yaml", "r") as f:
+    with open(
+        resources_dir / "test_created_policy.yaml", "r", encoding="utf-8"
+    ) as f:
         assert response.output.strip("\n") == f.read().strip("\n")
 
 
@@ -236,7 +238,7 @@ def test_update_policy():
     )
     assert response.exit_code == 0
     assert response.output.startswith(
-        "Successfully applied new policy with uid:"
+        "Successfully applied new container guardian policy with uid:"
     )
     response = runner.invoke(
         spyctl.main, ["get", "policies", "spyderbat-test"]
@@ -285,7 +287,7 @@ def test_apply_delete():
     )
     assert response.exit_code == 0
     assert response.output.startswith(
-        "Successfully applied new policy with uid:"
+        "Successfully applied new container guardian policy with uid:"
     )
     response = runner.invoke(
         spyctl.main, ["get", "policies", "spyderbat-test"]

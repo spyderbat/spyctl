@@ -1,17 +1,46 @@
-from typing import IO, Dict, List, Set, Any
+"""Handle the describe subcommand for spyctl."""
+
+# pylint: disable=broad-exception-caught
 
 import ipaddress as ipaddr
-import socket
-from collections import defaultdict
 import json
-import tqdm
+import socket
 import sys
+from collections import defaultdict
+from typing import IO, Any, Dict, List, Set
 
-import spyctl.api as api
-import spyctl.cli as cli
+import click
+import tqdm
+
 import spyctl.config.configs as cfg
 import spyctl.filter_resource as filt
 import spyctl.spyctl_lib as lib
+from spyctl import api, cli
+
+# ----------------------------------------------------------------- #
+#                        Describe Subcommand                        #
+# ----------------------------------------------------------------- #
+
+
+@click.command("describe", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.DescribeResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--filename",
+    help="File to diff with target.",
+    metavar="",
+    type=click.File(),
+)
+def describe(resource, name_or_id, filename=None):
+    """Describe a Spyderbat resource"""
+    handle_describe(resource, name_or_id, filename)
+
+
+# ----------------------------------------------------------------- #
+#                        Describe Handlers                          #
+# ----------------------------------------------------------------- #
 
 
 def handle_describe(resource: str, name_or_uid: str, file: IO = None):
@@ -56,10 +85,10 @@ def get_policy_from_file(name_or_uid: str, file: IO) -> Dict:
         if len(policies) == 0:
             cli.err_exit(f"No policies matching name_or_uid '{name_or_uid}'")
         resource = policies[0]
-    type = resource[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-    if type not in lib.GUARDIAN_POL_TYPES:
+    pol_type = resource[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+    if pol_type not in lib.GUARDIAN_POL_TYPES:
         cli.err_exit(
-            f"Policy type '{type}' is not a Guardian Policy type "
+            f"Policy type '{pol_type}' is not a Guardian Policy type "
             f"'{lib.GUARDIAN_POL_TYPES}'"
         )
     return resource

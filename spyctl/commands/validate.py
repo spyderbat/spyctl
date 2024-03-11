@@ -1,11 +1,56 @@
+"""Handles the validate subcommand for spyctl."""
+
 import json
 from typing import IO, Any, Dict, List, Union
 
-import spyctl.api as api
+import click
+
 import spyctl.config.configs as cfg
-import spyctl.cli as cli
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from spyctl import api, cli
+
+# ----------------------------------------------------------------- #
+#                       Validate Subcommand                         #
+# ----------------------------------------------------------------- #
+
+
+@click.command("validate", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.option(
+    "-f",
+    "--filename",
+    "file",
+    help="Target file to validate",
+    metavar="",
+    required=True,
+    type=click.File(),
+)
+@click.option(
+    "-a",
+    "--api",
+    "use_api",
+    metavar="",
+    default=False,
+    hidden=True,
+    is_flag=True,
+)
+@lib.colorization_option
+def validate(file, colorize, use_api):
+    """Validate spyderbat resource and spyctl configuration files.
+
+    \b
+    example:
+      spyctl validate -f my_policy.yaml
+    """
+    if not colorize:
+        lib.disable_colorization()
+    handle_validate(file, use_api)
+
+
+# ----------------------------------------------------------------- #
+#                        Validate Handlers                          #
+# ----------------------------------------------------------------- #
 
 
 def handle_validate(file: IO, do_api=False):
@@ -35,13 +80,12 @@ def validate_json(json_data: Union[str, Any]) -> bool:
         obj = json_data
     if isinstance(obj, list):
         return validate_list(obj)
-    elif isinstance(obj, dict):
+    if isinstance(obj, dict):
         return validate_object(obj)
-    else:
-        cli.err_exit(
-            "Invalid Object to Validate, expect dictionary or list of"
-            " dictionaries."
-        )
+    cli.err_exit(
+        "Invalid Object to Validate, expect dictionary or list of"
+        " dictionaries."
+    )
 
 
 def validate_list(objs: List):

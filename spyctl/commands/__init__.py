@@ -1,0 +1,43 @@
+"""All the command-related modules"""
+
+from . import (
+    apply,
+    config,
+    create,
+    delete,
+    describe,
+    diff,
+    edit,
+    export,
+    get,
+    logs,
+    merge,
+    print_file,
+    show_schema,
+    spy_import,
+    suppress,
+    test_notification,
+    update,
+    validate,
+)
+
+__all__ = [
+    "apply",
+    "config",
+    "create",
+    "delete",
+    "describe",
+    "diff",
+    "edit",
+    "export",
+    "get",
+    "logs",
+    "merge",
+    "print_file",
+    "show_schema",
+    "spy_import",
+    "suppress",
+    "test_notification",
+    "update",
+    "validate",
+]
