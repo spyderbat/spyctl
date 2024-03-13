@@ -1,13 +1,16 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring,no-self-argument
+# pylint: disable=raise-missing-from
 
 
 from __future__ import annotations
 
 import ipaddress
+import json
 from typing import Any, Dict, List, Optional, Union
 
+import yaml
 from pydantic import (
     BaseModel,
     Extra,
@@ -99,11 +102,90 @@ __PROC_IDS = {}
 # Selectors -------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
+EXPR_SYNTAX = (
+    "{key: <key>, operator: <operator>, values: [<value1>, <value2>, ...]}"
+)
+
+
+class SelectorExpression(BaseModel):
+    key: str = Field(alias=lib.KEY_FIELD)
+    operator: Literal["In", "NotIn", "Exists", "DoesNotExist"] = Field(
+        alias=lib.OPERATOR_FIELD
+    )
+    values: Optional[List[str]] = Field(alias=lib.VALUES_FIELD)
+
+    @root_validator
+    def ensure_values(cls, values):
+        if values["operator"] in ["Exists", "DoesNotExist"]:
+            if values.get("values"):
+                raise ValueError(
+                    f"'{values['operator']}' operator does not accept"
+                    f" values. Found '{values['values']}'"
+                )
+        else:
+            if not values.get("values"):
+                raise ValueError(
+                    f"'{values['operator']}' operator requires values."
+                )
+        return values
+
+
+def encode_expr(key, operator, values=None) -> str:
+    if operator in ["Exists", "DoesNotExist"]:
+        if values:
+            raise ValueError(
+                f"'{operator}' operator does not accept values. Found '{values}'"
+            )
+    else:
+        if not values:
+            raise ValueError(f"'{operator}' operator requires values.")
+    values_ = "[" + ", ".join(f"{ns}" for ns in values) + "]"
+    expr = (
+        "{ "
+        + f"key: {key}, operator: {operator}, values: {values_}"  # noqa
+        + " }"
+    )
+    return expr
+
 
 class MatchLabelsModel(BaseModel):
-    match_labels: Dict[str, Union[str, list]] = Field(
+    match_labels: Optional[Dict[str, str]] = Field(
         alias=lib.MATCH_LABELS_FIELD
     )
+
+    class Config:
+        extra = Extra.forbid
+
+
+class MatchExpressionModel(BaseModel):
+    match_expressions: Optional[List[SelectorExpression]] = Field(
+        alias=lib.MATCH_EXPRESSIONS_FIELD
+    )
+
+    # @validator("match_expressions")
+    # def validate_match_expressions(cls, v):
+    #     for expr_str in v:
+    #         try:
+    #             expr_dict = yaml.safe_load(expr_str)
+    #             SelectorExpression(**expr_dict)
+    #         except json.JSONDecodeError:
+    #             raise ValueError(
+    #                 f'Invalid JSON found in "{expr_str}".'
+    #                 f' Expected "{EXPR_SYNTAX}"'
+    #             )
+    #     return v
+
+    class Config:
+        extra = Extra.forbid
+
+
+class MatchModel(MatchLabelsModel, MatchExpressionModel):
+
+    @root_validator
+    def ensure_one_field(cls, values):
+        if not any(value for value in values.values()):
+            raise ValueError("Need matchLabels or matchExpressions")
+        return values
 
     class Config:
         extra = Extra.forbid
@@ -155,11 +237,11 @@ class MachineSelectorModel(BaseModel):
         extra = Extra.forbid
 
 
-class NamespaceSelectorModel(MatchLabelsModel):
+class NamespaceSelectorModel(MatchModel):
     pass
 
 
-class PodSelectorModel(MatchLabelsModel):
+class PodSelectorModel(MatchModel):
     pass
 
 

@@ -1,9 +1,12 @@
-from typing import Dict, List, Tuple, Optional
+import json
+import yaml
+from typing import Dict, List, Optional, Tuple
 
-import spyctl.api as api
 import spyctl.config.configs as cfg
 import spyctl.resources.api_filters as af
+import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from spyctl import api
 
 NS_LABEL = "kubernetes.io/metadata.name"
 
@@ -96,27 +99,41 @@ class ContainerRules(RulesObject):
             agg.setdefault(namespaces, [])
             agg[namespaces].append(image.image)
         for namespaces, images in agg.items():
+            if len(namespaces) == 1:
+                ns_selector = schemas.NamespaceSelectorModel(
+                    matchLabels={"kubernetes.io/metadata.name": namespaces[0]}
+                )
+            else:
+                expr = schemas.SelectorExpression(
+                    key="kubernetes.io/metadata.name",
+                    operator=lib.IN_OPERATOR,
+                    values=namespaces,
+                )
+                ns_selector = schemas.NamespaceSelectorModel(
+                    matchExpressions=[
+                        expr.dict(by_alias=True, exclude_unset=True)
+                    ]
+                )
             rv.append(
                 {
-                    lib.NAMESPACE_SELECTOR_FIELD: {
-                        lib.MATCH_LABELS_FIELD: {
-                            "kubernetes.io/metadata.name": (
-                                namespaces[0]
-                                if len(namespaces) == 1
-                                else list(sorted(namespaces))
-                            )
-                        }
-                    },
+                    lib.NAMESPACE_SELECTOR_FIELD: ns_selector.dict(
+                        by_alias=True, exclude_unset=True
+                    ),
                     "verb": self.verb,
                     lib.IMAGE_FIELD: sorted(images),
                 }
             )
 
         def sort_key(item: Dict):
-            namespaces = item[lib.NAMESPACE_SELECTOR_FIELD][
+            labels = item[lib.NAMESPACE_SELECTOR_FIELD].get(
                 lib.MATCH_LABELS_FIELD
-            ][NS_LABEL]
-            return namespaces if isinstance(namespaces, str) else namespaces[0]
+            )
+            if labels:
+                namespace = labels.get(NS_LABEL)
+                return namespace
+            return ""
+            # expressions = item[lib.NAMESPACE_SELECTOR_FIELD].get(
+            # if isinstance(namespaces, str) else namespaces[0]
 
         rv.sort(key=sort_key)
         return rv

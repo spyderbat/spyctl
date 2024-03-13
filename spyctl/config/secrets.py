@@ -223,7 +223,7 @@ def set_secret(name: str, apiurl: str = None, apikey: str = None):
     try:
         with cfgs.GLOBAL_SECRETS_PATH.open("w") as f:
             try:
-                yaml.dump(output_data, f, sort_keys=False)
+                yaml.dump(output_data, f, sort_keys=False, width=float("inf"))
                 if updated:
                     cli.try_log(
                         "Updated apisecret"
@@ -259,7 +259,7 @@ def delete_secret(secret_name: Dict):
     try:
         with cfgs.GLOBAL_SECRETS_PATH.open("w") as f:
             try:
-                yaml.dump(output_data, f, sort_keys=False)
+                yaml.dump(output_data, f, sort_keys=False, width=float("inf"))
                 cli.try_log(
                     f"Deleted secret"
                     f" '{secret_name}' from {str(cfgs.GLOBAL_SECRETS_PATH)}"
