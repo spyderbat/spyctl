@@ -216,6 +216,13 @@ def create_notif_route(name, target, template, output):
     hidden=False,
 )
 @click.option(
+    "--include-imageid",
+    help="Include the image id in the container selector when creating the"
+    " policy.",
+    metavar="",
+    is_flag=True,
+)
+@click.option(
     "-m",
     "--mode",
     type=click.Choice(lib.POL_MODES),
@@ -247,12 +254,20 @@ def create_policy(
     disable_procs,
     disable_conns,
     use_api,
+    include_imageid,
 ):
     """Create a Guardian Policy object from a file, outputted to stdout"""
     if not colorize:
         lib.disable_colorization()
     handle_create_guardian_policy(
-        filename, output, name, mode, disable_procs, disable_conns, use_api
+        filename,
+        output,
+        name,
+        mode,
+        disable_procs,
+        disable_conns,
+        use_api,
+        include_imageid,
     )
 
 
@@ -525,6 +540,7 @@ def handle_create_guardian_policy(
     disable_procs: str,
     disable_conns: str,
     do_api=False,
+    include_imageid=False,
 ):
     """
     Handles the creation of a guardian policy.
@@ -552,7 +568,7 @@ def handle_create_guardian_policy(
         cli.show(policy, lib.OUTPUT_RAW)
     else:
         policy = create_guardian_policy_from_file(
-            file, name, mode, disable_procs, disable_conns
+            file, name, mode, disable_procs, disable_conns, include_imageid
         )
         if output == lib.OUTPUT_DEFAULT:
             output = lib.OUTPUT_YAML
@@ -560,7 +576,12 @@ def handle_create_guardian_policy(
 
 
 def create_guardian_policy_from_file(
-    file: IO, name: str, mode: str, disable_procs: str, disable_conns: str
+    file: IO,
+    name: str,
+    mode: str,
+    disable_procs: str,
+    disable_conns: str,
+    include_imageid: bool = False,
 ):
     """
     Create a Guardian policy from a file.
@@ -582,12 +603,17 @@ def create_guardian_policy_from_file(
         mode=mode,
         disable_procs=disable_procs,
         disable_conns=disable_conns,
+        include_imageid=include_imageid,
     )
     return policy
 
 
 def create_guardian_policy_from_json(
-    name: str, mode: str, input_objects: List[Dict], ctx: cfg.Context
+    name: str,
+    mode: str,
+    input_objects: List[Dict],
+    ctx: cfg.Context,
+    include_imageid: bool = False,
 ):
     """
     Create a Guardian policy from JSON.
@@ -602,7 +628,11 @@ def create_guardian_policy_from_json(
         The created Guardian policy.
     """
     policy = _r.policies.create_policy(
-        input_objects, mode=mode, name=name, ctx=ctx
+        input_objects,
+        mode=mode,
+        name=name,
+        ctx=ctx,
+        include_imageid=include_imageid,
     )
     return policy
 

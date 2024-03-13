@@ -175,6 +175,7 @@ def create_policy(
     ctx: cfg.Context = None,
     disable_procs: str = None,
     disable_conns: str = None,
+    include_imageid: bool = False,
 ):
     input_objs = []
     if isinstance(input_data, list):
@@ -212,6 +213,10 @@ def create_policy(
     rv = policy.as_dict()
     if not schemas.valid_object(rv):
         cli.err_exit("Created policy failed validation.")
+    if not include_imageid:
+        container_selector = rv[lib.SPEC_FIELD].get(lib.CONT_SELECTOR_FIELD)
+        if container_selector:
+            container_selector.pop(lib.IMAGEID_FIELD, None)
     return rv
 
 
