@@ -141,6 +141,12 @@ CONNECTION_BUN_RESOURCE = Aliases(
     "connection-bundle",
     "connection-bundles",
 )
+CLUSTER_POLICY_RESOURCE = Aliases(
+    ["cluster-policy", "cluster-policies", "clus-pol", "cp"],
+    "cluster-policy",
+    "cluster-policies",
+    kind=POL_KIND,
+)
 DEPLOYMENTS_RESOURCE = Aliases(
     ["deployments", "deployment", "deploys", "deploy"],
     "deployment",
@@ -443,12 +449,17 @@ RESOURCES_WITH_SCHEMAS = [
     FINGERPRINTS_RESOURCE.name,
     FINGERPRINT_GROUP_RESOURCE.name,
     POLICIES_RESOURCE.name,
+    CLUSTER_POLICY_RESOURCE.name,
     SECRETS_ALIAS.name,
     SUPPRESSION_POLICY_RESOURCE.name,
     UID_LIST_RESOURCE.name,
 ]
 
 CMD_ORG_FIELD = "org"
+
+SUB_EPILOG = (
+    'Use "spyctl <command> --help" for more information about a given command.'
+)
 
 
 def tmp_context_options(function):
@@ -652,20 +663,20 @@ SCHEMA_FIELD = "schema"
 
 # Spyderbat Event Schema Prefix'
 EVENT_METRICS_PREFIX = "event_metric"
-EVENT_AUDIT_PREFIX = "event_audit"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
 EVENT_REDFLAG_PREFIX = "event_redflag"
+EVENT_DEVIATION_PREFIX = "event_deviation"
+EVENT_LOG_PREFIX = "event_log"
 
 EVENT_METRIC_SUBTYPE_MAP = {
     "agent": "agent",
     "machine": "machine",
 }
 
-EVENT_AUDIT_SUBTYPE_MAP = {
+EVENT_LOG_SUBTYPE_MAP = {
     "deviation": "guardian_deviation",
     "action": "guardian_action",
-    "redflag": "guardian_redflag",
-    "opsflag": "guardian_opsflag",
+    "redflag": "guardian_flag",
 }
 
 # Spyderbat Model Schema Prefix'

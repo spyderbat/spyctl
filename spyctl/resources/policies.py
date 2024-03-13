@@ -32,6 +32,22 @@ POLICY_META_MERGE_SCHEMA = m_lib.MergeSchema(
 )
 POLICY_MERGE_SCHEMAS = [POLICY_META_MERGE_SCHEMA, m_lib.SPEC_MERGE_SCHEMA]
 
+POLICY_SUB_TYPES = {lib.POL_TYPE_TRACE: "suppression"}
+
+
+def get_policy_subtype(pol_type: str) -> str:
+    """
+    Returns the subtype of a policy based on its type.
+
+    Args:
+        pol_type (str): The type of the policy.
+
+    Returns:
+        str: The subtype of the policy. If the subtype is not found, it
+            returns "guardian".
+    """
+    return POLICY_SUB_TYPES.get(pol_type, "guardian")
+
 
 class InvalidPolicyError(Exception):
     pass
@@ -159,6 +175,7 @@ def create_policy(
     ctx: cfg.Context = None,
     disable_procs: str = None,
     disable_conns: str = None,
+    include_imageid: bool = False,
 ):
     input_objs = []
     if isinstance(input_data, list):
@@ -196,6 +213,10 @@ def create_policy(
     rv = policy.as_dict()
     if not schemas.valid_object(rv):
         cli.err_exit("Created policy failed validation.")
+    if not include_imageid:
+        container_selector = rv[lib.SPEC_FIELD].get(lib.CONT_SELECTOR_FIELD)
+        if container_selector:
+            container_selector.pop(lib.IMAGEID_FIELD, None)
     return rv
 
 

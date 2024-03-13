@@ -1,3 +1,7 @@
+"""Handles the 'edit' subcommand for spyctl."""
+
+# pylint: disable=broad-exception-caught
+
 import json
 import tempfile
 from io import TextIOWrapper
@@ -7,19 +11,69 @@ import click
 import yaml
 
 import spyctl.config.configs as cfg
+import spyctl.resources.notification_configs as nc
 import spyctl.resources.notification_targets as nt
-import spyctl.resources.notifications_configs as nc
 import spyctl.resources.policies as p
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
 from spyctl import api, cli
 
+# ----------------------------------------------------------------- #
+#                          Edit Subcommand                          #
+# ----------------------------------------------------------------- #
+
+
+@click.command("edit", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.EditResourcesParam(), required=False)
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-f",
+    "--filename",
+    help="Filename to use to edit the resource.",
+    metavar="",
+    type=click.File(mode="r+"),
+)
+@click.option(
+    "-y",
+    "--yes",
+    "--assume-yes",
+    is_flag=True,
+    help='Automatic yes to prompts; assume "yes" as answer to all prompts and'
+    " run non-interactively.",
+)
+def edit(resource, name_or_id, filename, yes=False):
+    """Edit resources by resource and name, or by resource and ids"""
+    if yes:
+        cli.set_yes_option()
+    handle_edit(resource, name_or_id, filename)
+
+
+# ----------------------------------------------------------------- #
+#                          Edit Handlers                            #
+# ----------------------------------------------------------------- #
+
 EDIT_PROMPT = (
-    "# Please edit the object below. Lines beginning with a '#' will be ignored,\n"
-    "# and an empty file will abort the edit. If an error occurs while saving this file will be\n"
+    "# Please edit the object below. Lines beginning with a '#' will be ignored,\n"  # noqa
+    "# and an empty file will abort the edit. If an error occurs while saving this file will be\n"  # noqa
     "# reopened with the relevant failures.\n"
     "#\n"
 )
+
+KIND_TO_RESOURCE_TYPE: Dict[str, str] = {
+    lib.BASELINE_KIND: lib.BASELINES_RESOURCE.name,
+    lib.CONFIG_KIND: lib.CONFIG_ALIAS.name,
+    lib.FPRINT_GROUP_KIND: lib.FINGERPRINT_GROUP_RESOURCE.name,
+    lib.FPRINT_KIND: lib.FINGERPRINTS_RESOURCE.name,
+    lib.POL_KIND: lib.POLICIES_RESOURCE.name,
+    (lib.POL_KIND, lib.POL_TYPE_TRACE): lib.SUPPRESSION_POLICY_RESOURCE.name,
+    lib.SECRET_KIND: lib.SECRETS_ALIAS.name,
+    lib.UID_LIST_KIND: lib.UID_LIST_RESOURCE.name,
+    lib.DEVIATION_KIND: lib.DEVIATIONS_RESOURCE.name,
+    lib.NOTIFICATION_KIND: lib.NOTIFICATION_CONFIGS_RESOURCE.name,
+    lib.TARGET_KIND: lib.NOTIFICATION_TARGETS_RESOURCE.name,
+    lib.RULESET_KIND: "ruleset",
+}
 
 
 def handle_edit(resource=None, name_or_id=None, file: IO = None):
@@ -61,22 +115,6 @@ def handle_edit(resource=None, name_or_id=None, file: IO = None):
             )
 
 
-KIND_TO_RESOURCE_TYPE: Dict[str, str] = {
-    lib.BASELINE_KIND: lib.BASELINES_RESOURCE.name,
-    lib.CONFIG_KIND: lib.CONFIG_ALIAS.name,
-    lib.FPRINT_GROUP_KIND: lib.FINGERPRINT_GROUP_RESOURCE.name,
-    lib.FPRINT_KIND: lib.FINGERPRINTS_RESOURCE.name,
-    lib.POL_KIND: lib.POLICIES_RESOURCE.name,
-    (lib.POL_KIND, lib.POL_TYPE_TRACE): lib.SUPPRESSION_POLICY_RESOURCE.name,
-    lib.SECRET_KIND: lib.SECRETS_ALIAS.name,
-    lib.UID_LIST_KIND: lib.UID_LIST_RESOURCE.name,
-    lib.DEVIATION_KIND: lib.DEVIATIONS_RESOURCE.name,
-    lib.NOTIFICATION_KIND: lib.NOTIFICATION_CONFIGS_RESOURCE.name,
-    lib.TARGET_KIND: lib.NOTIFICATION_TARGETS_RESOURCE.name,
-    lib.RULESET_KIND: "ruleset",
-}
-
-
 def handle_edit_file(file: IO):
     """
     Handle editing a file.
@@ -95,10 +133,13 @@ def handle_edit_file(file: IO):
     if kind not in KIND_TO_RESOURCE_TYPE:
         cli.err_exit(f"Editing resource of kind '{kind}' not supported.")
     if kind == lib.POL_KIND:
-        type = resource[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-        if type == lib.POL_TYPE_TRACE:
+        m_type = resource[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
+        if m_type == lib.POL_TYPE_TRACE:
             kind = (lib.POL_KIND, lib.POL_TYPE_TRACE)
-    resource_type = KIND_TO_RESOURCE_TYPE[kind]
+    m_type = resource[lib.METADATA_FIELD].get(lib.METADATA_TYPE_FIELD)
+    resource_type = KIND_TO_RESOURCE_TYPE.get((kind, kind))
+    if not resource_type:
+        resource_type = KIND_TO_RESOURCE_TYPE[kind]
     edit_resource(
         yaml.dump(resource, sort_keys=False),
         file,
@@ -154,13 +195,13 @@ def handle_edit_notif_config(name_or_id):
     edit_index = None
     edit_id = None
     for i, route in enumerate(routes):
-        id = route.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+        notif_id = route.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
         name = route.get(lib.DATA_FIELD, {}).get(lib.NAME_FIELD)
-        if id == name_or_id or name == name_or_id:
+        if name_or_id in [name, notif_id]:
             if edit_index is not None and name == name_or_id:
                 cli.err_exit(f"{name_or_id} is ambiguous, use ID")
             edit_index = i
-            edit_id = id
+            edit_id = notif_id
     if edit_index is None:
         cli.err_exit(f"No notification configs matching '{name_or_id}'.")
     config = (
@@ -207,10 +248,10 @@ def handle_edit_notif_tgt(name_or_id):
         edit_tgt = nt.Target(backend_target={name_or_id: tgt_data})
     if not edit_tgt:
         for tgt_name, tgt in targets.items():
-            id = tgt.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
-            if id is None:
+            tgt_id = tgt.get(lib.DATA_FIELD, {}).get(lib.ID_FIELD)
+            if tgt_id is None:
                 continue
-            if id == name_or_id:
+            if tgt_id == name_or_id:
                 edit_tgt = nt.Target(backend_target={tgt_name: tgt})
                 break
     if not edit_tgt:

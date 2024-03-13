@@ -16,13 +16,7 @@ def handle_input_data(data: Dict, ctx: cfg.Context = None) -> List[Dict]:
     elif obj_kind == lib.FPRINT_KIND:
         rv.append(data)
     elif obj_kind == lib.DEVIATION_KIND or (
-        schema
-        and schema.startswith(
-            (
-                f"{lib.EVENT_AUDIT_PREFIX}:"
-                f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
-            )
-        )
+        schema and schema.startswith(lib.EVENT_DEVIATION_PREFIX)
     ):
         if obj_kind is None:
             rv.append(data["deviation"])
