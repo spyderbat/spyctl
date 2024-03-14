@@ -1,0 +1,141 @@
+apiVersion: spyderbat/v1
+kind: SpyderbatRuleset
+metadata:
+  createdBy: brent.haub@spyderbat.com
+  creationTimestamp: 1709897308
+  lastUpdatedBy: brent.haub@spyderbat.com
+  lastUpdatedTimestamp: 1709935626
+  name: integrationc2_ruleset
+  type: cluster
+  uid: rs:N94S4bUu8QXwBdPfpuAT
+  version: 2
+spec:
+  rules:
+    container:
+    - image:
+      - docker.io/hasselhaub/ubuntu-black-mamba-sshd:latest
+      - docker.io/hasselhaub/ubuntu-sshd:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: black-mamba
+      verb: allow
+    - image:
+      - docker.io/hashicorpdemoapp/frontend:v1.0.3
+      - docker.io/hashicorpdemoapp/payments:v0.0.16
+      - docker.io/hashicorpdemoapp/product-api-db:v0.0.21
+      - docker.io/hashicorpdemoapp/product-api:v0.0.21
+      - docker.io/hashicorpdemoapp/public-api:v0.0.6
+      - docker.io/jaegertracing/jaeger-agent:latest
+      - docker.io/library/nginx:alpine
+      - public.ecr.aws/a6j2k0g1/falcosidekick:pidfix
+      - public.ecr.aws/a6j2k0g1/foobar1:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+      verb: allow
+    - image:
+      - docker.io/library/mongo:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name:
+          - demo
+          - rsvp-svc-prod
+          - scenarios-testing
+      verb: allow
+    - image:
+      - docker.io/guyduchatelet/spyderbat-demo:2
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name:
+          - demo
+          - scenarios-testing
+      verb: allow
+    - image:
+      - docker.io/guyduchatelet/test-server:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: guy-test
+      verb: allow
+    - image:
+      - public.ecr.aws/a6j2k0g1/dummy-server:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: killdemo
+      verb: allow
+    - image:
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon-k8s-cni-init:v1.10.1-eksbuild.1
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon-k8s-cni:v1.10.1-eksbuild.1
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/aws-ebs-csi-driver:v1.17.0
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/coredns:v1.8.7-eksbuild.1
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/csi-attacher:v4.2.0-eks-1-26-latest
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/csi-node-driver-registrar:v2.7.0-eks-1-26-latest
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/csi-provisioner:v3.4.0-eks-1-26-latest
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/csi-resizer:v1.7.0-eks-1-26-latest
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/csi-snapshotter:v6.2.1-eks-1-26-latest
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/kube-proxy:v1.22.6-eksbuild.1
+      - 602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/livenessprobe:v2.9.0-eks-1-26-latest
+      - public.ecr.aws/aws-secrets-manager/secrets-store-csi-driver-provider-aws:1.0.r2-50-g5b4aca1-2023.06.09.21.19
+      - public.ecr.aws/eks/aws-load-balancer-controller:v2.5.4
+      - quay.io/cilium/hubble-export-stdout:v1.0.3
+      - quay.io/cilium/tetragon-operator:v1.0.0
+      - quay.io/cilium/tetragon:v1.0.0
+      - registry.k8s.io/csi-secrets-store/driver:v1.3.4
+      - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.8.0
+      - registry.k8s.io/sig-storage/livenessprobe:v2.10.0
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      verb: allow
+    - image:
+      - docker.io/kubernetesui/dashboard:v2.5.0
+      - docker.io/kubernetesui/metrics-scraper:v1.0.7
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kubernetes-dashboard
+      verb: allow
+    - image:
+      - quay.io/vicenteherrera/log4shell-vulnerable-app:latest
+      - quay.io/vicenteherrera/rogue-jndi:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: log4shell
+      verb: allow
+    - image:
+      - public.ecr.aws/nginx/nginx:1.23
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: nlb-sample-app
+      verb: allow
+    - image:
+      - docker.io/guyduchatelet/spyderbat-demo:1
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name:
+          - rsvp-svc-dev
+          - rsvp-svc-prod
+          - scale-test
+      verb: allow
+    - image:
+      - docker.io/guyduchatelet/scenarios-server:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name:
+          - scenarios-rolling-restart
+          - scenarios-scale
+      verb: allow
+    - image:
+      - docker.io/guyduchatelet/gdig:latest
+      - public.ecr.aws/a6j2k0g1/aws-agent:latest
+      - public.ecr.aws/a6j2k0g1/event-forwarder:latest
+      - public.ecr.aws/a6j2k0g1/nano-agent:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: spyderbat
+      verb: allow
+    - image:
+      - docker.io/devopscube/kubernetes-job-demo:latest
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: staging
+      verb: allow
+

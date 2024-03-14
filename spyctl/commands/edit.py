@@ -141,7 +141,7 @@ def handle_edit_file(file: IO):
     if not resource_type:
         resource_type = KIND_TO_RESOURCE_TYPE[kind]
     edit_resource(
-        yaml.dump(resource, sort_keys=False),
+        cli.make_yaml(resource),
         file,
         resource_type,
         schemas.KIND_TO_SCHEMA[kind],
@@ -162,7 +162,7 @@ def handle_edit_ruleset(name_or_id, rs_type=None):
     if len(rulesets) > 1:
         cli.err_exit(f"Ruleset '{name_or_id}' is ambiguous, use full UID.")
     ruleset = rulesets[0]
-    resource_yaml = yaml.dump(ruleset, sort_keys=False)
+    resource_yaml = cli.make_yaml(ruleset)
     edit_resource(
         resource_yaml,
         ruleset[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
@@ -217,7 +217,7 @@ def handle_edit_notif_config(name_or_id):
         key = lib.NOTIFICATION_KIND
     if not config:
         cli.err_exit("Editing legacy notification configs not supported.")
-    resource_yaml = yaml.dump(config, sort_keys=False)
+    resource_yaml = cli.make_yaml(config)
     edit_resource(
         resource_yaml,
         edit_id,
@@ -256,7 +256,7 @@ def handle_edit_notif_tgt(name_or_id):
                 break
     if not edit_tgt:
         cli.err_exit(f"No notification targets matching '{name_or_id}'.")
-    resource_yaml = yaml.dump(edit_tgt.as_dict(), sort_keys=False)
+    resource_yaml = cli.make_yaml(edit_tgt.as_dict())
     edit_resource(
         resource_yaml,
         edit_tgt.id,
@@ -288,7 +288,7 @@ def handle_edit_policy(name_or_id, pol_type=None):
         desc = f" {pol_type} " if pol_type else " "
         cli.err_exit(f"No{desc}policies matching '{name_or_id}'.")
     policy = policies[0]
-    resource_yaml = yaml.dump(policy, sort_keys=False)
+    resource_yaml = cli.make_yaml(policy)
     edit_resource(
         resource_yaml,
         policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD],
@@ -449,8 +449,9 @@ def apply_policy_edits(edit_dict: Dict, policy_id: str):
     """
     ctx = cfg.get_current_context()
     pol_type = edit_dict[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-    _, api_data = p.get_data_for_api_call(edit_dict)
-    api.put_policy_update(*ctx.get_api_data(), api_data)
+    # Ensure the user didn't manipulate the uid
+    edit_dict[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = policy_id
+    api.put_policy_update(*ctx.get_api_data(), edit_dict)
     cli.try_log(
         f"Successfully edited {__pol_resrc_name(pol_type)} '{policy_id}'"
     )
@@ -458,6 +459,7 @@ def apply_policy_edits(edit_dict: Dict, policy_id: str):
 
 def apply_ruleset_edits(edit_dict: Dict, ruleset_id: str):
     ctx = cfg.get_current_context()
+    edit_dict[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = ruleset_id
     api.put_ruleset_update(*ctx.get_api_data(), edit_dict)
     cli.try_log(f"Successfully edited Ruleset '{ruleset_id}'")
 
@@ -478,7 +480,7 @@ def apply_file_edits(resource, file: IO):
             if extension == ".json":
                 f.write(json.dumps(resource, sort_keys=False, indent=2))
             else:
-                f.write(yaml.dump(resource, sort_keys=False))
+                f.write(cli.make_yaml(resource))
     except Exception as e:
         cli.err_exit(f"Unable to write output to {file.name}", exception=e)
     cli.try_log(f"Successfully edited resource file '{file.name}'")

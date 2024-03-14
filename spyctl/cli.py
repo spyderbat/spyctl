@@ -92,6 +92,25 @@ def notice(notice_msg):
     input()
 
 
+class CustomDumper(yaml.SafeDumper):
+
+    def represent_mapping(self, tag, mapping, flow_style=None):
+        # Flow style for the
+        if (
+            mapping
+            and lib.KEY_FIELD in mapping
+            and lib.OPERATOR_FIELD in mapping
+        ):
+            return super().represent_mapping(tag, mapping, flow_style=True)
+        return super().represent_mapping(tag, mapping, flow_style)
+
+
+def make_yaml(obj) -> str:
+    return yaml.dump(
+        obj, sort_keys=False, width=float("inf"), Dumper=CustomDumper
+    )
+
+
 def show(
     obj,
     output,
@@ -117,7 +136,7 @@ def show(
     """
     out_data = None
     if output == lib.OUTPUT_YAML:
-        out_data = yaml.dump(obj, sort_keys=False)
+        out_data = make_yaml(obj)
         if output_fn:
             output_fn += ".yaml"
     elif output == lib.OUTPUT_JSON:

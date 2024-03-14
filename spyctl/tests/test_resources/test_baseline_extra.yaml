@@ -18,6 +18,11 @@ spec:
   namespaceSelector:
     matchLabels:
       kubernetes.io/metadata.name: test
+    matchExpressions:
+    - {key: env, operator: In, values: [dev]}
+    - {key: tier, operator: NotIn, values: [backend]}
+    - {key: foobar, operator: DoesNotExist}
+    - {key: bizbaz, operator: Exists}
   processPolicy:
   - name: python
     exe:
