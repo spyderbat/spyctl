@@ -509,12 +509,19 @@ def __cont_fprint_summary(
         row_data = [data.get_wide_data() for data in container_data.values()]
     else:
         row_data = [data.get_data() for data in container_data.values()]
+
     if sort_by:
-        row_data.sort(
-            key=lambda row: [
-                row[container_headers.index(col)] for col in sort_by
-            ]
-        )
+
+        def sort_key(row) -> list:
+            rv = []
+            for col in sort_by:
+                insert = row[container_headers.index(col)]
+                if insert is None:
+                    insert = "~"  # Sort None values to the end
+                rv.append(insert)
+            return rv
+
+        row_data.sort(key=sort_key)
     else:
         row_data.sort(key=lambda x: [x[0]])
     container_tbl = tabulate(

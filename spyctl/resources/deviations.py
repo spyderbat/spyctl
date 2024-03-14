@@ -117,9 +117,9 @@ def get_deviations_stream(
 
 
 def __set_checksum(deviation: Dict) -> Dict:
-    deviation[lib.DEVIATION_FIELD][lib.METADATA_FIELD][
-        lib.CHECKSUM_FIELD
-    ] = deviation.get(lib.CHECKSUM_FIELD)
+    deviation[lib.DEVIATION_FIELD][lib.METADATA_FIELD][lib.CHECKSUM_FIELD] = (
+        deviation.get(lib.CHECKSUM_FIELD)
+    )
 
 
 def __build_items_output(deviations: List[Dict]) -> Dict:

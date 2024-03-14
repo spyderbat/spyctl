@@ -26,9 +26,13 @@ import spyctl.resources.pods as spyctl_pods
 import spyctl.resources.policies as spyctl_policies
 import spyctl.resources.processes as spyctl_procs
 import spyctl.resources.replicasets as spyctl_replicaset
+import spyctl.resources.roles as spyctl_roles
+import spyctl.resources.clusterrole as spyctl_clusterroles
 import spyctl.resources.spydertraces as spyctl_spytrace
 import spyctl.resources.suppression_policies as s_pol
 import spyctl.resources.sources as spyctl_src
+import spyctl.resources.rolebinding as spyctl_rolebinding
+import spyctl.resources.clusterrolebinding as spyctl_crb
 import spyctl.spyctl_lib as lib
 
 ALL = "all"
@@ -101,6 +105,10 @@ def handle_get(
         handle_get_processes(name_or_id, st, et, output, **filters)
     elif resource == lib.REDFLAGS_RESOURCE:
         handle_get_redflags(name_or_id, st, et, output, **filters)
+    elif resource == lib.ROLES_RESOURCE:
+        handle_get_roles(name_or_id, st, et, output, **filters)
+    elif resource == lib.CLUSTERROLES_RESOURCE:
+        handle_get_clusterroles(name_or_id, st, et, output, **filters)
     elif resource == lib.REPLICASET_RESOURCE:
         handle_get_replicasets(name_or_id, st, et, output, **filters)
     elif resource == lib.SOURCES_RESOURCE:
@@ -109,6 +117,10 @@ def handle_get(
         handle_get_spydertraces(name_or_id, st, et, output, **filters)
     elif resource == lib.SUPPRESSION_POLICY_RESOURCE:
         handle_get_suppression_policies(name_or_id, st, et, output, **filters)
+    elif resource == lib.ROLEBINDING_RESOURCE:
+        handle_get_rolebinding(name_or_id, st, et, output, **filters)
+    elif resource == lib.CLUSTERROLE_BINDING_RESOURCE:
+        handle_get_clusterrolebinding(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
@@ -658,6 +670,102 @@ def handle_get_replicasets(name_or_id, st, et, output, **filters):
             cli.show(replicaset, output, ndjson=NDJSON)
 
 
+def handle_get_roles(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Role.build_sources_and_filters(**filters)
+    pipeline = _af.Role.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_roles.role_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for role in api.get_role(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(role, output, ndjson=NDJSON)
+
+
+def handle_get_clusterroles(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.ClusterRole.build_sources_and_filters(**filters)
+    pipeline = _af.ClusterRole.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_clusterroles.clusterrole_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for clusterrole in api.get_clusterrole(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(clusterrole, output, ndjson=NDJSON)
+
+
+def handle_get_rolebinding(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.RoleBinding.build_sources_and_filters(**filters)
+    pipeline = _af.RoleBinding.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_rolebinding.rolebinding_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for rolebinding in api.get_rolebinding(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(rolebinding, output, ndjson=NDJSON)
+
+
+def handle_get_clusterrolebinding(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.ClusterRoleBinding.build_sources_and_filters(
+        **filters
+    )
+    pipeline = _af.ClusterRoleBinding.generate_pipeline(
+        name_or_id, filters=filters
+    )
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_crb.clusterrolebinding_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for crb in api.get_clusterrolebinding(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(crb, output, ndjson=NDJSON)
+
+
 def handle_get_redflags(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     sources, filters = _af.RedFlags.build_sources_and_filters(**filters)
@@ -847,7 +955,13 @@ def handle_get_fingerprints(
     group_by = filters.pop("group_by", [])
     sort_by = filters.pop("sort_by", [])
     fprint_type = filters.pop(lib.TYPE_FIELD)
-    sources, filters = _af.Fingerprints.build_sources_and_filters(**filters)
+    sources, filters = _af.Fingerprints.build_sources_and_filters(
+        use_property_fields=True, **filters
+    )
+    # Hacky -- need to fix this in the API code
+    if "image" in filters:
+        value = filters.pop("image")
+        filters["image_name"] = value
     name_or_id_expr = None
     if name_or_id:
         name_or_id_expr = _af.Fingerprints.generate_name_or_uid_expr(
