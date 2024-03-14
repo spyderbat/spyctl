@@ -258,7 +258,7 @@ def load_config(silent=False):
         GLOBAL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         GLOBAL_CONFIG_PATH.touch()
         with GLOBAL_CONFIG_PATH.open("w") as f:
-            yaml.dump(CONFIG_TEMPLATE, f)
+            yaml.dump(CONFIG_TEMPLATE, f, width=float("inf"))
     if not GLOBAL_SECRETS_PATH.exists():
         GLOBAL_SECRETS_DIR.mkdir(parents=True, exist_ok=True)
         # GLOBAL_SECRETS_DIR.chmod(700)
@@ -410,7 +410,7 @@ def init():
             config_template = deepcopy(CONFIG_TEMPLATE)
             if global_current_ctx:
                 config_template[CURR_CONTEXT_FIELD] = global_current_ctx
-            yaml.dump(config_template, f)
+            yaml.dump(config_template, f, width=float("inf"))
         cli.try_log(
             f"{'Reset' if reset else 'Created'} configuration file at"
             f" {str(local_workspace_path)}."
@@ -467,7 +467,9 @@ def set_context(
     target_config.context_paths[name] = config.config_path
     try:
         with context_path.open("w") as f:
-            yaml.dump(target_config.as_dict(), f, sort_keys=False)
+            yaml.dump(
+                target_config.as_dict(), f, sort_keys=False, width=float("inf")
+            )
             cli.try_log(
                 f"{'Updated' if updated else 'Set new'} context '{name}' in"
                 f" configuration file '{context_path}'."
@@ -479,7 +481,12 @@ def set_context(
                 )
         if local_updated_curr_ctx:
             with local_config.config_path.open("w") as f:
-                yaml.dump(local_config.as_dict(), f, sort_keys=False)
+                yaml.dump(
+                    local_config.as_dict(),
+                    f,
+                    sort_keys=False,
+                    width=float("inf"),
+                )
                 if (
                     local_config.config_path != context_path
                     or not tgt_updated_curr_ctx
@@ -533,7 +540,9 @@ def delete_context(name, force_global):
             target_config.current_context = CURR_CONTEXT_NONE
     try:
         with context_path.open("w") as f:
-            yaml.dump(target_config.as_dict(), f, sort_keys=False)
+            yaml.dump(
+                target_config.as_dict(), f, sort_keys=False, width=float("inf")
+            )
             cli.try_log(
                 f"Deleted context '{name}' in"
                 f" configuration file '{context_path}'."
@@ -610,7 +619,9 @@ def use_context(name, force_global):
     target_config.current_context = name
     try:
         with context_path.open("w") as f:
-            yaml.dump(target_config.as_dict(), f, sort_keys=False)
+            yaml.dump(
+                target_config.as_dict(), f, sort_keys=False, width=float("inf")
+            )
             cli.try_log(
                 f"Set current context to '{name}' in"
                 f" configuration file '{context_path}'."

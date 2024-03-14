@@ -260,7 +260,7 @@ class NotificationTarget:
 
     @property
     def dst_yaml(self):
-        return yaml.dump(self.tgt_data)
+        return cli.make_yaml(self.tgt_data)
 
 
 def targets_summary_output(targets: Dict):

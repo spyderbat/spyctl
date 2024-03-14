@@ -1,0 +1,15 @@
+apiVersion: spyderbat/v1
+kind: GuardianDeviation
+metadata:
+  type: cluster
+  policy_uid: pol:C10OpHyPSAHgDxkscdFl
+  checksum: c8332ba8ae472eb4c84e2cfbcd9561c8
+  uid: dev:KNUJF8M43WcT2o1qgEts:AAYTXGsms5M:0
+spec:
+  container:
+    image: docker.io/guyduchatelet/spyderbat-demo:1
+    namespaceLabels:
+      env: prod
+      kubernetes.io/metadata.name: rsvp-svc-prod
+    rulesets: {}
+

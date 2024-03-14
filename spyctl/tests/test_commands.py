@@ -314,6 +314,7 @@ def test_diff():
             "-y",
         ],
     )
+    print(response.output)
     assert response.exit_code == 0
     assert "+     - name: python3.7" in response.output
 
@@ -331,6 +332,7 @@ def test_merge():
             "-y",
         ],
     )
+    print(response.output)
     assert response.exit_code == 0
     assert "\n    - name: python3.7" in response.output
     assert "\n    - name: sh" in response.output
