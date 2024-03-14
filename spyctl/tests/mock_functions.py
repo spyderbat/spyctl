@@ -606,7 +606,7 @@ def mock_post_new_policy(api_url, api_key, org_uid, data):
     return MockResponse({"uid": "1FZEoVkeS82aSI9jfLzm"}, 200)
 
 
-def mock_put_policy_update(api_url, api_key, org_uid, pol_uid, data):
+def mock_put_policy_update(api_url, api_key, org_uid, data):
     class MockResponse:
         def __init__(self, json_data, status_code) -> None:
             self.status_code = status_code
