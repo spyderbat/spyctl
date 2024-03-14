@@ -162,19 +162,6 @@ class MatchExpressionModel(BaseModel):
         alias=lib.MATCH_EXPRESSIONS_FIELD
     )
 
-    # @validator("match_expressions")
-    # def validate_match_expressions(cls, v):
-    #     for expr_str in v:
-    #         try:
-    #             expr_dict = yaml.safe_load(expr_str)
-    #             SelectorExpression(**expr_dict)
-    #         except json.JSONDecodeError:
-    #             raise ValueError(
-    #                 f'Invalid JSON found in "{expr_str}".'
-    #                 f' Expected "{EXPR_SYNTAX}"'
-    #             )
-    #     return v
-
     class Config:
         extra = Extra.forbid
 
