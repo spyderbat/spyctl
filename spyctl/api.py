@@ -1363,16 +1363,15 @@ def get_policy(api_url, api_key, org_uid, pol_uid):
 
 
 def post_new_policy(api_url, api_key, org_uid, policy: Dict):
+    data = {"policy": policy}
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
-    data = {
-        "policy": policy,
-    }
     resp = post(url, data, api_key)
     return resp
 
 
-def put_policy_update(api_url, api_key, org_uid, pol_uid, data: Dict):
-    url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
+def put_policy_update(api_url, api_key, org_uid, data: Dict):
+    data = {"policy": data}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     resp = put(url, data, api_key)
     return resp
 

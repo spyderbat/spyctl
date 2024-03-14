@@ -92,7 +92,7 @@ def handle_apply_policy(policy: Dict):
     sub_type = _r.policies.get_policy_subtype(pol_type)
     uid = policy[lib.METADATA_FIELD].get(lib.METADATA_UID_FIELD)
     if uid:
-        resp = api.put_policy_update(*ctx.get_api_data(), uid, policy)
+        resp = api.put_policy_update(*ctx.get_api_data(), policy)
         if resp.status_code == 200:
             cli.try_log(f"Successfully updated policy {uid}")
     else:

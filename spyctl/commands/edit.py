@@ -449,8 +449,9 @@ def apply_policy_edits(edit_dict: Dict, policy_id: str):
     """
     ctx = cfg.get_current_context()
     pol_type = edit_dict[lib.METADATA_FIELD][lib.METADATA_TYPE_FIELD]
-    _, api_data = p.get_data_for_api_call(edit_dict)
-    api.put_policy_update(*ctx.get_api_data(), api_data)
+    # Ensure the user didn't manipulate the uid
+    edit_dict[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = policy_id
+    api.put_policy_update(*ctx.get_api_data(), edit_dict)
     cli.try_log(
         f"Successfully edited {__pol_resrc_name(pol_type)} '{policy_id}'"
     )
@@ -458,6 +459,7 @@ def apply_policy_edits(edit_dict: Dict, policy_id: str):
 
 def apply_ruleset_edits(edit_dict: Dict, ruleset_id: str):
     ctx = cfg.get_current_context()
+    edit_dict[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = ruleset_id
     api.put_ruleset_update(*ctx.get_api_data(), edit_dict)
     cli.try_log(f"Successfully edited Ruleset '{ruleset_id}'")
 
