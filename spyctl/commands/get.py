@@ -461,6 +461,7 @@ def get(
     - Connections
     - Connection Bundles
     - Containers
+    - Cronjob
     - Daemonsets
     - Deployments
     - Deviations
@@ -475,6 +476,7 @@ def get(
     - Roles
     - RoleBindings
     - Spydertraces
+    - StatefulSets
     - Agents
 
     \b
