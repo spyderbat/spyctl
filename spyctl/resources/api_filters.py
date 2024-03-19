@@ -799,6 +799,50 @@ class ClusterRoleBinding(API_Filter):
         )
 
 
+class Cronjob(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_CRONJOB_PREFIX
+        return super(Cronjob, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
+class Statefulset(API_Filter):
+    property_map = {
+        lib.ID_FIELD: lib.ID_FIELD,
+        lib.BE_KUID_FIELD: lib.BE_KUID_FIELD,
+        lib.NAME_FIELD: f"{lib.METADATA_FIELD}.{lib.METADATA_NAME_FIELD}",
+        lib.NAMESPACE_FIELD: (
+            f"{lib.METADATA_FIELD}.{lib.METADATA_NAMESPACE_FIELD}"
+        ),
+    }
+    name_or_uid_props = [lib.ID_FIELD, lib.METADATA_NAME_FIELD]
+    source_type = SOURCE_TYPE_CLUID_BASE
+
+    @classmethod
+    def generate_pipeline(
+        cls, name_or_uid=None, latest_model=True, filters={}
+    ) -> List:
+        schema = lib.MODEL_STATEFULSET_PREFIX
+        return super(Statefulset, cls).generate_pipeline(
+            schema, name_or_uid, latest_model, filters
+        )
+
+
 class Processes(API_Filter):
     property_map = {
         lib.ID_FIELD: lib.ID_FIELD,

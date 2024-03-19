@@ -33,7 +33,10 @@ import spyctl.resources.suppression_policies as s_pol
 import spyctl.resources.sources as spyctl_src
 import spyctl.resources.rolebinding as spyctl_rolebinding
 import spyctl.resources.clusterrolebinding as spyctl_crb
+import spyctl.resources.cronjob as spyctl_cronjob
+import spyctl.resources.statefulset as spyctl_stateful
 import spyctl.spyctl_lib as lib
+
 
 ALL = "all"
 not_time_based = [
@@ -121,6 +124,10 @@ def handle_get(
         handle_get_rolebinding(name_or_id, st, et, output, **filters)
     elif resource == lib.CLUSTERROLE_BINDING_RESOURCE:
         handle_get_clusterrolebinding(name_or_id, st, et, output, **filters)
+    elif resource == lib.STATEFULSET_RESOURCE:
+        handle_get_statefulset(name_or_id, st, et, output, **filters)
+    elif resource == lib.CRONJOB_RESOURCE:
+        handle_get_cronjob(name_or_id, st, et, output, **filters)
     else:
         cli.err_exit(f"The 'get' command is not supported for {resource}")
 
@@ -764,6 +771,52 @@ def handle_get_clusterrolebinding(name_or_id, st, et, output, **filters):
             not lib.is_redirected(),
         ):
             cli.show(crb, output, ndjson=NDJSON)
+
+
+def handle_get_statefulset(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Statefulset.build_sources_and_filters(**filters)
+    pipeline = _af.Statefulset.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_stateful.statefulset_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for statefulset in api.get_statefulset(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(statefulset, output, ndjson=NDJSON)
+
+
+def handle_get_cronjob(name_or_id, st, et, output, **filters):
+    ctx = cfg.get_current_context()
+    sources, filters = _af.Cronjob.build_sources_and_filters(**filters)
+    pipeline = _af.Cronjob.generate_pipeline(name_or_id, filters=filters)
+    if output == lib.OUTPUT_DEFAULT:
+        summary = spyctl_cronjob.cronjob_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        __wide_not_supported()
+    else:
+        for cronjob in api.get_cronjob(
+            *ctx.get_api_data(),
+            sources,
+            (st, et),
+            pipeline,
+            LIMIT_MEM,
+            not lib.is_redirected(),
+        ):
+            cli.show(cronjob, output, ndjson=NDJSON)
 
 
 def handle_get_redflags(name_or_id, st, et, output, **filters):
