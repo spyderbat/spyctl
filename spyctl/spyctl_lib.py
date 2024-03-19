@@ -24,10 +24,13 @@ from click.shell_completion import CompletionItem
 
 
 class Aliases:
-    def __init__(self, aliases: Iterable[str], name, name_plural="") -> None:
+    def __init__(
+        self, aliases: Iterable[str], name, name_plural="", kind=None
+    ) -> None:
         self.name = name
         self.name_plural = name_plural
         self.aliases = set(aliases)
+        self.kind = kind
 
     def __eq__(self, __o: object) -> bool:
         plural_match = __o == self.name_plural if self.name_plural else False
@@ -78,6 +81,19 @@ def flush_err_var() -> str:
     return rv
 
 
+# Resource Kinds
+BASELINE_KIND = "SpyderbatBaseline"
+DEVIATION_KIND = "GuardianDeviation"
+FPRINT_GROUP_KIND = "FingerprintGroup"
+FPRINT_KIND = "SpyderbatFingerprint"
+NOTIFICATION_KIND = "NotificationConfiguration"
+NOTIF_TMPL_KIND = "NotificationConfigTemplate"
+POL_KIND = "SpyderbatPolicy"
+SUP_POL_KIND_ALIAS = "SuppressionPolicy"
+TARGET_KIND = "NotificationTarget"
+UID_LIST_KIND = "UidList"
+RULESET_KIND = "SpyderbatRuleset"
+
 # Resource Aliases
 AGENT_RESOURCE = Aliases(
     ["agents", "agent", "ag"],
@@ -96,12 +112,13 @@ BASELINES_RESOURCE = Aliases(
     ],
     "baseline",
     "baselines",
+    kind=BASELINE_KIND,
 )
 CLUSTERS_RESOURCE = Aliases(
     ["clusters", "cluster", "clust", "clusts", "clus"], "cluster", "clusters"
 )
 CONTAINER_RESOURCE = Aliases(
-    ["container", "containers", "cont" "c"],
+    ["container", "containers", "cont", "c"],
     "container",
     "containers",
 )
@@ -124,6 +141,12 @@ CONNECTION_BUN_RESOURCE = Aliases(
     "connection-bundle",
     "connection-bundles",
 )
+CLUSTER_POLICY_RESOURCE = Aliases(
+    ["cluster-policy", "cluster-policies", "clus-pol", "cp"],
+    "cluster-policy",
+    "cluster-policies",
+    kind=POL_KIND,
+)
 DEPLOYMENTS_RESOURCE = Aliases(
     ["deployments", "deployment", "deploys", "deploy"],
     "deployment",
@@ -133,6 +156,7 @@ DEVIATIONS_RESOURCE = Aliases(
     ["deviations", "deviation", "dev"],
     "deviation",
     "deviations",
+    kind=DEVIATION_KIND,
 )
 DAEMONSET_RESOURCE = Aliases(
     ["daemonset", "daemonsets", "daemon", "ds"],
@@ -143,6 +167,7 @@ FINGERPRINT_GROUP_RESOURCE = Aliases(
     ["fingerprint-group", "fingerprint-groups", "fprint-group", "fg"],
     "fingerprint-group",
     "fingerprint-groups",
+    kind=FPRINT_GROUP_KIND,
 )
 FINGERPRINTS_RESOURCE = Aliases(
     [
@@ -158,6 +183,7 @@ FINGERPRINTS_RESOURCE = Aliases(
     ],
     "fingerprint",
     "fingerprints",
+    kind=FPRINT_KIND,
 )
 MACHINES_RESOURCE = Aliases(
     ["machines", "mach", "machs", "machine"],
@@ -178,6 +204,7 @@ NOTIFICATION_CONFIGS_RESOURCE = Aliases(
     ],
     "notification-config",
     "notification-configs",
+    kind=NOTIFICATION_KIND,
 )
 NOTIFICATION_CONFIG_TEMPLATES_RESOURCE = Aliases(
     [
@@ -190,6 +217,7 @@ NOTIFICATION_CONFIG_TEMPLATES_RESOURCE = Aliases(
     ],
     "notification-config-template",
     "notification-config-templates",
+    kind=NOTIF_TMPL_KIND,
 )
 NOTIFICATION_TARGETS_RESOURCE = Aliases(
     [
@@ -201,11 +229,32 @@ NOTIFICATION_TARGETS_RESOURCE = Aliases(
     ],
     "notification-target",
     "notification-targets",
+    kind=TARGET_KIND,
 )
 NODES_RESOURCE = Aliases(["nodes", "node"], "node", "nodes")
 OPSFLAGS_RESOURCE = Aliases(["opsflags", "opsflag"], "opsflag", "opsflags")
 PODS_RESOURCE = Aliases(["pods", "pod"], "pod", "pods")
 REDFLAGS_RESOURCE = Aliases(["redflags", "redflag"], "redflag", "redflags")
+CONTAINER_POL_RESOURCE = Aliases(
+    [
+        "container-policy",
+        "container-policies",
+        "cont-pol",
+    ],
+    "container-policy",
+    "container-policies",
+    kind=POL_KIND,
+)
+LINUX_SVC_POL_RESOURCE = Aliases(
+    [
+        "linux-svc-policy",
+        "linux-svc-policies",
+        "lsvc-pol",
+    ],
+    "linux-svc-policy",
+    "linux-svc-policies",
+    kind=POL_KIND,
+)
 ROLES_RESOURCE = Aliases(["roles", "role"], "role", "roles")
 CLUSTERROLES_RESOURCE = Aliases(
     ["clusterroles", "clusterrole"], "clusterrole", "clusterroles"
@@ -232,6 +281,31 @@ POLICIES_RESOURCE = Aliases(
     ],
     "policy",
     "policies",
+    kind=POL_KIND,
+)
+CLUSTER_RULESET_RESOURCE = Aliases(
+    [
+        "cluster-ruleset",
+        "cluster-rulesets",
+        "cluster-rules",
+        "cluster-rule",
+        "cluster-rs",
+        "clus_rs",
+        "crs",
+    ],
+    "cluster-ruleset",
+    "cluster-rulesets",
+    kind=RULESET_KIND,
+)
+RULESETS_RESOURCE = Aliases(
+    [
+        "ruleset",
+        "rulesets",
+        "rs",
+    ],
+    "ruleset",
+    "rulesets",
+    kind=RULESET_KIND,
 )
 PROCESSES_RESOURCE = Aliases(
     [
@@ -275,9 +349,13 @@ SUPPRESSION_POLICY_RESOURCE = Aliases(
     ],
     "suppression-policy",
     "suppression-policies",
+    kind=POL_KIND,
 )
 UID_LIST_RESOURCE = Aliases(
-    ["uid-list", "uid-lists", "uid", "uids-list"], "uid-list", "uid-lists"
+    ["uid-list", "uid-lists", "uid", "uids-list"],
+    "uid-list",
+    "uid-lists",
+    kind=UID_LIST_KIND,
 )
 
 SECRETS_ALIAS = Aliases(["secret", "secrets", "sec", "s"], "secret", "secrets")
@@ -306,6 +384,7 @@ def get_plural_name_from_alias(alias: str):
 
 
 DEL_RESOURCES: List[str] = [
+    CLUSTER_RULESET_RESOURCE.name,
     POLICIES_RESOURCE.name,
     SUPPRESSION_POLICY_RESOURCE.name,
     NOTIFICATION_CONFIGS_RESOURCE.name,
@@ -315,14 +394,19 @@ DESC_RESOURCES: List[str] = [
     POLICIES_RESOURCE.name,
 ]
 EDIT_RESOURCES: List[str] = [
-    POLICIES_RESOURCE.name,
-    SUPPRESSION_POLICY_RESOURCE.name,
+    CLUSTER_RULESET_RESOURCE.name,
+    CONTAINER_POL_RESOURCE.name,
+    LINUX_SVC_POL_RESOURCE.name,
     NOTIFICATION_CONFIGS_RESOURCE.name,
     NOTIFICATION_TARGETS_RESOURCE.name,
+    POLICIES_RESOURCE.name,
+    RULESETS_RESOURCE.name,
+    SUPPRESSION_POLICY_RESOURCE.name,
 ]
 GET_RESOURCES: List[str] = [
     AGENT_RESOURCE.name_plural,
     CLUSTERS_RESOURCE.name_plural,
+    CLUSTER_RULESET_RESOURCE.name_plural,
     CLUSTERROLES_RESOURCE.name_plural,
     CRONJOB_RESOURCE.name_plural,
     CLUSTERROLE_BINDING_RESOURCE.name_plural,
@@ -371,12 +455,17 @@ RESOURCES_WITH_SCHEMAS = [
     FINGERPRINTS_RESOURCE.name,
     FINGERPRINT_GROUP_RESOURCE.name,
     POLICIES_RESOURCE.name,
+    CLUSTER_POLICY_RESOURCE.name,
     SECRETS_ALIAS.name,
     SUPPRESSION_POLICY_RESOURCE.name,
     UID_LIST_RESOURCE.name,
 ]
 
 CMD_ORG_FIELD = "org"
+
+SUB_EPILOG = (
+    'Use "spyctl <command> --help" for more information about a given command.'
+)
 
 
 def tmp_context_options(function):
@@ -471,19 +560,6 @@ class SuppressionPolTypeParam(click.ParamType):
             for resrc_name in [POL_TYPE_TRACE]
             if resrc_name.startswith(incomplete)
         ]
-
-
-class LabelParam(click.ParamType):
-    def convert(
-        self,
-        value: Any,
-        param: Optional[click.Parameter],
-        ctx: Optional[click.Context],
-    ) -> Any:
-        rv = label_input_to_dict()
-        if rv is None:
-            self.fail("Invalid label input", param, ctx)
-        return value
 
 
 class ListParam(click.ParamType):
@@ -593,20 +669,20 @@ SCHEMA_FIELD = "schema"
 
 # Spyderbat Event Schema Prefix'
 EVENT_METRICS_PREFIX = "event_metric"
-EVENT_AUDIT_PREFIX = "event_audit"
 EVENT_OPSFLAG_PREFIX = "event_opsflag"
 EVENT_REDFLAG_PREFIX = "event_redflag"
+EVENT_DEVIATION_PREFIX = "event_deviation"
+EVENT_LOG_PREFIX = "event_log"
 
 EVENT_METRIC_SUBTYPE_MAP = {
     "agent": "agent",
     "machine": "machine",
 }
 
-EVENT_AUDIT_SUBTYPE_MAP = {
+EVENT_LOG_SUBTYPE_MAP = {
     "deviation": "guardian_deviation",
     "action": "guardian_action",
-    "redflag": "guardian_redflag",
-    "opsflag": "guardian_opsflag",
+    "redflag": "guardian_flag",
 }
 
 # Spyderbat Model Schema Prefix'
@@ -643,18 +719,6 @@ DATATYPE_FINGERPRINTS = "fingerprints"
 DATATYPE_K8S = "k8s"
 DATATYPE_REDFLAGS = "redflags"
 DATATYPE_SPYDERGRAPH = "spydergraph"
-
-# Resource Kinds
-BASELINE_KIND = "SpyderbatBaseline"
-DEVIATION_KIND = "GuardianDeviation"
-FPRINT_GROUP_KIND = "FingerprintGroup"
-FPRINT_KIND = "SpyderbatFingerprint"
-NOTIFICATION_KIND = "NotificationConfiguration"
-NOTIF_TMPL_KIND = "NotificationConfigTemplate"
-POL_KIND = "SpyderbatPolicy"
-SUP_POL_KIND_ALIAS = "SuppressionPolicy"
-TARGET_KIND = "NotificationTarget"
-UID_LIST_KIND = "UidList"
 
 # CONFIG Kinds
 CONFIG_KIND = "Config"
@@ -748,6 +812,7 @@ TEMPLATE_FIELD = "template"
 
 
 # Selectors
+CLUS_SELECTOR_FIELD = "clusterSelector"
 CONT_SELECTOR_FIELD = "containerSelector"
 DNS_SELECTOR_FIELD = "dnsSelector"
 MACHINE_SELECTOR_FIELD = "machineSelector"
@@ -758,6 +823,14 @@ SVC_SELECTOR_FIELD = "serviceSelector"
 TRACE_SELECTOR_FIELD = "traceSelector"
 USER_SELECTOR_FIELD = "userSelector"
 MATCH_LABELS_FIELD = "matchLabels"
+MATCH_EXPRESSIONS_FIELD = "matchExpressions"
+KEY_FIELD = "key"
+OPERATOR_FIELD = "operator"
+IN_OPERATOR = "In"
+NOT_IN_OPERATOR = "NotIn"
+EXISTS_OPERATOR = "Exists"
+DOES_NOT_EXIST_OPERATOR = "DoesNotExist"
+VALUES_FIELD = "values"
 # Machine Selector Fields
 HOSTNAME_FIELD = "hostname"
 MACHINE_UID_FIELD = "machineUID"
@@ -785,9 +858,10 @@ BE_POL_UID_FIELD = (
 )
 POL_TYPE_CONT = "container"
 POL_TYPE_SVC = "linux-service"
+POL_TYPE_CLUS = "cluster"
 POL_TYPE_TRACE = "trace"
 SUPPRESSION_POL_TYPES = [POL_TYPE_TRACE]
-GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC]
+GUARDIAN_POL_TYPES = [POL_TYPE_CONT, POL_TYPE_SVC, POL_TYPE_CLUS]
 POL_TYPES = [POL_TYPE_SVC, POL_TYPE_CONT, POL_TYPE_TRACE]
 POL_MODE_ENFORCE = "enforce"
 POL_MODE_AUDIT = "audit"
@@ -830,6 +904,10 @@ METADATA_TAGS_FIELD = "tags"
 METADATA_TYPE_FIELD = "type"
 METADATA_UID_FIELD = "uid"
 METADATA_CREATE_TIME = "creationTimestamp"
+METADATA_CREATED_BY = "createdBy"
+METADATA_LAST_UPDATE_TIME = "lastUpdatedTimestamp"
+METADATA_LAST_UPDATED_BY = "lastUpdatedBy"
+METADATA_VERSION_FIELD = "version"
 METADATA_NAMESPACE_FIELD = "namespace"
 METADATA_S_CHECKSUM_FIELD = "selectorHash"
 METADATA_START_TIME_FIELD = "startTime"
@@ -869,6 +947,18 @@ SUP_POL_SELECTOR_FIELDS = [
     SUP_POL_CMD_N_INT_USERS,
 ]
 TRACE_SUMMARY_FIELD = "trace_summary"
+
+# Policy Rulesets
+RULESET_TYPE_CLUS = "cluster"
+RULESET_TYPES = [RULESET_TYPE_CLUS]
+RULESETS_FIELD = "rulesets"
+RULES_FIELD = "rules"
+RULES_TYPE_CONTAINER = "container"
+CLUSTER_RULESET_RULE_TYPES = [RULES_TYPE_CONTAINER]
+RULE_VERB_ALLOW = "allow"
+RULE_VERB_DENY = "deny"
+RULE_VERBS = [RULE_VERB_ALLOW, RULE_VERB_DENY]
+RULE_VERB_FIELD = "verb"
 
 NOT_AVAILABLE = "N/A"
 # Fingerprint Groups
@@ -1698,15 +1788,15 @@ def time_inp(time_str: str, cap_one_day=False) -> Optional[int]:
             epoch_time = int(time_str)
         except ValueError:
             if time_str.endswith(("s", "sc")):
-                past_seconds = int(time_str.split("s")[0])
+                past_seconds = float(time_str.split("s")[0])
             elif time_str.endswith(("m", "mn")):
-                past_seconds = int(time_str.split("m")[0]) * 60
+                past_seconds = float(time_str.split("m")[0]) * 60
             elif time_str.endswith(("h", "hr")):
-                past_seconds = int(time_str.split("h")[0]) * 60 * 60
+                past_seconds = float(time_str.split("h")[0]) * 60 * 60
             elif time_str.endswith(("d", "dy")):
-                past_seconds = int(time_str.split("d")[0]) * 60 * 60 * 24
+                past_seconds = float(time_str.split("d")[0]) * 60 * 60 * 24
             elif time_str.endswith(("w", "wk")):
-                past_seconds = int(time_str.split("w")[0]) * 60 * 60 * 24 * 7
+                past_seconds = float(time_str.split("w")[0]) * 60 * 60 * 24 * 7
             else:
                 date = dateparser.parse(time_str)
                 date = date.replace(tzinfo=date.tzinfo or timezone.utc)

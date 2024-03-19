@@ -1,5 +1,5 @@
 apiVersion: spyderbat/v1
-kind: SpyderbatBaseline
+kind: SpyderbatPolicy
 metadata:
   name: spyderbat-test
   type: container
@@ -7,7 +7,6 @@ metadata:
 spec:
   containerSelector:
     image: spyderbat-test
-    imageID: sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e
   podSelector:
     matchLabels:
       app: test
@@ -18,11 +17,7 @@ spec:
   namespaceSelector:
     matchLabels:
       kubernetes.io/metadata.name: test
-    matchExpressions:
-    - {key: env, operator: In, values: [dev]}
-    - {key: tier, operator: NotIn, values: [backend]}
-    - {key: foobar, operator: DoesNotExist}
-    - {key: bizbaz, operator: Exists}
+  mode: audit
   processPolicy:
   - name: python
     exe:
@@ -31,28 +26,19 @@ spec:
     euser:
     - root
     children:
-    - name: python3.7
-      exe:
-      - /usr/local/bin/python3.7
-      id: python3.7_0
-      children:
-      - name: sh
-        exe:
-        - /bin/dash
-        id: sh_1
-        children:
-        - name: uname
-          exe:
-          - /bin/uname
-          id: uname_1
     - name: sh
       exe:
       - /bin/dash
-      id: sh_2
+      id: sh_0
+      children:
+      - name: uname
+        exe:
+        - /bin/uname
+        id: uname_0
   - name: sh
     exe:
     - /bin/dash
-    id: sh_3
+    id: sh_1
     euser:
     - root
     children:
@@ -66,12 +52,12 @@ spec:
       - name: sh
         exe:
         - /bin/dash
-        id: sh_4
+        id: sh_2
         children:
         - name: uname
           exe:
           - /bin/uname
-          id: uname_2
+          id: uname_1
   networkPolicy:
     ingress:
     - from:
@@ -79,13 +65,6 @@ spec:
           cidr: 192.168.6.11/32
       processes:
       - python_0
-      ports:
-      - protocol: TCP
-        port: 22
-    - from:
-      - ipBlock:
-          cidr: 192.168.6.11/32
-      processes:
       - python_1
       ports:
       - protocol: TCP
@@ -96,21 +75,6 @@ spec:
         - mongodb.local
       processes:
       - python_0
-      ports:
-      - protocol: TCP
-        port: 27017
-    - to:
-      - ipBlock:
-          cidr: 192.168.5.10/32
-      processes:
-      - python_0
-      ports:
-      - protocol: TCP
-        port: 443
-    - to:
-      - dnsSelector:
-        - mongodb.local
-      processes:
       - python_1
       ports:
       - protocol: TCP
@@ -125,7 +89,14 @@ spec:
       - ipBlock:
           cidr: 192.168.5.13/32
       processes:
+      - python_0
       - python_1
       ports:
       - protocol: TCP
         port: 443
+  response:
+    default:
+    - makeRedFlag:
+        severity: high
+    actions: []
+

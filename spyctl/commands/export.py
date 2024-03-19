@@ -1,12 +1,42 @@
+"""Handle the export subcommand for spyctl."""
+
 from typing import Optional
-import spyctl.api as api
-import spyctl.cli as cli
+
+import click
+
 import spyctl.config.configs as cfg
-import spyctl.spyctl_lib as lib
 import spyctl.filter_resource as filt
-import spyctl.resources.suppression_policies as s_pol
-import spyctl.resources.notifications_configs as n_configs
+import spyctl.resources.notification_configs as n_configs
 import spyctl.resources.notification_targets as n_targets
+import spyctl.resources.suppression_policies as s_pol
+import spyctl.spyctl_lib as lib
+from spyctl import api, cli
+
+# ----------------------------------------------------------------- #
+#                         Export Subcommand                         #
+# ----------------------------------------------------------------- #
+
+
+@click.command("export", cls=lib.CustomCommand, epilog=lib.SUB_EPILOG)
+@click.help_option("-h", "--help", hidden=True)
+@click.argument("resource", type=lib.ExportResourcesParam())
+@click.argument("name_or_id", required=False)
+@click.option(
+    "-E",
+    "--exact",
+    "--exact-match",
+    is_flag=True,
+    help="Exact match for NAME_OR_ID. This command's default behavior"
+    "displays any resource that contains the NAME_OR_ID.",
+)
+def export(resource, exact=False, name_or_id=None):
+    """Export Spyderbat Resources for later use to import."""
+    handle_export(resource, name_or_id, exact)
+
+
+# ----------------------------------------------------------------- #
+#                          Export Handlers                          #
+# ----------------------------------------------------------------- #
 
 
 def handle_export(

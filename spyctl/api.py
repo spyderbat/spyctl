@@ -795,10 +795,7 @@ def get_deviations(
 ) -> Generator[Dict, None, None]:
     try:
         datatype = lib.DATATYPE_AUDIT
-        schema = (
-            f"{lib.EVENT_AUDIT_PREFIX}:"
-            f"{lib.EVENT_AUDIT_SUBTYPE_MAP['deviation']}"
-        )
+        schema = lib.EVENT_DEVIATION_PREFIX
         url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
         for deviation in retrieve_data(
             api_url,
@@ -1386,13 +1383,19 @@ def delete_policy(api_url, api_key, org_uid, pol_uid):
     return resp
 
 
+def delete_ruleset(api_url, api_key, org_uid, ruleset_uid):
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/{ruleset_uid}"
+    resp = delete(url, api_key)
+    return resp
+
+
 def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     params = {} if params is None else params
     if lib.METADATA_TYPE_FIELD in params:
         types = [params[lib.METADATA_TYPE_FIELD]]
     else:
-        types = [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC]
+        types = [lib.POL_TYPE_CONT, lib.POL_TYPE_SVC, lib.POL_TYPE_CLUS]
     policies = []
     for type in types:
         params[lib.METADATA_TYPE_FIELD] = type
@@ -1401,12 +1404,7 @@ def get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
             pol_list = json.loads(pol_json)
             if not raw_data:
                 for pol in pol_list:
-                    uid = pol["uid"]
-                    policy = json.loads(pol["policy"])
-                    policy[lib.METADATA_FIELD][lib.METADATA_UID_FIELD] = uid
-                    policy[lib.METADATA_FIELD][lib.METADATA_CREATE_TIME] = pol[
-                        "valid_from"
-                    ]
+                    policy = pol["policy"]
                     policies.append(policy)
             else:
                 policies.extend(pol_list)
@@ -1426,16 +1424,56 @@ def get_policy(api_url, api_key, org_uid, pol_uid):
     return policies
 
 
-def post_new_policy(api_url, api_key, org_uid, data: Dict):
+def post_new_policy(api_url, api_key, org_uid, policy: Dict):
+    data = {"policy": policy}
     url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     resp = post(url, data, api_key)
     return resp
 
 
-def put_policy_update(api_url, api_key, org_uid, pol_uid, data: Dict):
-    url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/{pol_uid}"
+def put_policy_update(api_url, api_key, org_uid, data: Dict):
+    data = {"policy": data}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticspolicy/"
     resp = put(url, data, api_key)
     return resp
+
+
+def post_new_ruleset(api_url, api_key, org_uid, ruleset: Dict):
+    data = {"ruleset": ruleset}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    resp = post(url, data, api_key)
+    return resp
+
+
+def put_ruleset_update(api_url, api_key, org_uid, ruleset: Dict):
+    data = {"ruleset": ruleset}
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    resp = put(url, data, api_key)
+    return resp
+
+
+def get_rulesets(api_url, api_key, org_uid, params=None, raw_data=False):
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/"
+    params = {} if params is None else params
+    resp = get(url, api_key, params)
+    rulesets = []
+    for ruleset_json in resp.iter_lines():
+        ruleset_list = json.loads(ruleset_json)
+        for ruleset in ruleset_list:
+            if not raw_data:
+                rulesets.append(ruleset["ruleset"])
+            else:
+                rulesets.append(ruleset)
+    return rulesets
+
+
+def get_ruleset(api_url, api_key, org_uid, ruleset_uid) -> Optional[Dict]:
+    url = f"{api_url}/api/v1/org/{org_uid}/analyticsruleset/{ruleset_uid}"
+    resp = get(url, api_key, raise_notfound=True)
+    for ruleset_json in resp.iter_lines():
+        ruleset = json.loads(ruleset_json)
+        if ruleset:
+            return ruleset["ruleset"]
 
 
 # ----------------------------------------------------------------- #
@@ -1456,11 +1494,10 @@ def get_audit_events(
     audit_events = []
     if msg_type:
         schema = (
-            f"{lib.EVENT_AUDIT_PREFIX}:"
-            f"{lib.EVENT_AUDIT_SUBTYPE_MAP[msg_type]}"
+            f"{lib.EVENT_LOG_PREFIX}:" f"{lib.EVENT_LOG_SUBTYPE_MAP[msg_type]}"
         )
     else:
-        schema = lib.EVENT_AUDIT_PREFIX
+        schema = lib.EVENT_LOG_PREFIX
     url = f"api/v1/org/{org_uid}/analyticspolicy/logs"
     for resp in threadpool_progress_bar_time_blocks(
         [src_uid],

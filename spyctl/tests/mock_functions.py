@@ -1,4 +1,9 @@
 import json
+from pathlib import Path
+
+import yaml
+
+MOCK_RESOURCES_DIR = Path(__file__).parent / "mock_resources"
 
 
 # Mocking API Functionality
@@ -587,132 +592,9 @@ def mock_get_guardian_fingerprints(
 
 
 def mock_get_policies(api_url, api_key, org_uid, params=None, raw_data=False):
-    mock_policy = {
-        "apiVersion": "spyderbat/v1",
-        "kind": "SpyderbatPolicy",
-        "metadata": {
-            "name": "spyderbat-test",
-            "type": "container",
-            "latestTimestamp": 1672333396.3253918,
-            "creationTimestamp": 1672333396.3253918,
-            "uid": "1FZEoVkeS82aSI9jfLzm",
-        },
-        "spec": {
-            "containerSelector": {
-                "image": "spyderbat-test",
-                "imageID": "sha256:6e2e1bce440ec41f53e849e56d5c6716ed7f1e1fa614d8dca2bbda49e5cde29e",
-            },
-            "podSelector": {
-                "matchLabels": {
-                    "app": "test",
-                    "env": "prod",
-                    "name": "test-web",
-                    "pod-template-hash": "8665ffd6c6",
-                    "tier": "frontend",
-                }
-            },
-            "mode": "audit",
-            "namespaceSelector": {
-                "matchLabels": {"kubernetes.io/metadata.name": "test"}
-            },
-            "processPolicy": [
-                {
-                    "name": "python",
-                    "exe": ["/usr/local/bin/python3.7"],
-                    "id": "python_0",
-                    "euser": ["root"],
-                    "children": [
-                        {
-                            "name": "sh",
-                            "exe": ["/bin/dash"],
-                            "id": "sh_0",
-                            "children": [
-                                {
-                                    "name": "uname",
-                                    "exe": ["/bin/uname"],
-                                    "id": "uname_0",
-                                }
-                            ],
-                        }
-                    ],
-                },
-                {
-                    "name": "sh",
-                    "exe": ["/bin/dash"],
-                    "id": "sh_1",
-                    "euser": ["root"],
-                    "children": [
-                        {
-                            "name": "python",
-                            "exe": ["/usr/local/bin/python3.7"],
-                            "id": "python_1",
-                            "euser": ["web-svc"],
-                            "children": [
-                                {
-                                    "name": "sh",
-                                    "exe": ["/bin/dash"],
-                                    "id": "sh_2",
-                                    "children": [
-                                        {
-                                            "name": "uname",
-                                            "exe": ["/bin/uname"],
-                                            "id": "uname_1",
-                                        }
-                                    ],
-                                }
-                            ],
-                        }
-                    ],
-                },
-            ],
-            "networkPolicy": {
-                "ingress": [
-                    {
-                        "from": [{"ipBlock": {"cidr": "192.168.6.11/32"}}],
-                        "processes": ["python_0"],
-                        "ports": [{"protocol": "TCP", "port": 22}],
-                    },
-                    {
-                        "from": [{"ipBlock": {"cidr": "192.168.6.11/32"}}],
-                        "processes": ["python_1"],
-                        "ports": [{"protocol": "TCP", "port": 22}],
-                    },
-                ],
-                "egress": [
-                    {
-                        "to": [{"dnsSelector": ["mongodb.local"]}],
-                        "processes": ["python_0"],
-                        "ports": [{"protocol": "TCP", "port": 27017}],
-                    },
-                    {
-                        "to": [{"ipBlock": {"cidr": "192.168.5.10/32"}}],
-                        "processes": ["python_0"],
-                        "ports": [{"protocol": "TCP", "port": 443}],
-                    },
-                    {
-                        "to": [{"dnsSelector": ["mongodb.local"]}],
-                        "processes": ["python_1"],
-                        "ports": [{"protocol": "TCP", "port": 27017}],
-                    },
-                    {
-                        "to": [
-                            {"ipBlock": {"cidr": "192.168.5.10/32"}},
-                            {"ipBlock": {"cidr": "192.168.5.11/32"}},
-                            {"ipBlock": {"cidr": "192.168.5.12/32"}},
-                            {"ipBlock": {"cidr": "192.168.5.13/32"}},
-                        ],
-                        "processes": ["python_1"],
-                        "ports": [{"protocol": "TCP", "port": 443}],
-                    },
-                ],
-            },
-            "response": {
-                "default": [{"makeRedFlag": {"severity": "high"}}],
-                "actions": [],
-            },
-        },
-    }
-    return [mock_policy]
+    with open(MOCK_RESOURCES_DIR / "mock_policy.yaml", encoding="utf-8") as f:
+        resrc_data = yaml.load(f, Loader=yaml.SafeLoader)
+        return [resrc_data]
 
 
 def mock_post_new_policy(api_url, api_key, org_uid, data):
@@ -724,7 +606,7 @@ def mock_post_new_policy(api_url, api_key, org_uid, data):
     return MockResponse({"uid": "1FZEoVkeS82aSI9jfLzm"}, 200)
 
 
-def mock_put_policy_update(api_url, api_key, org_uid, pol_uid, data):
+def mock_put_policy_update(api_url, api_key, org_uid, data):
     class MockResponse:
         def __init__(self, json_data, status_code) -> None:
             self.status_code = status_code

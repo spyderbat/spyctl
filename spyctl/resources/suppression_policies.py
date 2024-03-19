@@ -89,8 +89,8 @@ class TraceSuppressionPolicy:
     def policy_scope_string(self):
         ctx = cfg.get_current_context()
         rv = f"Organization UID: {ctx.org_uid}\n"
-        rv += yaml.dump({"selectors": self.selectors}, sort_keys=False)
-        rv += yaml.dump({"allowedFlags": self.flags})
+        rv += cli.make_yaml({"selectors": self.selectors})
+        rv += cli.make_yaml({"allowedFlags": self.flags})
         return rv
 
     def as_dict(self) -> Dict:

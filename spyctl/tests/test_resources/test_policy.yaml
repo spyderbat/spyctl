@@ -17,6 +17,9 @@ spec:
   namespaceSelector:
     matchLabels:
       kubernetes.io/metadata.name: test
+    matchExpressions:
+    - {key: env, operator: In, values: [prod]}
+    - {key: foobar, operator: DoesNotExist}
   mode: audit
   processPolicy:
   - name: python

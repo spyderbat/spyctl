@@ -1,5 +1,6 @@
 import fnmatch
 import ipaddress as ipaddr
+import itertools
 import json
 import re
 import time
@@ -9,11 +10,9 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-import yaml
-
-import spyctl.cli as cli
 import spyctl.schemas_v2 as schemas
 import spyctl.spyctl_lib as lib
+from spyctl import cli
 
 SPEC_FIELD = lib.SPEC_FIELD
 CONT_SELECTOR_FIELD = lib.CONT_SELECTOR_FIELD
@@ -74,7 +73,7 @@ class MergeObject:
         self.obj_data = deepcopy(obj_data)
         self.schemas = merge_schemas
         self.validation_fn = validation_fn
-        self.starting_yaml = yaml.dump(obj_data)
+        self.starting_yaml = cli.make_yaml(obj_data)
         self.merge_network = merge_network
         self.is_guardian = lib.is_guardian_obj(self.original_obj)
         self.irrelevant_objects: Dict[str, Set[str]] = (
@@ -174,7 +173,7 @@ class MergeObject:
         if diff_object and self.is_guardian:
             return guardian_object_diff(self.original_obj, self.obj_data)
         else:
-            original_yaml: str = yaml.dump(self.original_obj, sort_keys=False)
+            original_yaml: str = cli.make_yaml(self.original_obj)
             yaml_lines = original_yaml.splitlines()
             diff_all_fields(self.original_obj, self.obj_data, yaml_lines)
             if full_diff:
@@ -1525,6 +1524,26 @@ def string_list_merge(
     return sorted(string_set)
 
 
+def expression_list_merge(
+    mo: MergeObject, base_value: List[Dict], other_value: List[Dict], _
+):
+    rv_dict = {}
+    for expr in itertools.chain(base_value, other_value):
+        key = (expr[lib.KEY_FIELD], expr[lib.OPERATOR_FIELD])
+        if key not in rv_dict:
+            rv_dict[key] = expr
+        else:
+            existing_values: List[str] = rv_dict[key].get(lib.VALUES_FIELD)
+            new_values: List[str] = expr.get(lib.VALUES_FIELD)
+            if existing_values is not None and new_values is not None:
+                existing_values.extend(new_values)
+                existing_values = list(set(existing_values))
+                rv_dict[key][lib.VALUES_FIELD] = existing_values
+    rv = list(rv_dict.values())
+    rv.sort(key=lambda x: (x[lib.KEY_FIELD], x[lib.OPERATOR_FIELD]))
+    return rv
+
+
 def conditional_string_list_merge(
     mo: MergeObject,
     base_value: Union[str, List[str]],
@@ -1595,6 +1614,7 @@ NAMESPACE_SELECTOR_MERGE_SCHEMA = MergeSchema(
     NAMESPACE_SELECTOR_FIELD,
     merge_functions={
         MATCH_LABELS_FIELD: common_keys_merge,
+        lib.MATCH_EXPRESSIONS_FIELD: expression_list_merge,
     },
     values_required=True,
     is_selector=True,
@@ -2096,9 +2116,7 @@ def dict_diffs(
                     )
                 )
             else:
-                diff_yaml = yaml.dump(
-                    {field: other_data[field]}, sort_keys=False
-                )
+                diff_yaml = cli.make_yaml({field: other_data[field]})
                 add_lines = [
                     " " * whitespace_length + new_line
                     for new_line in diff_yaml.splitlines()
@@ -2140,9 +2158,7 @@ def dict_diffs(
                 and lib.PROC_POLICY_FIELD in ancestor_fields
             ):
                 deferred = True
-            diff_yaml: str = yaml.dump(
-                {field: other_data[field]}, sort_keys=False
-            )
+            diff_yaml: str = cli.make_yaml({field: other_data[field]})
             add_lines = [
                 DEFAULT_WHITESPACE * len(ancestor_fields) + new_line
                 for new_line in diff_yaml.splitlines()
@@ -2248,7 +2264,7 @@ def list_diffs(
             proc_id = other_node["id"]
             if proc_id in seen:
                 continue
-            diff_yaml = yaml.dump([other_node], sort_keys=False)
+            diff_yaml = cli.make_yaml([other_node])
             add_lines = [
                 DEFAULT_WHITESPACE * (len(ancestor_fields) - 1) + new_line
                 for new_line in diff_yaml.splitlines()
@@ -2294,7 +2310,7 @@ def list_diffs(
             item_si = item_ei
         if length_diff > 0:
             orig_data_len = len(original_data)
-            diff_yaml = yaml.dump(other_data[orig_data_len:], sort_keys=False)
+            diff_yaml = cli.make_yaml(other_data[orig_data_len:])
             add_lines = [
                 DEFAULT_WHITESPACE * (len(ancestor_fields) - 1) + new_line
                 for new_line in diff_yaml.splitlines()
@@ -2374,7 +2390,7 @@ def list_diffs(
                 )
             item_si = item_ei
         for other_block in other_or_blocks:
-            diff_yaml = yaml.dump([other_block], sort_keys=False)
+            diff_yaml = cli.make_yaml([other_block])
             add_lines = [
                 DEFAULT_WHITESPACE * (len(ancestor_fields) - 1) + new_line
                 for new_line in diff_yaml.splitlines()
@@ -2397,7 +2413,7 @@ def list_diffs(
                 [make_add_line(yaml_lines[parent_index])],
             )
         )
-        diff_yaml: str = yaml.dump(other_data, sort_keys=False)
+        diff_yaml: str = cli.make_yaml(other_data)
         add_lines = [
             DEFAULT_WHITESPACE * (len(ancestor_fields) - 1) + new_line
             for new_line in diff_yaml.splitlines()

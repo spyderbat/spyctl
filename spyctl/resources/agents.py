@@ -63,7 +63,7 @@ def agents_output_wide(
     for agent in agents:
         data.append(agent_output_wide_data(agent, source_data, latest_metrics))
     data.sort(key=lambda line: (calc_health_priority(line[2]), line[0]))
-    print(tabulate(data, header, tablefmt="plain"))
+    return tabulate(data, header, tablefmt="plain")
 
 
 def agent_output_wide_data(
