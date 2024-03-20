@@ -1250,11 +1250,17 @@ def handle_get_statefulset(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     sources, filters = _af.Statefulset.build_sources_and_filters(**filters)
     pipeline = _af.Statefulset.generate_pipeline(name_or_id, filters=filters)
-    if output in [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE]:
+    if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_stateful.statefulset_output_summary(
             ctx, sources, (st, et), pipeline, LIMIT_MEM
         )
+
         cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        wide_summary = spyctl_stateful.statefulset_wide_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(wide_summary, lib.OUTPUT_RAW)
     else:
         for statefulset in api.get_statefulset(
             *ctx.get_api_data(),
@@ -1271,11 +1277,16 @@ def handle_get_cronjob(name_or_id, st, et, output, **filters):
     ctx = cfg.get_current_context()
     sources, filters = _af.Cronjob.build_sources_and_filters(**filters)
     pipeline = _af.Cronjob.generate_pipeline(name_or_id, filters=filters)
-    if output in [lib.OUTPUT_DEFAULT, lib.OUTPUT_WIDE]:
+    if output == lib.OUTPUT_DEFAULT:
         summary = spyctl_cronjob.cronjob_output_summary(
             ctx, sources, (st, et), pipeline, LIMIT_MEM
         )
         cli.show(summary, lib.OUTPUT_RAW)
+    elif output == lib.OUTPUT_WIDE:
+        wide_summary = spyctl_cronjob.cronjob_wide_output_summary(
+            ctx, sources, (st, et), pipeline, LIMIT_MEM
+        )
+        cli.show(wide_summary, lib.OUTPUT_RAW)
     else:
         for cronjob in api.get_cronjob(
             *ctx.get_api_data(),
