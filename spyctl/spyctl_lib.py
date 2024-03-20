@@ -364,6 +364,10 @@ CONFIG_ALIAS = Aliases(
     "config",
     "configs",
 )
+STATEFULSET_RESOURCE = Aliases(
+    ["statefulset", "statefulsets"], "statefulset", "statefulsets"
+)
+CRONJOB_RESOURCE = Aliases(["cronjob", "cronjobs"], "cronjob", "cronjobs")
 
 ALL_RESOURCES: List[Aliases] = [
     g_var
@@ -404,6 +408,7 @@ GET_RESOURCES: List[str] = [
     CLUSTERS_RESOURCE.name_plural,
     CLUSTER_RULESET_RESOURCE.name_plural,
     CLUSTERROLES_RESOURCE.name_plural,
+    CRONJOB_RESOURCE.name_plural,
     CLUSTERROLE_BINDING_RESOURCE.name_plural,
     CONNECTIONS_RESOURCE.name_plural,
     CONNECTION_BUN_RESOURCE.name_plural,
@@ -425,6 +430,7 @@ GET_RESOURCES: List[str] = [
     ROLES_RESOURCE.name_plural,
     ROLEBINDING_RESOURCE.name_plural,
     SOURCES_RESOURCE.name_plural,
+    STATEFULSET_RESOURCE.name_plural,
     # SPYDERTRACE_SUMMARY_RESOURCE.name_plural,
     SUPPRESSION_POLICY_RESOURCE.name_plural,
     CONTAINER_RESOURCE.name_plural,
@@ -703,6 +709,8 @@ MODEL_FINGERPRINT_SUBTYPE_MAP = {
     "container": "container",
     "linux-service": "linux_svc",
 }
+MODEL_CRONJOB_PREFIX = "model_k8s_cronjob:"
+MODEL_STATEFULSET_PREFIX = "model_k8s_statefulset:"
 
 # Datatypes for searching via API
 DATATYPE_AUDIT = "audit"
