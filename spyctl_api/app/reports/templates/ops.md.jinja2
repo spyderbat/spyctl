@@ -1,0 +1,130 @@
+{% if error %}
+### An error was encountered while generating the report
+{{ error.message }}
+
+{% else %}
+# Operational report
+Cluster **{{ cluster.name }}** ({{ cluster.cluid }})
+Reporting period:
+- Start: {{ st }}
+- End: {{ et }}
+
+## 1. Cluster summary metrics
+
+| Metric         | Value            |
+|---------------:|------------------| {% for metric in cluster_metrics %}
+| {{metric.name}}| {{metric.value}} | {% endfor %}
+
+
+## 2. Node information
+
+| Node property | Value | Node count |
+|--------------:|-------|------------| {% for info in node_summary %}
+|  {{info.name}}| {{info.value}} | ({{info.prop_count}}/{{cluster.node_count}}) nodes | {% endfor %}
+
+
+## 3. Node capacity and headroom
+
+### Pods headroom
+{% if node_headroom.pods %}
+{{ node_headroom.pods|length }} node(s) are having headroom capacity issues for number of pods:
+
+|Node|Instance type|Cores|Pod capacity|Pods in use|Pod headroom|
+|---|---|---|---|---|--:| {% for node in node_headroom.pods %}
+|{{node.name}}|{{node.instance_type}}|{{node.cores}}|{{node.capacity_pods}}|{{node.usage_pods}}|**{{node.headroom_pods}}** ❗| {% endfor %}
+{% else %}
+No nodes found with headroom capacity issues for number of pods
+{% endif %}
+
+
+### CPU headroom
+{% if node_headroom.cpu %}
+{{ node_headroom.cpu|length }} node(s) are having cpu headroom capacity issues:
+
+|Node|Instance type|Cores|CPU capacity|CPU in use|CPU headroom|
+|---|---|---|---|---|--:| {% for node in node_headroom.cpu %}
+|{{node.name}}|{{node.instance_type}}|{{node.cores}}|{{node.capacity_cpu}}|{{node.usage_cpu|round(2)}}|**{{node.headroom_cpu|round(2)}}** ❗| {% endfor %}
+{% else %}
+No nodes found with cpu headroom capacity issues
+{% endif %}
+
+
+### Memory headroom
+{% if node_headroom.memory %}
+{{ node_headroom.memory|length }} node(s) are having memory headroom capacity issues:
+
+|Node|Instance type|Cores|Memory available|Memory in use|Memory headroom|
+|---|---|---|---|---|--:| {% for node in node_headroom.memory %}
+|{{node.name}}|{{node.instance_type}}|{{node.cores}}|{{(node.capacity_memory/1048576)|round(2)}}MB|{{(node.usage_memory/1048576)|round(2)}} MB|**{{(node.headroom_memory/1048576)|round(2)}} MB** ❗| {% endfor %}
+{% else %}
+No nodes found with memory headroom capacity issues
+{% endif %}
+
+---
+## 4. Spyderbat agent health
+
+### Spyderbat Nano-agent
+> The spyderbat nano-agent runs as a daemonset on all nodes and monitor for system level telemetry on the host,
+> using EBPF technology. It provides information on processes, networking and container runtime behavior.
+
+{% if nano_agent.healthy %}
+✅ nano agent is running on all nodes
+{% else %}
+❌ nano agent is not running healthy on all nodes
+
+{% if nano_agent.nodes_not_running|length > 0 %}
+Nodes missing nano-agent:
+|Node|Taints for node|
+|----|---------------|{% for node in nano_agent.nodes_not_running %}
+|{{node.name}}| {% if node.taints|length > 0 %} `{{node.taints}}` {% endif %}|{% endfor %}
+{% endif %}
+
+{% if nano_agent.unhealthy_agents|length > 0 %}
+Unhealthy nano-agents:
+|Agent|Pod status|Node|
+|-----|----------|----|{% for agent in nano_agent.unhealthy_agents %}
+|{{agent.name}}| {{agent.status}}|{{agent.node}}|{% endfor %}
+{% endif %}
+{% endif %}
+
+{% if nano_agent.missing_tolerations %}
+> A common root-cause for missing nano-agent are taints on nodes. In order for the nano-agent
+> to run on all nodes, the nano-agent should have tolerations set up in the daemonset configuration.
+> This can be done by adjusting the nanoagent.tolerations values in the nano-agent helm chart and
+> updating the helm deployment.
+
+The following tolerations are missing from the nano-agent daemonset
+
+``` {{nano_agent.missing_tolerations}} ```
+{% endif %}
+
+
+### Spyderbat Cluster Monitor
+> The spyderbat cluster monitor runs as a deployment on the cluster, and monitors the kubernetes cluster
+> lifecycle by talking to the kubernetes api. It provides information on current state of the cluster.
+
+{% if cluster_monitor.healthy %}
+✅ cluster monitor is running
+{% else %}
+❌ cluster monitor is not running healthy
+{% if cluster_monitor.missing_tolerations %}
+The following tolerations are missing from the cluster monitor deployment
+``` {{cluster_monitor.missing_tolerations}} ```
+{% endif %}
+{% endif %}
+
+---
+## 6. Cluster operational issues
+
+{% if opsflags %}
+{{ opsflags|length }} operational issues found:
+
+|Time|Type|Description|Link|
+|---|---|---|---| {% for issue in opsflags %}
+|{{issue.time}}|{{issue.type}}|{{issue.description}}|[Investigate]({{issue.link}})| {% endfor %}
+{% else %}
+No operational issues found
+{% endif %}
+
+
+{% endif %}

@@ -20,6 +20,7 @@ keywords = ["spyctl", "spyderbat", "kubectl", "kubernetes"]
 authors = [
   { name="Brent Haub", email="dev@spyderbat.com" },
   { name="Kyle Smith Hanna", email="dev@spyderbat.com" },
+  { name="Guy Duchatelet", email="dev@spyderbat.com" }
 ]
 maintainers = [
   {name="Brent Haub", email="dev@spyderbat.com"}
@@ -41,6 +42,7 @@ dependencies = [
   "tqdm >= 4.0",
   "schema",
   "pydantic < 2.0",
+  "Jinja2 >= 3.1",
 ]
 
 [project.urls]

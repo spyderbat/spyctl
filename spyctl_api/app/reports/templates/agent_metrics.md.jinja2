@@ -1,0 +1,40 @@
+# Spyderbat agent usage report
+Cluster **{{ cluster.name }}** ({{ cluster.cluid }})
+
+Reporting period:
+- Start: {{ st }}
+- End: {{ et }}
+
+
+## Spyderbat agent resource usage
+
+### Summary across all agents
+
+Across all agents in the cluster the following resource usage is observed:
+|Metric|Mean|p90|p99|
+|---|---|---|---|
+|CPU|{{(100*metrics_summary.cpu.mean)|round(2)}}%|{{(100*metrics_summary.cpu.p90)|round(2)}}%|{{(100*metrics_summary.cpu.p99)|round(2)}}%|
+|Memory|{{(metrics_summary.mem.mean/1048576)|round(1)}} MB|{{(metrics_summary.mem.p90/1048576)|round(1)}} MB|{{(metrics_summary.mem.p99//1048576)|round(1)}} MB|
+|Bandwidth|{{(metrics_summary.bps.mean)|round}} Bps|{{(metrics_summary.bps.p90)|round}} Bps|{{(metrics_summary.bps.p99)|round}} Bps|
+
+
+### CPU usage per agent
+
+In more detail, the following CPU usage is observed on a per agent basis:
+|Agent|Mean|p90|p99|
+|---|---|---|---|---| {% for agent in agent_metrics.values() %}
+|{{agent.name}}|{{(100*agent.cpu.mean)|round(2)}}%|{{(100*agent.cpu.p90)|round(2)}}%|{{(100*agent.cpu.p99)|round(2)}}%| {% endfor %}
+
+### Memory usage per agent
+
+In more detail, the following memory usage is observed on a per agent basis:
+|Agent|Mean|p90|p99|
+|---|---|---|---|---| {% for agent in agent_metrics.values() %}
+|{{agent.name}}|{{(agent.mem.mean/1048576)|round(1)}} MB|{{(agent.mem.p90/1048576)|round(1)}} MB|{{(agent.mem.p99//1048576)|round(1)}} MB| {% endfor %}
+
+### Bandwidth usage per agent
+
+In more detail, the following bandwidth usage is observed on a per agent basis:
+|Agent|Mean|p90|p99|Max|
+|---|---|---|---|---| {% for agent in agent_metrics.values() %}
+|{{agent.name}}|{{(agent.bps.mean)|round}} Bps|{{(agent.bps.p90)|round}} Bps|{{(agent.bps.p99)|round}} Bps| {% endfor %}

@@ -1,0 +1,47 @@
+reports:
+  - id: ops
+    short: Cluster Ops Report
+    description: Kubernetes cluster operational report
+    args:
+      - name: cluid
+        short: Cluster
+        description: Name of the cluster to generate the report for
+        required: true
+        type: cluster
+      - name: st
+        short: Start Time
+        description: Start time for the report
+        required: true
+        type: timestamp
+      - name: et
+        short: End Time
+        description: End time for the report
+        required: true
+        type: timestamp
+    reporter: app.reports.ops.Reporter
+    templates:
+      md: ops.md.jinja2
+
+  - id: agent_metrics
+    short: Nano Agent Metrics Report
+    description: CPU, Memory and Network metrics for Nano Agents running on a cluster
+    args:
+      - name: cluid
+        short: Cluster
+        description: Name of the cluster to generate the report for
+        required: true
+        type: cluster
+      - name: st
+        short: Start Time
+        description: Start time for the report
+        required: true
+        type: timestamp
+      - name: et
+        short: End Time
+        description: End time for the report
+        required: true
+        type: timestamp
+    reporter: app.reports.agent_metrics.Reporter
+    templates:
+      md: agent_metrics.md.jinja2
+

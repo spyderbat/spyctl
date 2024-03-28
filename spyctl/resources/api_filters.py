@@ -347,6 +347,10 @@ class Agents(API_Filter):
         lib.AGENT_ID: "id",
         lib.AGENT_HOSTNAME: "hostname",
         lib.STATUS_FIELD: lib.STATUS_FIELD,
+        lib.CLUSTER_FIELD: lib.AGENT_CLUSTER_NAME
+    }
+    values_helper = {
+    lib.MACHINE_SELECTOR_FIELD: get_filtered_muids,
     }
     name_or_uid_props = [lib.AGENT_ID, lib.AGENT_HOSTNAME, lib.MACHINES_FIELD]
     source_type = SOURCE_TYPE_GLOBAL

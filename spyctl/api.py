@@ -231,7 +231,7 @@ def retrieve_data(
     org_uid: str,
     sources: Union[str, List[str]],
     datatype: str,
-    schema: str,
+    schema: Optional[str],
     time: Tuple[float, float],
     raise_notfound=False,
     pipeline: List = None,
@@ -252,7 +252,7 @@ def retrieve_data(
         org_uid (str): Org to get data from -- from context
         source (str, List[str]): The uid(s) that the data are tied to
         datatype (str): The data stream to look for the data in
-        schema (str): A prefix of the schema for the desired objects
+        schema (str): An optional prefix of the schema for the desired objects
             (ex. model_connection, model_process)
         time (Tuple[float, float]): A tuple with (starting time, ending time)
         raise_notfound (bool, optional): Error to raise if the API throws an
@@ -378,8 +378,11 @@ def get_filtered_data(
             "start_time": time[0],
             "end_time": time[1],
             "data_type": datatype,
-            "pipeline": [{"filter": {"schema": schema}}, {"latest_model": {}}],
+            "pipeline": []
         }
+        if schema is not None:
+            data["pipeline"].append({"filter": {"schema": schema}})
+        data["pipeline"].append({"latest_model": {}})
         if org_uid:
             data["org_uid"] = org_uid
         if pipeline:
@@ -1061,6 +1064,36 @@ def get_pods(
     except KeyboardInterrupt:
         __log_interrupt()
 
+
+def get_cluster_full(
+    api_url,
+    api_key,
+    org_uid,
+    cluster_sources,
+    time,
+    pipeline=None,
+    limit_mem: bool = False,
+    disable_pbar_on_first: bool = False,
+) -> Generator[Dict, None, None]:
+    try:
+        datatype = lib.DATATYPE_K8S
+        schema = None
+        for resource in retrieve_data(
+            api_url,
+            api_key,
+            org_uid,
+            cluster_sources,
+            datatype,
+            schema,
+            time,
+            raise_notfound=True,
+            pipeline=pipeline,
+            limit_mem=limit_mem,
+            disable_pbar_on_first=disable_pbar_on_first,
+        ):
+            yield resource
+    except KeyboardInterrupt:
+        __log_interrupt()
 
 def get_processes(
     api_url,

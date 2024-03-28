@@ -1041,6 +1041,7 @@ AGENT_STATUS = "status"
 AGENT_HOSTNAME = "hostname"
 AGENT_ID = "id"
 AGENT_BAT_STATUSES = "bat_statuses"
+AGENT_CLUSTER_NAME = "cluster_name"
 
 # Spydertraces
 BE_TRIGGER_NAME = "trigger_short_name"

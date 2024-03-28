@@ -1,0 +1,16 @@
+# DNS activity report
+Cluster **{{ cluster.name }}** ({{ cluster.cluid }})
+
+
+## Top talkers
+
+|Cluster|Node|Namespace|Image|Pod|Container|Process|start time|end time|Nr requests|Request/sec|DNS targets|
+|------|-----|---------|-----|---|---------|-------|----------|--------|-----------|-----------|-----------| {% for t in top_talkers%}
+|{{t.cluster}}|{{t.node}}|{{t.namespace}}|{{t.image}}|{{t.pod}}|{{t.container}}|{{t.proc_name}}|{{t.start}}|{{t.end}}|{{t.req}}|{{t.rps}}|{{t.payloads}}| {% endfor %}
+
+## Top domains
+
+|Domain|Count|
+|------|-----| {% for (dom, count) in top_domains %}
+|{{dom}}|{{count}}%| {% endfor %}
+

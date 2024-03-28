@@ -2,7 +2,7 @@ import logging
 import spyctl.config.configs as cfg
 from fastapi import FastAPI
 
-from .api import create, diff, merge, validate
+from app.api import create, diff, merge, validate, report
 
 app = FastAPI()
 
@@ -33,4 +33,11 @@ app.include_router(create.router)
 app.include_router(diff.router)
 app.include_router(merge.router)
 app.include_router(validate.router)
+app.include_router(report.router)
 cfg.set_api_call()
+
+
+if __name__ == "__main__":
+    import uvicorn, os
+    print(os.environ.get('PYTHONPATH'))
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
